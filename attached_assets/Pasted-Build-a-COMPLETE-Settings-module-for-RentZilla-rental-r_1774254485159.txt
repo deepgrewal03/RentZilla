@@ -1,0 +1,294 @@
+Build a COMPLETE Settings module for RentZilla (rental + ride-booking app).
+
+IMPORTANT:
+- Must be fully functional (backend + frontend)
+- Role-based (customer / provider / both)
+- Secure and scalable
+- Mobile-friendly UI
+
+-----------------------------------
+
+👤 1. ACCOUNT SETTINGS
+
+Features:
+- Edit profile (name, profile photo)
+- Update phone number
+- Update email address
+- Change password
+- Delete account
+
+Rules:
+- Validate email/phone uniqueness
+- Require password confirmation for sensitive actions
+
+-----------------------------------
+
+🔔 2. NOTIFICATION SETTINGS
+
+Allow user to toggle:
+
+- Booking requests
+- Booking confirmations
+- Messages / chat
+- Payment updates
+- Promotions / offers
+
+Rules:
+- Default: ALL ON
+- Store preferences per user
+
+-----------------------------------
+
+🔒 3. PRIVACY & SECURITY
+
+Features:
+
+- Profile visibility (public / private)
+- Show phone number (yes/no)
+- Two-Factor Authentication (OTP-based)
+- Login activity (devices + IP)
+- Block / Report users
+
+Rules:
+- Mask phone if disabled
+- Require OTP for sensitive actions
+- Store session/device history
+
+-----------------------------------
+
+💳 4. PAYMENT SETTINGS
+
+Features:
+
+- Add / remove card
+- Add bank account (for payouts)
+- Set default payment method
+- Transaction history
+- Download invoices (PDF)
+
+Rules:
+- Integrate Stripe (test mode)
+- Mask card details
+- Secure bank data
+
+-----------------------------------
+
+📦 5. LISTINGS / RENTAL SETTINGS (OWNER)
+
+Features:
+
+- Availability calendar
+- Auto-accept bookings (toggle)
+
+Rules:
+- Prevent double booking
+- Apply settings per listing
+
+-----------------------------------
+
+📄 6. DOCUMENT UPLOAD (VERY IMPORTANT)
+
+For PROVIDERS (drivers / owners):
+
+Allow upload of:
+
+- Driver license
+- ID proof
+- Vehicle documents
+- Insurance (optional)
+
+Features:
+
+- Upload files (image/pdf)
+- Preview uploaded documents
+- Replace / delete documents
+- Show verification status:
+  - pending
+  - approved
+  - rejected
+
+Admin Flow:
+- Admin can:
+  - view documents
+  - approve / reject
+
+Rules:
+- Store files securely (cloud storage like Supabase Storage)
+- Validate file size/type
+- Required before provider goes online
+
+-----------------------------------
+
+🌐 7. LANGUAGE & REGION
+
+Features:
+
+- Language selection
+- Currency (NZD default)
+- Time zone
+
+Rules:
+- Save preferences per user
+- Apply globally in app
+
+-----------------------------------
+
+🛡️ 8. SAFETY SETTINGS
+
+Features:
+
+- Report an issue
+- Emergency contact (add/edit)
+- Show trust badges / verification status
+
+Rules:
+- Emergency contact stored securely
+- Reports linked to user account
+
+-----------------------------------
+
+🎁 9. PROMOTIONS & CREDITS
+
+Features:
+
+- Referral code
+- Apply coupons
+- Wallet balance
+- Credits system
+
+Rules:
+- Reward after first booking
+- Prevent abuse
+
+-----------------------------------
+
+📊 10. APP PREFERENCES
+
+Features:
+
+- Dark mode / light mode / system
+- Data saver mode
+- App language
+
+Rules:
+- Apply instantly
+- Persist in database
+
+-----------------------------------
+
+❓ 11. HELP & SUPPORT
+
+Features:
+
+- FAQ page
+- Contact support (form/email)
+- Live chat (optional)
+- Terms & Conditions
+- Privacy Policy
+
+-----------------------------------
+
+TECH STACK:
+
+- Backend: Node.js (Express) OR FastAPI
+- Database: PostgreSQL (Supabase)
+- Storage: Supabase Storage (for documents)
+- Auth: JWT + OTP
+
+-----------------------------------
+
+DATABASE TABLES (EXTEND):
+
+Users:
+- id
+- name
+- email
+- phone
+- role
+- created_at
+
+UserSettings:
+- user_id
+- notifications (json)
+- privacy (json)
+- preferences (json)
+
+Documents:
+- id
+- user_id
+- type (license, id, vehicle, insurance)
+- file_url
+- status (pending, approved, rejected)
+- uploaded_at
+
+EmergencyContacts:
+- id
+- user_id
+- name
+- phone
+
+-----------------------------------
+
+API ENDPOINTS:
+
+Account:
+- PATCH /user/update
+- DELETE /user/delete
+
+Notifications:
+- PATCH /settings/notifications
+
+Privacy:
+- PATCH /settings/privacy
+
+Payments:
+- POST /payment/add-card
+- GET /transactions
+
+Documents:
+- POST /documents/upload
+- GET /documents
+- DELETE /documents/:id
+
+Admin:
+- PATCH /admin/document/:id/approve
+- PATCH /admin/document/:id/reject
+
+-----------------------------------
+
+SECURITY RULES:
+
+- JWT authentication required
+- Encrypt sensitive data
+- Role-based access control
+- Validate uploads
+- OTP for critical actions
+
+-----------------------------------
+
+UI DESIGN:
+
+- Group settings into sections:
+  - Account
+  - Privacy
+  - Payments
+  - Listings
+  - Documents
+  - Preferences
+
+- Use:
+  - toggles
+  - cards
+  - clean mobile layout
+
+-----------------------------------
+
+OUTPUT REQUIRED:
+
+- Full backend implementation
+- Database schema
+- API routes
+- Document upload system
+- Admin approval flow
+- Frontend UI (mobile-friendly)
+- Instructions to run

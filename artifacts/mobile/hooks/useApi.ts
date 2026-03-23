@@ -13,7 +13,10 @@ export function useApi() {
 
   async function get<T>(path: string): Promise<T> {
     const res = await fetch(`${BASE_URL}/api${path}`, { headers: getHeaders() });
-    if (!res.ok) throw new Error(`GET ${path} failed: ${res.status}`);
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.error || `Request failed (${res.status})`);
+    }
     return res.json();
   }
 
@@ -23,7 +26,10 @@ export function useApi() {
       headers: getHeaders(),
       body: JSON.stringify(body),
     });
-    if (!res.ok) throw new Error(`POST ${path} failed: ${res.status}`);
+    if (!res.ok) {
+      const b = await res.json().catch(() => ({}));
+      throw new Error(b.error || `Request failed (${res.status})`);
+    }
     return res.json();
   }
 
@@ -33,18 +39,38 @@ export function useApi() {
       headers: getHeaders(),
       body: JSON.stringify(body),
     });
-    if (!res.ok) throw new Error(`PUT ${path} failed: ${res.status}`);
+    if (!res.ok) {
+      const b = await res.json().catch(() => ({}));
+      throw new Error(b.error || `Request failed (${res.status})`);
+    }
     return res.json();
   }
 
-  async function del<T>(path: string): Promise<T> {
+  async function patch<T>(path: string, body: unknown): Promise<T> {
+    const res = await fetch(`${BASE_URL}/api${path}`, {
+      method: "PATCH",
+      headers: getHeaders(),
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      const b = await res.json().catch(() => ({}));
+      throw new Error(b.error || `Request failed (${res.status})`);
+    }
+    return res.json();
+  }
+
+  async function del<T>(path: string, body?: unknown): Promise<T> {
     const res = await fetch(`${BASE_URL}/api${path}`, {
       method: "DELETE",
       headers: getHeaders(),
+      body: body ? JSON.stringify(body) : undefined,
     });
-    if (!res.ok) throw new Error(`DELETE ${path} failed: ${res.status}`);
+    if (!res.ok) {
+      const b = await res.json().catch(() => ({}));
+      throw new Error(b.error || `Request failed (${res.status})`);
+    }
     return res.json();
   }
 
-  return { get, post, put, del };
+  return { get, post, put, patch, del };
 }
