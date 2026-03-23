@@ -10,6 +10,7 @@ import notificationsRouter from "./notifications.js";
 import favoritesRouter from "./favorites.js";
 import settingsRouter from "./settings.js";
 import rolesRouter from "./roles.js";
+import ridesRouter from "./ridesRoute.js";
 
 const router: IRouter = Router();
 
@@ -24,5 +25,6 @@ router.use("/notifications", notificationsRouter);
 router.use("/favorites", favoritesRouter);
 router.use("/settings", settingsRouter);
 router.use("/roles", rolesRouter);
+router.use("/rides", ridesRouter);
 
 export default router;

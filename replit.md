@@ -11,6 +11,7 @@ A full-stack mobile app where users can:
 - **Review**: Star ratings and written reviews after completed bookings
 - **Favourites**: Save listings to a personal favourites list
 - **Notifications**: In-app notification centre with unread badge
+- **Ride-Booking (Cars tab)**: Uber-style ride booking with fare estimation, real-time status tracking, and a driver mode for providers
 
 Punjab-specific UX: "Sat Sri Akal" greeting, INR (₹) pricing, Punjab India location context, Ludhiana/Amritsar/Patiala cities.
 
@@ -25,7 +26,7 @@ Punjab-specific UX: "Sat Sri Akal" greeting, INR (₹) pricing, Punjab India loc
 
 ### Database
 - PostgreSQL (Replit-managed)
-- Tables: `users`, `listings`, `bookings`, `reviews`, `chats`, `messages`, `notifications`, `favorites`
+- Tables: `users`, `listings`, `bookings`, `reviews`, `chats`, `messages`, `notifications`, `favorites`, `driver_profiles`, `driver_status`, `driver_locations`, `otps`, `rides`
 - Seed data: `pnpm --filter @workspace/api-server exec tsx src/seed.ts`
 
 ### Auth
@@ -49,6 +50,7 @@ artifacts/mobile/app/
     search.tsx         — Search with price filters
     bookings.tsx       — Booking history
     favorites.tsx      — Saved favourites list
+    cars.tsx           — Cars tab: ride-booking (rider view) + driver panel (provider view)
     dashboard.tsx      — Provider dashboard (hidden for customers)
     messages.tsx       — Chat list
     profile.tsx        — User profile + edit
@@ -99,6 +101,19 @@ POST /api/reviews          — Submit review
 GET  /api/chats            — User's chat threads
 GET  /api/chats/:id        — Chat messages
 POST /api/chats/:id/messages — Send message
+
+PATCH /api/rides/driver/status    — Driver go online/offline
+POST  /api/rides/driver/location  — Driver GPS update (every 4s)
+GET   /api/rides/driver/requests  — Pending ride requests for driver
+GET   /api/rides/driver/active    — Driver's active ride
+POST  /api/rides/request          — Rider requests a ride
+POST  /api/rides/estimate         — Get fare/distance/time estimate
+GET   /api/rides/active           — Rider's active ride (with driver location)
+PATCH /api/rides/:id/accept       — Driver accepts ride (atomic, prevents double-accept)
+PATCH /api/rides/:id/start        — Driver starts trip
+PATCH /api/rides/:id/end          — Driver ends trip
+PATCH /api/rides/:id/cancel       — Rider cancels ride
+GET   /api/rides/history          — Ride history for user
 ```
 
 ## Design System

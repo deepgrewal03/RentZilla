@@ -70,6 +70,13 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="cars"
+        options={{
+          title: "Cars",
+          tabBarIcon: ({ color }) => <Feather name="truck" size={22} color={color} />,
+        }}
+      />
+      <Tabs.Screen
         name="favorites"
         options={{
           title: t.favourites,

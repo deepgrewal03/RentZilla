@@ -1,0 +1,179 @@
+Update the existing RentZilla app to ADD a new "Cars" tab for ride-booking (Uber-style), while keeping all existing rental features unchanged.
+
+-----------------------------------
+
+MAIN REQUIREMENTS:
+
+1. Add a NEW TAB: "Cars"
+- Do NOT remove existing rental features
+- Cars tab is separate for ride-booking only
+
+-----------------------------------
+
+RIDER FEATURES (Cars Tab):
+
+1. Map Integration
+- Integrate Google Maps API
+- Show user's current live location
+- Allow map interaction
+
+2. Pickup & Destination
+- Auto-detect current location as pickup
+- Allow user to change pickup point
+- Input field for destination
+- Show route on map
+
+3. Live Location Tracking
+- Show driver moving in real-time after booking
+- Use GPS updates (every few seconds)
+
+4. Ride Booking
+- Button: "Book Ride"
+- Show:
+  - estimated distance (km)
+  - estimated time
+  - fare estimate
+
+5. Ride Flow:
+- requested → driver assigned → ongoing → completed
+
+-----------------------------------
+
+DRIVER (PROVIDER) FEATURES:
+
+1. New "Driver Mode" Tab (Cars Only)
+- Visible only for users with role = driver
+
+2. Online / Offline Toggle
+- Button: "Go Online" / "Go Offline"
+- Only online drivers receive ride requests
+
+3. Ride Requests
+- Show popup when new ride request arrives
+- Show:
+  - pickup location
+  - destination
+  - distance to pickup
+  - estimated fare
+
+4. Distance Display
+- Show:
+  - distance from driver to pickup
+  - trip distance
+
+5. Ride Controls
+- Accept / Reject ride
+- Start trip
+- End trip
+
+-----------------------------------
+
+BACKEND REQUIREMENTS:
+
+Use:
+- PostgreSQL (Supabase compatible)
+- Realtime updates (WebSockets or Supabase Realtime)
+
+DATABASE UPDATES:
+
+DriverStatus Table:
+- driver_id (uuid)
+- is_online (boolean)
+- last_updated (timestamp)
+
+DriverLocations Table:
+- driver_id
+- lat
+- lng
+- updated_at
+
+Rides Table:
+- id
+- rider_id
+- driver_id
+- pickup_lat
+- pickup_lng
+- drop_lat
+- drop_lng
+- distance_km
+- duration_min
+- fare
+- status (requested, accepted, ongoing, completed)
+
+-----------------------------------
+
+API ENDPOINTS:
+
+Driver:
+- PATCH /driver/online-status
+- POST /driver/location-update
+
+Ride:
+- POST /ride/request
+- POST /ride/match-driver
+- PATCH /ride/:id/accept
+- PATCH /ride/:id/start
+- PATCH /ride/:id/end
+
+Maps:
+- GET /route (calculate distance + time using Google Maps API)
+
+-----------------------------------
+
+BUSINESS LOGIC:
+
+1. Matching:
+- Find nearest ONLINE driver
+- Assign ride to closest driver
+
+2. Distance Calculation:
+- Use Google Maps Directions API
+- Calculate:
+  - pickup distance
+  - trip distance
+  - estimated time
+
+3. Live Tracking:
+- Driver sends location every 3–5 seconds
+- Rider sees real-time movement
+
+4. Online Logic:
+- Only drivers with is_online = true receive requests
+
+-----------------------------------
+
+FRONTEND UI:
+
+Cars Tab (Rider):
+- Full-screen map
+- Pickup field (auto-filled)
+- Destination input
+- Button: Book Ride
+- Show route + fare
+
+Driver Tab:
+- Toggle button (Online/Offline)
+- Ride request popup
+- Distance info
+- Start / End ride buttons
+
+-----------------------------------
+
+IMPORTANT RULES:
+
+- Do NOT affect existing rental system
+- Keep payments, settings, reports as they are
+- Cars tab must be independent module
+- Prevent multiple drivers accepting same ride
+
+-----------------------------------
+
+OUTPUT REQUIRED:
+
+- Full backend code
+- Google Maps integration setup
+- Realtime tracking implementation
+- API routes
+- Updated database schema
+- Frontend UI (map + driver panel)
+- Instructions to run
