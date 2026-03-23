@@ -6,6 +6,8 @@ import listingsRouter from "./listings.js";
 import bookingsRouter from "./bookings.js";
 import reviewsRouter from "./reviews.js";
 import chatsRouter from "./chats.js";
+import notificationsRouter from "./notifications.js";
+import favoritesRouter from "./favorites.js";
 
 const router: IRouter = Router();
 
@@ -16,5 +18,7 @@ router.use("/listings", listingsRouter);
 router.use("/bookings", bookingsRouter);
 router.use("/reviews", reviewsRouter);
 router.use("/chats", chatsRouter);
+router.use("/notifications", notificationsRouter);
+router.use("/favorites", favoritesRouter);
 
 export default router;

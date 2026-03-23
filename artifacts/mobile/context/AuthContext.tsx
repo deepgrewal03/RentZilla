@@ -6,6 +6,9 @@ export type UserRole = "customer" | "provider";
 export interface User {
   id: string;
   phone: string;
+  email: string | null;
+  firstName: string | null;
+  lastName: string | null;
   name: string | null;
   role: UserRole;
   location: string | null;
@@ -19,9 +22,20 @@ interface AuthContextType {
   user: User | null;
   token: string | null;
   isLoading: boolean;
-  login: (phone: string, name: string, role: UserRole) => Promise<void>;
+  loginWithPhone: (phone: string, name: string, role: UserRole) => Promise<void>;
+  loginWithEmail: (email: string, password: string) => Promise<void>;
+  register: (data: RegisterData) => Promise<void>;
   logout: () => Promise<void>;
   updateUser: (data: Partial<User>) => void;
+}
+
+export interface RegisterData {
+  firstName: string;
+  lastName: string;
+  email: string;
+  mobile: string;
+  password: string;
+  role: UserRole;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -52,21 +66,57 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-  async function login(phone: string, name: string, role: UserRole) {
+  async function persist(u: User, t: string) {
+    setUser(u);
+    setToken(t);
+    await AsyncStorage.setItem("auth_token", t);
+    await AsyncStorage.setItem("auth_user", JSON.stringify(u));
+  }
+
+  async function loginWithPhone(phone: string, name: string, role: UserRole) {
     const response = await fetch(`${BASE_URL}/api/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ phone, name, role }),
     });
-    if (!response.ok) throw new Error("Login failed");
     const data = await response.json();
-    setUser(data.user);
-    setToken(data.token);
-    await AsyncStorage.setItem("auth_token", data.token);
-    await AsyncStorage.setItem("auth_user", JSON.stringify(data.user));
+    if (!response.ok) throw new Error(data.error || "Login failed");
+    await persist(data.user, data.token);
+  }
+
+  async function loginWithEmail(email: string, password: string) {
+    const response = await fetch(`${BASE_URL}/api/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "Login failed");
+    await persist(data.user, data.token);
+  }
+
+  async function register(regData: RegisterData) {
+    const response = await fetch(`${BASE_URL}/api/auth/register`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(regData),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "Registration failed");
+    await persist(data.user, data.token);
   }
 
   async function logout() {
+    try {
+      if (token) {
+        await fetch(`${BASE_URL}/api/auth/logout`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+        });
+      }
+    } catch {
+      // ignore network error
+    }
     setUser(null);
     setToken(null);
     await AsyncStorage.removeItem("auth_token");
@@ -81,7 +131,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, token, isLoading, login, logout, updateUser }}>
+    <AuthContext.Provider value={{ user, token, isLoading, loginWithPhone, loginWithEmail, register, logout, updateUser }}>
       {children}
     </AuthContext.Provider>
   );

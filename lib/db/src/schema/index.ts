@@ -3,3 +3,5 @@ export * from "./listings";
 export * from "./bookings";
 export * from "./reviews";
 export * from "./chats";
+export * from "./notifications";
+export * from "./favorites";

@@ -1,0 +1,192 @@
+You are a senior full-stack developer. Build and update a production-ready mobile-first web app (Android-friendly) with clean UI and scalable backend.
+
+Tech Stack:
+- Frontend: React (with Tailwind CSS)
+- Backend: Node.js + Express
+- Database: PostgreSQL (use Prisma ORM)
+- Auth: JWT-based authentication
+
+-----------------------------------
+🎯 FEATURES TO IMPLEMENT
+-----------------------------------
+
+1. 🔔 HEADER UI UPDATE
+- Move notification bell icon to the top-right corner.
+- Replace/swap position with the profile icon.
+- Clicking the notification bell opens a dropdown panel showing:
+  - Notification title
+  - Description
+  - Timestamp
+- Fetch notifications from backend API.
+
+-----------------------------------
+
+2. 🚪 LOGOUT FUNCTIONALITY
+- Add logout button in profile/settings.
+- On click:
+  - Clear JWT token from storage
+  - Redirect user to Login / Sign Up page
+
+-----------------------------------
+
+3. 📝 SIGN-UP PAGE
+Create a complete registration form with fields:
+- First Name
+- Last Name
+- Email
+- Mobile Number
+- Password
+- Confirm Password
+- Role Selection (Radio buttons):
+  - Customer
+  - Provider
+- Checkbox:
+  "By clicking here you agree to the Terms and Conditions"
+  (Required validation)
+
+Buttons:
+- Sign Up (primary)
+- Sign In (secondary, below form)
+
+Behavior:
+- Validate all fields (email format, password match, required fields)
+- Store user in database
+- Hash password using bcrypt
+- On success → redirect to Home Page
+
+-----------------------------------
+
+4. 🔐 SIGN-IN PAGE
+Fields:
+- Email
+- Password
+
+Button:
+- Login
+
+Behavior:
+- Validate credentials
+- Generate JWT token
+- Store token (localStorage)
+- Redirect to Home Page
+
+-----------------------------------
+
+5. ☰ SIDE DRAWER MENU (LEFT TOP)
+- Add hamburger (3-line) icon on top-left
+- Clicking opens sliding drawer menu
+
+Menu Items:
+- Home
+- Search Equipment
+- My Bookings
+- Favourites
+- Messages
+- My Profile
+- Settings
+- Help & Support
+
+Each item should route to its own page/component.
+
+-----------------------------------
+
+6. 🔌 BACKEND APIs (Express)
+Create REST APIs for:
+
+Auth:
+- POST /api/auth/register
+- POST /api/auth/login
+- POST /api/auth/logout
+
+User:
+- GET /api/user/profile
+- PUT /api/user/profile
+
+Notifications:
+- GET /api/notifications
+- POST /api/notifications
+
+Bookings:
+- GET /api/bookings
+- POST /api/bookings
+
+Favorites:
+- GET /api/favorites
+- POST /api/favorites
+
+Messages:
+- GET /api/messages
+- POST /api/messages
+
+-----------------------------------
+
+7. 🗄️ DATABASE SCHEMA (PostgreSQL + Prisma)
+
+User:
+- id (UUID)
+- firstName
+- lastName
+- email (unique)
+- mobile
+- password (hashed)
+- role (customer/provider)
+- createdAt
+
+Notification:
+- id
+- userId (FK)
+- title
+- message
+- isRead
+- createdAt
+
+Booking:
+- id
+- userId
+- itemId
+- status
+- startDate
+- endDate
+
+Favorite:
+- id
+- userId
+- itemId
+
+Message:
+- id
+- senderId
+- receiverId
+- message
+- createdAt
+
+-----------------------------------
+
+8. 🔐 SECURITY & VALIDATION
+- Use JWT middleware for protected routes
+- Use bcrypt for password hashing
+- Validate all inputs
+- Handle errors properly
+
+-----------------------------------
+
+9. 🎨 UI/UX REQUIREMENTS
+- Clean, modern mobile-first design
+- Use Tailwind for responsiveness
+- Smooth animations for drawer & dropdown
+- Accessible and simple for all users
+
+-----------------------------------
+
+10. 🚀 FINAL OUTPUT
+- Fully functional frontend + backend
+- Working APIs connected to UI
+- Database connected via Prisma
+- Ready to run on Replit
+
+Include:
+- Setup instructions
+- Environment variables (.env example)
+- API testing instructions
+
+-----------------------------------

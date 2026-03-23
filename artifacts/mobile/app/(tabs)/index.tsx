@@ -1,24 +1,24 @@
 import { Ionicons } from "@expo/vector-icons";
-import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  FlatList,
+  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
   View,
-  Platform,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { CategoryPill, CATEGORIES } from "@/components/CategoryPill";
 import { ListingCard } from "@/components/ListingCard";
+import { NotificationBell } from "@/components/NotificationBell";
+import { SideDrawer } from "@/components/SideDrawer";
 import Colors from "@/constants/colors";
 import { useAuth } from "@/context/AuthContext";
 import { useApi } from "@/hooks/useApi";
@@ -45,10 +45,11 @@ export default function HomeScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<Category | "all">("all");
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   useEffect(() => {
     if (!user) {
-      router.replace("/auth");
+      router.replace("/sign-in");
       return;
     }
     fetchListings();
@@ -67,48 +68,52 @@ export default function HomeScreen() {
     }
   }
 
-  async function onRefresh() {
-    setRefreshing(true);
-    fetchListings();
-  }
-
   const topPad = isWeb ? 67 : insets.top;
+  const displayName = user?.name || [user?.firstName, user?.lastName].filter(Boolean).join(" ") || "Friend";
 
   return (
     <View style={styles.root}>
       <StatusBar style="light" />
+      <SideDrawer visible={drawerOpen} onClose={() => setDrawerOpen(false)} />
 
       {/* Header */}
-      <LinearGradient colors={[C.navy, "#1B3260"]} style={[styles.header, { paddingTop: topPad + 16 }]}>
+      <LinearGradient colors={[C.navy, "#1B3260"]} style={[styles.header, { paddingTop: topPad + 12 }]}>
         <View style={styles.headerTop}>
-          <View>
-            <Text style={styles.greeting}>
-              Sat Sri Akal, {user?.name?.split(" ")[0] || "Friend"} 🌾
+          {/* Hamburger — left */}
+          <Pressable onPress={() => setDrawerOpen(true)} style={styles.headerIconBtn}>
+            <Ionicons name="menu" size={24} color="#fff" />
+          </Pressable>
+
+          {/* Greeting */}
+          <View style={styles.headerCenter}>
+            <Text style={styles.greeting} numberOfLines={1}>
+              Sat Sri Akal, {displayName.split(" ")[0]} 🌾
             </Text>
             <View style={styles.locationRow}>
-              <Ionicons name="location" size={13} color={`${C.tint}`} />
+              <Ionicons name="location" size={12} color={C.tint} />
               <Text style={styles.locationText}>Punjab, India</Text>
             </View>
           </View>
-          <Pressable onPress={() => router.push("/(tabs)/messages")} style={styles.headerIcon}>
-            <Ionicons name="chatbubble-outline" size={22} color="#fff" />
-          </Pressable>
+
+          {/* Notification Bell — right */}
+          <NotificationBell />
         </View>
 
-        {/* Search bar (tap to go to search) */}
+        {/* Search bar (tap to navigate) */}
         <Pressable onPress={() => router.push("/(tabs)/search")} style={styles.searchBar}>
           <Ionicons name="search" size={16} color={C.textSecondary} />
           <Text style={styles.searchPlaceholder}>Search cars, tractors, services...</Text>
+          <Ionicons name="options-outline" size={16} color={C.textTertiary} />
         </Pressable>
       </LinearGradient>
 
       <ScrollView
         style={styles.scroll}
         contentInsetAdjustmentBehavior="automatic"
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.tint} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchListings(); }} tintColor={C.tint} />}
         showsVerticalScrollIndicator={false}
       >
-        {/* Quick categories */}
+        {/* Categories */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Browse by Category</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.catScroll}>
@@ -141,10 +146,10 @@ export default function HomeScreen() {
         </View>
 
         {/* Listings */}
-        <View style={[styles.section, styles.listingsSection]}>
+        <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>
-              {selectedCategory === "all" ? "All Listings" : CATEGORIES.find(c => c.id === selectedCategory)?.label}
+              {selectedCategory === "all" ? "All Listings" : CATEGORIES.find((c) => c.id === selectedCategory)?.label}
             </Text>
             <Text style={styles.listingCount}>{listings.length} found</Text>
           </View>
@@ -162,7 +167,7 @@ export default function HomeScreen() {
           ) : (
             <View style={styles.listingsGrid}>
               {listings.map((listing) => (
-                <ListingCard key={listing.id} listing={listing} style={styles.listingCard} />
+                <ListingCard key={listing.id} listing={listing} />
               ))}
             </View>
           )}
@@ -186,145 +191,52 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: C.background },
-  header: {
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-  },
+  header: { paddingHorizontal: 16, paddingBottom: 20 },
   headerTop: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    marginBottom: 16,
-  },
-  greeting: {
-    fontSize: 18,
-    fontWeight: "700",
-    fontFamily: "Inter_700Bold",
-    color: "#fff",
-    marginBottom: 4,
-  },
-  locationRow: {
-    flexDirection: "row",
     alignItems: "center",
-    gap: 4,
+    marginBottom: 14,
+    gap: 10,
   },
-  locationText: {
-    fontSize: 12,
-    color: "rgba(255,255,255,0.7)",
-    fontFamily: "Inter_400Regular",
-  },
-  headerIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+  headerIconBtn: {
+    width: 40, height: 40, borderRadius: 20,
     backgroundColor: "rgba(255,255,255,0.12)",
-    alignItems: "center",
-    justifyContent: "center",
+    alignItems: "center", justifyContent: "center",
   },
+  headerCenter: { flex: 1 },
+  greeting: { fontSize: 17, fontWeight: "700", fontFamily: "Inter_700Bold", color: "#fff" },
+  locationRow: { flexDirection: "row", alignItems: "center", gap: 3, marginTop: 2 },
+  locationText: { fontSize: 11, color: "rgba(255,255,255,0.7)", fontFamily: "Inter_400Regular" },
   searchBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    backgroundColor: "#fff",
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    flexDirection: "row", alignItems: "center", gap: 10,
+    backgroundColor: "#fff", borderRadius: 14,
+    paddingHorizontal: 14, paddingVertical: 12,
   },
-  searchPlaceholder: {
-    fontSize: 14,
-    color: C.textTertiary,
-    fontFamily: "Inter_400Regular",
-    flex: 1,
-  },
+  searchPlaceholder: { flex: 1, fontSize: 14, color: C.textTertiary, fontFamily: "Inter_400Regular" },
   scroll: { flex: 1 },
-  section: {
-    paddingTop: 24,
-    paddingHorizontal: 20,
-  },
-  sectionTitle: {
-    fontSize: 17,
-    fontWeight: "700",
-    fontFamily: "Inter_700Bold",
-    color: C.text,
-    marginBottom: 14,
-  },
-  sectionHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 14,
-  },
-  listingCount: {
-    fontSize: 13,
-    color: C.textSecondary,
-    fontFamily: "Inter_400Regular",
-  },
-  catScroll: {
-    gap: 10,
-    paddingRight: 20,
-  },
-  quickGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 10,
-  },
+  section: { paddingTop: 22, paddingHorizontal: 20 },
+  sectionTitle: { fontSize: 17, fontWeight: "700", fontFamily: "Inter_700Bold", color: C.text, marginBottom: 14 },
+  sectionHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 14 },
+  listingCount: { fontSize: 13, color: C.textSecondary, fontFamily: "Inter_400Regular" },
+  catScroll: { gap: 10, paddingRight: 20 },
+  quickGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
   quickItem: {
-    width: "30%",
-    borderRadius: 14,
-    padding: 14,
-    alignItems: "center",
-    gap: 6,
-    minWidth: 90,
-    flex: 1,
+    borderRadius: 14, padding: 14,
+    alignItems: "center", gap: 6,
+    minWidth: 90, flex: 1,
   },
   quickIcon: { fontSize: 24 },
-  quickLabel: {
-    fontSize: 11,
-    fontWeight: "600",
-    fontFamily: "Inter_600SemiBold",
-    textAlign: "center",
-  },
-  listingsSection: {},
-  listingsGrid: {
-    gap: 14,
-  },
-  listingCard: {},
-  loadingBox: {
-    height: 200,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  emptyBox: {
-    height: 200,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-  },
-  emptyTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    fontFamily: "Inter_600SemiBold",
-    color: C.text,
-  },
-  emptyText: {
-    fontSize: 13,
-    color: C.textSecondary,
-    fontFamily: "Inter_400Regular",
-    textAlign: "center",
-  },
+  quickLabel: { fontSize: 11, fontWeight: "600", fontFamily: "Inter_600SemiBold", textAlign: "center" },
+  listingsGrid: { gap: 14 },
+  loadingBox: { height: 200, alignItems: "center", justifyContent: "center" },
+  emptyBox: { height: 200, alignItems: "center", justifyContent: "center", gap: 8 },
+  emptyTitle: { fontSize: 16, fontWeight: "600", fontFamily: "Inter_600SemiBold", color: C.text },
+  emptyText: { fontSize: 13, color: C.textSecondary, fontFamily: "Inter_400Regular", textAlign: "center" },
   fab: {
-    position: "absolute",
-    right: 20,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: C.tint,
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: C.tint,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 10,
-    elevation: 8,
+    position: "absolute", right: 20,
+    width: 56, height: 56, borderRadius: 28,
+    backgroundColor: C.tint, alignItems: "center", justifyContent: "center",
+    shadowColor: C.tint, shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4, shadowRadius: 10, elevation: 8,
   },
 });
