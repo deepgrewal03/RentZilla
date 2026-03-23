@@ -1,0 +1,357 @@
+import { Ionicons } from "@expo/vector-icons";
+import * as Haptics from "expo-haptics";
+import { Image } from "expo-image";
+import { router, useLocalSearchParams } from "expo-router";
+import { StatusBar } from "expo-status-bar";
+import React, { useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+import { BookingStatusBadge } from "@/components/BookingStatusBadge";
+import { StarRating } from "@/components/StarRating";
+import Colors from "@/constants/colors";
+import { useAuth } from "@/context/AuthContext";
+import { useApi } from "@/hooks/useApi";
+import { Booking } from "@/types";
+
+const C = Colors.light;
+
+export default function BookingDetailScreen() {
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const { user } = useAuth();
+  const { get, post, put } = useApi();
+  const insets = useSafeAreaInsets();
+  const isWeb = Platform.OS === "web";
+
+  const [booking, setBooking] = useState<Booking | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [showReview, setShowReview] = useState(false);
+  const [rating, setRating] = useState(5);
+  const [comment, setComment] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  const topPad = isWeb ? 67 : insets.top;
+
+  useEffect(() => {
+    loadBooking();
+  }, [id]);
+
+  async function loadBooking() {
+    try {
+      const data = await get<Booking>(`/bookings/${id}`);
+      setBooking(data);
+    } catch {
+      // ignore
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function cancelBooking() {
+    if (!booking) return;
+    Alert.alert("Cancel Booking", "Are you sure?", [
+      { text: "No", style: "cancel" },
+      {
+        text: "Yes, Cancel",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await put(`/bookings/${booking.id}`, { status: "cancelled" });
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            loadBooking();
+          } catch {}
+        },
+      },
+    ]);
+  }
+
+  async function simulatePay() {
+    if (!booking) return;
+    try {
+      await put(`/bookings/${booking.id}`, { status: "confirmed", paymentStatus: "paid" });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert("Payment Success", "Your booking is now confirmed!");
+      loadBooking();
+    } catch {}
+  }
+
+  async function submitReview() {
+    if (!booking) return;
+    setSubmitting(true);
+    try {
+      await post("/reviews", {
+        providerId: booking.providerId,
+        listingId: booking.listingId,
+        bookingId: booking.id,
+        rating,
+        comment,
+      });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Alert.alert("Review Submitted", "Thank you for your feedback!");
+      setShowReview(false);
+    } catch {
+      Alert.alert("Error", "Could not submit review.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  if (loading) {
+    return (
+      <View style={[styles.root, styles.center]}>
+        <ActivityIndicator color={C.tint} size="large" />
+      </View>
+    );
+  }
+
+  if (!booking) {
+    return (
+      <View style={[styles.root, styles.center]}>
+        <Text style={styles.errorText}>Booking not found</Text>
+      </View>
+    );
+  }
+
+  const isCustomer = user?.id === booking.customerId;
+
+  return (
+    <View style={styles.root}>
+      <StatusBar style="dark" />
+      <View style={[styles.header, { paddingTop: topPad + 8 }]}>
+        <Pressable onPress={() => router.back()} style={styles.backBtn}>
+          <Ionicons name="arrow-back" size={22} color={C.text} />
+        </Pressable>
+        <Text style={styles.headerTitle}>Booking Details</Text>
+      </View>
+
+      <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
+        {/* Hero */}
+        <View style={styles.hero}>
+          {booking.listingImage ? (
+            <Image source={{ uri: booking.listingImage }} style={styles.heroImage} contentFit="cover" />
+          ) : (
+            <View style={[styles.heroImage, styles.heroPlaceholder]}>
+              <Ionicons name="cube-outline" size={40} color={C.textTertiary} />
+            </View>
+          )}
+          <View style={styles.heroInfo}>
+            <Text style={styles.heroTitle}>{booking.listingTitle}</Text>
+            <BookingStatusBadge status={booking.status} />
+          </View>
+        </View>
+
+        {/* Details */}
+        <View style={styles.detailCard}>
+          <InfoRow icon="calendar-outline" label="Start Date" value={new Date(booking.startDate).toLocaleDateString("en-IN", { dateStyle: "long" })} />
+          <InfoRow icon="calendar" label="End Date" value={new Date(booking.endDate).toLocaleDateString("en-IN", { dateStyle: "long" })} />
+          <InfoRow icon="time-outline" label="Duration" value={`${booking.totalDays} day${booking.totalDays > 1 ? "s" : ""}`} />
+          <InfoRow icon="cash-outline" label="Total Amount" value={`₹${booking.totalAmount.toLocaleString("en-IN")}`} highlight />
+          <InfoRow icon="card-outline" label="Payment" value={booking.paymentStatus.charAt(0).toUpperCase() + booking.paymentStatus.slice(1)} />
+          {isCustomer ? (
+            <InfoRow icon="person-outline" label="Provider" value={`${booking.customerName || "Provider"}`} />
+          ) : (
+            <InfoRow icon="person-outline" label="Customer" value={`${booking.customerName || "Customer"} · ${booking.customerPhone}`} />
+          )}
+          {booking.notes && <InfoRow icon="document-text-outline" label="Notes" value={booking.notes} />}
+        </View>
+
+        {/* Review form */}
+        {showReview && (
+          <View style={styles.reviewCard}>
+            <Text style={styles.reviewTitle}>Leave a Review</Text>
+            <StarRating rating={rating} size={32} interactive onRate={setRating} />
+            <TextInput
+              style={styles.reviewInput}
+              value={comment}
+              onChangeText={setComment}
+              placeholder="Share your experience..."
+              placeholderTextColor={C.textTertiary}
+              multiline
+              numberOfLines={4}
+            />
+            <View style={styles.reviewActions}>
+              <Pressable onPress={() => setShowReview(false)} style={styles.cancelReviewBtn}>
+                <Text style={styles.cancelReviewText}>Cancel</Text>
+              </Pressable>
+              <Pressable onPress={submitReview} disabled={submitting} style={styles.submitReviewBtn}>
+                {submitting ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitReviewText}>Submit</Text>}
+              </Pressable>
+            </View>
+          </View>
+        )}
+
+        {/* Actions */}
+        <View style={styles.actions}>
+          {isCustomer && booking.status === "pending" && (
+            <Pressable onPress={simulatePay} style={styles.payBtn}>
+              <Ionicons name="card-outline" size={18} color="#fff" />
+              <Text style={styles.payBtnText}>Pay via UPI (Mock)</Text>
+            </Pressable>
+          )}
+          {isCustomer && booking.status === "completed" && !showReview && (
+            <Pressable onPress={() => setShowReview(true)} style={styles.reviewBtn}>
+              <Ionicons name="star-outline" size={18} color={C.tint} />
+              <Text style={styles.reviewBtnText}>Leave a Review</Text>
+            </Pressable>
+          )}
+          {(booking.status === "pending" || booking.status === "confirmed") && (
+            <Pressable onPress={cancelBooking} style={styles.cancelBtn}>
+              <Text style={styles.cancelBtnText}>Cancel Booking</Text>
+            </Pressable>
+          )}
+        </View>
+
+        <View style={{ height: isWeb ? 34 : 60 }} />
+      </ScrollView>
+    </View>
+  );
+}
+
+function InfoRow({ icon, label, value, highlight }: { icon: string; label: string; value: string; highlight?: boolean }) {
+  const C = Colors.light;
+  return (
+    <View style={infoStyles.row}>
+      <View style={infoStyles.iconWrap}>
+        <Ionicons name={icon as keyof typeof Ionicons.glyphMap} size={18} color={C.textSecondary} />
+      </View>
+      <Text style={infoStyles.label}>{label}</Text>
+      <Text style={[infoStyles.value, highlight && { color: C.tint, fontFamily: "Inter_700Bold" }]}>{value}</Text>
+    </View>
+  );
+}
+
+const infoStyles = StyleSheet.create({
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 13,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.light.borderLight,
+    gap: 12,
+  },
+  iconWrap: { width: 32, alignItems: "center" },
+  label: { flex: 1, fontSize: 14, color: Colors.light.textSecondary, fontFamily: "Inter_400Regular" },
+  value: { fontSize: 14, fontWeight: "600", fontFamily: "Inter_600SemiBold", color: Colors.light.text },
+});
+
+const styles = StyleSheet.create({
+  root: { flex: 1, backgroundColor: C.background },
+  center: { alignItems: "center", justifyContent: "center" },
+  header: {
+    backgroundColor: C.backgroundSecondary,
+    paddingHorizontal: 20,
+    paddingBottom: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: C.border,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+  },
+  backBtn: {
+    width: 36, height: 36, borderRadius: 18,
+    backgroundColor: C.backgroundTertiary,
+    alignItems: "center", justifyContent: "center",
+  },
+  headerTitle: { fontSize: 18, fontWeight: "700", fontFamily: "Inter_700Bold", color: C.text },
+  scroll: { flex: 1 },
+  hero: {
+    backgroundColor: C.backgroundSecondary,
+    marginHorizontal: 20,
+    marginTop: 20,
+    borderRadius: 16,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: C.cardBorder,
+  },
+  heroImage: { width: "100%", height: 160 },
+  heroPlaceholder: { backgroundColor: C.backgroundTertiary, alignItems: "center", justifyContent: "center" },
+  heroInfo: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 14,
+  },
+  heroTitle: { fontSize: 16, fontWeight: "600", fontFamily: "Inter_600SemiBold", color: C.text, flex: 1 },
+  detailCard: {
+    backgroundColor: C.card,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: C.cardBorder,
+    marginHorizontal: 20,
+    marginTop: 14,
+    paddingHorizontal: 16,
+    overflow: "hidden",
+  },
+  reviewCard: {
+    backgroundColor: C.card,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: C.cardBorder,
+    marginHorizontal: 20,
+    marginTop: 14,
+    padding: 16,
+    gap: 14,
+  },
+  reviewTitle: { fontSize: 17, fontWeight: "700", fontFamily: "Inter_700Bold", color: C.text },
+  reviewInput: {
+    backgroundColor: C.backgroundTertiary,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: C.border,
+    padding: 12,
+    fontSize: 14,
+    fontFamily: "Inter_400Regular",
+    color: C.text,
+    minHeight: 90,
+    textAlignVertical: "top",
+  },
+  reviewActions: { flexDirection: "row", gap: 10 },
+  cancelReviewBtn: {
+    flex: 1, borderWidth: 1.5, borderColor: C.border, borderRadius: 12,
+    paddingVertical: 12, alignItems: "center",
+  },
+  cancelReviewText: { fontSize: 14, fontWeight: "600", fontFamily: "Inter_600SemiBold", color: C.text },
+  submitReviewBtn: { flex: 2, backgroundColor: C.tint, borderRadius: 12, paddingVertical: 12, alignItems: "center", justifyContent: "center" },
+  submitReviewText: { fontSize: 14, fontWeight: "700", fontFamily: "Inter_700Bold", color: "#fff" },
+  actions: { marginHorizontal: 20, marginTop: 16, gap: 10 },
+  payBtn: {
+    backgroundColor: "#22C55E",
+    borderRadius: 14,
+    paddingVertical: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  payBtnText: { color: "#fff", fontSize: 16, fontWeight: "700", fontFamily: "Inter_700Bold" },
+  reviewBtn: {
+    borderWidth: 2,
+    borderColor: C.tint,
+    borderRadius: 14,
+    paddingVertical: 13,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  reviewBtnText: { color: C.tint, fontSize: 15, fontWeight: "600", fontFamily: "Inter_600SemiBold" },
+  cancelBtn: {
+    borderWidth: 1.5,
+    borderColor: C.error,
+    borderRadius: 14,
+    paddingVertical: 13,
+    alignItems: "center",
+  },
+  cancelBtnText: { color: C.error, fontSize: 15, fontWeight: "600", fontFamily: "Inter_600SemiBold" },
+  errorText: { fontSize: 16, color: C.textSecondary, fontFamily: "Inter_400Regular" },
+});

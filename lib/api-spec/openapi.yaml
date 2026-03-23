@@ -1,22 +1,32 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: RentZilla API specification
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: auth
+    description: Authentication
+  - name: users
+    description: User management
+  - name: listings
+    description: Rental listings
+  - name: bookings
+    description: Booking management
+  - name: reviews
+    description: Reviews and ratings
+  - name: chat
+    description: Messaging
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +34,361 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      summary: Login or register with phone number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+  /users/me:
+    get:
+      operationId: getMe
+      tags: [users]
+      summary: Get current user profile
+      responses:
+        "200":
+          description: User profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+    put:
+      operationId: updateMe
+      tags: [users]
+      summary: Update current user profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateUserRequest"
+      responses:
+        "200":
+          description: Updated user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+  /listings:
+    get:
+      operationId: getListings
+      tags: [listings]
+      summary: Get listings with optional filters
+      parameters:
+        - name: category
+          in: query
+          schema:
+            type: string
+            enum: [cars, equipment, services]
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: minPrice
+          in: query
+          schema:
+            type: number
+        - name: maxPrice
+          in: query
+          schema:
+            type: number
+        - name: minRating
+          in: query
+          schema:
+            type: number
+        - name: providerId
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of listings
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Listing"
+    post:
+      operationId: createListing
+      tags: [listings]
+      summary: Create a new listing
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateListingRequest"
+      responses:
+        "201":
+          description: Created listing
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Listing"
+  /listings/{id}:
+    get:
+      operationId: getListing
+      tags: [listings]
+      summary: Get a specific listing
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Listing detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Listing"
+    put:
+      operationId: updateListing
+      tags: [listings]
+      summary: Update a listing
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateListingRequest"
+      responses:
+        "200":
+          description: Updated listing
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Listing"
+    delete:
+      operationId: deleteListing
+      tags: [listings]
+      summary: Delete a listing
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+  /bookings:
+    get:
+      operationId: getBookings
+      tags: [bookings]
+      summary: Get bookings for current user
+      parameters:
+        - name: role
+          in: query
+          schema:
+            type: string
+            enum: [customer, provider]
+      responses:
+        "200":
+          description: List of bookings
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Booking"
+    post:
+      operationId: createBooking
+      tags: [bookings]
+      summary: Create a new booking
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateBookingRequest"
+      responses:
+        "201":
+          description: Created booking
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Booking"
+  /bookings/{id}:
+    get:
+      operationId: getBooking
+      tags: [bookings]
+      summary: Get a specific booking
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Booking detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Booking"
+    put:
+      operationId: updateBookingStatus
+      tags: [bookings]
+      summary: Update booking status
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateBookingStatusRequest"
+      responses:
+        "200":
+          description: Updated booking
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Booking"
+  /reviews:
+    get:
+      operationId: getReviews
+      tags: [reviews]
+      summary: Get reviews for a listing or provider
+      parameters:
+        - name: listingId
+          in: query
+          schema:
+            type: string
+        - name: providerId
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of reviews
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Review"
+    post:
+      operationId: createReview
+      tags: [reviews]
+      summary: Create a review
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateReviewRequest"
+      responses:
+        "201":
+          description: Created review
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Review"
+  /chats:
+    get:
+      operationId: getChats
+      tags: [chat]
+      summary: Get all chats for current user
+      responses:
+        "200":
+          description: List of chats
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Chat"
+  /chats/{chatId}/messages:
+    get:
+      operationId: getMessages
+      tags: [chat]
+      summary: Get messages in a chat
+      parameters:
+        - name: chatId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of messages
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Message"
+    post:
+      operationId: sendMessage
+      tags: [chat]
+      summary: Send a message
+      parameters:
+        - name: chatId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SendMessageRequest"
+      responses:
+        "201":
+          description: Sent message
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Message"
+  /chats/start:
+    post:
+      operationId: startChat
+      tags: [chat]
+      summary: Start a chat with a provider about a listing
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StartChatRequest"
+      responses:
+        "201":
+          description: Chat created or existing chat returned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Chat"
 components:
   schemas:
     HealthStatus:
@@ -33,4 +398,336 @@ components:
           type: string
       required:
         - status
-
+    LoginRequest:
+      type: object
+      properties:
+        phone:
+          type: string
+        name:
+          type: string
+        role:
+          type: string
+          enum: [customer, provider]
+      required:
+        - phone
+        - role
+    AuthResponse:
+      type: object
+      properties:
+        user:
+          $ref: "#/components/schemas/User"
+        token:
+          type: string
+      required:
+        - user
+        - token
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+        phone:
+          type: string
+        name:
+          type: string
+        role:
+          type: string
+          enum: [customer, provider]
+        location:
+          type: string
+        profileImage:
+          type: string
+        rating:
+          type: number
+        reviewCount:
+          type: integer
+        createdAt:
+          type: string
+      required:
+        - id
+        - phone
+        - role
+        - createdAt
+    UpdateUserRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        location:
+          type: string
+        profileImage:
+          type: string
+    Listing:
+      type: object
+      properties:
+        id:
+          type: string
+        providerId:
+          type: string
+        providerName:
+          type: string
+        providerPhone:
+          type: string
+        providerRating:
+          type: number
+        providerReviewCount:
+          type: integer
+        category:
+          type: string
+          enum: [cars, equipment, services]
+        subcategory:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        price:
+          type: number
+        priceUnit:
+          type: string
+          enum: [per_day, per_hour]
+        images:
+          type: array
+          items:
+            type: string
+        location:
+          type: string
+        rating:
+          type: number
+        reviewCount:
+          type: integer
+        isAvailable:
+          type: boolean
+        createdAt:
+          type: string
+      required:
+        - id
+        - providerId
+        - category
+        - title
+        - price
+        - priceUnit
+        - location
+        - isAvailable
+        - createdAt
+    CreateListingRequest:
+      type: object
+      properties:
+        category:
+          type: string
+          enum: [cars, equipment, services]
+        subcategory:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        price:
+          type: number
+        priceUnit:
+          type: string
+          enum: [per_day, per_hour]
+        images:
+          type: array
+          items:
+            type: string
+        location:
+          type: string
+        isAvailable:
+          type: boolean
+      required:
+        - category
+        - title
+        - price
+        - priceUnit
+        - location
+    Booking:
+      type: object
+      properties:
+        id:
+          type: string
+        customerId:
+          type: string
+        customerName:
+          type: string
+        customerPhone:
+          type: string
+        providerId:
+          type: string
+        listingId:
+          type: string
+        listingTitle:
+          type: string
+        listingImage:
+          type: string
+        startDate:
+          type: string
+        endDate:
+          type: string
+        totalDays:
+          type: integer
+        totalAmount:
+          type: number
+        status:
+          type: string
+          enum: [pending, confirmed, completed, cancelled]
+        paymentStatus:
+          type: string
+          enum: [pending, paid, refunded]
+        notes:
+          type: string
+        createdAt:
+          type: string
+      required:
+        - id
+        - customerId
+        - providerId
+        - listingId
+        - startDate
+        - endDate
+        - totalAmount
+        - status
+        - paymentStatus
+        - createdAt
+    CreateBookingRequest:
+      type: object
+      properties:
+        listingId:
+          type: string
+        startDate:
+          type: string
+        endDate:
+          type: string
+        notes:
+          type: string
+      required:
+        - listingId
+        - startDate
+        - endDate
+    UpdateBookingStatusRequest:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [pending, confirmed, completed, cancelled]
+        paymentStatus:
+          type: string
+          enum: [pending, paid, refunded]
+      required:
+        - status
+    Review:
+      type: object
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        userName:
+          type: string
+        providerId:
+          type: string
+        listingId:
+          type: string
+        bookingId:
+          type: string
+        rating:
+          type: integer
+        comment:
+          type: string
+        createdAt:
+          type: string
+      required:
+        - id
+        - userId
+        - rating
+        - createdAt
+    CreateReviewRequest:
+      type: object
+      properties:
+        providerId:
+          type: string
+        listingId:
+          type: string
+        bookingId:
+          type: string
+        rating:
+          type: integer
+        comment:
+          type: string
+      required:
+        - rating
+    Chat:
+      type: object
+      properties:
+        id:
+          type: string
+        participants:
+          type: array
+          items:
+            type: string
+        otherUserId:
+          type: string
+        otherUserName:
+          type: string
+        otherUserPhone:
+          type: string
+        listingId:
+          type: string
+        listingTitle:
+          type: string
+        lastMessage:
+          type: string
+        lastMessageAt:
+          type: string
+        unreadCount:
+          type: integer
+        createdAt:
+          type: string
+      required:
+        - id
+        - participants
+        - createdAt
+    Message:
+      type: object
+      properties:
+        id:
+          type: string
+        chatId:
+          type: string
+        senderId:
+          type: string
+        senderName:
+          type: string
+        content:
+          type: string
+        createdAt:
+          type: string
+      required:
+        - id
+        - chatId
+        - senderId
+        - content
+        - createdAt
+    SendMessageRequest:
+      type: object
+      properties:
+        content:
+          type: string
+      required:
+        - content
+    StartChatRequest:
+      type: object
+      properties:
+        providerId:
+          type: string
+        listingId:
+          type: string
+      required:
+        - providerId
+    SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+      required:
+        - success

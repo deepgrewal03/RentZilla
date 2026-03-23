@@ -1,0 +1,245 @@
+# 🚀 RentZilla – Full App Build Prompt (Optimized for Replit AI Agent)
+
+## 🎯 Objective
+
+Build a **production-ready mobile-first rental marketplace app** for Punjab, India where users can:
+
+* Rent cars
+* Rent agricultural equipment (tractors, harvesters, rotavators)
+* Book local services (plumbers, electricians, beauty services)
+
+The app must be **fast, simple, scalable, and usable by both rural and urban users**.
+
+---
+
+## 🧱 Tech Stack (STRICT)
+
+* Frontend: **Flutter (Android + iOS)**
+* Backend: **Firebase (Auth + Firestore + Storage + Functions)**
+* API: REST-style structure using Firebase services
+* Authentication: **Phone OTP (Firebase Auth)**
+
+---
+
+## 🌍 Region & Localization
+
+* Region lock: **Punjab, India only**
+* Currency: **₹ INR**
+* Languages:
+
+  * English (default)
+  * Punjabi (Gurmukhi)
+* Implement language toggle with JSON-based translations
+
+---
+
+## 👥 User Roles & Permissions
+
+### 🧑 Customer
+
+* Phone OTP login
+* Browse categories:
+
+  * Cars
+  * Agricultural Equipment
+  * Services
+* Search + filters (price, rating, distance)
+* View listing details
+* Book item/service (date & time selection)
+* Make payments (UPI + optional COD)
+* View booking history
+* Submit ratings & reviews
+
+---
+
+### 🧑‍🔧 Provider (Vendor)
+
+* Register/login via phone
+* Create/edit profile
+* Add listings:
+
+  * Title, description, category
+  * Price (per day/hour)
+  * Images (Firebase Storage)
+  * Availability calendar
+  * Location
+* Accept/reject bookings
+* Manage bookings dashboard
+* View earnings summary
+* Chat with customers
+
+---
+
+## 🔑 Core Functional Modules
+
+### 1. 🔍 Discovery System
+
+* Category browsing UI
+* Search bar with filters:
+
+  * Price range
+  * Distance
+  * Rating
+* Location-based results (Punjab only)
+
+---
+
+### 2. 📅 Booking Engine
+
+* Real-time availability check
+* Calendar/date picker
+* Booking confirmation flow
+* Status: pending / confirmed / completed / cancelled
+
+---
+
+### 3. 💳 Payments
+
+* Integrate UPI payment flow (mock if needed initially)
+* Store payment status
+* Generate booking summary + invoice
+
+---
+
+### 4. ⭐ Reviews & Ratings
+
+* 1–5 star rating system
+* Text reviews
+* Show average rating per provider
+
+---
+
+### 5. 💬 Chat System
+
+* Real-time messaging (Firebase Firestore)
+* Customer ↔ Provider communication
+
+---
+
+### 6. 📍 Location System
+
+* GPS-based detection
+* Manual location selection
+* Store coordinates for listings
+
+---
+
+## 🎨 UI/UX Requirements
+
+* Mobile-first, clean, minimal UI
+* Bottom navigation (Home, Bookings, Profile)
+* Large buttons, simple layout
+* Card-based listing design
+* Optimized for low-end Android devices
+* Fast loading (lazy loading where needed)
+
+---
+
+## 🗄️ Database Design (Firestore Collections)
+
+### users
+
+* id
+* role (customer/provider)
+* name
+* phone
+* location
+* created_at
+
+### listings
+
+* id
+* provider_id
+* category
+* title
+* description
+* price
+* images[]
+* location
+* availability
+* rating
+
+### bookings
+
+* id
+* user_id
+* listing_id
+* provider_id
+* date_time
+* status
+* payment_status
+
+### reviews
+
+* id
+* user_id
+* provider_id
+* rating
+* comment
+* created_at
+
+### chats
+
+* id
+* participants[]
+* messages[]
+
+---
+
+## 🔔 Optional Enhancements (If time permits)
+
+* Push notifications (Firebase Cloud Messaging)
+* Admin panel (basic web dashboard)
+* Featured listings
+* Referral system
+* Offline caching
+
+---
+
+## 📦 Deliverables
+
+* Fully functional Flutter app (Android + iOS ready)
+* Firebase backend setup
+* Clean modular code structure
+* Environment config (.env or constants)
+* README with setup steps
+
+---
+
+## ⚡ Execution Plan (IMPORTANT)
+
+Follow this order strictly:
+
+1. Create Flutter project + folder structure
+2. Build UI screens (no backend yet)
+3. Integrate Firebase (Auth, Firestore, Storage)
+4. Implement authentication (OTP)
+5. Build listings system
+6. Implement booking flow
+7. Add payments (mock first, then real-ready structure)
+8. Add chat system
+9. Add reviews/ratings
+10. Optimize performance + UI polish
+
+---
+
+## 🧠 Instructions to AI Agent
+
+* Write **clean, modular, scalable code**
+* Use reusable components
+* Avoid overcomplication
+* Test each module before moving forward
+* Ensure app runs without errors at each step
+
+---
+
+## 🚨 Priority Focus
+
+1. Simple UI
+2. Fast performance
+3. Working booking flow end-to-end
+
+---
+
+**Final Goal:**
+A working MVP of RentZilla that users in Punjab can actually use to rent items and book services smoothly.

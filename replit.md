@@ -1,96 +1,79 @@
-# Workspace
+# RentZilla
 
-## Overview
+Punjab's #1 mobile rental marketplace built with Expo + Express + PostgreSQL.
 
-pnpm workspace monorepo using TypeScript. Each package manages its own dependencies.
+## What it is
 
-## Stack
+A full-stack mobile app where users can:
+- **Rent**: Browse and book cars, agricultural equipment (tractors, harvesters, rotavators), and local services (plumbers, electricians, beauty)
+- **List & Earn**: Providers post listings and manage bookings via dashboard
+- **Chat**: Real-time messaging between customers and providers
+- **Review**: Star ratings and written reviews after completed bookings
 
-- **Monorepo tool**: pnpm workspaces
-- **Node.js version**: 24
-- **Package manager**: pnpm
-- **TypeScript version**: 5.9
-- **API framework**: Express 5
-- **Database**: PostgreSQL + Drizzle ORM
-- **Validation**: Zod (`zod/v4`), `drizzle-zod`
-- **API codegen**: Orval (from OpenAPI spec)
-- **Build**: esbuild (CJS bundle)
+Punjab-specific UX: "Sat Sri Akal" greeting, INR (₹) pricing, Punjab India location context, Ludhiana/Amritsar/Patiala cities.
 
-## Structure
+## Architecture
 
-```text
-artifacts-monorepo/
-├── artifacts/              # Deployable applications
-│   └── api-server/         # Express API server
-├── lib/                    # Shared libraries
-│   ├── api-spec/           # OpenAPI spec + Orval codegen config
-│   ├── api-client-react/   # Generated React Query hooks
-│   ├── api-zod/            # Generated Zod schemas from OpenAPI
-│   └── db/                 # Drizzle ORM schema + DB connection
-├── scripts/                # Utility scripts (single workspace package)
-│   └── src/                # Individual .ts scripts, run via `pnpm --filter @workspace/scripts run <script>`
-├── pnpm-workspace.yaml     # pnpm workspace (artifacts/*, lib/*, lib/integrations/*, scripts)
-├── tsconfig.base.json      # Shared TS options (composite, bundler resolution, es2022)
-├── tsconfig.json           # Root TS project references
-└── package.json            # Root package with hoisted devDeps
+### Monorepo (pnpm workspaces)
+- `artifacts/mobile` — Expo React Native app (web + iOS + Android)
+- `artifacts/api-server` — Express 5 API server with Drizzle ORM
+- `lib/db` — Shared PostgreSQL schema (Drizzle) + client
+- `lib/api-client-react` — Generated React Query hooks (from OpenAPI spec)
+- `lib/api-spec` — OpenAPI specification
+
+### Database
+- PostgreSQL (Replit-managed)
+- Tables: `users`, `listings`, `bookings`, `reviews`, `chats`, `messages`
+- Schema push: `pnpm --filter @workspace/db run push`
+- Seed data: `pnpm --filter @workspace/api-server exec tsx src/seed.ts`
+
+### Auth
+- Phone-based login (no OTP in MVP)
+- Token: base64-encoded `userId:timestamp` stored in AsyncStorage
+- Backend decodes token in `authMiddleware` in `artifacts/api-server/src/routes/users.ts`
+
+## Mobile App Structure
+
+```
+artifacts/mobile/app/
+  _layout.tsx          — Root layout (fonts, providers, QueryClient)
+  auth.tsx             — Login/register screen
+  (tabs)/
+    _layout.tsx        — Classic Tab layout (Feather icons)
+    index.tsx          — Home (listings browse, category pills)
+    search.tsx         — Search with price filters
+    bookings.tsx       — Booking history
+    dashboard.tsx      — Provider dashboard (hidden for customers)
+    messages.tsx       — Chat list
+    profile.tsx        — User profile + edit
+  listing/[id].tsx     — Listing detail + booking flow
+  booking/[id].tsx     — Booking detail + review flow
+  chat/[id].tsx        — Real-time chat screen
+  add-listing.tsx      — Create listing modal (providers only)
+  provider/[id].tsx    — Provider public profile
 ```
 
-## TypeScript & Composite Projects
+## Design
+- **Primary**: Warm orange `#E8742A`
+- **Brand background**: Deep navy `#0F1F3D`
+- **Stars/gold**: `#F5C842`
+- **Font**: Inter (400/500/600/700) via `@expo-google-fonts/inter`
+- Colors defined in `artifacts/mobile/constants/colors.ts`
 
-Every package extends `tsconfig.base.json` which sets `composite: true`. The root `tsconfig.json` lists all packages as project references. This means:
+## Running
 
-- **Always typecheck from the root** — run `pnpm run typecheck` (which runs `tsc --build --emitDeclarationOnly`). This builds the full dependency graph so that cross-package imports resolve correctly. Running `tsc` inside a single package will fail if its dependencies haven't been built yet.
-- **`emitDeclarationOnly`** — we only emit `.d.ts` files during typecheck; actual JS bundling is handled by esbuild/tsx/vite...etc, not `tsc`.
-- **Project references** — when package A depends on package B, A's `tsconfig.json` must list B in its `references` array. `tsc --build` uses this to determine build order and skip up-to-date packages.
+- **API Server**: `pnpm --filter @workspace/api-server run dev` → port 8080
+- **Mobile app**: `pnpm --filter @workspace/mobile run dev` → Expo web + QR for native
 
-## Root Scripts
+## API Endpoints
 
-- `pnpm run build` — runs `typecheck` first, then recursively runs `build` in all packages that define it
-- `pnpm run typecheck` — runs `tsc --build --emitDeclarationOnly` using project references
-
-## Packages
-
-### `artifacts/api-server` (`@workspace/api-server`)
-
-Express 5 API server. Routes live in `src/routes/` and use `@workspace/api-zod` for request and response validation and `@workspace/db` for persistence.
-
-- Entry: `src/index.ts` — reads `PORT`, starts Express
-- App setup: `src/app.ts` — mounts CORS, JSON/urlencoded parsing, routes at `/api`
-- Routes: `src/routes/index.ts` mounts sub-routers; `src/routes/health.ts` exposes `GET /health` (full path: `/api/health`)
-- Depends on: `@workspace/db`, `@workspace/api-zod`
-- `pnpm --filter @workspace/api-server run dev` — run the dev server
-- `pnpm --filter @workspace/api-server run build` — production esbuild bundle (`dist/index.cjs`)
-- Build bundles an allowlist of deps (express, cors, pg, drizzle-orm, zod, etc.) and externalizes the rest
-
-### `lib/db` (`@workspace/db`)
-
-Database layer using Drizzle ORM with PostgreSQL. Exports a Drizzle client instance and schema models.
-
-- `src/index.ts` — creates a `Pool` + Drizzle instance, exports schema
-- `src/schema/index.ts` — barrel re-export of all models
-- `src/schema/<modelname>.ts` — table definitions with `drizzle-zod` insert schemas (no models definitions exist right now)
-- `drizzle.config.ts` — Drizzle Kit config (requires `DATABASE_URL`, automatically provided by Replit)
-- Exports: `.` (pool, db, schema), `./schema` (schema only)
-
-Production migrations are handled by Replit when publishing. In development, we just use `pnpm --filter @workspace/db run push`, and we fallback to `pnpm --filter @workspace/db run push-force`.
-
-### `lib/api-spec` (`@workspace/api-spec`)
-
-Owns the OpenAPI 3.1 spec (`openapi.yaml`) and the Orval config (`orval.config.ts`). Running codegen produces output into two sibling packages:
-
-1. `lib/api-client-react/src/generated/` — React Query hooks + fetch client
-2. `lib/api-zod/src/generated/` — Zod schemas
-
-Run codegen: `pnpm --filter @workspace/api-spec run codegen`
-
-### `lib/api-zod` (`@workspace/api-zod`)
-
-Generated Zod schemas from the OpenAPI spec (e.g. `HealthCheckResponse`). Used by `api-server` for response validation.
-
-### `lib/api-client-react` (`@workspace/api-client-react`)
-
-Generated React Query hooks and fetch client from the OpenAPI spec (e.g. `useHealthCheck`, `healthCheck`).
-
-### `scripts` (`@workspace/scripts`)
-
-Utility scripts package. Each script is a `.ts` file in `src/` with a corresponding npm script in `package.json`. Run scripts via `pnpm --filter @workspace/scripts run <script>`. Scripts can import any workspace package (e.g., `@workspace/db`) by adding it as a dependency in `scripts/package.json`.
+- `POST /api/auth/login` — Phone + name + role login/register
+- `GET/POST /api/listings` — Browse and create listings
+- `GET/PUT/DELETE /api/listings/:id` — Listing CRUD
+- `GET/POST /api/bookings` — Bookings list and create
+- `GET/PUT /api/bookings/:id` — Booking detail and status update
+- `GET/POST /api/reviews` — Reviews by listing or provider
+- `GET /api/chats` — User's chat list
+- `POST /api/chats/start` — Start a new chat
+- `GET/POST /api/chats/:chatId/messages` — Chat messages
+- `GET/PUT /api/users/me` — Current user profile
