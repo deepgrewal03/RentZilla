@@ -41,7 +41,6 @@ export function SideDrawer({ visible, onClose }: Props) {
     { icon: "chatbubble-outline", labelKey: "messages", path: "/(tabs)/messages" },
     { icon: "person-outline", labelKey: "myProfile", path: "/(tabs)/profile", dividerBefore: true },
     { icon: "settings-outline", labelKey: "settings", path: "/(tabs)/profile" },
-    { icon: "help-circle-outline", labelKey: "helpSupport", path: "/(tabs)/profile" },
   ] as const;
 
   useEffect(() => {
