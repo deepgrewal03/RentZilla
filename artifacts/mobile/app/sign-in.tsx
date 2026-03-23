@@ -133,19 +133,6 @@ export default function SignInScreen() {
               )}
             </Pressable>
 
-            {/* Divider */}
-            <View style={styles.divider}>
-              <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>or</Text>
-              <View style={styles.dividerLine} />
-            </View>
-
-            {/* Phone sign in */}
-            <Pressable onPress={() => router.push("/auth")} style={styles.secondaryBtn}>
-              <Ionicons name="phone-portrait-outline" size={18} color={C.tint} />
-              <Text style={styles.secondaryBtnText}>Sign in with Phone</Text>
-            </Pressable>
-
             {/* Sign up link */}
             <View style={styles.switchRow}>
               <Text style={styles.switchText}>Don't have an account? </Text>
@@ -201,15 +188,6 @@ const styles = StyleSheet.create({
     flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8,
   },
   loginBtnText: { color: "#fff", fontSize: 16, fontWeight: "700", fontFamily: "Inter_700Bold" },
-  divider: { flexDirection: "row", alignItems: "center", gap: 12 },
-  dividerLine: { flex: 1, height: 1, backgroundColor: C.border },
-  dividerText: { fontSize: 12, color: C.textTertiary, fontFamily: "Inter_400Regular" },
-  secondaryBtn: {
-    flexDirection: "row", alignItems: "center", justifyContent: "center",
-    gap: 8, borderRadius: 14, borderWidth: 1.5, borderColor: C.tint,
-    paddingVertical: 13,
-  },
-  secondaryBtnText: { fontSize: 15, fontWeight: "600", fontFamily: "Inter_600SemiBold", color: C.tint },
   switchRow: { flexDirection: "row", justifyContent: "center", alignItems: "center" },
   switchText: { fontSize: 14, color: C.textSecondary, fontFamily: "Inter_400Regular" },
   switchLink: { fontSize: 14, color: C.tint, fontWeight: "700", fontFamily: "Inter_700Bold" },
