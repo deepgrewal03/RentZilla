@@ -1,0 +1,193 @@
+Enhance the RentZilla app with a role-based system for Customer (Rider) and Provider (Driver) with conditional tabs, OTP-based role upgrade, and separate UIs.
+
+-----------------------------------
+
+MAIN GOAL:
+
+- If user registers as CUSTOMER → show only Customer tabs
+- If user registers as PROVIDER → show only Provider tabs
+- If user has BOTH roles → show both tabs + allow switching
+- Prevent direct access to other role features without verification
+
+-----------------------------------
+
+USER ROLES:
+
+- customer (rider)
+- provider (driver)
+- both (dual role)
+
+-----------------------------------
+
+DATABASE SCHEMA:
+
+Users Table:
+- id (uuid)
+- name (text)
+- phone (text, unique)
+- email (text)
+- roles (array: ['customer', 'provider'])
+- is_phone_verified (boolean)
+- created_at
+
+DriverProfiles Table:
+- id (uuid)
+- user_id (uuid)
+- license_number
+- vehicle_details
+- is_approved (boolean)
+- created_at
+
+OTP Table:
+- id (uuid)
+- user_id (uuid)
+- otp_code
+- expires_at
+- verified (boolean)
+
+-----------------------------------
+
+AUTH FLOW:
+
+1. Registration:
+- User chooses:
+  → Register as Customer
+  → Register as Provider
+
+2. Customer Registration:
+- Basic signup (name, phone, email)
+- OTP verification
+- roles = ['customer']
+
+3. Provider Registration:
+- Signup + driver form:
+  - license
+  - vehicle details
+- OTP verification
+- roles = ['provider']
+
+-----------------------------------
+
+DUAL ROLE UPGRADE FLOW:
+
+Case 1: Customer → Provider
+
+- User clicks "Become a Driver"
+- System:
+  1. Send OTP to registered phone
+  2. Verify OTP
+  3. Show driver registration form
+  4. After submission:
+     → roles = ['customer', 'provider']
+
+-----------------------------------
+
+Case 2: Provider → Customer
+
+- User clicks "Switch to Customer Mode"
+- If not registered as customer:
+  1. Send OTP
+  2. Verify
+  3. Add 'customer' role
+
+-----------------------------------
+
+IMPORTANT RULE:
+
+- User MUST NOT fill provider form unless OTP verified
+- Same for customer upgrade
+
+-----------------------------------
+
+API ENDPOINTS:
+
+Auth:
+- POST /auth/register
+- POST /auth/send-otp
+- POST /auth/verify-otp
+
+Roles:
+- POST /roles/upgrade-to-provider
+- POST /roles/upgrade-to-customer
+- GET /roles/current
+
+-----------------------------------
+
+UI LOGIC:
+
+If roles = ['customer']:
+- Show:
+  - Home (rentals + cars)
+  - Book Ride
+  - Profile
+- Hide provider tabs
+
+If roles = ['provider']:
+- Show:
+  - Driver Dashboard
+  - Earnings
+  - Ride Requests
+- Hide customer tabs
+
+If roles = ['customer', 'provider']:
+- Show BOTH:
+  - Customer Tab
+  - Provider Tab
+- Add SWITCH BUTTON:
+  → "Switch to Driver Mode"
+  → "Switch to Customer Mode"
+
+-----------------------------------
+
+DRIVER UI REQUIREMENT:
+
+Provider (Driver) UI should look like:
+- Ride request screen
+- Online / Offline toggle
+- Map with driver location
+- Incoming ride popup
+- Accept / Reject buttons
+- Start / End ride buttons
+
+Design similar to a modern driver app (like Uber Driver style UI)
+
+-----------------------------------
+
+CUSTOMER UI REQUIREMENT:
+
+Customer UI should include:
+- Map view
+- Pickup & destination input
+- Book ride button
+- Track driver
+- Clean and simple interface
+
+-----------------------------------
+
+SECURITY RULES:
+
+- Role-based access control (RBAC)
+- Provider APIs only accessible to provider role
+- Customer APIs only accessible to customer role
+- OTP required for role upgrade
+- Prevent duplicate role entries
+
+-----------------------------------
+
+BUSINESS LOGIC:
+
+- One account can have multiple roles
+- Role switching does NOT require logout
+- Maintain session across roles
+- Driver must be approved before going online
+
+-----------------------------------
+
+OUTPUT REQUIRED:
+
+- Full backend implementation
+- Role-based middleware
+- OTP verification system
+- UI logic for tabs and switching
+- Sample frontend for both customer and provider
+- Instructions to run

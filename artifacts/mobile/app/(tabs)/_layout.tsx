@@ -13,11 +13,13 @@ const C = Colors.light;
 export default function TabLayout() {
   const { user } = useAuth();
   const { t } = useLang();
-  const isProvider = user?.role === "provider";
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
   const isIOS = Platform.OS === "ios";
   const isWeb = Platform.OS === "web";
+
+  const isProvider = user?.role === "provider" || user?.role === "both";
+  const isCustomer = user?.role === "customer" || user?.role === "both";
 
   return (
     <Tabs
@@ -56,6 +58,7 @@ export default function TabLayout() {
         name="search"
         options={{
           title: t.search,
+          href: isCustomer ? undefined : null,
           tabBarIcon: ({ color }) => <Feather name="search" size={22} color={color} />,
         }}
       />

@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -37,7 +38,8 @@ const FEATURED_SUBCATEGORIES = [
 ];
 
 export default function HomeScreen() {
-  const { user } = useAuth();
+  const { user, activeMode, setActiveMode } = useAuth();
+  const isBoth = user?.role === "both";
   const { get } = useApi();
   const { t, language, toggleLanguage } = useLang();
   const insets = useSafeAreaInsets();
@@ -110,6 +112,26 @@ export default function HomeScreen() {
             <NotificationBell />
           </View>
         </View>
+
+        {/* Mode switcher for dual-role users */}
+        {isBoth && (
+          <View style={styles.modeSwitcher}>
+            <Pressable
+              onPress={() => { Haptics.selectionAsync(); setActiveMode("customer"); }}
+              style={[styles.modeBtn, activeMode === "customer" && styles.modeBtnActive]}
+            >
+              <Ionicons name="person-outline" size={14} color={activeMode === "customer" ? "#fff" : "rgba(255,255,255,0.6)"} />
+              <Text style={[styles.modeBtnText, activeMode === "customer" && styles.modeBtnTextActive]}>Customer</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => { Haptics.selectionAsync(); setActiveMode("provider"); }}
+              style={[styles.modeBtn, activeMode === "provider" && styles.modeBtnActive]}
+            >
+              <Ionicons name="car-outline" size={14} color={activeMode === "provider" ? "#fff" : "rgba(255,255,255,0.6)"} />
+              <Text style={[styles.modeBtnText, activeMode === "provider" && styles.modeBtnTextActive]}>Provider</Text>
+            </Pressable>
+          </View>
+        )}
 
         {/* Search bar */}
         <Pressable onPress={() => router.push("/(tabs)/search")} style={styles.searchBar}>
@@ -186,7 +208,7 @@ export default function HomeScreen() {
       </ScrollView>
 
       {/* FAB for providers */}
-      {user?.role === "provider" && (
+      {(user?.role === "provider" || (user?.role === "both" && activeMode === "provider")) && (
         <Pressable
           onPress={() => router.push("/add-listing")}
           style={[styles.fab, { bottom: (isWeb ? 34 : insets.bottom) + 80 }]}
@@ -221,6 +243,23 @@ const styles = StyleSheet.create({
     borderColor: "rgba(255,255,255,0.2)",
   },
   langPillText: { color: "#fff", fontSize: 11, fontWeight: "600", fontFamily: "Inter_600SemiBold" },
+  modeSwitcher: {
+    flexDirection: "row",
+    backgroundColor: "rgba(255,255,255,0.12)",
+    borderRadius: 20,
+    padding: 3,
+    alignSelf: "center",
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.15)",
+  },
+  modeBtn: {
+    flexDirection: "row", alignItems: "center", gap: 6,
+    paddingHorizontal: 16, paddingVertical: 7, borderRadius: 17,
+  },
+  modeBtnActive: { backgroundColor: C.tint },
+  modeBtnText: { fontSize: 13, fontWeight: "600", fontFamily: "Inter_600SemiBold", color: "rgba(255,255,255,0.6)" },
+  modeBtnTextActive: { color: "#fff" },
   searchBar: {
     flexDirection: "row", alignItems: "center", gap: 10,
     backgroundColor: "#fff", borderRadius: 14,

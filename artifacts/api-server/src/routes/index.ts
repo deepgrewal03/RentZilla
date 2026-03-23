@@ -9,6 +9,7 @@ import chatsRouter from "./chats.js";
 import notificationsRouter from "./notifications.js";
 import favoritesRouter from "./favorites.js";
 import settingsRouter from "./settings.js";
+import rolesRouter from "./roles.js";
 
 const router: IRouter = Router();
 
@@ -22,5 +23,6 @@ router.use("/chats", chatsRouter);
 router.use("/notifications", notificationsRouter);
 router.use("/favorites", favoritesRouter);
 router.use("/settings", settingsRouter);
+router.use("/roles", rolesRouter);
 
 export default router;

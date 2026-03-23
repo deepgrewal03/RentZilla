@@ -40,8 +40,12 @@ router.get("/me", authMiddleware, async (req: Request, res: Response) => {
     res.json({
       id: user.id,
       phone: user.phone,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
       name: user.name,
       role: user.role,
+      roles: user.role === "both" ? ["customer", "provider"] : [user.role],
       location: user.location,
       profileImage: user.profileImage,
       rating: null,

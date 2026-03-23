@@ -18,7 +18,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import Colors from "@/constants/colors";
-import { useAuth } from "@/context/AuthContext";
+import { useAuth, type ActiveMode } from "@/context/AuthContext";
 import { useLang } from "@/context/LanguageContext";
 import { useApi } from "@/hooks/useApi";
 
@@ -100,7 +100,10 @@ interface PrivacyPrefs { profileVisibility: "public" | "private"; showPhone: boo
 interface Prefs { darkMode: "system" | "light" | "dark"; dataSaver: boolean; }
 
 export default function SettingsTab() {
-  const { user, logout, updateUser } = useAuth();
+  const { user, logout, updateUser, activeMode, setActiveMode } = useAuth();
+  const isBoth = user?.role === "both";
+  const isCustomerOnly = user?.role === "customer";
+  const isProviderOnly = user?.role === "provider";
   const { get, patch, del } = useApi();
   const { t, language, toggleLanguage } = useLang();
   const insets = useSafeAreaInsets();
@@ -336,6 +339,56 @@ export default function SettingsTab() {
           <SettingRow icon="flag-outline" label="Report a User" sublabel="Report abusive behaviour" onPress={() => Alert.alert("Report", "Email support@rentzilla.in to report a user.")} />
         </Card>
 
+        {/* ── Role Section ── */}
+        {isCustomerOnly && (
+          <>
+            <SectionHeader title="Grow Your Business" icon="rocket-outline" />
+            <Pressable
+              onPress={() => router.push("/become-provider")}
+              style={({ pressed }) => [ss.upgradeCard, { opacity: pressed ? 0.92 : 1 }]}
+            >
+              <View style={ss.upgradeLeft}>
+                <View style={ss.upgradeIconWrap}>
+                  <Ionicons name="car-outline" size={28} color={C.tint} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={ss.upgradeTitle}>Become a Provider</Text>
+                  <Text style={ss.upgradeDesc}>List your vehicles, equipment, and services. Start earning today.</Text>
+                </View>
+              </View>
+              <View style={ss.upgradeArrow}>
+                <Ionicons name="arrow-forward" size={18} color="#fff" />
+              </View>
+            </Pressable>
+          </>
+        )}
+
+        {isBoth && (
+          <>
+            <SectionHeader title="Active Mode" icon="swap-horizontal-outline" />
+            <Card>
+              <View style={ss.modeSwitcherCard}>
+                <Pressable
+                  onPress={() => { Haptics.selectionAsync(); setActiveMode("customer"); }}
+                  style={[ss.modeOption, activeMode === "customer" && ss.modeOptionActive]}
+                >
+                  <Ionicons name="person-outline" size={22} color={activeMode === "customer" ? "#fff" : C.text} />
+                  <Text style={[ss.modeOptionLabel, activeMode === "customer" && ss.modeOptionLabelActive]}>Customer</Text>
+                  <Text style={[ss.modeOptionDesc, activeMode === "customer" && { color: "rgba(255,255,255,0.7)" }]}>Browse & book</Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => { Haptics.selectionAsync(); setActiveMode("provider"); }}
+                  style={[ss.modeOption, activeMode === "provider" && ss.modeOptionActive]}
+                >
+                  <Ionicons name="car-outline" size={22} color={activeMode === "provider" ? "#fff" : C.text} />
+                  <Text style={[ss.modeOptionLabel, activeMode === "provider" && ss.modeOptionLabelActive]}>Provider</Text>
+                  <Text style={[ss.modeOptionDesc, activeMode === "provider" && { color: "rgba(255,255,255,0.7)" }]}>Manage & earn</Text>
+                </Pressable>
+              </View>
+            </Card>
+          </>
+        )}
+
         {/* 5. Language & Region */}
         <SectionHeader title="Language & Region" icon="language-outline" />
         <Card>
@@ -485,4 +538,34 @@ const ss = StyleSheet.create({
 
   footer: { alignItems: "center", gap: 4, paddingTop: 24 },
   footerText: { fontSize: 12, color: C.textTertiary, fontFamily: "Inter_400Regular" },
+
+  upgradeCard: {
+    flexDirection: "row", alignItems: "center",
+    marginHorizontal: 16, borderRadius: 18, padding: 20,
+    backgroundColor: C.navy, gap: 14,
+    shadowColor: C.navy, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.25, shadowRadius: 12, elevation: 6,
+  },
+  upgradeLeft: { flex: 1, flexDirection: "row", alignItems: "center", gap: 14 },
+  upgradeIconWrap: {
+    width: 52, height: 52, borderRadius: 14,
+    backgroundColor: "rgba(232,116,42,0.15)",
+    alignItems: "center", justifyContent: "center",
+  },
+  upgradeTitle: { fontSize: 16, fontWeight: "700", fontFamily: "Inter_700Bold", color: "#fff" },
+  upgradeDesc: { fontSize: 12, color: "rgba(255,255,255,0.65)", fontFamily: "Inter_400Regular", marginTop: 3, lineHeight: 17 },
+  upgradeArrow: {
+    width: 36, height: 36, borderRadius: 18,
+    backgroundColor: C.tint, alignItems: "center", justifyContent: "center",
+  },
+
+  modeSwitcherCard: { flexDirection: "row", padding: 6, gap: 6 },
+  modeOption: {
+    flex: 1, alignItems: "center", justifyContent: "center",
+    paddingVertical: 16, borderRadius: 12, gap: 4,
+    backgroundColor: C.backgroundTertiary,
+  },
+  modeOptionActive: { backgroundColor: C.tint },
+  modeOptionLabel: { fontSize: 14, fontWeight: "700", fontFamily: "Inter_700Bold", color: C.text },
+  modeOptionLabelActive: { color: "#fff" },
+  modeOptionDesc: { fontSize: 11, color: C.textTertiary, fontFamily: "Inter_400Regular" },
 });
