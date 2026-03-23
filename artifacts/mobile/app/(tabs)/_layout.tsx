@@ -70,6 +70,7 @@ export default function TabLayout() {
         name="favorites"
         options={{
           title: t.favourites,
+          href: null,
           tabBarIcon: ({ color }) => <Feather name="heart" size={22} color={color} />,
         }}
       />
@@ -85,6 +86,7 @@ export default function TabLayout() {
         name="messages"
         options={{
           title: t.messages,
+          href: null,
           tabBarIcon: ({ color }) => <Feather name="message-circle" size={22} color={color} />,
         }}
       />
