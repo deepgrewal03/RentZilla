@@ -40,7 +40,6 @@ export function SideDrawer({ visible, onClose }: Props) {
     { icon: "heart-outline", labelKey: "favourites", path: "/(tabs)/favorites" },
     { icon: "chatbubble-outline", labelKey: "messages", path: "/(tabs)/messages" },
     { icon: "person-outline", labelKey: "myProfile", path: "/(tabs)/profile", dividerBefore: true },
-    { icon: "settings-outline", labelKey: "settings", path: "/settings" },
   ] as const;
 
   useEffect(() => {
