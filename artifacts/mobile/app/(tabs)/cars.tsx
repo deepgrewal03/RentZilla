@@ -1,40 +1,46 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  TextInput, ActivityIndicator, Animated, Alert, Platform,
-  Dimensions, KeyboardAvoidingView, Modal,
+  ActivityIndicator, Animated, Alert, Platform,
+  Dimensions, PanResponder, StatusBar,
 } from "react-native";
-import { Feather, MaterialIcons } from "@expo/vector-icons";
+import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Location from "expo-location";
 import Colors from "@/constants/colors";
 import { useAuth } from "@/context/AuthContext";
 import { useApi } from "@/hooks/useApi";
+import { LocationSearchModal, type LocationResult } from "@/components/rides/LocationSearchModal";
+import { SchedulePickerModal, type ScheduledTime } from "@/components/rides/SchedulePickerModal";
 
 const C = Colors.light;
 const { width: SW, height: SH } = Dimensions.get("window");
-const MAP_H = Math.min(SH * 0.38, 300);
 
 const ORANGE = "#E8742A";
 const NAVY = "#0F1F3D";
 const GOLD = "#F5C842";
 const GREEN = "#22C55E";
 const RED = "#EF4444";
+const PURPLE = "#8B5CF6";
 
-type RideStatus = "idle" | "estimating" | "booking" | "requested" | "accepted" | "ongoing" | "completed";
+// Bottom sheet snap points
+const SHEET_COLLAPSED = SH * 0.52;  // how much the sheet peeks from bottom
+const SHEET_EXPANDED  = SH * 0.72;
+const MAP_HEIGHT = SH - SHEET_COLLAPSED - (Platform.OS === "android" ? 32 : 0);
 
-interface Coords { lat: number; lng: number; address?: string }
+type RideStatus = "idle" | "booking" | "requested" | "scheduled" | "accepted" | "ongoing" | "completed";
+
+interface Coords { lat: number; lng: number; address: string }
 interface RideEstimate { distanceKm: number; durationMin: number; fare: number }
 interface ActiveRide {
-  id: string; status: string; fare: number;
+  id: string; status: string; fare: number; ride_type?: string; scheduled_at?: string;
   pickup_address?: string; drop_address?: string;
   distance_km?: number; duration_min?: number;
   driver_name?: string; driver_phone?: string;
   driver_lat?: number; driver_lng?: number;
   rider_name?: string; rider_phone?: string;
-  pickup_lat: number; pickup_lng: number;
-  drop_lat: number; drop_lng: number;
+  pickup_lat: number; pickup_lng: number; drop_lat: number; drop_lng: number;
 }
 interface RideRequest {
   id: string; pickup_address?: string; drop_address?: string;
@@ -43,124 +49,277 @@ interface RideRequest {
 }
 
 const VEHICLE_TYPES = [
-  { id: "Bike", label: "Bike", icon: "🏍️", tagline: "Fastest" },
-  { id: "Auto", label: "Auto", icon: "🛺", tagline: "Affordable" },
-  { id: "Car", label: "Car", icon: "🚗", tagline: "Comfortable" },
-  { id: "SUV", label: "SUV", icon: "🚙", tagline: "Spacious" },
+  { id: "Bike",  icon: "🏍️", label: "Bike",  tagline: "Fastest",     perKm: 6,  baseFare: 30, color: "#06B6D4" },
+  { id: "Auto",  icon: "🛺", label: "Auto",  tagline: "Affordable",  perKm: 8,  baseFare: 40, color: "#10B981" },
+  { id: "Car",   icon: "🚗", label: "Car",   tagline: "Comfortable", perKm: 12, baseFare: 50, color: ORANGE },
+  { id: "SUV",   icon: "🚙", label: "SUV",   tagline: "Spacious",    perKm: 16, baseFare: 70, color: PURPLE },
+  { id: "Van",   icon: "🚐", label: "Van",   tagline: "Group",       perKm: 20, baseFare: 90, color: "#EC4899" },
 ];
 
-function fmt(n?: number | null) { return n ? n.toFixed(1) : "—"; }
+function fmt(n?: number | null, d = 1) { return n != null ? n.toFixed(d) : "—"; }
+function pad(n: number) { return String(n).padStart(2, "0"); }
 
-// ─── Animated Map Background ───────────────────────────────────────────────
-function MapCanvas({ pickup, drop }: { pickup?: Coords; drop?: Coords }) {
-  const pulse = useRef(new Animated.Value(1)).current;
+// ─── Punjab Map Canvas ──────────────────────────────────────────────────────
+function PunjabMapCanvas({ pickup, drop, driverCoords, status }: {
+  pickup?: Coords; drop?: Coords;
+  driverCoords?: { lat: number; lng: number };
+  status?: string;
+}) {
+  const driverAnim = useRef(new Animated.Value(0)).current;
+  const pickupPulse = useRef(new Animated.Value(1)).current;
+
   useEffect(() => {
     Animated.loop(Animated.sequence([
-      Animated.timing(pulse, { toValue: 1.25, duration: 900, useNativeDriver: false }),
-      Animated.timing(pulse, { toValue: 1, duration: 900, useNativeDriver: false }),
+      Animated.timing(pickupPulse, { toValue: 1.3, duration: 900, useNativeDriver: false }),
+      Animated.timing(pickupPulse, { toValue: 1,   duration: 900, useNativeDriver: false }),
+    ])).start();
+    Animated.loop(Animated.sequence([
+      Animated.timing(driverAnim, { toValue: 1, duration: 2500, useNativeDriver: false }),
+      Animated.timing(driverAnim, { toValue: 0, duration: 2500, useNativeDriver: false }),
     ])).start();
   }, []);
 
-  const gridLines = Array.from({ length: 9 }, (_, i) => i);
+  // District "stars" on the map
+  const DISTRICTS = [
+    { x: 0.22, y: 0.35, label: "Amritsar" },
+    { x: 0.48, y: 0.28, label: "Gurdaspur" },
+    { x: 0.55, y: 0.55, label: "Chandigarh" },
+    { x: 0.30, y: 0.62, label: "Ludhiana" },
+    { x: 0.72, y: 0.70, label: "Patiala" },
+    { x: 0.18, y: 0.72, label: "Firozpur" },
+    { x: 0.65, y: 0.40, label: "Hoshiarpur" },
+    { x: 0.42, y: 0.78, label: "Bathinda" },
+  ];
 
   return (
-    <LinearGradient colors={["#0d1b35", "#1a2f55", "#0d1b35"]} style={styles.mapCanvas}>
-      {/* Grid streets */}
-      {gridLines.map(i => (
-        <View key={`h${i}`} style={[styles.gridLine, { top: (i + 1) * (MAP_H / 10), width: "100%" }]} />
+    <LinearGradient colors={["#0a1628", "#0d1f3e", "#091525"]} style={[styles.mapCanvas, { height: MAP_HEIGHT }]}>
+      {/* Subtle grid */}
+      {[...Array(12)].map((_, i) => (
+        <View key={`h${i}`} style={[styles.gridH, { top: `${(i + 1) * 8}%` }]} />
       ))}
-      {gridLines.map(i => (
-        <View key={`v${i}`} style={[styles.gridLine, { left: (i + 1) * (SW / 10), height: "100%", width: 1 }]} />
+      {[...Array(8)].map((_, i) => (
+        <View key={`v${i}`} style={[styles.gridV, { left: `${(i + 1) * 12}%` }]} />
       ))}
 
-      {/* Route line */}
+      {/* District dots */}
+      {DISTRICTS.map(d => (
+        <View key={d.label} style={[styles.districtDot, { left: `${d.x * 100}%`, top: `${d.y * 100}%` }]}>
+          <View style={styles.districtCircle} />
+          <Text style={styles.districtLabel}>{d.label}</Text>
+        </View>
+      ))}
+
+      {/* Route arc */}
       {pickup && drop && (
         <LinearGradient
-          colors={[ORANGE, GOLD]}
+          colors={[GREEN + "cc", ORANGE + "cc"]}
           start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-          style={[styles.routeLine, { width: SW * 0.5, left: SW * 0.2, top: MAP_H * 0.45 }]}
+          style={[styles.routeLine, { left: SW * 0.2, top: "45%", width: SW * 0.55 }]}
         />
       )}
 
       {/* Pickup pin */}
       {pickup && (
-        <View style={[styles.mapPin, { bottom: 30, left: SW * 0.28 }]}>
-          <View style={[styles.pinDot, { backgroundColor: GREEN }]} />
-          <View style={[styles.pinLabel, { borderColor: GREEN }]}>
-            <Text style={styles.pinText} numberOfLines={1}>Pickup</Text>
+        <View style={styles.pickupPin}>
+          <Animated.View style={[styles.pickupRing, { transform: [{ scale: pickupPulse }] }]} />
+          <View style={styles.pickupDot} />
+          <View style={styles.pinBubble}>
+            <Text style={styles.pinBubbleText} numberOfLines={1}>
+              {pickup.address.split(",")[0]}
+            </Text>
           </View>
         </View>
       )}
 
       {/* Drop pin */}
       {drop && (
-        <Animated.View style={[styles.mapPin, { top: 26, right: SW * 0.18, transform: [{ scale: pulse }] }]}>
-          <View style={[styles.pinDot, { backgroundColor: ORANGE }]} />
-          <View style={[styles.pinLabel, { borderColor: ORANGE }]}>
-            <Text style={styles.pinText} numberOfLines={1}>Drop</Text>
+        <View style={styles.dropPin}>
+          <View style={styles.dropDot} />
+          <View style={[styles.pinBubble, { backgroundColor: ORANGE + "ee", borderColor: ORANGE }]}>
+            <Text style={styles.pinBubbleText} numberOfLines={1}>
+              {drop.address.split(",")[0]}
+            </Text>
           </View>
+        </View>
+      )}
+
+      {/* Moving driver */}
+      {driverCoords && (["accepted", "ongoing"].includes(status ?? "")) && (
+        <Animated.View style={[styles.driverPin, {
+          left: driverAnim.interpolate({ inputRange: [0, 1], outputRange: [SW * 0.3, SW * 0.55] }),
+          top: MAP_HEIGHT * 0.4,
+        }]}>
+          <Text style={styles.driverPinIcon}>🚗</Text>
         </Animated.View>
       )}
 
-      {/* Location dot when no destination */}
-      {pickup && !drop && (
-        <Animated.View style={[styles.locationPing, { transform: [{ scale: pulse }] }]}>
-          <View style={styles.locationDot} />
-        </Animated.View>
-      )}
+      {/* Gradient overlay at bottom for sheet bleed */}
+      <LinearGradient
+        colors={["transparent", "rgba(8,15,30,0.5)"]}
+        style={styles.mapOverlay}
+        pointerEvents="none"
+      />
 
       {/* Coordinates badge */}
       {pickup && (
         <View style={styles.coordBadge}>
-          <Feather name="map-pin" size={11} color={GOLD} />
-          <Text style={styles.coordText}>
-            {pickup.lat.toFixed(4)}, {pickup.lng.toFixed(4)}
-          </Text>
+          <Feather name="navigation" size={10} color={GOLD} />
+          <Text style={styles.coordText}>{fmt(pickup.lat, 4)}, {fmt(pickup.lng, 4)}</Text>
         </View>
       )}
     </LinearGradient>
   );
 }
 
-// ─── Status badge ────────────────────────────────────────────────────────
-function StatusBadge({ status }: { status: string }) {
-  const cfg: Record<string, { color: string; label: string; icon: string }> = {
-    requested: { color: GOLD, label: "Finding Driver…", icon: "clock" },
-    accepted: { color: GREEN, label: "Driver Assigned", icon: "user-check" },
-    ongoing: { color: ORANGE, label: "On the Way", icon: "navigation" },
-    completed: { color: C.textSecondary, label: "Completed", icon: "check-circle" },
-  };
-  const s = cfg[status] ?? cfg.requested;
+// ─── STATUS STEP BAR ─────────────────────────────────────────────────────────
+function RideSteps({ status }: { status: string }) {
+  const STEPS = [
+    { key: "requested", label: "Finding\nDriver" },
+    { key: "accepted",  label: "Driver\nAssigned" },
+    { key: "ongoing",   label: "On the\nWay" },
+    { key: "completed", label: "Arrived" },
+  ];
+  const currentIdx = STEPS.findIndex(s => s.key === status);
+
   return (
-    <View style={[styles.statusBadge, { borderColor: s.color + "44", backgroundColor: s.color + "18" }]}>
-      <Feather name={s.icon as any} size={14} color={s.color} />
-      <Text style={[styles.statusLabel, { color: s.color }]}>{s.label}</Text>
+    <View style={styles.stepsRow}>
+      {STEPS.map((step, i) => {
+        const done = i < currentIdx;
+        const active = i === currentIdx;
+        return (
+          <React.Fragment key={step.key}>
+            <View style={styles.stepItem}>
+              <View style={[
+                styles.stepDot,
+                done && { backgroundColor: GREEN },
+                active && { backgroundColor: ORANGE, borderColor: ORANGE, borderWidth: 2 },
+              ]}>
+                {done && <Feather name="check" size={10} color="#fff" />}
+              </View>
+              <Text style={[styles.stepLabel, active && { color: ORANGE }]}>{step.label}</Text>
+            </View>
+            {i < STEPS.length - 1 && (
+              <View style={[styles.stepLine, done && { backgroundColor: GREEN }]} />
+            )}
+          </React.Fragment>
+        );
+      })}
     </View>
   );
 }
 
-// ─── MAIN COMPONENT ──────────────────────────────────────────────────────
+// ─── VEHICLE CARD ─────────────────────────────────────────────────────────────
+function VehicleCard({
+  v, selected, estimate, onPress, distanceKm,
+}: {
+  v: typeof VEHICLE_TYPES[0]; selected: boolean;
+  estimate: RideEstimate | null;
+  onPress: () => void; distanceKm?: number;
+}) {
+  const fare = distanceKm != null
+    ? Math.max(v.baseFare, Math.round(v.baseFare + distanceKm * v.perKm))
+    : null;
+  const eta = estimate ? estimate.durationMin + (v.id === "Bike" ? -3 : v.id === "Auto" ? -1 : v.id === "SUV" ? 2 : v.id === "Van" ? 4 : 0) : null;
+
+  return (
+    <TouchableOpacity
+      style={[styles.vehicleCard, selected && { borderColor: v.color, backgroundColor: v.color + "12" }]}
+      onPress={onPress}
+      activeOpacity={0.75}
+    >
+      {selected && (
+        <View style={[styles.vehicleCheck, { backgroundColor: v.color }]}>
+          <Feather name="check" size={10} color="#fff" />
+        </View>
+      )}
+      <Text style={styles.vehicleEmoji}>{v.icon}</Text>
+      <Text style={[styles.vehicleName, selected && { color: v.color }]}>{v.label}</Text>
+      <Text style={styles.vehicleTagline}>{v.tagline}</Text>
+      {fare != null ? (
+        <Text style={[styles.vehicleFare, selected && { color: v.color }]}>₹{fare}</Text>
+      ) : (
+        <View style={styles.vehicleFareSkeleton} />
+      )}
+      {eta != null && (
+        <Text style={styles.vehicleEta}>{Math.max(2, eta)} min</Text>
+      )}
+    </TouchableOpacity>
+  );
+}
+
+// ─── ANIMATED BOTTOM SHEET ───────────────────────────────────────────────────
+function BottomSheet({ children, isExpanded, onToggle }: {
+  children: React.ReactNode; isExpanded: boolean; onToggle: () => void;
+}) {
+  const sheetY = useRef(new Animated.Value(SHEET_COLLAPSED)).current;
+
+  useEffect(() => {
+    Animated.spring(sheetY, {
+      toValue: isExpanded ? SHEET_EXPANDED : SHEET_COLLAPSED,
+      tension: 60, friction: 12, useNativeDriver: false,
+    }).start();
+  }, [isExpanded]);
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dy) > 8,
+      onPanResponderRelease: (_, g) => {
+        if (g.dy < -30) {
+          Animated.spring(sheetY, { toValue: SHEET_EXPANDED, tension: 60, friction: 12, useNativeDriver: false }).start();
+        } else if (g.dy > 30) {
+          Animated.spring(sheetY, { toValue: SHEET_COLLAPSED, tension: 60, friction: 12, useNativeDriver: false }).start();
+        }
+      },
+    })
+  ).current;
+
+  return (
+    <Animated.View style={[styles.bottomSheet, { height: sheetY }]}>
+      {/* Drag handle */}
+      <TouchableOpacity {...panResponder.panHandlers} onPress={onToggle} style={styles.handleArea} activeOpacity={1}>
+        <View style={styles.handleBar} />
+      </TouchableOpacity>
+      <ScrollView
+        contentContainerStyle={{ paddingBottom: 32 }}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
+        {children}
+      </ScrollView>
+    </Animated.View>
+  );
+}
+
+// ─── MAIN SCREEN ─────────────────────────────────────────────────────────────
 export default function CarsScreen() {
   const insets = useSafeAreaInsets();
   const { user, activeMode } = useAuth();
   const { get, post, patch } = useApi();
 
   const isProvider = (user?.role === "provider" || user?.role === "both") && activeMode === "provider";
+  const isProviderUser = user?.role === "provider" || user?.role === "both";
   const [tab, setTab] = useState<"rider" | "driver">(isProvider ? "driver" : "rider");
 
-  // ── RIDER STATE ──
-  const DEFAULT_COORDS: Coords = { lat: 30.7333, lng: 76.7794, address: "Chandigarh, Punjab" };
-  const [pickup, setPickup] = useState<Coords>(DEFAULT_COORDS);
-  const [dropInput, setDropInput] = useState("");
-  const [drop, setDrop] = useState<Coords | null>(null);
+  // ── Rider State ──
+  const DEFAULT: Coords = { lat: 30.7333, lng: 76.7794, address: "Chandigarh, Punjab" };
+  const [pickup, setPickup]         = useState<Coords>(DEFAULT);
+  const [drop, setDrop]             = useState<Coords | null>(null);
   const [vehicleType, setVehicleType] = useState("Car");
-  const [estimate, setEstimate] = useState<RideEstimate | null>(null);
+  const [estimate, setEstimate]     = useState<RideEstimate | null>(null);
   const [rideStatus, setRideStatus] = useState<RideStatus>("idle");
   const [activeRide, setActiveRide] = useState<ActiveRide | null>(null);
   const [locLoading, setLocLoading] = useState(true);
+  const [rideMode, setRideMode]     = useState<"instant" | "scheduled">("instant");
+  const [scheduledTime, setScheduledTime] = useState<ScheduledTime | null>(null);
+  const [sheetExpanded, setSheetExpanded] = useState(false);
 
-  // ── DRIVER STATE ──
-  const [isOnline, setIsOnline] = useState(false);
+  // ── Modals ──
+  const [pickupModalOpen,  setPickupModalOpen]  = useState(false);
+  const [dropModalOpen,    setDropModalOpen]    = useState(false);
+  const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
+
+  // ── Driver State ──
+  const [isOnline, setIsOnline]           = useState(false);
   const [driverRequests, setDriverRequests] = useState<RideRequest[]>([]);
   const [driverActiveRide, setDriverActiveRide] = useState<ActiveRide | null>(null);
   const [driverLoading, setDriverLoading] = useState(false);
@@ -168,65 +327,70 @@ export default function CarsScreen() {
 
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // ── Get current location ──
+  // ── Location ──
   useEffect(() => {
     (async () => {
       setLocLoading(true);
       try {
         const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status !== "granted") {
-          setPickup({ lat: 30.7333, lng: 76.7794, address: "Chandigarh, Punjab" });
-          return;
-        }
+        if (status !== "granted") return;
         const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-        const { latitude, longitude } = loc.coords;
-        let address = `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
+        const { latitude: lat, longitude: lng } = loc.coords;
+        let address = "Current Location";
         try {
-          const geo = await Location.reverseGeocodeAsync({ latitude, longitude });
+          const geo = await Location.reverseGeocodeAsync({ latitude: lat, longitude: lng });
           if (geo[0]) {
             const g = geo[0];
-            address = [g.name, g.street, g.city, g.region].filter(Boolean).join(", ").substring(0, 50);
+            address = [g.name, g.city, g.region].filter(Boolean).join(", ").substring(0, 50);
           }
         } catch {}
-        setPickup({ lat: latitude, lng: longitude, address });
-      } catch {
-        setPickup({ lat: 30.7333, lng: 76.7794, address: "Chandigarh, Punjab" });
-      } finally {
-        setLocLoading(false);
-      }
+        setPickup({ lat, lng, address });
+      } catch {}
+      finally { setLocLoading(false); }
     })();
   }, []);
 
-  // ── Poll for active ride (rider) ──
+  // ── Estimate when drop changes ──
+  useEffect(() => {
+    if (!drop) { setEstimate(null); return; }
+    (async () => {
+      try {
+        const data = await post<RideEstimate>("/rides/estimate", {
+          pickupLat: pickup.lat, pickupLng: pickup.lng,
+          dropLat: drop.lat, dropLng: drop.lng, vehicleType,
+        });
+        setEstimate(data);
+        setSheetExpanded(true);
+      } catch {}
+    })();
+  }, [drop, vehicleType]);
+
+  // ── Poll rider active ride ──
   useEffect(() => {
     if (tab !== "rider") return;
     const check = async () => {
-      if (rideStatus === "idle" || rideStatus === "completed") return;
+      if (rideStatus === "idle") return;
       try {
         const data = await get<ActiveRide | null>("/rides/active");
-        if (data) {
-          setActiveRide(data);
-          setRideStatus(data.status as RideStatus);
-        } else {
-          setActiveRide(null);
-          if (rideStatus !== "idle") setRideStatus("idle");
-        }
+        if (data) { setActiveRide(data); setRideStatus(data.status as RideStatus); }
+        else if (rideStatus === "completed") { /* stay on completed view */ }
+        else { setActiveRide(null); setRideStatus("idle"); }
       } catch {}
     };
     pollRef.current = setInterval(check, 4000);
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, [tab, rideStatus]);
 
-  // ── Poll for driver requests / active ride ──
+  // ── Poll driver requests + active ride ──
   useEffect(() => {
     if (tab !== "driver" || !isOnline) return;
     const check = async () => {
       try {
-        const [requests, active] = await Promise.all([
+        const [reqs, active] = await Promise.all([
           get<RideRequest[]>("/rides/driver/requests"),
           get<ActiveRide | null>("/rides/driver/active"),
         ]);
-        setDriverRequests(requests ?? []);
+        setDriverRequests(reqs ?? []);
         setDriverActiveRide(active);
       } catch {}
     };
@@ -235,7 +399,7 @@ export default function CarsScreen() {
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, [tab, isOnline]);
 
-  // ── Location update for drivers ──
+  // ── Driver location broadcast ──
   useEffect(() => {
     if (tab !== "driver" || !isOnline) return;
     let watchSub: Location.LocationSubscription | null = null;
@@ -244,52 +408,26 @@ export default function CarsScreen() {
       if (status !== "granted") return;
       watchSub = await Location.watchPositionAsync(
         { accuracy: Location.Accuracy.High, timeInterval: 4000, distanceInterval: 10 },
-        (loc) => {
-          post("/rides/driver/location", { lat: loc.coords.latitude, lng: loc.coords.longitude }).catch(() => {});
-        }
+        (loc) => { post("/rides/driver/location", { lat: loc.coords.latitude, lng: loc.coords.longitude }).catch(() => {}); }
       );
     })();
     return () => { watchSub?.remove(); };
   }, [tab, isOnline]);
 
-  // ── Get estimate when drop changes ──
-  useEffect(() => {
-    if (!pickup || !drop) { setEstimate(null); return; }
-    (async () => {
-      try {
-        const data = await post<RideEstimate>("/rides/estimate", {
-          pickupLat: pickup.lat, pickupLng: pickup.lng,
-          dropLat: drop.lat, dropLng: drop.lng, vehicleType,
-        });
-        setEstimate(data);
-      } catch {}
-    })();
-  }, [drop, vehicleType, pickup]);
-
-  // ── Fake geocode from text ──
-  const geocodeDrop = useCallback(async (text: string) => {
-    if (!text.trim()) return;
-    const base = pickup;
-    // Generate 5-15 km offset in a random direction
-    const kmToLat = 1 / 111;
-    const kmToLng = 1 / (111 * Math.cos((base.lat * Math.PI) / 180));
-    const dist = 5 + Math.random() * 10;
-    const angle = Math.random() * 2 * Math.PI;
-    const offset = { lat: dist * kmToLat * Math.sin(angle), lng: dist * kmToLng * Math.cos(angle) };
-    setDrop({ lat: base.lat + offset.lat, lng: base.lng + offset.lng, address: text.trim() });
-  }, [pickup]);
-
+  // ── Booking ──
   const handleBookRide = async () => {
-    if (!pickup || !drop) { Alert.alert("Missing location", "Please enter a destination"); return; }
+    if (!drop) { Alert.alert("Destination required", "Please select a destination first"); return; }
+    if (rideMode === "scheduled" && !scheduledTime) { setScheduleModalOpen(true); return; }
     setRideStatus("booking");
     try {
       const data = await post<ActiveRide>("/rides/request", {
         pickupLat: pickup.lat, pickupLng: pickup.lng, pickupAddress: pickup.address,
         dropLat: drop.lat, dropLng: drop.lng, dropAddress: drop.address,
         vehicleType,
+        ...(rideMode === "scheduled" && scheduledTime ? { scheduledAt: scheduledTime.date.toISOString() } : {}),
       });
       setActiveRide(data);
-      setRideStatus("requested");
+      setRideStatus(rideMode === "scheduled" ? "scheduled" : "requested");
     } catch (e: any) {
       setRideStatus("idle");
       Alert.alert("Error", e?.message ?? "Could not book ride");
@@ -300,8 +438,8 @@ export default function CarsScreen() {
     if (!activeRide) return;
     try {
       await patch(`/rides/${activeRide.id}/cancel`, {});
-      setActiveRide(null);
-      setRideStatus("idle");
+      setActiveRide(null); setRideStatus("idle"); setDrop(null);
+      setScheduledTime(null); setSheetExpanded(false);
     } catch {}
   };
 
@@ -309,7 +447,7 @@ export default function CarsScreen() {
     setDriverLoading(true);
     try {
       await patch("/rides/driver/status", { isOnline: !isOnline });
-      setIsOnline(!isOnline);
+      setIsOnline(v => !v);
       if (isOnline) { setDriverRequests([]); setDriverActiveRide(null); }
     } catch {}
     setDriverLoading(false);
@@ -321,9 +459,8 @@ export default function CarsScreen() {
       setSelectedRequest(null);
       const active = await get<ActiveRide | null>("/rides/driver/active");
       setDriverActiveRide(active);
-    } catch (e: any) {
-      Alert.alert("Oops", e?.message ?? "Could not accept ride");
-    }
+      setDriverRequests([]);
+    } catch (e: any) { Alert.alert("Oops", e?.message ?? "Could not accept ride"); }
   };
 
   const handleStartRide = async () => {
@@ -338,210 +475,300 @@ export default function CarsScreen() {
     setDriverActiveRide(null);
   };
 
-  // ── RIDER UI ────────────────────────────────────────────────────────────
-  const renderRiderView = () => {
-    const hasActiveRide = ["requested", "accepted", "ongoing"].includes(rideStatus);
-    return (
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-        <MapCanvas pickup={pickup ?? undefined} drop={drop ?? undefined} />
+  // ── RIDER UI ────────────────────────────────────────────────────────────────
+  const renderRider = () => {
+    const hasActiveRide = ["requested", "scheduled", "accepted", "ongoing", "completed"].includes(rideStatus);
+    const selectedVehicle = VEHICLE_TYPES.find(v => v.id === vehicleType) ?? VEHICLE_TYPES[2];
 
-        <ScrollView style={styles.sheet} contentContainerStyle={styles.sheetContent} keyboardShouldPersistTaps="handled">
+    return (
+      <>
+        {/* Map */}
+        <PunjabMapCanvas
+          pickup={pickup}
+          drop={drop ?? undefined}
+          driverCoords={activeRide?.driver_lat ? { lat: activeRide.driver_lat, lng: activeRide.driver_lng! } : undefined}
+          status={rideStatus}
+        />
+
+        {/* Bottom Sheet */}
+        <BottomSheet isExpanded={sheetExpanded} onToggle={() => setSheetExpanded(v => !v)}>
           {hasActiveRide && activeRide ? (
-            // ── Active ride tracker ──
-            <View>
-              <StatusBadge status={rideStatus} />
-              <View style={styles.card}>
-                <Text style={styles.cardTitle}>Your Ride</Text>
-                <View style={styles.rideRow}>
+            // ── Active ride view ──
+            <View style={styles.sheetInner}>
+              {rideStatus === "scheduled" ? (
+                <View style={styles.scheduledBanner}>
+                  <Feather name="clock" size={16} color={PURPLE} />
+                  <Text style={styles.scheduledText}>
+                    Scheduled for {activeRide.scheduled_at
+                      ? new Date(activeRide.scheduled_at).toLocaleString("en-IN", { weekday: "short", hour: "2-digit", minute: "2-digit" })
+                      : "—"}
+                  </Text>
+                </View>
+              ) : (
+                <RideSteps status={rideStatus} />
+              )}
+
+              <View style={styles.routeCard}>
+                <View style={styles.routeRow}>
                   <View style={[styles.routeDot, { backgroundColor: GREEN }]} />
-                  <Text style={styles.rideAddr} numberOfLines={2}>{activeRide.pickup_address ?? "Pickup"}</Text>
+                  <Text style={styles.routeAddr} numberOfLines={2}>{activeRide.pickup_address ?? "Pickup"}</Text>
                 </View>
-                <View style={styles.routeVLine} />
-                <View style={styles.rideRow}>
+                <View style={styles.routeConnector} />
+                <View style={styles.routeRow}>
                   <View style={[styles.routeDot, { backgroundColor: ORANGE }]} />
-                  <Text style={styles.rideAddr} numberOfLines={2}>{activeRide.drop_address ?? "Destination"}</Text>
+                  <Text style={styles.routeAddr} numberOfLines={2}>{activeRide.drop_address ?? "Destination"}</Text>
                 </View>
-                <View style={styles.fareRow}>
-                  <Text style={styles.fareLabel}>Fare</Text>
-                  <Text style={styles.fareValue}>₹{activeRide.fare}</Text>
-                  <Text style={styles.fareLabel}>{fmt(activeRide.distance_km)} km</Text>
-                  <Text style={styles.fareLabel}>{activeRide.duration_min} min</Text>
-                </View>
-                {activeRide.driver_name && (
-                  <View style={styles.driverCard}>
-                    <View style={styles.driverAvatar}>
-                      <Text style={styles.driverAvatarText}>{activeRide.driver_name[0]?.toUpperCase()}</Text>
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.driverName}>{activeRide.driver_name}</Text>
-                      <Text style={styles.driverPhone}>{activeRide.driver_phone ?? "—"}</Text>
-                    </View>
-                    <Feather name="phone" size={18} color={ORANGE} />
+
+                <View style={styles.rideMeta}>
+                  <View style={styles.rideMetaItem}>
+                    <Feather name="navigation" size={13} color={C.textSecondary} />
+                    <Text style={styles.rideMetaText}>{fmt(activeRide.distance_km)} km</Text>
                   </View>
-                )}
-                {rideStatus === "requested" && (
-                  <TouchableOpacity style={styles.cancelBtn} onPress={handleCancelRide}>
-                    <Text style={styles.cancelBtnText}>Cancel Ride</Text>
-                  </TouchableOpacity>
-                )}
-                {rideStatus === "completed" && (
-                  <TouchableOpacity style={styles.primaryBtn} onPress={() => { setRideStatus("idle"); setActiveRide(null); setDrop(null); setDropInput(""); setEstimate(null); }}>
-                    <Text style={styles.primaryBtnText}>Book Another</Text>
-                  </TouchableOpacity>
-                )}
+                  <View style={styles.rideMetaItem}>
+                    <Feather name="clock" size={13} color={C.textSecondary} />
+                    <Text style={styles.rideMetaText}>{activeRide.duration_min} min</Text>
+                  </View>
+                  <View style={styles.rideMetaItem}>
+                    <Text style={styles.rideMetaFare}>₹{activeRide.fare}</Text>
+                  </View>
+                </View>
               </View>
+
+              {activeRide.driver_name && (
+                <View style={styles.driverCard}>
+                  <View style={styles.driverAvatar}>
+                    <Text style={styles.driverAvatarText}>{activeRide.driver_name[0]?.toUpperCase()}</Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.driverName}>{activeRide.driver_name}</Text>
+                    <Text style={styles.driverSub}>Your driver • {selectedVehicle.icon} {vehicleType}</Text>
+                  </View>
+                  <TouchableOpacity style={styles.callBtn}>
+                    <Feather name="phone" size={16} color={GREEN} />
+                  </TouchableOpacity>
+                </View>
+              )}
+
+              {["requested", "scheduled"].includes(rideStatus) && (
+                <TouchableOpacity style={styles.cancelBtn} onPress={handleCancelRide}>
+                  <Text style={styles.cancelBtnText}>Cancel Ride</Text>
+                </TouchableOpacity>
+              )}
+              {rideStatus === "completed" && (
+                <TouchableOpacity style={styles.primaryBtn} onPress={() => {
+                  setRideStatus("idle"); setActiveRide(null); setDrop(null);
+                  setScheduledTime(null); setSheetExpanded(false);
+                }}>
+                  <Feather name="star" size={16} color="#fff" />
+                  <Text style={styles.primaryBtnText}>Done — Rate Ride</Text>
+                </TouchableOpacity>
+              )}
             </View>
           ) : (
             // ── Booking form ──
-            <View>
-              <Text style={styles.sheetTitle}>Book a Ride</Text>
-              {/* Pickup */}
-              <View style={styles.inputGroup}>
-                <View style={[styles.locationDotSmall, { backgroundColor: GREEN }]} />
-                <View style={styles.inputWrapper}>
-                  <Text style={styles.inputLabel}>Pickup</Text>
-                  <Text style={styles.inputValue} numberOfLines={1}>
-                    {locLoading ? "Detecting location…" : (pickup?.address ?? "Unknown")}
+            <View style={styles.sheetInner}>
+              {/* Ride mode toggle */}
+              <View style={styles.modeToggle}>
+                <TouchableOpacity
+                  style={[styles.modeBtn, rideMode === "instant" && styles.modeBtnActive]}
+                  onPress={() => setRideMode("instant")}
+                >
+                  <Feather name="zap" size={14} color={rideMode === "instant" ? "#fff" : C.textSecondary} />
+                  <Text style={[styles.modeBtnText, rideMode === "instant" && styles.modeBtnTextActive]}>
+                    Book Now
                   </Text>
-                </View>
-              </View>
-              <View style={styles.connector} />
-              {/* Drop */}
-              <View style={styles.inputGroup}>
-                <View style={[styles.locationDotSmall, { backgroundColor: ORANGE }]} />
-                <View style={styles.inputWrapper}>
-                  <Text style={styles.inputLabel}>Where to?</Text>
-                  <TextInput
-                    style={styles.dropInput}
-                    placeholder="Enter destination"
-                    placeholderTextColor={C.textTertiary}
-                    value={dropInput}
-                    onChangeText={setDropInput}
-                    onSubmitEditing={() => geocodeDrop(dropInput)}
-                    returnKeyType="search"
-                  />
-                </View>
-                {dropInput.length > 1 && (
-                  <TouchableOpacity style={styles.searchBtn} onPress={() => geocodeDrop(dropInput)}>
-                    <Feather name="arrow-right" size={16} color="#fff" />
-                  </TouchableOpacity>
-                )}
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.modeBtn, rideMode === "scheduled" && { ...styles.modeBtnActive, backgroundColor: PURPLE }]}
+                  onPress={() => setRideMode("scheduled")}
+                >
+                  <Feather name="clock" size={14} color={rideMode === "scheduled" ? "#fff" : C.textSecondary} />
+                  <Text style={[styles.modeBtnText, rideMode === "scheduled" && styles.modeBtnTextActive]}>
+                    Schedule
+                  </Text>
+                </TouchableOpacity>
               </View>
 
-              {/* Vehicle type */}
-              <Text style={styles.sectionLabel}>Vehicle Type</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
-                {VEHICLE_TYPES.map(v => (
-                  <TouchableOpacity
-                    key={v.id}
-                    style={[styles.vehicleChip, vehicleType === v.id && styles.vehicleChipActive]}
-                    onPress={() => setVehicleType(v.id)}
-                  >
-                    <Text style={styles.vehicleIcon}>{v.icon}</Text>
-                    <Text style={[styles.vehicleLabel, vehicleType === v.id && styles.vehicleChipActiveText]}>{v.label}</Text>
-                    <Text style={[styles.vehicleTagline, vehicleType === v.id && { color: "#fff" }]}>{v.tagline}</Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
+              {/* Scheduled time display */}
+              {rideMode === "scheduled" && (
+                <TouchableOpacity style={styles.scheduledTimeRow} onPress={() => setScheduleModalOpen(true)}>
+                  <Feather name="clock" size={16} color={PURPLE} />
+                  <Text style={styles.scheduledTimeText}>
+                    {scheduledTime ? scheduledTime.label : "Select date & time"}
+                  </Text>
+                  <Feather name="chevron-right" size={16} color={C.textTertiary} />
+                </TouchableOpacity>
+              )}
 
-              {/* Estimate card */}
+              {/* Location inputs */}
+              <View style={styles.locationBox}>
+                {/* Pickup */}
+                <TouchableOpacity style={styles.locationRow} onPress={() => setPickupModalOpen(true)}>
+                  <View style={[styles.locDot, { backgroundColor: GREEN }]} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.locLabel}>Pickup</Text>
+                    <Text style={styles.locValue} numberOfLines={1}>
+                      {locLoading ? "Detecting your location…" : pickup.address}
+                    </Text>
+                  </View>
+                  <Feather name="edit-2" size={14} color={C.textTertiary} />
+                </TouchableOpacity>
+
+                <View style={styles.locDivider}>
+                  <View style={styles.locLine} />
+                </View>
+
+                {/* Drop */}
+                <TouchableOpacity
+                  style={[styles.locationRow, !drop && styles.locationRowPlaceholder]}
+                  onPress={() => { setDropModalOpen(true); setSheetExpanded(true); }}
+                >
+                  <View style={[styles.locDot, { backgroundColor: drop ? ORANGE : C.border }]} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.locLabel}>Drop-off</Text>
+                    <Text style={[styles.locValue, !drop && { color: C.textTertiary }]} numberOfLines={1}>
+                      {drop ? drop.address : "Where are you going?"}
+                    </Text>
+                  </View>
+                  <Feather name={drop ? "edit-2" : "search"} size={14} color={drop ? C.textTertiary : ORANGE} />
+                </TouchableOpacity>
+              </View>
+
+              {/* Estimate summary (compact) */}
               {estimate && (
-                <LinearGradient colors={[NAVY, "#1a2f55"]} style={styles.estimateCard}>
-                  <View style={styles.estimateRow}>
-                    <View style={styles.estimateStat}>
-                      <Text style={styles.estimateVal}>{fmt(estimate.distanceKm)} km</Text>
-                      <Text style={styles.estimateKey}>Distance</Text>
-                    </View>
-                    <View style={styles.estimateDivider} />
-                    <View style={styles.estimateStat}>
-                      <Text style={styles.estimateVal}>{estimate.durationMin} min</Text>
-                      <Text style={styles.estimateKey}>Est. Time</Text>
-                    </View>
-                    <View style={styles.estimateDivider} />
-                    <View style={styles.estimateStat}>
-                      <Text style={[styles.estimateVal, { color: GOLD }]}>₹{estimate.fare}</Text>
-                      <Text style={styles.estimateKey}>Fare</Text>
-                    </View>
+                <LinearGradient colors={[NAVY, "#1a3060"]} style={styles.estimateBanner}>
+                  <View style={styles.estimateStat}>
+                    <Text style={styles.estimateVal}>{fmt(estimate.distanceKm)} km</Text>
+                    <Text style={styles.estimateKey}>Distance</Text>
+                  </View>
+                  <View style={styles.estimateDivider} />
+                  <View style={styles.estimateStat}>
+                    <Text style={styles.estimateVal}>{estimate.durationMin} min</Text>
+                    <Text style={styles.estimateKey}>Est. time</Text>
+                  </View>
+                  <View style={styles.estimateDivider} />
+                  <View style={styles.estimateStat}>
+                    <Text style={[styles.estimateVal, { color: GOLD }]}>
+                      ₹{estimate.fare}
+                    </Text>
+                    <Text style={styles.estimateKey}>Base fare</Text>
                   </View>
                 </LinearGradient>
               )}
 
+              {/* Vehicle selector */}
+              {drop && (
+                <>
+                  <Text style={styles.sectionLabel}>Choose Vehicle</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.vehicleRow}>
+                    {VEHICLE_TYPES.map(v => (
+                      <VehicleCard
+                        key={v.id} v={v}
+                        selected={vehicleType === v.id}
+                        estimate={estimate}
+                        distanceKm={estimate?.distanceKm}
+                        onPress={() => setVehicleType(v.id)}
+                      />
+                    ))}
+                  </ScrollView>
+                </>
+              )}
+
+              {/* Book button */}
               <TouchableOpacity
-                style={[styles.primaryBtn, (!pickup || !drop) && { opacity: 0.5 }]}
+                style={[
+                  styles.primaryBtn,
+                  { marginTop: 12, backgroundColor: rideMode === "scheduled" ? PURPLE : ORANGE },
+                  (!drop) && { opacity: 0.45 },
+                ]}
                 onPress={handleBookRide}
-                disabled={!pickup || !drop || rideStatus === "booking"}
+                disabled={!drop || rideStatus === "booking"}
               >
                 {rideStatus === "booking"
                   ? <ActivityIndicator color="#fff" />
                   : <>
-                    <Feather name="navigation" size={18} color="#fff" />
-                    <Text style={styles.primaryBtnText}>Book Ride</Text>
+                    <Feather name={rideMode === "scheduled" ? "clock" : "navigation"} size={18} color="#fff" />
+                    <Text style={styles.primaryBtnText}>
+                      {rideMode === "scheduled"
+                        ? (scheduledTime ? `Schedule for ${scheduledTime.label}` : "Schedule Ride")
+                        : "Book Ride Now"}
+                    </Text>
                   </>
                 }
               </TouchableOpacity>
             </View>
           )}
-        </ScrollView>
-      </KeyboardAvoidingView>
+        </BottomSheet>
+      </>
     );
   };
 
-  // ── DRIVER UI ───────────────────────────────────────────────────────────
-  const renderDriverView = () => (
-    <ScrollView style={{ flex: 1 }} contentContainerStyle={[styles.driverContainer, { paddingTop: 16 }]}>
-      {/* Online toggle card */}
+  // ── DRIVER UI ───────────────────────────────────────────────────────────────
+  const renderDriver = () => (
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={[styles.driverContainer]}>
+      {/* Online toggle */}
       <LinearGradient
-        colors={isOnline ? ["#166534", "#15803D"] : [NAVY, "#1a2f55"]}
+        colors={isOnline ? ["#14532D", "#15803D"] : [NAVY, "#1a3060"]}
         style={styles.onlineCard}
       >
         <View style={{ flex: 1 }}>
-          <Text style={styles.onlineStatus}>{isOnline ? "🟢 Online" : "⚫ Offline"}</Text>
-          <Text style={styles.onlineDesc}>
-            {isOnline ? "You are receiving ride requests" : "Go online to start earning"}
+          <View style={styles.onlineStatusRow}>
+            <View style={[styles.onlineLED, { backgroundColor: isOnline ? GREEN : C.textTertiary }]} />
+            <Text style={styles.onlineStatusText}>{isOnline ? "Online — Receiving Requests" : "Offline"}</Text>
+          </View>
+          <Text style={styles.onlineSubText}>
+            {isOnline ? "Ride requests appear below. Location is broadcasting." : "Go online to start earning."}
           </Text>
         </View>
         <TouchableOpacity
-          style={[styles.toggleBtn, { backgroundColor: isOnline ? RED : GREEN }]}
+          style={[styles.onlineToggleBtn, { backgroundColor: isOnline ? RED : GREEN }]}
           onPress={handleToggleOnline}
           disabled={driverLoading}
         >
           {driverLoading
             ? <ActivityIndicator color="#fff" size="small" />
-            : <Text style={styles.toggleBtnText}>{isOnline ? "Go Offline" : "Go Online"}</Text>
+            : <Text style={styles.onlineToggleText}>{isOnline ? "Go\nOffline" : "Go\nOnline"}</Text>
           }
         </TouchableOpacity>
       </LinearGradient>
 
       {/* Active ride for driver */}
       {driverActiveRide && (
-        <View style={[styles.card, { marginBottom: 16 }]}>
-          <View style={styles.cardHeader}>
-            <Text style={styles.cardTitle}>Active Ride</Text>
-            <StatusBadge status={driverActiveRide.status} />
+        <View style={styles.driverActiveCard}>
+          <View style={styles.driverActiveHeader}>
+            <Text style={styles.driverActiveTitle}>Active Ride</Text>
+            <View style={[styles.statusPill, { backgroundColor: driverActiveRide.status === "ongoing" ? `${ORANGE}22` : `${GREEN}22` }]}>
+              <Text style={[styles.statusPillText, { color: driverActiveRide.status === "ongoing" ? ORANGE : GREEN }]}>
+                {driverActiveRide.status === "ongoing" ? "On Trip" : "Assigned"}
+              </Text>
+            </View>
           </View>
-          <View style={styles.rideRow}>
+          <View style={styles.routeRow}>
             <View style={[styles.routeDot, { backgroundColor: GREEN }]} />
-            <Text style={styles.rideAddr}>{driverActiveRide.pickup_address ?? `${driverActiveRide.pickup_lat.toFixed(4)}, ${driverActiveRide.pickup_lng.toFixed(4)}`}</Text>
+            <Text style={styles.routeAddr}>{driverActiveRide.pickup_address ?? `${driverActiveRide.pickup_lat.toFixed(3)}, ${driverActiveRide.pickup_lng.toFixed(3)}`}</Text>
           </View>
-          <View style={styles.routeVLine} />
-          <View style={styles.rideRow}>
+          <View style={styles.routeConnector} />
+          <View style={styles.routeRow}>
             <View style={[styles.routeDot, { backgroundColor: ORANGE }]} />
-            <Text style={styles.rideAddr}>{driverActiveRide.drop_address ?? `${driverActiveRide.drop_lat.toFixed(4)}, ${driverActiveRide.drop_lng.toFixed(4)}`}</Text>
+            <Text style={styles.routeAddr}>{driverActiveRide.drop_address ?? `${driverActiveRide.drop_lat.toFixed(3)}, ${driverActiveRide.drop_lng.toFixed(3)}`}</Text>
           </View>
-          <View style={styles.fareRow}>
-            <Text style={styles.fareLabel}>Rider</Text>
-            <Text style={styles.fareValue}>{driverActiveRide.rider_name ?? "—"}</Text>
-            <Text style={[styles.fareValue, { color: GOLD }]}>₹{driverActiveRide.fare}</Text>
+          <View style={styles.rideMeta}>
+            <View style={styles.rideMetaItem}>
+              <Text style={styles.rideMetaText}>Rider: {driverActiveRide.rider_name ?? "—"}</Text>
+            </View>
+            <View style={styles.rideMetaItem}>
+              <Text style={styles.rideMetaFare}>₹{driverActiveRide.fare}</Text>
+            </View>
           </View>
           {driverActiveRide.status === "accepted" && (
             <TouchableOpacity style={[styles.primaryBtn, { backgroundColor: GREEN }]} onPress={handleStartRide}>
-              <Feather name="play" size={18} color="#fff" />
+              <Feather name="play" size={16} color="#fff" />
               <Text style={styles.primaryBtnText}>Start Trip</Text>
             </TouchableOpacity>
           )}
           {driverActiveRide.status === "ongoing" && (
             <TouchableOpacity style={[styles.primaryBtn, { backgroundColor: RED }]} onPress={handleEndRide}>
-              <Feather name="flag" size={18} color="#fff" />
+              <Feather name="flag" size={16} color="#fff" />
               <Text style={styles.primaryBtnText}>End Trip</Text>
             </TouchableOpacity>
           )}
@@ -550,252 +777,308 @@ export default function CarsScreen() {
 
       {/* Ride requests */}
       {isOnline && !driverActiveRide && (
-        <View>
+        <View style={{ paddingHorizontal: 16 }}>
           <Text style={styles.sectionLabel}>
-            {driverRequests.length ? `${driverRequests.length} Ride Request${driverRequests.length > 1 ? "s" : ""}` : "No ride requests yet"}
+            {driverRequests.length ? `${driverRequests.length} Ride Request${driverRequests.length > 1 ? "s" : ""}` : "Waiting for requests…"}
           </Text>
           {driverRequests.length === 0 && (
-            <View style={styles.emptyState}>
-              <Text style={styles.emptyIcon}>🚗</Text>
-              <Text style={styles.emptyTitle}>Waiting for requests…</Text>
-              <Text style={styles.emptyDesc}>Stay online and ride requests will appear here</Text>
+            <View style={styles.driverEmptyState}>
+              <Text style={{ fontSize: 44 }}>🚗</Text>
+              <Text style={styles.emptyTitle}>Standby for rides</Text>
+              <Text style={styles.emptyDesc}>New requests will pop up here instantly</Text>
             </View>
           )}
           {driverRequests.map(req => (
-            <TouchableOpacity key={req.id} style={styles.requestCard} onPress={() => setSelectedRequest(req)}>
+            <View key={req.id} style={styles.requestCard}>
               <View style={{ flex: 1 }}>
-                <View style={styles.rideRow}>
+                <View style={styles.routeRow}>
                   <View style={[styles.routeDot, { backgroundColor: GREEN }]} />
-                  <Text style={styles.rideAddr} numberOfLines={1}>{req.pickup_address ?? `${req.pickup_lat.toFixed(3)}, ${req.pickup_lng.toFixed(3)}`}</Text>
+                  <Text style={styles.routeAddr} numberOfLines={1}>{req.pickup_address ?? `${req.pickup_lat.toFixed(3)}, ${req.pickup_lng.toFixed(3)}`}</Text>
                 </View>
-                <View style={styles.rideRow}>
+                <View style={styles.routeConnector} />
+                <View style={styles.routeRow}>
                   <View style={[styles.routeDot, { backgroundColor: ORANGE }]} />
-                  <Text style={styles.rideAddr} numberOfLines={1}>{req.drop_address ?? `${req.drop_lat.toFixed(3)}, ${req.drop_lng.toFixed(3)}`}</Text>
+                  <Text style={styles.routeAddr} numberOfLines={1}>{req.drop_address ?? `${req.drop_lat.toFixed(3)}, ${req.drop_lng.toFixed(3)}`}</Text>
                 </View>
-                <View style={styles.fareRow}>
-                  <Text style={styles.fareLabel}>{fmt(req.distance_km)} km</Text>
-                  <Text style={[styles.fareValue, { color: GOLD }]}>₹{req.fare ?? "—"}</Text>
+                <View style={styles.rideMeta}>
+                  <Text style={styles.rideMetaText}>{fmt(req.distance_km)} km</Text>
+                  <Text style={[styles.rideMetaFare, { color: GOLD }]}>₹{req.fare ?? "—"}</Text>
                 </View>
               </View>
-              <TouchableOpacity style={styles.acceptBtn} onPress={() => handleAcceptRide(req.id)}>
-                <Text style={styles.acceptBtnText}>Accept</Text>
-              </TouchableOpacity>
-            </TouchableOpacity>
+              <View style={styles.requestActions}>
+                <TouchableOpacity style={styles.rejectSmallBtn} onPress={() => {}}>
+                  <Feather name="x" size={16} color={RED} />
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.acceptSmallBtn} onPress={() => setSelectedRequest(req)}>
+                  <Text style={styles.acceptSmallText}>Accept</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
           ))}
         </View>
       )}
 
       {!isOnline && (
-        <View style={styles.emptyState}>
-          <Text style={styles.emptyIcon}>🌙</Text>
+        <View style={styles.driverEmptyState}>
+          <Text style={{ fontSize: 44 }}>🌙</Text>
           <Text style={styles.emptyTitle}>You're offline</Text>
-          <Text style={styles.emptyDesc}>Tap "Go Online" to start receiving ride requests and earn money</Text>
+          <Text style={styles.emptyDesc}>Tap "Go Online" to start receiving ride requests</Text>
+        </View>
+      )}
+
+      {/* Request detail */}
+      {selectedRequest && (
+        <View style={styles.requestDetailOverlay}>
+          <View style={styles.requestDetailCard}>
+            <Text style={styles.requestDetailTitle}>New Ride Request</Text>
+            <View style={styles.routeRow}>
+              <View style={[styles.routeDot, { backgroundColor: GREEN }]} />
+              <View>
+                <Text style={styles.routeAddrSmall}>Pickup</Text>
+                <Text style={styles.routeAddr}>{selectedRequest.pickup_address ?? `${selectedRequest.pickup_lat.toFixed(4)}, ${selectedRequest.pickup_lng.toFixed(4)}`}</Text>
+              </View>
+            </View>
+            <View style={styles.routeConnector} />
+            <View style={styles.routeRow}>
+              <View style={[styles.routeDot, { backgroundColor: ORANGE }]} />
+              <View>
+                <Text style={styles.routeAddrSmall}>Destination</Text>
+                <Text style={styles.routeAddr}>{selectedRequest.drop_address ?? `${selectedRequest.drop_lat.toFixed(4)}, ${selectedRequest.drop_lng.toFixed(4)}`}</Text>
+              </View>
+            </View>
+            <LinearGradient colors={[NAVY, "#1a3060"]} style={[styles.estimateBanner, { marginTop: 12 }]}>
+              <View style={styles.estimateStat}>
+                <Text style={styles.estimateVal}>{fmt(selectedRequest.distance_km)} km</Text>
+                <Text style={styles.estimateKey}>Distance</Text>
+              </View>
+              <View style={styles.estimateDivider} />
+              <View style={styles.estimateStat}>
+                <Text style={[styles.estimateVal, { color: GOLD }]}>₹{selectedRequest.fare ?? "—"}</Text>
+                <Text style={styles.estimateKey}>Fare</Text>
+              </View>
+            </LinearGradient>
+            <View style={styles.requestDetailBtns}>
+              <TouchableOpacity style={styles.declineBtn} onPress={() => setSelectedRequest(null)}>
+                <Text style={styles.declineBtnText}>Decline</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.primaryBtn, { flex: 1 }]} onPress={() => handleAcceptRide(selectedRequest.id)}>
+                <Text style={styles.primaryBtnText}>Accept Ride</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
       )}
     </ScrollView>
   );
 
-  // ── Request detail modal ─────────────────────────────────────────────
-  const renderRequestModal = () => (
-    <Modal visible={!!selectedRequest} transparent animationType="slide" onRequestClose={() => setSelectedRequest(null)}>
-      <View style={styles.modalBackdrop}>
-        <View style={styles.modalSheet}>
-          <View style={styles.modalHandle} />
-          <Text style={styles.modalTitle}>New Ride Request</Text>
-          {selectedRequest && (
-            <>
-              <View style={styles.card}>
-                <View style={styles.rideRow}>
-                  <View style={[styles.routeDot, { backgroundColor: GREEN }]} />
-                  <View>
-                    <Text style={styles.modalLabel}>Pickup</Text>
-                    <Text style={styles.rideAddr}>{selectedRequest.pickup_address ?? `${selectedRequest.pickup_lat.toFixed(4)}, ${selectedRequest.pickup_lng.toFixed(4)}`}</Text>
-                  </View>
-                </View>
-                <View style={styles.routeVLine} />
-                <View style={styles.rideRow}>
-                  <View style={[styles.routeDot, { backgroundColor: ORANGE }]} />
-                  <View>
-                    <Text style={styles.modalLabel}>Destination</Text>
-                    <Text style={styles.rideAddr}>{selectedRequest.drop_address ?? `${selectedRequest.drop_lat.toFixed(4)}, ${selectedRequest.drop_lng.toFixed(4)}`}</Text>
-                  </View>
-                </View>
-              </View>
-              <View style={styles.estimateCard}>
-                <View style={styles.estimateRow}>
-                  <View style={styles.estimateStat}>
-                    <Text style={styles.estimateVal}>{fmt(selectedRequest.distance_km)} km</Text>
-                    <Text style={styles.estimateKey}>Distance</Text>
-                  </View>
-                  <View style={styles.estimateDivider} />
-                  <View style={styles.estimateStat}>
-                    <Text style={[styles.estimateVal, { color: GOLD }]}>₹{selectedRequest.fare ?? "—"}</Text>
-                    <Text style={styles.estimateKey}>Fare</Text>
-                  </View>
-                </View>
-              </View>
-              <View style={styles.modalBtns}>
-                <TouchableOpacity style={styles.rejectBtn} onPress={() => setSelectedRequest(null)}>
-                  <Text style={styles.rejectBtnText}>Decline</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.primaryBtn} onPress={() => handleAcceptRide(selectedRequest.id)}>
-                  <Text style={styles.primaryBtnText}>Accept Ride</Text>
-                </TouchableOpacity>
-              </View>
-            </>
-          )}
-        </View>
-      </View>
-    </Modal>
-  );
-
-  const isProviderUser = user?.role === "provider" || user?.role === "both";
-
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
+      <StatusBar barStyle="light-content" backgroundColor={NAVY} />
+
       {/* Header */}
-      <View style={styles.header}>
+      <LinearGradient colors={[NAVY, "#152847"]} style={styles.header}>
         <View>
           <Text style={styles.headerTitle}>Cars</Text>
-          <Text style={styles.headerSub}>Ride-booking for Punjab</Text>
+          <Text style={styles.headerSub}>Ride-booking · Punjab</Text>
         </View>
-        {/* Mode switcher */}
         {isProviderUser && (
-          <View style={styles.tabSwitcher}>
+          <View style={styles.tabPills}>
             {(["rider", "driver"] as const).map(t => (
               <TouchableOpacity
                 key={t}
-                style={[styles.tabSwitcherPill, tab === t && styles.tabSwitcherPillActive]}
-                onPress={() => setTab(t)}
+                style={[styles.tabPill, tab === t && styles.tabPillActive]}
+                onPress={() => { setTab(t); if (pollRef.current) clearInterval(pollRef.current); }}
               >
-                <Text style={[styles.tabSwitcherText, tab === t && styles.tabSwitcherTextActive]}>
+                <Feather
+                  name={t === "rider" ? "user" : "truck"}
+                  size={13} color={tab === t ? "#fff" : "rgba(255,255,255,0.55)"}
+                />
+                <Text style={[styles.tabPillText, tab === t && styles.tabPillTextActive]}>
                   {t === "rider" ? "Rider" : "Driver"}
                 </Text>
               </TouchableOpacity>
             ))}
           </View>
         )}
+      </LinearGradient>
+
+      {/* Content */}
+      <View style={{ flex: 1 }}>
+        {tab === "rider" ? renderRider() : renderDriver()}
       </View>
 
-      {tab === "rider" ? renderRiderView() : renderDriverView()}
-      {renderRequestModal()}
+      {/* Modals */}
+      <LocationSearchModal
+        visible={pickupModalOpen}
+        onClose={() => setPickupModalOpen(false)}
+        onSelect={(loc: LocationResult) => setPickup({ lat: loc.lat, lng: loc.lng, address: loc.address })}
+        title="Choose Pickup"
+        color={GREEN}
+      />
+      <LocationSearchModal
+        visible={dropModalOpen}
+        onClose={() => setDropModalOpen(false)}
+        onSelect={(loc: LocationResult) => setDrop({ lat: loc.lat, lng: loc.lng, address: loc.address })}
+        title="Choose Destination"
+        color={ORANGE}
+      />
+      <SchedulePickerModal
+        visible={scheduleModalOpen}
+        onClose={() => setScheduleModalOpen(false)}
+        onConfirm={(t: ScheduledTime) => setScheduledTime(t)}
+      />
     </View>
   );
 }
 
+// ─── STYLES ──────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: C.background },
+  container: { flex: 1, backgroundColor: "#0a1628" },
 
   // Header
-  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingVertical: 14, backgroundColor: NAVY },
-  headerTitle: { fontSize: 24, fontWeight: "800", color: "#fff", fontFamily: "Inter_700Bold" },
-  headerSub: { fontSize: 12, color: "rgba(255,255,255,0.55)", fontFamily: "Inter_400Regular", marginTop: 2 },
-  tabSwitcher: { flexDirection: "row", backgroundColor: "rgba(255,255,255,0.12)", borderRadius: 20, padding: 3 },
-  tabSwitcherPill: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 17 },
-  tabSwitcherPillActive: { backgroundColor: ORANGE },
-  tabSwitcherText: { fontSize: 13, color: "rgba(255,255,255,0.6)", fontFamily: "Inter_500Medium" },
-  tabSwitcherTextActive: { color: "#fff", fontFamily: "Inter_700Bold" },
+  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingVertical: 14 },
+  headerTitle: { fontSize: 26, fontWeight: "800", color: "#fff", fontFamily: "Inter_700Bold" },
+  headerSub: { fontSize: 12, color: "rgba(255,255,255,0.5)", fontFamily: "Inter_400Regular", marginTop: 2 },
+  tabPills: { flexDirection: "row", backgroundColor: "rgba(255,255,255,0.1)", borderRadius: 20, padding: 3, gap: 2 },
+  tabPill: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 17 },
+  tabPillActive: { backgroundColor: ORANGE },
+  tabPillText: { fontSize: 12, color: "rgba(255,255,255,0.55)", fontFamily: "Inter_500Medium" },
+  tabPillTextActive: { color: "#fff", fontFamily: "Inter_700Bold" },
 
   // Map canvas
-  mapCanvas: { height: MAP_H, overflow: "hidden", position: "relative" },
-  gridLine: { position: "absolute", backgroundColor: "rgba(255,255,255,0.05)", height: 1 },
+  mapCanvas: { width: "100%", overflow: "hidden" },
+  gridH: { position: "absolute", left: 0, right: 0, height: 1, backgroundColor: "rgba(255,255,255,0.04)" },
+  gridV: { position: "absolute", top: 0, bottom: 0, width: 1, backgroundColor: "rgba(255,255,255,0.04)" },
+  districtDot: { position: "absolute" },
+  districtCircle: { width: 5, height: 5, borderRadius: 2.5, backgroundColor: "rgba(245,200,66,0.4)" },
+  districtLabel: { fontSize: 8, color: "rgba(245,200,66,0.55)", fontFamily: "Inter_400Regular", marginTop: 2 },
   routeLine: { position: "absolute", height: 3, borderRadius: 2 },
-  mapPin: { position: "absolute", alignItems: "center" },
-  pinDot: { width: 12, height: 12, borderRadius: 6, borderWidth: 2, borderColor: "#fff" },
-  pinLabel: { marginTop: 3, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, backgroundColor: "rgba(0,0,0,0.55)", borderWidth: 1 },
-  pinText: { fontSize: 10, color: "#fff", fontFamily: "Inter_500Medium" },
-  locationPing: { position: "absolute", bottom: 50, alignSelf: "center", width: 24, height: 24, borderRadius: 12, backgroundColor: `${ORANGE}44`, alignItems: "center", justifyContent: "center" },
-  locationDot: { width: 12, height: 12, borderRadius: 6, backgroundColor: ORANGE, borderWidth: 2, borderColor: "#fff" },
-  coordBadge: { position: "absolute", bottom: 10, left: 12, flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: "rgba(0,0,0,0.6)", paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
-  coordText: { fontSize: 11, color: GOLD, fontFamily: "Inter_400Regular" },
+  pickupPin: { position: "absolute", bottom: "25%", left: "28%" },
+  pickupRing: { position: "absolute", width: 22, height: 22, borderRadius: 11, backgroundColor: `${GREEN}33`, top: -5, left: -5 },
+  pickupDot: { width: 12, height: 12, borderRadius: 6, backgroundColor: GREEN, borderWidth: 2, borderColor: "#fff" },
+  dropPin: { position: "absolute", top: "22%", right: "22%" },
+  dropDot: { width: 12, height: 12, borderRadius: 6, backgroundColor: ORANGE, borderWidth: 2, borderColor: "#fff" },
+  pinBubble: { position: "absolute", left: 16, top: -6, backgroundColor: "rgba(0,0,0,0.7)ee", paddingHorizontal: 6, paddingVertical: 3, borderRadius: 8, borderWidth: 1, borderColor: GREEN + "80", minWidth: 60, maxWidth: 120 },
+  pinBubbleText: { fontSize: 10, color: "#fff", fontFamily: "Inter_500Medium" },
+  driverPin: { position: "absolute" },
+  driverPinIcon: { fontSize: 22 },
+  mapOverlay: { position: "absolute", bottom: 0, left: 0, right: 0, height: 60 },
+  coordBadge: { position: "absolute", bottom: 8, left: 10, flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: "rgba(0,0,0,0.65)", paddingHorizontal: 7, paddingVertical: 3, borderRadius: 8 },
+  coordText: { fontSize: 10, color: GOLD, fontFamily: "Inter_400Regular" },
 
   // Bottom sheet
-  sheet: { flex: 1, backgroundColor: C.background },
-  sheetContent: { padding: 16, paddingBottom: 120 },
-  sheetTitle: { fontSize: 20, fontWeight: "700", color: C.text, fontFamily: "Inter_700Bold", marginBottom: 16 },
+  bottomSheet: { position: "absolute", bottom: 0, left: 0, right: 0, backgroundColor: C.background, borderTopLeftRadius: 28, borderTopRightRadius: 28, shadowColor: "#000", shadowOffset: { width: 0, height: -6 }, shadowOpacity: 0.2, shadowRadius: 20, elevation: 20 },
+  handleArea: { alignItems: "center", paddingVertical: 10 },
+  handleBar: { width: 40, height: 4, backgroundColor: C.border, borderRadius: 2 },
+  sheetInner: { paddingHorizontal: 16, paddingBottom: 8 },
 
-  // Location inputs
-  inputGroup: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 4 },
-  locationDotSmall: { width: 10, height: 10, borderRadius: 5, marginLeft: 4 },
-  connector: { width: 2, height: 18, backgroundColor: C.border, marginLeft: 8, marginVertical: 2 },
-  inputWrapper: { flex: 1, borderBottomWidth: 1, borderBottomColor: C.border, paddingBottom: 8 },
-  inputLabel: { fontSize: 11, color: C.textTertiary, fontFamily: "Inter_400Regular", marginBottom: 2 },
-  inputValue: { fontSize: 15, color: C.text, fontFamily: "Inter_500Medium" },
-  dropInput: { fontSize: 15, color: C.text, fontFamily: "Inter_500Medium", padding: 0 },
-  searchBtn: { backgroundColor: ORANGE, width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center" },
+  // Ride mode toggle
+  modeToggle: { flexDirection: "row", backgroundColor: C.backgroundSecondary, borderRadius: 14, padding: 4, gap: 4, marginBottom: 14 },
+  modeBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 10, borderRadius: 11 },
+  modeBtnActive: { backgroundColor: ORANGE },
+  modeBtnText: { fontSize: 14, fontWeight: "600", color: C.textSecondary, fontFamily: "Inter_600SemiBold" },
+  modeBtnTextActive: { color: "#fff" },
+
+  // Scheduled time
+  scheduledTimeRow: { flexDirection: "row", alignItems: "center", gap: 10, backgroundColor: `${PURPLE}14`, borderRadius: 12, padding: 12, marginBottom: 12, borderWidth: 1, borderColor: `${PURPLE}30` },
+  scheduledTimeText: { flex: 1, fontSize: 14, color: PURPLE, fontFamily: "Inter_500Medium" },
+
+  // Location box
+  locationBox: { backgroundColor: C.backgroundSecondary, borderRadius: 18, padding: 4, marginBottom: 14, borderWidth: 1, borderColor: C.border },
+  locationRow: { flexDirection: "row", alignItems: "center", gap: 12, padding: 12 },
+  locationRowPlaceholder: {},
+  locDot: { width: 10, height: 10, borderRadius: 5, flexShrink: 0 },
+  locDivider: { paddingLeft: 16 },
+  locLine: { height: 1, backgroundColor: C.border },
+  locLabel: { fontSize: 11, color: C.textTertiary, fontFamily: "Inter_400Regular", marginBottom: 2 },
+  locValue: { fontSize: 15, color: C.text, fontFamily: "Inter_500Medium" },
+
+  // Estimate banner
+  estimateBanner: { borderRadius: 16, padding: 16, marginBottom: 14, flexDirection: "row", alignItems: "center" },
+  estimateStat: { flex: 1, alignItems: "center" },
+  estimateVal: { fontSize: 18, fontWeight: "800", color: "#fff", fontFamily: "Inter_700Bold" },
+  estimateKey: { fontSize: 11, color: "rgba(255,255,255,0.5)", fontFamily: "Inter_400Regular", marginTop: 3 },
+  estimateDivider: { width: 1, height: 32, backgroundColor: "rgba(255,255,255,0.1)" },
 
   // Section label
-  sectionLabel: { fontSize: 13, fontWeight: "600", color: C.textSecondary, fontFamily: "Inter_600SemiBold", marginTop: 16, marginBottom: 10, textTransform: "uppercase", letterSpacing: 0.5 },
+  sectionLabel: { fontSize: 12, fontWeight: "700", color: C.textSecondary, fontFamily: "Inter_700Bold", textTransform: "uppercase", letterSpacing: 0.7, marginBottom: 10 },
 
-  // Vehicle chips
-  vehicleChip: { alignItems: "center", padding: 12, borderRadius: 14, marginRight: 10, backgroundColor: C.backgroundTertiary, minWidth: 80, borderWidth: 1.5, borderColor: "transparent" },
-  vehicleChipActive: { borderColor: ORANGE, backgroundColor: `${ORANGE}15` },
-  vehicleIcon: { fontSize: 22, marginBottom: 4 },
-  vehicleLabel: { fontSize: 13, fontWeight: "700", color: C.text, fontFamily: "Inter_700Bold" },
-  vehicleChipActiveText: { color: ORANGE },
+  // Vehicle row
+  vehicleRow: { gap: 10, paddingRight: 8, paddingBottom: 4 },
+  vehicleCard: { alignItems: "center", padding: 12, borderRadius: 18, backgroundColor: C.backgroundSecondary, minWidth: 88, borderWidth: 1.5, borderColor: "transparent", position: "relative" },
+  vehicleCheck: { position: "absolute", top: 6, right: 6, width: 18, height: 18, borderRadius: 9, alignItems: "center", justifyContent: "center" },
+  vehicleEmoji: { fontSize: 26, marginBottom: 4 },
+  vehicleName: { fontSize: 13, fontWeight: "700", color: C.text, fontFamily: "Inter_700Bold" },
   vehicleTagline: { fontSize: 10, color: C.textTertiary, fontFamily: "Inter_400Regular", marginTop: 2 },
+  vehicleFare: { fontSize: 15, fontWeight: "800", color: C.text, fontFamily: "Inter_700Bold", marginTop: 6 },
+  vehicleFareSkeleton: { width: 40, height: 16, backgroundColor: C.border, borderRadius: 4, marginTop: 6 },
+  vehicleEta: { fontSize: 11, color: C.textSecondary, fontFamily: "Inter_400Regular", marginTop: 2 },
 
-  // Estimate card
-  estimateCard: { borderRadius: 16, padding: 16, marginBottom: 16, backgroundColor: NAVY },
-  estimateRow: { flexDirection: "row", alignItems: "center" },
-  estimateStat: { flex: 1, alignItems: "center", gap: 4 },
-  estimateVal: { fontSize: 20, fontWeight: "800", color: "#fff", fontFamily: "Inter_700Bold" },
-  estimateKey: { fontSize: 11, color: "rgba(255,255,255,0.55)", fontFamily: "Inter_400Regular" },
-  estimateDivider: { width: 1, height: 36, backgroundColor: "rgba(255,255,255,0.12)" },
-
-  // Buttons
-  primaryBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: ORANGE, borderRadius: 14, paddingVertical: 16, marginTop: 8 },
+  // Primary button
+  primaryBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: ORANGE, borderRadius: 16, paddingVertical: 16 },
   primaryBtnText: { fontSize: 16, fontWeight: "700", color: "#fff", fontFamily: "Inter_700Bold" },
-  cancelBtn: { borderRadius: 14, paddingVertical: 14, marginTop: 8, alignItems: "center", borderWidth: 1.5, borderColor: RED },
+  cancelBtn: { borderRadius: 16, paddingVertical: 15, alignItems: "center", borderWidth: 1.5, borderColor: RED, marginTop: 8 },
   cancelBtnText: { fontSize: 15, fontWeight: "600", color: RED, fontFamily: "Inter_600SemiBold" },
 
-  // Ride status
-  statusBadge: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 1, alignSelf: "flex-start", marginBottom: 12 },
-  statusLabel: { fontSize: 13, fontWeight: "600", fontFamily: "Inter_600SemiBold" },
-
-  // Cards
-  card: { backgroundColor: C.backgroundSecondary, borderRadius: 16, padding: 16, marginBottom: 12 },
-  cardHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 },
-  cardTitle: { fontSize: 16, fontWeight: "700", color: C.text, fontFamily: "Inter_700Bold" },
-  rideRow: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
+  // Ride details
+  routeCard: { backgroundColor: C.backgroundSecondary, borderRadius: 16, padding: 14, marginBottom: 12 },
+  routeRow: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
   routeDot: { width: 10, height: 10, borderRadius: 5, marginTop: 4, flexShrink: 0 },
-  routeVLine: { width: 2, height: 14, backgroundColor: C.border, marginLeft: 4, marginVertical: 2 },
-  rideAddr: { flex: 1, fontSize: 14, color: C.text, fontFamily: "Inter_400Regular", lineHeight: 20 },
-  fareRow: { flexDirection: "row", alignItems: "center", gap: 10, marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: C.border },
-  fareLabel: { fontSize: 13, color: C.textSecondary, fontFamily: "Inter_400Regular" },
-  fareValue: { fontSize: 16, fontWeight: "700", color: C.text, fontFamily: "Inter_700Bold" },
+  routeConnector: { width: 2, height: 14, backgroundColor: C.border, marginLeft: 4, marginVertical: 3 },
+  routeAddr: { flex: 1, fontSize: 14, color: C.text, fontFamily: "Inter_400Regular", lineHeight: 20 },
+  routeAddrSmall: { fontSize: 11, color: C.textTertiary, fontFamily: "Inter_400Regular" },
+  rideMeta: { flexDirection: "row", alignItems: "center", gap: 12, marginTop: 12, paddingTop: 10, borderTopWidth: 1, borderTopColor: C.border, flexWrap: "wrap" },
+  rideMetaItem: { flexDirection: "row", alignItems: "center", gap: 5 },
+  rideMetaText: { fontSize: 13, color: C.textSecondary, fontFamily: "Inter_400Regular" },
+  rideMetaFare: { fontSize: 16, fontWeight: "700", color: C.text, fontFamily: "Inter_700Bold" },
 
   // Driver card
-  driverCard: { flexDirection: "row", alignItems: "center", gap: 12, marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: C.border },
-  driverAvatar: { width: 42, height: 42, borderRadius: 21, backgroundColor: `${ORANGE}22`, alignItems: "center", justifyContent: "center" },
-  driverAvatarText: { fontSize: 18, fontWeight: "700", color: ORANGE, fontFamily: "Inter_700Bold" },
-  driverName: { fontSize: 15, fontWeight: "600", color: C.text, fontFamily: "Inter_600SemiBold" },
-  driverPhone: { fontSize: 13, color: C.textSecondary, fontFamily: "Inter_400Regular" },
+  driverCard: { flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: C.backgroundSecondary, borderRadius: 16, padding: 14, marginBottom: 12 },
+  driverAvatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: `${ORANGE}22`, alignItems: "center", justifyContent: "center" },
+  driverAvatarText: { fontSize: 20, fontWeight: "700", color: ORANGE, fontFamily: "Inter_700Bold" },
+  driverName: { fontSize: 15, fontWeight: "700", color: C.text, fontFamily: "Inter_700Bold" },
+  driverSub: { fontSize: 12, color: C.textSecondary, fontFamily: "Inter_400Regular", marginTop: 2 },
+  callBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: `${GREEN}18`, alignItems: "center", justifyContent: "center" },
+
+  // Steps bar
+  stepsRow: { flexDirection: "row", alignItems: "center", marginBottom: 16 },
+  stepItem: { alignItems: "center", flex: 1 },
+  stepDot: { width: 22, height: 22, borderRadius: 11, backgroundColor: C.backgroundSecondary, alignItems: "center", justifyContent: "center", borderWidth: 1.5, borderColor: C.border },
+  stepLabel: { fontSize: 9, color: C.textTertiary, textAlign: "center", fontFamily: "Inter_400Regular", marginTop: 4, lineHeight: 12 },
+  stepLine: { flex: 1, height: 2, backgroundColor: C.border, marginBottom: 16 },
+
+  // Scheduled banner
+  scheduledBanner: { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: `${PURPLE}14`, borderRadius: 12, padding: 12, marginBottom: 12, borderWidth: 1, borderColor: `${PURPLE}30` },
+  scheduledText: { fontSize: 14, color: PURPLE, fontFamily: "Inter_500Medium", flex: 1 },
 
   // Driver view
-  driverContainer: { padding: 16, paddingBottom: 120 },
-  onlineCard: { borderRadius: 20, padding: 20, flexDirection: "row", alignItems: "center", gap: 16, marginBottom: 20 },
-  onlineStatus: { fontSize: 18, fontWeight: "700", color: "#fff", fontFamily: "Inter_700Bold" },
-  onlineDesc: { fontSize: 13, color: "rgba(255,255,255,0.7)", fontFamily: "Inter_400Regular", marginTop: 4 },
-  toggleBtn: { borderRadius: 12, paddingHorizontal: 18, paddingVertical: 12 },
-  toggleBtnText: { fontSize: 14, fontWeight: "700", color: "#fff", fontFamily: "Inter_700Bold" },
-  requestCard: { backgroundColor: C.backgroundSecondary, borderRadius: 16, padding: 16, marginBottom: 12, flexDirection: "row", alignItems: "center", gap: 12 },
-  acceptBtn: { backgroundColor: GREEN, borderRadius: 10, paddingHorizontal: 16, paddingVertical: 10 },
-  acceptBtnText: { fontSize: 13, fontWeight: "700", color: "#fff", fontFamily: "Inter_700Bold" },
-
-  // Empty state
-  emptyState: { alignItems: "center", paddingVertical: 40, gap: 10 },
-  emptyIcon: { fontSize: 48 },
+  driverContainer: { paddingTop: 16, paddingBottom: 120 },
+  onlineCard: { marginHorizontal: 16, borderRadius: 24, padding: 20, flexDirection: "row", alignItems: "center", gap: 16, marginBottom: 20 },
+  onlineStatusRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 6 },
+  onlineLED: { width: 10, height: 10, borderRadius: 5 },
+  onlineStatusText: { fontSize: 15, fontWeight: "700", color: "#fff", fontFamily: "Inter_700Bold" },
+  onlineSubText: { fontSize: 12, color: "rgba(255,255,255,0.65)", fontFamily: "Inter_400Regular", lineHeight: 18 },
+  onlineToggleBtn: { borderRadius: 16, paddingHorizontal: 16, paddingVertical: 14, alignItems: "center", minWidth: 70 },
+  onlineToggleText: { fontSize: 13, fontWeight: "700", color: "#fff", fontFamily: "Inter_700Bold", textAlign: "center" },
+  driverActiveCard: { marginHorizontal: 16, backgroundColor: C.backgroundSecondary, borderRadius: 20, padding: 16, marginBottom: 16 },
+  driverActiveHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 },
+  driverActiveTitle: { fontSize: 16, fontWeight: "700", color: C.text, fontFamily: "Inter_700Bold" },
+  statusPill: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10 },
+  statusPillText: { fontSize: 12, fontWeight: "600", fontFamily: "Inter_600SemiBold" },
+  requestCard: { backgroundColor: C.backgroundSecondary, borderRadius: 18, padding: 14, marginBottom: 12, flexDirection: "row", alignItems: "center", gap: 12 },
+  requestActions: { gap: 8, alignItems: "center" },
+  rejectSmallBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: `${RED}15`, alignItems: "center", justifyContent: "center" },
+  acceptSmallBtn: { backgroundColor: GREEN, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 9 },
+  acceptSmallText: { fontSize: 13, fontWeight: "700", color: "#fff", fontFamily: "Inter_700Bold" },
+  driverEmptyState: { alignItems: "center", paddingVertical: 40, paddingHorizontal: 30, gap: 10 },
   emptyTitle: { fontSize: 18, fontWeight: "700", color: C.text, fontFamily: "Inter_700Bold" },
-  emptyDesc: { fontSize: 14, color: C.textSecondary, fontFamily: "Inter_400Regular", textAlign: "center", lineHeight: 22, paddingHorizontal: 20 },
+  emptyDesc: { fontSize: 14, color: C.textSecondary, fontFamily: "Inter_400Regular", textAlign: "center", lineHeight: 22 },
 
-  // Modal
-  modalBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" },
-  modalSheet: { backgroundColor: C.background, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, paddingBottom: 40 },
-  modalHandle: { width: 36, height: 4, backgroundColor: C.border, borderRadius: 2, alignSelf: "center", marginBottom: 16 },
-  modalTitle: { fontSize: 20, fontWeight: "700", color: C.text, fontFamily: "Inter_700Bold", marginBottom: 16 },
-  modalLabel: { fontSize: 11, color: C.textTertiary, fontFamily: "Inter_400Regular" },
-  modalBtns: { flexDirection: "row", gap: 12, marginTop: 8 },
-  rejectBtn: { flex: 1, borderRadius: 14, paddingVertical: 16, alignItems: "center", borderWidth: 1.5, borderColor: C.border },
-  rejectBtnText: { fontSize: 15, fontWeight: "600", color: C.text, fontFamily: "Inter_600SemiBold" },
+  // Request detail overlay
+  requestDetailOverlay: { position: "absolute", bottom: 0, left: 0, right: 0, backgroundColor: "rgba(0,0,0,0.6)", padding: 16, paddingBottom: 40 },
+  requestDetailCard: { backgroundColor: C.background, borderRadius: 24, padding: 20 },
+  requestDetailTitle: { fontSize: 18, fontWeight: "700", color: C.text, fontFamily: "Inter_700Bold", marginBottom: 14 },
+  requestDetailBtns: { flexDirection: "row", gap: 10, marginTop: 12 },
+  declineBtn: { flex: 0.6, borderRadius: 14, paddingVertical: 15, alignItems: "center", borderWidth: 1.5, borderColor: C.border },
+  declineBtnText: { fontSize: 15, fontWeight: "600", color: C.text, fontFamily: "Inter_600SemiBold" },
 });

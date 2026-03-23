@@ -1,0 +1,201 @@
+Enhance the existing "Cars" tab in RentZilla to look and behave like a real production-level ride-booking app (Uber-style).
+
+IMPORTANT:
+- Keep existing backend structure
+- Upgrade UI to modern, clean, realistic mobile design
+- Add full functionality (maps, pickup, destination, scheduling)
+
+-----------------------------------
+
+🎯 MAIN GOAL:
+
+- Make UI look like a real app (smooth, modern, clean)
+- Enable real pickup & destination selection
+- Support Punjabi locations (India-based addresses)
+- Add both:
+  → Instant ride booking
+  → Scheduled ride booking
+
+-----------------------------------
+
+🗺️ MAP & LOCATION FEATURES:
+
+1. Integrate Google Maps API:
+- Show live user location
+- Smooth map movement
+- Custom markers for:
+  - Pickup (green)
+  - Driver (moving icon)
+
+2. Pickup Selection:
+- Auto-detect current location
+- Allow user to tap on map OR search
+- Show address in Punjabi format:
+  Example:
+  - "Chandigarh, Punjab"
+  - "Ludhiana, Punjab"
+  - "Amritsar, Punjab"
+
+3. Destination Input:
+- Click input → open search modal
+- Use Google Places Autocomplete
+- Show suggestions:
+  - Popular Punjabi cities
+  - Landmarks
+
+-----------------------------------
+
+📍 ADDRESS SEARCH MODAL:
+
+When user clicks pickup or destination:
+
+- Open full-screen modal
+- Search bar on top
+- Show suggestions list:
+  - Recent locations
+  - Popular locations in Punjab
+
+Example Suggestions:
+- Chandigarh, Punjab
+- Mohali, Punjab
+- Ludhiana, Punjab
+- Amritsar, Punjab
+
+-----------------------------------
+
+🚗 VEHICLE SELECTION UI:
+
+Enhance UI:
+
+- Use modern cards with icons
+- Highlight selected vehicle
+- Show:
+  - Bike → Fastest
+  - Auto → Affordable
+  - Car → Comfortable
+  - SUV → Spacious
+
+Add:
+- Estimated price per type
+- ETA for each vehicle
+
+-----------------------------------
+
+💰 FARE ESTIMATION:
+
+When destination selected:
+- Calculate:
+  - distance (km)
+  - time (minutes)
+- Show fare estimate dynamically
+
+Formula:
+fare = base_fare + (distance × per_km)
+
+-----------------------------------
+
+⏱️ RIDE TYPES:
+
+1. INSTANT RIDE:
+- Button: "Book Ride Now"
+- Immediately find nearest driver
+
+2. SCHEDULE RIDE:
+- Button: "Schedule Ride"
+- Open date & time picker
+- Save ride with scheduled time
+
+-----------------------------------
+
+📅 SCHEDULE SYSTEM:
+
+- User selects:
+  - date
+  - time
+- Store ride as:
+  status = scheduled
+
+- Trigger driver matching 10–15 minutes before ride
+
+-----------------------------------
+
+📡 DRIVER MATCHING:
+
+- Find nearest ONLINE driver
+- Show:
+  - driver name
+  - vehicle
+  - ETA
+
+-----------------------------------
+
+📍 LIVE TRACKING:
+
+After booking:
+- Show driver moving on map
+- Update every 3–5 seconds
+
+-----------------------------------
+
+🎨 UI DESIGN IMPROVEMENTS:
+
+Make it look REAL:
+
+- Smooth gradients on map header
+- Rounded cards (modern UI)
+- Shadow + elevation
+- Clean spacing
+- Large buttons
+
+Bottom Sheet:
+- Draggable panel (like Uber)
+- Smooth animation
+
+-----------------------------------
+
+📱 USER EXPERIENCE:
+
+- Tap pickup → opens search
+- Tap destination → opens search
+- Auto-fill pickup
+- Show route line on map
+- Show distance + ETA clearly
+
+-----------------------------------
+
+🔘 BUTTONS:
+
+- "Book Ride Now" (primary)
+- "Schedule Ride" (secondary)
+
+-----------------------------------
+
+⚡ PERFORMANCE:
+
+- Lazy load map
+- Debounce search input
+- Optimize API calls
+
+-----------------------------------
+
+🔐 BACKEND REQUIREMENTS:
+
+- Use existing APIs
+- Add:
+  - scheduled rides support
+  - fare calculation endpoint
+  - location search endpoint
+
+-----------------------------------
+
+OUTPUT REQUIRED:
+
+- Enhanced UI (React Native or mobile web)
+- Google Maps integration
+- Punjabi location search
+- Pickup/destination working
+- Instant ride booking
+- Scheduled ride booking
+- Real-time tracking setup
+- Full working frontend + API integration
+- Instructions to run

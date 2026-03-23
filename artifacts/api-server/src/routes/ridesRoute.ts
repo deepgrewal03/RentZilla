@@ -163,15 +163,21 @@ router.post("/request", authMiddleware, async (req: Request, res: Response) => {
       return;
     }
 
+    const { scheduledAt } = req.body;
+    const rideType = scheduledAt ? "scheduled" : "instant";
+    const rideStatus = scheduledAt ? "scheduled" : "requested";
+
     const distanceKm = haversine(pickupLat, pickupLng, dropLat, dropLng);
     const durationMin = Math.round((distanceKm / 30) * 60); // avg 30 km/h
     const fare = estimateFare(distanceKm, vehicleType);
 
+    const scheduledAtSql = scheduledAt ? `'${new Date(scheduledAt).toISOString()}'` : "NULL";
+
     const result = await db.execute(
-      `INSERT INTO rides (rider_id, pickup_lat, pickup_lng, pickup_address, drop_lat, drop_lng, drop_address, distance_km, duration_min, fare, vehicle_type, status)
+      `INSERT INTO rides (rider_id, pickup_lat, pickup_lng, pickup_address, drop_lat, drop_lng, drop_address, distance_km, duration_min, fare, vehicle_type, status, ride_type, scheduled_at)
        VALUES ('${userId}', ${pickupLat}, ${pickupLng}, ${pickupAddress ? `'${pickupAddress.replace(/'/g, "''")}'` : 'NULL'},
                ${dropLat}, ${dropLng}, ${dropAddress ? `'${dropAddress.replace(/'/g, "''")}'` : 'NULL'},
-               ${distanceKm.toFixed(2)}, ${durationMin}, ${fare}, '${vehicleType}', 'requested')
+               ${distanceKm.toFixed(2)}, ${durationMin}, ${fare}, '${vehicleType}', '${rideStatus}', '${rideType}', ${scheduledAtSql})
        RETURNING *`
     );
     res.json((result.rows as any[])[0]);
