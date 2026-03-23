@@ -1,8 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useState } from "react";
 import {
   ActivityIndicator,
   Platform,
@@ -14,10 +14,10 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useFocusEffect } from "expo-router";
 
 import { ListingCard } from "@/components/ListingCard";
 import Colors from "@/constants/colors";
+import { useLang } from "@/context/LanguageContext";
 import { useApi } from "@/hooks/useApi";
 import { Listing } from "@/types";
 
@@ -30,8 +30,10 @@ interface FavoritedListing extends Listing {
 
 export default function FavoritesScreen() {
   const { get, post } = useApi();
+  const { t, language } = useLang();
   const insets = useSafeAreaInsets();
   const isWeb = Platform.OS === "web";
+  const isPa = language === "pa";
 
   const [favorites, setFavorites] = useState<FavoritedListing[]>([]);
   const [loading, setLoading] = useState(true);
@@ -63,12 +65,17 @@ export default function FavoritesScreen() {
     setFavorites((prev) => prev.filter((f) => f.id !== listingId));
   }
 
+  const count = favorites.length;
+  const countLabel = isPa
+    ? `${count} ${count === 1 ? t.savedListings : t.savedListingsPlural}`
+    : `${count} ${count === 1 ? t.savedListings : t.savedListingsPlural}`;
+
   return (
     <View style={styles.root}>
       <StatusBar style="dark" />
       <View style={[styles.header, { paddingTop: topPad + 8 }]}>
-        <Text style={styles.headerTitle}>Favourites</Text>
-        <Text style={styles.headerSub}>{favorites.length} saved listing{favorites.length !== 1 ? "s" : ""}</Text>
+        <Text style={styles.headerTitle}>{t.favourites}</Text>
+        <Text style={styles.headerSub}>{countLabel}</Text>
       </View>
 
       <ScrollView
@@ -78,16 +85,14 @@ export default function FavoritesScreen() {
         showsVerticalScrollIndicator={false}
       >
         {loading ? (
-          <View style={styles.centerBox}>
-            <ActivityIndicator color={C.tint} size="large" />
-          </View>
+          <View style={styles.centerBox}><ActivityIndicator color={C.tint} size="large" /></View>
         ) : favorites.length === 0 ? (
           <View style={styles.centerBox}>
             <Ionicons name="heart-outline" size={56} color={C.textTertiary} />
-            <Text style={styles.emptyTitle}>No favourites yet</Text>
-            <Text style={styles.emptyText}>Tap the heart on any listing to save it here</Text>
+            <Text style={styles.emptyTitle}>{t.noFavourites}</Text>
+            <Text style={styles.emptyText}>{t.noFavouritesDesc}</Text>
             <Pressable onPress={() => router.push("/(tabs)/search")} style={styles.browseBtn}>
-              <Text style={styles.browseBtnText}>Browse Listings</Text>
+              <Text style={styles.browseBtnText}>{t.browseListings}</Text>
             </Pressable>
           </View>
         ) : (
@@ -95,11 +100,7 @@ export default function FavoritesScreen() {
             {favorites.map((fav) => (
               <View key={fav.id} style={styles.favItem}>
                 <ListingCard listing={fav} style={styles.card} />
-                <Pressable
-                  onPress={() => removeFavorite(fav.id)}
-                  style={styles.removeBtn}
-                  hitSlop={8}
-                >
+                <Pressable onPress={() => removeFavorite(fav.id)} style={styles.removeBtn} hitSlop={8}>
                   <Ionicons name="heart" size={20} color={C.error} />
                 </Pressable>
               </View>
@@ -141,9 +142,7 @@ const styles = StyleSheet.create({
   favItem: { position: "relative" },
   card: {},
   removeBtn: {
-    position: "absolute",
-    top: 10,
-    right: 10,
+    position: "absolute", top: 10, right: 10,
     width: 34, height: 34, borderRadius: 17,
     backgroundColor: "rgba(255,255,255,0.9)",
     alignItems: "center", justifyContent: "center",

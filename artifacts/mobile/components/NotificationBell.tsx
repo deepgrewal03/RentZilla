@@ -1,5 +1,4 @@
 import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
 import * as Haptics from "expo-haptics";
 import React, { useEffect, useState } from "react";
 import {
@@ -15,6 +14,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import Colors from "@/constants/colors";
+import { useLang } from "@/context/LanguageContext";
 import { useApi } from "@/hooks/useApi";
 
 const C = Colors.light;
@@ -27,8 +27,14 @@ interface Notification {
   createdAt: string;
 }
 
-function timeAgo(dateStr: string) {
+function timeAgo(dateStr: string, isPa: boolean) {
   const diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
+  if (isPa) {
+    if (diff < 60) return "ਹੁਣੇ";
+    if (diff < 3600) return `${Math.floor(diff / 60)} ਮਿੰਟ ਪਹਿਲਾਂ`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)} ਘੰਟੇ ਪਹਿਲਾਂ`;
+    return `${Math.floor(diff / 86400)} ਦਿਨ ਪਹਿਲਾਂ`;
+  }
   if (diff < 60) return "just now";
   if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
   if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
@@ -37,10 +43,10 @@ function timeAgo(dateStr: string) {
 
 export function NotificationBell() {
   const { get, put } = useApi();
+  const { t, language } = useLang();
   const insets = useSafeAreaInsets();
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [loading, setLoading] = useState(false);
   const isWeb = Platform.OS === "web";
 
   const unreadCount = notifications.filter((n) => !n.isRead).length;
@@ -50,14 +56,11 @@ export function NotificationBell() {
   }, []);
 
   async function fetchNotifications() {
-    setLoading(true);
     try {
       const data = await get<Notification[]>("/notifications");
       setNotifications(data);
     } catch {
-      // ignore
-    } finally {
-      setLoading(false);
+      // ignore — user may not be authenticated yet
     }
   }
 
@@ -75,6 +78,7 @@ export function NotificationBell() {
   }
 
   const topPad = isWeb ? 67 : insets.top;
+  const isPa = language === "pa";
 
   return (
     <>
@@ -91,10 +95,10 @@ export function NotificationBell() {
         <Pressable style={styles.modalOverlay} onPress={() => setOpen(false)} />
         <Animated.View style={[styles.panel, { top: topPad + 56 }]}>
           <View style={styles.panelHeader}>
-            <Text style={styles.panelTitle}>Notifications</Text>
+            <Text style={styles.panelTitle}>{t.notifications}</Text>
             {unreadCount > 0 && (
               <Pressable onPress={markAllRead}>
-                <Text style={styles.markAllText}>Mark all read</Text>
+                <Text style={styles.markAllText}>{t.markAllRead}</Text>
               </Pressable>
             )}
           </View>
@@ -103,7 +107,7 @@ export function NotificationBell() {
             {notifications.length === 0 ? (
               <View style={styles.emptyBox}>
                 <Ionicons name="notifications-off-outline" size={36} color={C.textTertiary} />
-                <Text style={styles.emptyText}>No notifications yet</Text>
+                <Text style={styles.emptyText}>{t.noNotifications}</Text>
               </View>
             ) : (
               notifications.map((n) => (
@@ -112,7 +116,7 @@ export function NotificationBell() {
                   <View style={{ flex: 1 }}>
                     <Text style={styles.notifTitle}>{n.title}</Text>
                     <Text style={styles.notifMsg}>{n.message}</Text>
-                    <Text style={styles.notifTime}>{timeAgo(n.createdAt)}</Text>
+                    <Text style={styles.notifTime}>{timeAgo(n.createdAt, isPa)}</Text>
                   </View>
                 </View>
               ))
@@ -178,10 +182,7 @@ const styles = StyleSheet.create({
     borderBottomColor: C.borderLight,
   },
   notifUnread: { backgroundColor: `${C.tint}06` },
-  notifDot: {
-    width: 8, height: 8, borderRadius: 4,
-    backgroundColor: C.tint, marginTop: 5,
-  },
+  notifDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: C.tint, marginTop: 5 },
   notifDotRead: { backgroundColor: C.borderLight },
   notifTitle: { fontSize: 14, fontWeight: "600", fontFamily: "Inter_600SemiBold", color: C.text },
   notifMsg: { fontSize: 12, color: C.textSecondary, fontFamily: "Inter_400Regular", lineHeight: 18, marginTop: 2 },

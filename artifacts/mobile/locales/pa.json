@@ -1,0 +1,71 @@
+{
+  "appName": "RentZilla",
+  "appTagline": "ਪੰਜਾਬ ਦਾ ਨੰ.1 ਕਿਰਾਇਆ ਬਾਜ਼ਾਰ",
+  "greeting": "ਸਤ ਸ੍ਰੀ ਅਕਾਲ",
+  "location": "ਪੰਜਾਬ, ਭਾਰਤ",
+
+  "signIn": "ਸਾਈਨ ਇਨ",
+  "signUp": "ਸਾਈਨ ਅੱਪ",
+  "logout": "ਲੌਗਆਊਟ",
+  "logoutConfirmTitle": "ਲੌਗਆਊਟ",
+  "logoutConfirmMsg": "ਕੀ ਤੁਸੀਂ ਲੌਗਆਊਟ ਕਰਨਾ ਚਾਹੁੰਦੇ ਹੋ?",
+  "cancel": "ਰੱਦ ਕਰੋ",
+
+  "welcomeBack": "ਵਾਪਸ ਸੁਆਗਤ ਹੈ",
+  "signInToContinue": "ਜਾਰੀ ਰੱਖਣ ਲਈ ਸਾਈਨ ਇਨ ਕਰੋ",
+  "emailAddress": "ਈਮੇਲ ਪਤਾ",
+  "emailPlaceholder": "you@example.com",
+  "password": "ਪਾਸਵਰਡ",
+  "passwordPlaceholder": "ਪਾਸਵਰਡ ਦਾਖਲ ਕਰੋ",
+  "noAccount": "ਖਾਤਾ ਨਹੀਂ ਹੈ?",
+
+  "createAccount": "ਖਾਤਾ ਬਣਾਓ",
+  "joinTagline": "RentZilla ਵਿੱਚ ਸ਼ਾਮਲ ਹੋਵੋ — ਪੰਜਾਬ ਦਾ ਕਿਰਾਇਆ ਬਾਜ਼ਾਰ",
+  "firstName": "ਪਹਿਲਾ ਨਾਮ",
+  "lastName": "ਆਖਰੀ ਨਾਮ",
+  "mobileNumber": "ਮੋਬਾਈਲ ਨੰਬਰ",
+  "optional": "ਵਿਕਲਪਿਕ",
+  "confirmPassword": "ਪਾਸਵਰਡ ਦੀ ਪੁਸ਼ਟੀ ਕਰੋ",
+  "repeatPassword": "ਪਾਸਵਰਡ ਦੁਬਾਰਾ ਦਾਖਲ ਕਰੋ",
+  "minPassword": "ਘੱਟੋ ਘੱਟ 6 ਅੱਖਰ",
+  "iWantTo": "ਮੈਂ ਚਾਹੁੰਦਾ/ਚਾਹੁੰਦੀ ਹਾਂ *",
+  "rentThings": "ਕਿਰਾਏ ਤੇ ਲਓ (ਗਾਹਕ)",
+  "listAndEarn": "ਸੂਚੀ ਬਣਾਓ (ਸੇਵਾ ਪ੍ਰਦਾਤਾ)",
+  "termsText": "ਇੱਥੇ ਕਲਿੱਕ ਕਰਕੇ ਤੁਸੀਂ ਨਿਯਮਾਂ ਅਤੇ ਸ਼ਰਤਾਂ ਨਾਲ ਸਹਿਮਤ ਹੋ",
+  "alreadyHaveAccount": "ਪਹਿਲਾਂ ਤੋਂ ਖਾਤਾ ਹੈ?",
+
+  "home": "ਮੁੱਖ ਪੰਨਾ",
+  "searchEquipment": "ਸਾਮਾਨ ਖੋਜੋ",
+  "myBookings": "ਮੇਰੀ ਬੁਕਿੰਗ",
+  "favourites": "ਪਸੰਦੀਦਾ",
+  "messages": "ਸੁਨੇਹੇ",
+  "myProfile": "ਮੇਰਾ ਪ੍ਰੋਫਾਈਲ",
+  "settings": "ਸੈਟਿੰਗ",
+  "helpSupport": "ਮਦਦ ਅਤੇ ਸਹਾਇਤਾ",
+
+  "search": "ਖੋਜ",
+  "bookings": "ਬੁਕਿੰਗ",
+  "profile": "ਪ੍ਰੋਫਾਈਲ",
+  "dashboard": "ਡੈਸ਼ਬੋਰਡ",
+
+  "searchPlaceholder": "ਕਾਰ, ਟਰੈਕਟਰ, ਸੇਵਾਵਾਂ ਖੋਜੋ...",
+  "popularInPunjab": "ਪੰਜਾਬ ਵਿੱਚ ਮਸ਼ਹੂਰ",
+  "browseByCategory": "ਸ਼੍ਰੇਣੀ ਅਨੁਸਾਰ ਬ੍ਰਾਊਜ਼ ਕਰੋ",
+  "allListings": "ਸਾਰੀਆਂ ਲਿਸਟਿੰਗਾਂ",
+  "found": "ਮਿਲੀਆਂ",
+
+  "notifications": "ਸੂਚਨਾਵਾਂ",
+  "noNotifications": "ਅਜੇ ਕੋਈ ਸੂਚਨਾ ਨਹੀਂ",
+  "markAllRead": "ਸਭ ਪੜ੍ਹੀਆਂ ਕਰੋ",
+
+  "noFavourites": "ਅਜੇ ਕੋਈ ਪਸੰਦੀਦਾ ਨਹੀਂ",
+  "noFavouritesDesc": "ਕਿਸੇ ਲਿਸਟਿੰਗ ਤੇ ਦਿਲ ਦਬਾਓ ਇੱਥੇ ਸੇਵ ਕਰਨ ਲਈ",
+  "browseListings": "ਲਿਸਟਿੰਗਾਂ ਦੇਖੋ",
+  "savedListings": "ਸੇਵ ਕੀਤੀ ਲਿਸਟਿੰਗ",
+  "savedListingsPlural": "ਸੇਵ ਕੀਤੀਆਂ ਲਿਸਟਿੰਗਾਂ",
+
+  "customer": "ਗਾਹਕ",
+  "provider": "ਸੇਵਾ ਪ੍ਰਦਾਤਾ",
+
+  "language": "ਭਾਸ਼ਾ"
+}

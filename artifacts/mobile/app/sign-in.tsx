@@ -19,11 +19,13 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import Colors from "@/constants/colors";
 import { useAuth } from "@/context/AuthContext";
+import { useLang } from "@/context/LanguageContext";
 
 const C = Colors.light;
 
 export default function SignInScreen() {
   const { loginWithEmail } = useAuth();
+  const { t, language, toggleLanguage } = useLang();
   const insets = useSafeAreaInsets();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -33,10 +35,12 @@ export default function SignInScreen() {
 
   async function handleLogin() {
     setError("");
-    if (!email.trim()) { setError("Please enter your email"); return; }
-    if (!password) { setError("Please enter your password"); return; }
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email.trim())) { setError("Please enter a valid email address"); return; }
+    if (!email.trim()) { setError(language === "pa" ? "ਕਿਰਪਾ ਕਰਕੇ ਈਮੇਲ ਦਾਖਲ ਕਰੋ" : "Please enter your email"); return; }
+    if (!password) { setError(language === "pa" ? "ਕਿਰਪਾ ਕਰਕੇ ਪਾਸਵਰਡ ਦਾਖਲ ਕਰੋ" : "Please enter your password"); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      setError(language === "pa" ? "ਸਹੀ ਈਮੇਲ ਪਤਾ ਦਾਖਲ ਕਰੋ" : "Please enter a valid email address");
+      return;
+    }
 
     setLoading(true);
     try {
@@ -44,7 +48,7 @@ export default function SignInScreen() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       router.replace("/(tabs)");
     } catch (e: any) {
-      setError(e.message || "Sign in failed. Please try again.");
+      setError(e.message || (language === "pa" ? "ਸਾਈਨ ਇਨ ਅਸਫਲ ਰਿਹਾ" : "Sign in failed. Please try again."));
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     } finally {
       setLoading(false);
@@ -58,9 +62,14 @@ export default function SignInScreen() {
       <StatusBar style="light" />
       <LinearGradient colors={[C.navy, "#1E3A6E", C.navy]} style={StyleSheet.absoluteFill} />
 
+      {/* Language toggle */}
+      <Pressable onPress={toggleLanguage} style={[styles.langToggle, { top: topPad + 12 }]}>
+        <Text style={styles.langToggleText}>{language === "en" ? "ਪੰਜਾਬੀ" : "EN"}</Text>
+      </Pressable>
+
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1 }}>
         <ScrollView
-          contentContainerStyle={[styles.scroll, { paddingTop: topPad + 40 }]}
+          contentContainerStyle={[styles.scroll, { paddingTop: topPad + 56 }]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
@@ -69,25 +78,25 @@ export default function SignInScreen() {
             <View style={styles.logoCircle}>
               <Ionicons name="car-outline" size={36} color={C.tint} />
             </View>
-            <Text style={styles.appName}>RentZilla</Text>
-            <Text style={styles.tagline}>Punjab's #1 Rental Marketplace</Text>
+            <Text style={styles.appName}>{t.appName}</Text>
+            <Text style={styles.tagline}>{t.appTagline}</Text>
           </View>
 
           {/* Card */}
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>Welcome back</Text>
-            <Text style={styles.cardSubtitle}>Sign in to continue</Text>
+            <Text style={styles.cardTitle}>{t.welcomeBack}</Text>
+            <Text style={styles.cardSubtitle}>{t.signInToContinue}</Text>
 
             {/* Email */}
             <View style={styles.fieldGroup}>
-              <Text style={styles.fieldLabel}>Email Address</Text>
+              <Text style={styles.fieldLabel}>{t.emailAddress}</Text>
               <View style={styles.inputRow}>
                 <Ionicons name="mail-outline" size={18} color={C.textTertiary} style={styles.inputIcon} />
                 <TextInput
                   style={styles.input}
                   value={email}
                   onChangeText={setEmail}
-                  placeholder="you@example.com"
+                  placeholder={t.emailPlaceholder}
                   placeholderTextColor={C.textTertiary}
                   keyboardType="email-address"
                   autoCapitalize="none"
@@ -99,14 +108,14 @@ export default function SignInScreen() {
 
             {/* Password */}
             <View style={styles.fieldGroup}>
-              <Text style={styles.fieldLabel}>Password</Text>
+              <Text style={styles.fieldLabel}>{t.password}</Text>
               <View style={styles.inputRow}>
                 <Ionicons name="lock-closed-outline" size={18} color={C.textTertiary} style={styles.inputIcon} />
                 <TextInput
                   style={styles.input}
                   value={password}
                   onChangeText={setPassword}
-                  placeholder="Enter your password"
+                  placeholder={t.passwordPlaceholder}
                   placeholderTextColor={C.textTertiary}
                   secureTextEntry={!showPassword}
                   returnKeyType="done"
@@ -127,7 +136,7 @@ export default function SignInScreen() {
             >
               {loading ? <ActivityIndicator color="#fff" /> : (
                 <>
-                  <Text style={styles.loginBtnText}>Sign In</Text>
+                  <Text style={styles.loginBtnText}>{t.signIn}</Text>
                   <Ionicons name="arrow-forward" size={20} color="#fff" />
                 </>
               )}
@@ -135,9 +144,9 @@ export default function SignInScreen() {
 
             {/* Sign up link */}
             <View style={styles.switchRow}>
-              <Text style={styles.switchText}>Don't have an account? </Text>
+              <Text style={styles.switchText}>{t.noAccount} </Text>
               <Pressable onPress={() => router.replace("/sign-up")}>
-                <Text style={styles.switchLink}>Sign Up</Text>
+                <Text style={styles.switchLink}>{t.signUp}</Text>
               </Pressable>
             </View>
           </View>
@@ -149,6 +158,18 @@ export default function SignInScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: C.navy },
+  langToggle: {
+    position: "absolute",
+    right: 16,
+    zIndex: 10,
+    backgroundColor: "rgba(255,255,255,0.15)",
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.25)",
+  },
+  langToggleText: { color: "#fff", fontSize: 13, fontWeight: "600", fontFamily: "Inter_600SemiBold" },
   scroll: { paddingHorizontal: 20, paddingBottom: 40 },
   brand: { alignItems: "center", marginBottom: 32, gap: 10 },
   logoCircle: {
@@ -158,7 +179,7 @@ const styles = StyleSheet.create({
     alignItems: "center", justifyContent: "center",
   },
   appName: { fontSize: 34, fontWeight: "700", fontFamily: "Inter_700Bold", color: "#fff", letterSpacing: -0.5 },
-  tagline: { fontSize: 13, color: "rgba(255,255,255,0.6)", fontFamily: "Inter_400Regular" },
+  tagline: { fontSize: 13, color: "rgba(255,255,255,0.6)", fontFamily: "Inter_400Regular", textAlign: "center" },
   card: { backgroundColor: "#fff", borderRadius: 24, padding: 24, gap: 18 },
   cardTitle: { fontSize: 22, fontWeight: "700", fontFamily: "Inter_700Bold", color: C.text },
   cardSubtitle: { fontSize: 13, color: C.textSecondary, fontFamily: "Inter_400Regular", marginTop: -10 },

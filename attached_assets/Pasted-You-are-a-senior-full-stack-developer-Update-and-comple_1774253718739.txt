@@ -1,0 +1,180 @@
+You are a senior full-stack developer. Update and complete the RentZilla app (Punjab, India focused rental platform) with the following requirements.
+
+-----------------------------------
+🌍 APP CONTEXT
+-----------------------------------
+- App Name: RentZilla – Rent Anything, Anytime
+- Location: Punjab, India only
+- Currency: INR (₹)
+- Language: Bilingual UI (English + Punjabi Gurmukhi)
+- Mobile-first design (Android friendly)
+
+-----------------------------------
+🎯 UI & FUNCTIONAL REQUIREMENTS
+-----------------------------------
+
+1. 🔔 HEADER UPDATE
+- Top-right corner:
+  - Place Notification Bell 🔔
+  - Move Profile icon next to it (swap positions if needed)
+- On clicking Notification Bell:
+  - Show dropdown list of notifications:
+    - Title
+    - Message
+    - Timestamp
+- Fetch notifications from backend API
+
+-----------------------------------
+
+2. 🚪 LOGOUT FLOW
+- Add Logout button in Profile/Settings
+- On click:
+  - Clear JWT/auth token
+  - Redirect to Login / Sign Up page
+
+-----------------------------------
+
+3. 📝 SIGN-UP PAGE (Bilingual)
+Fields:
+- First Name
+- Last Name
+- Email
+- Mobile Number (+91 validation)
+- Password
+- Confirm Password
+
+Role Selection:
+- Customer (ਗਾਹਕ)
+- Provider (ਸੇਵਾ ਪ੍ਰਦਾਤਾ)
+
+Checkbox (required):
+"By clicking here you agree to the Terms and Conditions"
+(Punjabi translation required)
+
+Buttons:
+- Sign Up (primary)
+- Sign In (below form)
+
+Behavior:
+- Validate inputs
+- Password must match
+- Hash password using bcrypt
+- Save user in DB
+- After successful signup → Redirect to Home Page
+
+-----------------------------------
+
+4. 🔐 SIGN-IN PAGE
+Fields:
+- Email
+- Password
+
+Button:
+- Login
+
+Behavior:
+- Validate credentials
+- Generate JWT token
+- Store token (localStorage)
+- Redirect → Home Page
+
+-----------------------------------
+
+5. ☰ SIDE DRAWER (LEFT TOP)
+- Add hamburger (3-line) icon on top-left
+- On click → open sliding drawer menu
+
+Menu Items (with Punjabi translation):
+- Home (ਮੁੱਖ ਪੰਨਾ)
+- Search Equipment (ਸਾਮਾਨ ਖੋਜੋ)
+- My Bookings (ਮੇਰੀ ਬੁਕਿੰਗ)
+- Favourites (ਪਸੰਦੀਦਾ)
+- Messages (ਸੁਨੇਹੇ)
+- My Profile (ਮੇਰਾ ਪ੍ਰੋਫਾਈਲ)
+- Settings (ਸੈਟਿੰਗ)
+- Help & Support (ਮਦਦ)
+
+Each item routes to its own page/component.
+
+-----------------------------------
+
+🌐 LOCALIZATION
+-----------------------------------
+- Add language toggle (EN / ਪੰਜਾਬੀ)
+- Use JSON translation files:
+  /locales/en.json
+  /locales/pa.json
+- Store selected language in localStorage
+- All UI text must support translation
+
+-----------------------------------
+
+🔌 BACKEND APIs (Node.js + Express)
+-----------------------------------
+
+Auth:
+- POST /api/auth/register
+- POST /api/auth/login
+- POST /api/auth/logout
+
+User:
+- GET /api/user/profile
+- PUT /api/user/profile
+
+Notifications:
+- GET /api/notifications
+
+-----------------------------------
+
+🗄️ DATABASE SCHEMA (PostgreSQL + Prisma)
+-----------------------------------
+
+User:
+- id (UUID)
+- firstName
+- lastName
+- email (unique)
+- mobile
+- password (hashed)
+- role (customer/provider)
+- language (en/pa)
+- createdAt
+
+Notification:
+- id
+- userId
+- title
+- message
+- isRead
+- createdAt
+
+-----------------------------------
+
+🔐 SECURITY
+-----------------------------------
+- JWT authentication middleware
+- bcrypt password hashing
+- Input validation for all fields
+- Protect private routes
+
+-----------------------------------
+
+🎨 UI/UX
+-----------------------------------
+- Clean, simple UI for rural + urban users
+- Mobile-first responsive design
+- Smooth animations (drawer + dropdown)
+
+-----------------------------------
+
+🚀 FINAL OUTPUT
+-----------------------------------
+- Fully working frontend + backend
+- Connected APIs
+- Prisma DB configured
+- .env example:
+  DATABASE_URL=
+  JWT_SECRET=
+- Ready to run on Replit
+
+-----------------------------------

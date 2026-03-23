@@ -21,25 +21,28 @@ import { NotificationBell } from "@/components/NotificationBell";
 import { SideDrawer } from "@/components/SideDrawer";
 import Colors from "@/constants/colors";
 import { useAuth } from "@/context/AuthContext";
+import { useLang } from "@/context/LanguageContext";
 import { useApi } from "@/hooks/useApi";
 import { Listing, Category } from "@/types";
 
 const C = Colors.light;
 
 const FEATURED_SUBCATEGORIES = [
-  { id: "tractor", label: "Tractors", icon: "🚜", color: "#22C55E", bg: "#F0FFF4" },
-  { id: "harvester", label: "Harvesters", icon: "⚙️", color: "#F59E0B", bg: "#FFFBEB" },
-  { id: "plumber", label: "Plumbers", icon: "🔧", color: "#3B82F6", bg: "#EBF4FF" },
-  { id: "sedan", label: "Cars", icon: "🚗", color: "#8B5CF6", bg: "#F5F0FF" },
-  { id: "electrician", label: "Electricians", icon: "⚡", color: "#EF4444", bg: "#FEF2F2" },
-  { id: "beauty", label: "Beauty", icon: "✂️", color: "#EC4899", bg: "#FFF0F8" },
+  { id: "tractor", labelEn: "Tractors", labelPa: "ਟਰੈਕਟਰ", icon: "🚜", color: "#22C55E", bg: "#F0FFF4" },
+  { id: "harvester", labelEn: "Harvesters", labelPa: "ਕੰਬਾਈਨ", icon: "⚙️", color: "#F59E0B", bg: "#FFFBEB" },
+  { id: "plumber", labelEn: "Plumbers", labelPa: "ਪਲੰਬਰ", icon: "🔧", color: "#3B82F6", bg: "#EBF4FF" },
+  { id: "sedan", labelEn: "Cars", labelPa: "ਕਾਰ", icon: "🚗", color: "#8B5CF6", bg: "#F5F0FF" },
+  { id: "electrician", labelEn: "Electricians", labelPa: "ਇਲੈਕਟ੍ਰੀਸ਼ੀਅਨ", icon: "⚡", color: "#EF4444", bg: "#FEF2F2" },
+  { id: "beauty", labelEn: "Beauty", labelPa: "ਸੁੰਦਰਤਾ", icon: "✂️", color: "#EC4899", bg: "#FFF0F8" },
 ];
 
 export default function HomeScreen() {
   const { user } = useAuth();
   const { get } = useApi();
+  const { t, language, toggleLanguage } = useLang();
   const insets = useSafeAreaInsets();
   const isWeb = Platform.OS === "web";
+  const isPa = language === "pa";
 
   const [listings, setListings] = useState<Listing[]>([]);
   const [loading, setLoading] = useState(true);
@@ -69,7 +72,13 @@ export default function HomeScreen() {
   }
 
   const topPad = isWeb ? 67 : insets.top;
-  const displayName = user?.name || [user?.firstName, user?.lastName].filter(Boolean).join(" ") || "Friend";
+  const firstName = (user?.firstName || user?.name?.split(" ")[0] || "Friend");
+  const greeting = isPa ? `${t.greeting}, ${firstName} 🌾` : `${t.greeting}, ${firstName} 🌾`;
+
+  const selectedCat = CATEGORIES.find((c) => c.id === selectedCategory);
+  const listingLabel = selectedCategory === "all"
+    ? t.allListings
+    : (isPa ? selectedCat?.label : selectedCat?.label) ?? t.allListings;
 
   return (
     <View style={styles.root}>
@@ -79,30 +88,33 @@ export default function HomeScreen() {
       {/* Header */}
       <LinearGradient colors={[C.navy, "#1B3260"]} style={[styles.header, { paddingTop: topPad + 12 }]}>
         <View style={styles.headerTop}>
-          {/* Hamburger — left */}
+          {/* Hamburger */}
           <Pressable onPress={() => setDrawerOpen(true)} style={styles.headerIconBtn}>
             <Ionicons name="menu" size={24} color="#fff" />
           </Pressable>
 
           {/* Greeting */}
           <View style={styles.headerCenter}>
-            <Text style={styles.greeting} numberOfLines={1}>
-              Sat Sri Akal, {displayName.split(" ")[0]} 🌾
-            </Text>
+            <Text style={styles.greeting} numberOfLines={1}>{greeting}</Text>
             <View style={styles.locationRow}>
               <Ionicons name="location" size={12} color={C.tint} />
-              <Text style={styles.locationText}>Punjab, India</Text>
+              <Text style={styles.locationText}>{t.location}</Text>
             </View>
           </View>
 
-          {/* Notification Bell — right */}
-          <NotificationBell />
+          {/* Right: lang toggle + notification bell */}
+          <View style={styles.headerRight}>
+            <Pressable onPress={toggleLanguage} style={styles.langPill}>
+              <Text style={styles.langPillText}>{isPa ? "EN" : "ਪੰਜਾਬੀ"}</Text>
+            </Pressable>
+            <NotificationBell />
+          </View>
         </View>
 
-        {/* Search bar (tap to navigate) */}
+        {/* Search bar */}
         <Pressable onPress={() => router.push("/(tabs)/search")} style={styles.searchBar}>
           <Ionicons name="search" size={16} color={C.textSecondary} />
-          <Text style={styles.searchPlaceholder}>Search cars, tractors, services...</Text>
+          <Text style={styles.searchPlaceholder}>{t.searchPlaceholder}</Text>
           <Ionicons name="options-outline" size={16} color={C.textTertiary} />
         </Pressable>
       </LinearGradient>
@@ -115,7 +127,7 @@ export default function HomeScreen() {
       >
         {/* Categories */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Browse by Category</Text>
+          <Text style={styles.sectionTitle}>{t.browseByCategory}</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.catScroll}>
             {CATEGORIES.map((cat) => (
               <CategoryPill
@@ -130,16 +142,18 @@ export default function HomeScreen() {
 
         {/* Quick access grid */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Popular in Punjab</Text>
+          <Text style={styles.sectionTitle}>{t.popularInPunjab}</Text>
           <View style={styles.quickGrid}>
             {FEATURED_SUBCATEGORIES.map((item) => (
               <Pressable
                 key={item.id}
-                onPress={() => router.push({ pathname: "/(tabs)/search", params: { q: item.label } })}
+                onPress={() => router.push({ pathname: "/(tabs)/search", params: { q: item.labelEn } })}
                 style={({ pressed }) => [styles.quickItem, { backgroundColor: item.bg, opacity: pressed ? 0.85 : 1 }]}
               >
                 <Text style={styles.quickIcon}>{item.icon}</Text>
-                <Text style={[styles.quickLabel, { color: item.color }]}>{item.label}</Text>
+                <Text style={[styles.quickLabel, { color: item.color }]}>
+                  {isPa ? item.labelPa : item.labelEn}
+                </Text>
               </Pressable>
             ))}
           </View>
@@ -148,21 +162,16 @@ export default function HomeScreen() {
         {/* Listings */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>
-              {selectedCategory === "all" ? "All Listings" : CATEGORIES.find((c) => c.id === selectedCategory)?.label}
-            </Text>
-            <Text style={styles.listingCount}>{listings.length} found</Text>
+            <Text style={styles.sectionTitle}>{listingLabel}</Text>
+            <Text style={styles.listingCount}>{listings.length} {t.found}</Text>
           </View>
 
           {loading ? (
-            <View style={styles.loadingBox}>
-              <ActivityIndicator color={C.tint} size="large" />
-            </View>
+            <View style={styles.loadingBox}><ActivityIndicator color={C.tint} size="large" /></View>
           ) : listings.length === 0 ? (
             <View style={styles.emptyBox}>
               <Ionicons name="cube-outline" size={48} color={C.textTertiary} />
-              <Text style={styles.emptyTitle}>No listings yet</Text>
-              <Text style={styles.emptyText}>Be the first to list in this category!</Text>
+              <Text style={styles.emptyTitle}>{isPa ? "ਕੋਈ ਲਿਸਟਿੰਗ ਨਹੀਂ" : "No listings yet"}</Text>
             </View>
           ) : (
             <View style={styles.listingsGrid}>
@@ -192,12 +201,7 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: C.background },
   header: { paddingHorizontal: 16, paddingBottom: 20 },
-  headerTop: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 14,
-    gap: 10,
-  },
+  headerTop: { flexDirection: "row", alignItems: "center", marginBottom: 14, gap: 10 },
   headerIconBtn: {
     width: 40, height: 40, borderRadius: 20,
     backgroundColor: "rgba(255,255,255,0.12)",
@@ -207,6 +211,16 @@ const styles = StyleSheet.create({
   greeting: { fontSize: 17, fontWeight: "700", fontFamily: "Inter_700Bold", color: "#fff" },
   locationRow: { flexDirection: "row", alignItems: "center", gap: 3, marginTop: 2 },
   locationText: { fontSize: 11, color: "rgba(255,255,255,0.7)", fontFamily: "Inter_400Regular" },
+  headerRight: { flexDirection: "row", alignItems: "center", gap: 8 },
+  langPill: {
+    backgroundColor: "rgba(255,255,255,0.12)",
+    borderRadius: 14,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.2)",
+  },
+  langPillText: { color: "#fff", fontSize: 11, fontWeight: "600", fontFamily: "Inter_600SemiBold" },
   searchBar: {
     flexDirection: "row", alignItems: "center", gap: 10,
     backgroundColor: "#fff", borderRadius: 14,
@@ -220,18 +234,13 @@ const styles = StyleSheet.create({
   listingCount: { fontSize: 13, color: C.textSecondary, fontFamily: "Inter_400Regular" },
   catScroll: { gap: 10, paddingRight: 20 },
   quickGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
-  quickItem: {
-    borderRadius: 14, padding: 14,
-    alignItems: "center", gap: 6,
-    minWidth: 90, flex: 1,
-  },
+  quickItem: { borderRadius: 14, padding: 14, alignItems: "center", gap: 6, minWidth: 90, flex: 1 },
   quickIcon: { fontSize: 24 },
   quickLabel: { fontSize: 11, fontWeight: "600", fontFamily: "Inter_600SemiBold", textAlign: "center" },
   listingsGrid: { gap: 14 },
   loadingBox: { height: 200, alignItems: "center", justifyContent: "center" },
   emptyBox: { height: 200, alignItems: "center", justifyContent: "center", gap: 8 },
   emptyTitle: { fontSize: 16, fontWeight: "600", fontFamily: "Inter_600SemiBold", color: C.text },
-  emptyText: { fontSize: 13, color: C.textSecondary, fontFamily: "Inter_400Regular", textAlign: "center" },
   fab: {
     position: "absolute", right: 20,
     width: 56, height: 56, borderRadius: 28,

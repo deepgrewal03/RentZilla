@@ -6,11 +6,13 @@ import { Platform, StyleSheet, View, useColorScheme } from "react-native";
 
 import Colors from "@/constants/colors";
 import { useAuth } from "@/context/AuthContext";
+import { useLang } from "@/context/LanguageContext";
 
 const C = Colors.light;
 
 export default function TabLayout() {
   const { user } = useAuth();
+  const { t } = useLang();
   const isProvider = user?.role === "provider";
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
@@ -46,35 +48,35 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: "Home",
+          title: t.home,
           tabBarIcon: ({ color }) => <Feather name="home" size={22} color={color} />,
         }}
       />
       <Tabs.Screen
         name="search"
         options={{
-          title: "Search",
+          title: t.search,
           tabBarIcon: ({ color }) => <Feather name="search" size={22} color={color} />,
         }}
       />
       <Tabs.Screen
         name="bookings"
         options={{
-          title: "Bookings",
+          title: t.bookings,
           tabBarIcon: ({ color }) => <Feather name="calendar" size={22} color={color} />,
         }}
       />
       <Tabs.Screen
         name="favorites"
         options={{
-          title: "Favourites",
+          title: t.favourites,
           tabBarIcon: ({ color }) => <Feather name="heart" size={22} color={color} />,
         }}
       />
       <Tabs.Screen
         name="dashboard"
         options={{
-          title: "Dashboard",
+          title: t.dashboard,
           href: isProvider ? undefined : null,
           tabBarIcon: ({ color }) => <Feather name="bar-chart-2" size={22} color={color} />,
         }}
@@ -82,14 +84,14 @@ export default function TabLayout() {
       <Tabs.Screen
         name="messages"
         options={{
-          title: "Messages",
+          title: t.messages,
           tabBarIcon: ({ color }) => <Feather name="message-circle" size={22} color={color} />,
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
-          title: "Profile",
+          title: t.profile,
           tabBarIcon: ({ color }) => <Feather name="user" size={22} color={color} />,
         }}
       />

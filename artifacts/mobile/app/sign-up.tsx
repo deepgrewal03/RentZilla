@@ -19,11 +19,13 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import Colors from "@/constants/colors";
 import { useAuth, UserRole } from "@/context/AuthContext";
+import { useLang } from "@/context/LanguageContext";
 
 const C = Colors.light;
 
 export default function SignUpScreen() {
   const { register } = useAuth();
+  const { t, language, toggleLanguage } = useLang();
   const insets = useSafeAreaInsets();
 
   const [firstName, setFirstName] = useState("");
@@ -40,28 +42,31 @@ export default function SignUpScreen() {
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const topPad = Platform.OS === "web" ? 67 : insets.top;
+  const isPa = language === "pa";
+
+  function err(en: string, pa: string) { return isPa ? pa : en; }
 
   function validate() {
     const e: Record<string, string> = {};
-    if (!firstName.trim()) e.firstName = "First name is required";
-    if (!lastName.trim()) e.lastName = "Last name is required";
+    if (!firstName.trim()) e.firstName = err("First name is required", "ਪਹਿਲਾ ਨਾਮ ਲਾਜ਼ਮੀ ਹੈ");
+    if (!lastName.trim()) e.lastName = err("Last name is required", "ਆਖਰੀ ਨਾਮ ਲਾਜ਼ਮੀ ਹੈ");
     if (!email.trim()) {
-      e.email = "Email is required";
+      e.email = err("Email is required", "ਈਮੇਲ ਲਾਜ਼ਮੀ ਹੈ");
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
-      e.email = "Please enter a valid email address";
+      e.email = err("Enter a valid email address", "ਸਹੀ ਈਮੇਲ ਪਤਾ ਦਾਖਲ ਕਰੋ");
     }
-    if (mobile && mobile.trim().length < 10) e.mobile = "Enter a valid 10-digit mobile number";
+    if (mobile && mobile.trim().length < 10) e.mobile = err("Enter a valid 10-digit mobile number", "10-ਅੰਕਾਂ ਦਾ ਮੋਬਾਈਲ ਨੰਬਰ ਦਾਖਲ ਕਰੋ");
     if (!password) {
-      e.password = "Password is required";
+      e.password = err("Password is required", "ਪਾਸਵਰਡ ਲਾਜ਼ਮੀ ਹੈ");
     } else if (password.length < 6) {
-      e.password = "Password must be at least 6 characters";
+      e.password = err("Password must be at least 6 characters", "ਪਾਸਵਰਡ ਘੱਟੋ ਘੱਟ 6 ਅੱਖਰਾਂ ਦਾ ਹੋਣਾ ਚਾਹੀਦਾ ਹੈ");
     }
     if (!confirmPassword) {
-      e.confirmPassword = "Please confirm your password";
+      e.confirmPassword = err("Please confirm your password", "ਕਿਰਪਾ ਕਰਕੇ ਪਾਸਵਰਡ ਦੀ ਪੁਸ਼ਟੀ ਕਰੋ");
     } else if (password !== confirmPassword) {
-      e.confirmPassword = "Passwords do not match";
+      e.confirmPassword = err("Passwords do not match", "ਪਾਸਵਰਡ ਮੇਲ ਨਹੀਂ ਖਾਂਦੇ");
     }
-    if (!agreedToTerms) e.terms = "You must agree to the Terms and Conditions";
+    if (!agreedToTerms) e.terms = err("You must agree to the Terms and Conditions", "ਤੁਹਾਨੂੰ ਨਿਯਮਾਂ ਅਤੇ ਸ਼ਰਤਾਂ ਨਾਲ ਸਹਿਮਤ ਹੋਣਾ ਪਵੇਗਾ");
     return e;
   }
 
@@ -79,7 +84,7 @@ export default function SignUpScreen() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       router.replace("/(tabs)");
     } catch (err: any) {
-      setErrors({ general: err.message || "Registration failed. Please try again." });
+      setErrors({ general: err.message || (isPa ? "ਰਜਿਸਟ੍ਰੇਸ਼ਨ ਅਸਫਲ ਰਹੀ" : "Registration failed. Please try again.") });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     } finally {
       setLoading(false);
@@ -91,9 +96,14 @@ export default function SignUpScreen() {
       <StatusBar style="light" />
       <LinearGradient colors={[C.navy, "#1E3A6E", C.navy]} style={StyleSheet.absoluteFill} />
 
+      {/* Language toggle */}
+      <Pressable onPress={toggleLanguage} style={[styles.langToggle, { top: topPad + 12 }]}>
+        <Text style={styles.langToggleText}>{language === "en" ? "ਪੰਜਾਬੀ" : "EN"}</Text>
+      </Pressable>
+
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1 }}>
         <ScrollView
-          contentContainerStyle={[styles.scroll, { paddingTop: topPad + 24 }]}
+          contentContainerStyle={[styles.scroll, { paddingTop: topPad + 56 }]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
@@ -102,8 +112,8 @@ export default function SignUpScreen() {
             <View style={styles.logoCircle}>
               <Ionicons name="car-outline" size={30} color={C.tint} />
             </View>
-            <Text style={styles.appName}>Create Account</Text>
-            <Text style={styles.tagline}>Join RentZilla — Punjab's rental marketplace</Text>
+            <Text style={styles.appName}>{t.createAccount}</Text>
+            <Text style={styles.tagline}>{t.joinTagline}</Text>
           </View>
 
           <View style={styles.card}>
@@ -112,24 +122,24 @@ export default function SignUpScreen() {
             {/* Name Row */}
             <View style={styles.row}>
               <View style={[styles.fieldGroup, { flex: 1 }]}>
-                <Text style={styles.fieldLabel}>First Name *</Text>
+                <Text style={styles.fieldLabel}>{t.firstName} *</Text>
                 <TextInput
                   style={[styles.input, errors.firstName && styles.inputError]}
                   value={firstName}
                   onChangeText={setFirstName}
-                  placeholder="Gurpreet"
+                  placeholder={isPa ? "ਗੁਰਪ੍ਰੀਤ" : "Gurpreet"}
                   placeholderTextColor={C.textTertiary}
                   autoCapitalize="words"
                 />
                 {errors.firstName ? <Text style={styles.fieldError}>{errors.firstName}</Text> : null}
               </View>
               <View style={[styles.fieldGroup, { flex: 1 }]}>
-                <Text style={styles.fieldLabel}>Last Name *</Text>
+                <Text style={styles.fieldLabel}>{t.lastName} *</Text>
                 <TextInput
                   style={[styles.input, errors.lastName && styles.inputError]}
                   value={lastName}
                   onChangeText={setLastName}
-                  placeholder="Singh"
+                  placeholder={isPa ? "ਸਿੰਘ" : "Singh"}
                   placeholderTextColor={C.textTertiary}
                   autoCapitalize="words"
                 />
@@ -139,14 +149,14 @@ export default function SignUpScreen() {
 
             {/* Email */}
             <View style={styles.fieldGroup}>
-              <Text style={styles.fieldLabel}>Email Address *</Text>
+              <Text style={styles.fieldLabel}>{t.emailAddress} *</Text>
               <View style={[styles.iconInput, errors.email && styles.inputError]}>
                 <Ionicons name="mail-outline" size={17} color={C.textTertiary} />
                 <TextInput
                   style={styles.iconInputText}
                   value={email}
                   onChangeText={setEmail}
-                  placeholder="you@example.com"
+                  placeholder={t.emailPlaceholder}
                   placeholderTextColor={C.textTertiary}
                   keyboardType="email-address"
                   autoCapitalize="none"
@@ -158,7 +168,7 @@ export default function SignUpScreen() {
 
             {/* Mobile */}
             <View style={styles.fieldGroup}>
-              <Text style={styles.fieldLabel}>Mobile Number <Text style={styles.optional}>(optional)</Text></Text>
+              <Text style={styles.fieldLabel}>{t.mobileNumber} <Text style={styles.optional}>({t.optional})</Text></Text>
               <View style={[styles.iconInput, errors.mobile && styles.inputError]}>
                 <Text style={styles.dialCode}>+91</Text>
                 <TextInput
@@ -176,14 +186,14 @@ export default function SignUpScreen() {
 
             {/* Password */}
             <View style={styles.fieldGroup}>
-              <Text style={styles.fieldLabel}>Password *</Text>
+              <Text style={styles.fieldLabel}>{t.password} *</Text>
               <View style={[styles.iconInput, errors.password && styles.inputError]}>
                 <Ionicons name="lock-closed-outline" size={17} color={C.textTertiary} />
                 <TextInput
                   style={styles.iconInputText}
                   value={password}
                   onChangeText={setPassword}
-                  placeholder="Min 6 characters"
+                  placeholder={t.minPassword}
                   placeholderTextColor={C.textTertiary}
                   secureTextEntry={!showPassword}
                 />
@@ -196,14 +206,14 @@ export default function SignUpScreen() {
 
             {/* Confirm Password */}
             <View style={styles.fieldGroup}>
-              <Text style={styles.fieldLabel}>Confirm Password *</Text>
+              <Text style={styles.fieldLabel}>{t.confirmPassword} *</Text>
               <View style={[styles.iconInput, errors.confirmPassword && styles.inputError]}>
                 <Ionicons name="lock-closed-outline" size={17} color={C.textTertiary} />
                 <TextInput
                   style={styles.iconInputText}
                   value={confirmPassword}
                   onChangeText={setConfirmPassword}
-                  placeholder="Repeat password"
+                  placeholder={t.repeatPassword}
                   placeholderTextColor={C.textTertiary}
                   secureTextEntry={!showConfirm}
                 />
@@ -216,15 +226,15 @@ export default function SignUpScreen() {
 
             {/* Role */}
             <View style={styles.fieldGroup}>
-              <Text style={styles.fieldLabel}>I want to *</Text>
+              <Text style={styles.fieldLabel}>{t.iWantTo}</Text>
               <View style={styles.roleRow}>
                 <Pressable onPress={() => { Haptics.selectionAsync(); setRole("customer"); }} style={[styles.roleBtn, role === "customer" && styles.roleBtnActive]}>
                   <Ionicons name="search-outline" size={17} color={role === "customer" ? "#fff" : C.text} />
-                  <Text style={[styles.roleBtnText, role === "customer" && styles.roleBtnTextActive]}>Rent Things</Text>
+                  <Text style={[styles.roleBtnText, role === "customer" && styles.roleBtnTextActive]}>{t.rentThings}</Text>
                 </Pressable>
                 <Pressable onPress={() => { Haptics.selectionAsync(); setRole("provider"); }} style={[styles.roleBtn, role === "provider" && styles.roleBtnActive]}>
                   <Ionicons name="storefront-outline" size={17} color={role === "provider" ? "#fff" : C.text} />
-                  <Text style={[styles.roleBtnText, role === "provider" && styles.roleBtnTextActive]}>List & Earn</Text>
+                  <Text style={[styles.roleBtnText, role === "provider" && styles.roleBtnTextActive]}>{t.listAndEarn}</Text>
                 </Pressable>
               </View>
             </View>
@@ -234,10 +244,7 @@ export default function SignUpScreen() {
               <View style={[styles.checkbox, agreedToTerms && styles.checkboxChecked]}>
                 {agreedToTerms && <Ionicons name="checkmark" size={13} color="#fff" />}
               </View>
-              <Text style={styles.termsText}>
-                By clicking here you agree to the{" "}
-                <Text style={styles.termsLink}>Terms and Conditions</Text>
-              </Text>
+              <Text style={styles.termsText}>{t.termsText}</Text>
             </Pressable>
             {errors.terms ? <Text style={styles.fieldError}>{errors.terms}</Text> : null}
 
@@ -249,16 +256,16 @@ export default function SignUpScreen() {
             >
               {loading ? <ActivityIndicator color="#fff" /> : (
                 <>
-                  <Text style={styles.signUpBtnText}>Sign Up</Text>
+                  <Text style={styles.signUpBtnText}>{t.signUp}</Text>
                   <Ionicons name="arrow-forward" size={20} color="#fff" />
                 </>
               )}
             </Pressable>
 
             <View style={styles.switchRow}>
-              <Text style={styles.switchText}>Already have an account? </Text>
+              <Text style={styles.switchText}>{t.alreadyHaveAccount} </Text>
               <Pressable onPress={() => router.replace("/sign-in")}>
-                <Text style={styles.switchLink}>Sign In</Text>
+                <Text style={styles.switchLink}>{t.signIn}</Text>
               </Pressable>
             </View>
           </View>
@@ -272,6 +279,18 @@ export default function SignUpScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: C.navy },
+  langToggle: {
+    position: "absolute",
+    right: 16,
+    zIndex: 10,
+    backgroundColor: "rgba(255,255,255,0.15)",
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.25)",
+  },
+  langToggleText: { color: "#fff", fontSize: 13, fontWeight: "600", fontFamily: "Inter_600SemiBold" },
   scroll: { paddingHorizontal: 20 },
   brand: { alignItems: "center", marginBottom: 24, gap: 8 },
   logoCircle: {
@@ -284,8 +303,7 @@ const styles = StyleSheet.create({
   tagline: { fontSize: 12, color: "rgba(255,255,255,0.6)", fontFamily: "Inter_400Regular", textAlign: "center" },
   card: { backgroundColor: "#fff", borderRadius: 24, padding: 20, gap: 14 },
   errorBanner: {
-    backgroundColor: "#FEF2F2", borderRadius: 10, borderWidth: 1, borderColor: "#FECACA",
-    padding: 12,
+    backgroundColor: "#FEF2F2", borderRadius: 10, borderWidth: 1, borderColor: "#FECACA", padding: 12,
   },
   errorBannerText: { color: C.error, fontSize: 13, fontFamily: "Inter_400Regular" },
   row: { flexDirection: "row", gap: 12 },
@@ -317,17 +335,15 @@ const styles = StyleSheet.create({
     borderWidth: 1.5, borderColor: C.border, backgroundColor: C.backgroundTertiary,
   },
   roleBtnActive: { backgroundColor: C.tint, borderColor: C.tint },
-  roleBtnText: { fontSize: 13, fontWeight: "600", fontFamily: "Inter_600SemiBold", color: C.text },
+  roleBtnText: { fontSize: 12, fontWeight: "600", fontFamily: "Inter_600SemiBold", color: C.text, textAlign: "center" },
   roleBtnTextActive: { color: "#fff" },
   termsRow: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
   checkbox: {
     width: 20, height: 20, borderRadius: 5, borderWidth: 1.5, borderColor: C.border,
-    backgroundColor: C.backgroundTertiary, alignItems: "center", justifyContent: "center",
-    marginTop: 2,
+    backgroundColor: C.backgroundTertiary, alignItems: "center", justifyContent: "center", marginTop: 2,
   },
   checkboxChecked: { backgroundColor: C.tint, borderColor: C.tint },
   termsText: { flex: 1, fontSize: 12, color: C.textSecondary, fontFamily: "Inter_400Regular", lineHeight: 18 },
-  termsLink: { color: C.tint, fontWeight: "600", fontFamily: "Inter_600SemiBold" },
   signUpBtn: {
     backgroundColor: C.tint, borderRadius: 14, paddingVertical: 14,
     flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8,

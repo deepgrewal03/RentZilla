@@ -1,0 +1,71 @@
+{
+  "appName": "RentZilla",
+  "appTagline": "Punjab's #1 Rental Marketplace",
+  "greeting": "Sat Sri Akal",
+  "location": "Punjab, India",
+
+  "signIn": "Sign In",
+  "signUp": "Sign Up",
+  "logout": "Logout",
+  "logoutConfirmTitle": "Logout",
+  "logoutConfirmMsg": "Are you sure you want to logout?",
+  "cancel": "Cancel",
+
+  "welcomeBack": "Welcome back",
+  "signInToContinue": "Sign in to continue",
+  "emailAddress": "Email Address",
+  "emailPlaceholder": "you@example.com",
+  "password": "Password",
+  "passwordPlaceholder": "Enter your password",
+  "noAccount": "Don't have an account?",
+
+  "createAccount": "Create Account",
+  "joinTagline": "Join RentZilla — Punjab's rental marketplace",
+  "firstName": "First Name",
+  "lastName": "Last Name",
+  "mobileNumber": "Mobile Number",
+  "optional": "optional",
+  "confirmPassword": "Confirm Password",
+  "repeatPassword": "Repeat password",
+  "minPassword": "Min 6 characters",
+  "iWantTo": "I want to *",
+  "rentThings": "Rent Things",
+  "listAndEarn": "List & Earn",
+  "termsText": "By clicking here you agree to the Terms and Conditions",
+  "alreadyHaveAccount": "Already have an account?",
+
+  "home": "Home",
+  "searchEquipment": "Search Equipment",
+  "myBookings": "My Bookings",
+  "favourites": "Favourites",
+  "messages": "Messages",
+  "myProfile": "My Profile",
+  "settings": "Settings",
+  "helpSupport": "Help & Support",
+
+  "search": "Search",
+  "bookings": "Bookings",
+  "profile": "Profile",
+  "dashboard": "Dashboard",
+
+  "searchPlaceholder": "Search cars, tractors, services...",
+  "popularInPunjab": "Popular in Punjab",
+  "browseByCategory": "Browse by Category",
+  "allListings": "All Listings",
+  "found": "found",
+
+  "notifications": "Notifications",
+  "noNotifications": "No notifications yet",
+  "markAllRead": "Mark all read",
+
+  "noFavourites": "No favourites yet",
+  "noFavouritesDesc": "Tap the heart on any listing to save it here",
+  "browseListings": "Browse Listings",
+  "savedListings": "saved listing",
+  "savedListingsPlural": "saved listings",
+
+  "customer": "Customer",
+  "provider": "Provider",
+
+  "language": "Language"
+}
