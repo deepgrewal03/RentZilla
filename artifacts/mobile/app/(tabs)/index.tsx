@@ -40,6 +40,7 @@ const FEATURED_SUBCATEGORIES = [
 export default function HomeScreen() {
   const { user, activeMode, setActiveMode } = useAuth();
   const isBoth = user?.role === "both";
+  const isPureProvider = user?.role === "provider";
   const { get } = useApi();
   const { t, language, toggleLanguage } = useLang();
   const insets = useSafeAreaInsets();
@@ -52,13 +53,20 @@ export default function HomeScreen() {
   const [selectedCategory, setSelectedCategory] = useState<Category | "all">("all");
   const [drawerOpen, setDrawerOpen] = useState(false);
 
+  // Providers should never see the Home/customer screen
+  const inProviderMode = isPureProvider || (isBoth && activeMode === "provider");
+
   useEffect(() => {
     if (!user) {
       router.replace("/sign-in");
       return;
     }
+    if (inProviderMode) {
+      router.replace("/(tabs)/dashboard");
+      return;
+    }
     fetchListings();
-  }, [user, selectedCategory]);
+  }, [user, selectedCategory, inProviderMode]);
 
   async function fetchListings() {
     try {

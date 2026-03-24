@@ -1,0 +1,118 @@
+Update RentZilla app navigation and UI logic to REPLACE the "Home" page with a "Dashboard" for PROVIDER role only.
+
+IMPORTANT:
+- Apply changes ONLY to provider role
+- Do NOT affect customer (rider) app
+- Maintain clean role-based navigation
+
+-----------------------------------
+
+🎯 MAIN GOAL:
+
+- Remove "Home" tab/page for provider users
+- Replace it with "Dashboard" screen (earnings + stats)
+- Keep Home page unchanged for customer users
+
+-----------------------------------
+
+👤 ROLE-BASED NAVIGATION LOGIC:
+
+IF user.role = 'customer':
+→ Show:
+  - Home
+  - Search
+  - Bookings
+  - Cars
+  - Profile
+
+IF user.role = 'provider':
+→ REMOVE:
+  - Home tab completely
+
+→ ADD:
+  - Dashboard (as first/main tab)
+
+-----------------------------------
+
+📱 PROVIDER NAVIGATION (FINAL):
+
+Bottom Tabs:
+
+1. Dashboard (replaces Home)
+2. Listings / Driver
+3. Bookings
+4. Chats
+5. Profile
+
+-----------------------------------
+
+📊 DASHBOARD SCREEN (PROVIDER):
+
+This replaces Home screen.
+
+Include:
+
+1. Earnings Card:
+- Total earnings
+- This month earnings
+- Growth %
+
+2. Stats:
+- Active Listings OR Active Trips
+- Active Bookings
+- Total Bookings
+- Total Customers
+
+3. Recent Activity:
+- Latest bookings / rides
+
+4. Quick Actions:
+- Add Listing
+- Go Online (for drivers)
+
+-----------------------------------
+
+🧹 REMOVE FROM PROVIDER:
+
+- Home page UI
+- Customer-specific content:
+  - browsing
+  - searching items
+  - booking UI
+
+-----------------------------------
+
+⚙️ ROUTING LOGIC:
+
+- Update navigation config:
+  IF role = provider:
+    initialRoute = Dashboard
+
+- Prevent access to Home route for providers:
+  → redirect to Dashboard
+
+-----------------------------------
+
+🔐 SECURITY RULE:
+
+- Backend should also validate role
+- Provider should not access customer-only APIs
+
+-----------------------------------
+
+🎨 UI REQUIREMENTS:
+
+- Clean card-based dashboard
+- Mobile-friendly
+- Smooth loading
+- Real-time data
+
+-----------------------------------
+
+OUTPUT REQUIRED:
+
+- Updated navigation system
+- Provider dashboard screen
+- Removed Home from provider
+- Role-based routing
+- Clean UI implementation

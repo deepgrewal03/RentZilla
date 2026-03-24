@@ -11,15 +11,19 @@ import { useLang } from "@/context/LanguageContext";
 const C = Colors.light;
 
 export default function TabLayout() {
-  const { user } = useAuth();
+  const { user, activeMode } = useAuth();
   const { t } = useLang();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
   const isIOS = Platform.OS === "ios";
   const isWeb = Platform.OS === "web";
 
-  const isProvider = user?.role === "provider" || user?.role === "both";
-  const isCustomer = user?.role === "customer" || user?.role === "both";
+  const roles: string[] = (user as any)?.roles ?? [];
+  const isPureProvider = user?.role === "provider";
+  const isBoth = user?.role === "both";
+  // In "provider" mode = pure provider OR "both" user currently in provider mode
+  const inProviderMode = isPureProvider || (isBoth && activeMode === "provider");
+  const inCustomerMode = !inProviderMode;
 
   return (
     <Tabs
@@ -47,21 +51,37 @@ export default function TabLayout() {
         },
       }}
     >
+      {/* ── Dashboard: FIRST for providers ── */}
+      <Tabs.Screen
+        name="dashboard"
+        options={{
+          title: t.dashboard,
+          href: inProviderMode ? undefined : null,
+          tabBarIcon: ({ color }) => <Feather name="bar-chart-2" size={22} color={color} />,
+        }}
+      />
+
+      {/* ── Home: FIRST for customers ── */}
       <Tabs.Screen
         name="index"
         options={{
           title: t.home,
+          href: inCustomerMode ? undefined : null,
           tabBarIcon: ({ color }) => <Feather name="home" size={22} color={color} />,
         }}
       />
+
+      {/* ── Search: customers only ── */}
       <Tabs.Screen
         name="search"
         options={{
           title: t.search,
-          href: isCustomer ? undefined : null,
+          href: inCustomerMode ? undefined : null,
           tabBarIcon: ({ color }) => <Feather name="search" size={22} color={color} />,
         }}
       />
+
+      {/* ── Bookings: everyone ── */}
       <Tabs.Screen
         name="bookings"
         options={{
@@ -69,6 +89,8 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => <Feather name="calendar" size={22} color={color} />,
         }}
       />
+
+      {/* ── Cars: everyone ── */}
       <Tabs.Screen
         name="cars"
         options={{
@@ -76,20 +98,14 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => <Feather name="truck" size={22} color={color} />,
         }}
       />
+
+      {/* ── Hidden tabs (accessible via side drawer) ── */}
       <Tabs.Screen
         name="favorites"
         options={{
           title: t.favourites,
           href: null,
           tabBarIcon: ({ color }) => <Feather name="heart" size={22} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="dashboard"
-        options={{
-          title: t.dashboard,
-          href: isProvider ? undefined : null,
-          tabBarIcon: ({ color }) => <Feather name="bar-chart-2" size={22} color={color} />,
         }}
       />
       <Tabs.Screen
@@ -108,6 +124,8 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => <Feather name="user" size={22} color={color} />,
         }}
       />
+
+      {/* ── Settings: everyone ── */}
       <Tabs.Screen
         name="settings"
         options={{
