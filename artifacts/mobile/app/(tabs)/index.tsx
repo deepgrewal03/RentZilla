@@ -132,7 +132,11 @@ export default function HomeScreen() {
               <Text style={[styles.modeBtnText, activeMode === "customer" && styles.modeBtnTextActive]}>Customer</Text>
             </Pressable>
             <Pressable
-              onPress={() => { Haptics.selectionAsync(); setActiveMode("provider"); }}
+              onPress={() => {
+                Haptics.selectionAsync();
+                setActiveMode("provider");
+                router.replace("/(tabs)/dashboard");
+              }}
               style={[styles.modeBtn, activeMode === "provider" && styles.modeBtnActive]}
             >
               <Ionicons name="car-outline" size={14} color={activeMode === "provider" ? "#fff" : "rgba(255,255,255,0.6)"} />

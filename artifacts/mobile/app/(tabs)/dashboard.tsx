@@ -105,6 +105,15 @@ export default function DashboardScreen() {
   // Determine if user can switch roles
   const roles: string[] = (user as any)?.roles ?? [];
   const isBoth = roles.includes("customer") && roles.includes("provider");
+  const isPureProvider = user?.role === "provider";
+  const inProviderMode = isPureProvider || (isBoth && activeMode === "provider");
+
+  // When user switches to customer mode, leave the dashboard and go to Home
+  useEffect(() => {
+    if (user && !inProviderMode) {
+      router.replace("/(tabs)/");
+    }
+  }, [inProviderMode, user]);
 
   useEffect(() => { fetchData(); }, []);
 
@@ -188,7 +197,11 @@ export default function DashboardScreen() {
         {isBoth && (
           <View style={styles.roleToggle}>
             <Pressable
-              onPress={() => { setActiveMode("customer"); Haptics.selectionAsync(); }}
+              onPress={() => {
+                setActiveMode("customer");
+                Haptics.selectionAsync();
+                router.replace("/(tabs)/");
+              }}
               style={[styles.roleBtn, activeMode === "customer" && styles.roleBtnActive]}
             >
               <Ionicons name="person-outline" size={13} color={activeMode === "customer" ? ORANGE : "rgba(255,255,255,0.55)"} />
