@@ -14,6 +14,7 @@ import ridesRouter from "./ridesRoute.js";
 import providerRouter from "./provider.js";
 import safetyRouter from "./safety.js";
 import documentsRouter from "./documents.js";
+import searchRouter from "./search.js";
 
 const router: IRouter = Router();
 
@@ -32,5 +33,6 @@ router.use("/rides", ridesRouter);
 router.use("/provider", providerRouter);
 router.use("/safety", safetyRouter);
 router.use("/documents", documentsRouter);
+router.use("/search", searchRouter);
 
 export default router;

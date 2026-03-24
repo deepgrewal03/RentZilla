@@ -1,0 +1,176 @@
+Build a SMART UNIVERSAL SEARCH BAR for RentZilla that can detect and search across multiple categories automatically.
+
+IMPORTANT:
+- Single search bar for entire app
+- Must intelligently detect user intent
+- Must search across ALL services (cars, rentals, services, locations)
+
+-----------------------------------
+
+🎯 MAIN GOAL:
+
+Allow users to search ANYTHING in one search bar:
+
+- Car name (e.g. Swift, Toyota)
+- Car model (e.g. Hyundai i20, Honda City)
+- Tractor / Earth movers
+- Service providers:
+  → plumber
+  → electrician
+  → beauty parlor
+  → mechanic
+- Business name
+- City name
+- Area name
+
+-----------------------------------
+
+🧠 SMART SEARCH LOGIC (INTENT DETECTION):
+
+When user types:
+
+IF matches vehicle:
+→ Show cars / vehicles
+
+IF matches service:
+→ Show service providers
+
+IF matches business name:
+→ Show exact business
+
+IF matches location:
+→ Filter results by location
+
+-----------------------------------
+
+🔎 SEARCH INPUT FEATURES:
+
+- Real-time search (as user types)
+- Debounce input (300ms)
+- Auto-suggestions dropdown
+
+-----------------------------------
+
+📋 SUGGESTIONS DISPLAY:
+
+Show grouped results:
+
+1. 🚗 Vehicles
+- Car name / model
+
+2. 🛠️ Services
+- Plumber / Electrician / Mechanic / Beauty
+
+3. 🏢 Businesses
+- Shop / provider names
+
+4. 📍 Locations
+- Cities / areas
+
+-----------------------------------
+
+📍 LOCATION-AWARE SEARCH:
+
+- Detect user location (optional)
+- Prioritize nearby results
+- Allow search like:
+  → "plumber in Ludhiana"
+  → "tractor in Punjab"
+
+-----------------------------------
+
+🔗 SEARCH RESULTS PAGE:
+
+After search:
+
+- Show filtered results:
+  - vehicles
+  - services
+  - listings
+
+- Add filters:
+  - price
+  - rating
+  - distance
+
+-----------------------------------
+
+📊 DATABASE SEARCH:
+
+Search across tables:
+
+- vehicles
+- listings
+- users (providers)
+- services
+- locations
+
+-----------------------------------
+
+⚡ BACKEND SEARCH API:
+
+Create endpoint:
+
+GET /search?q=
+
+Returns:
+- vehicles
+- services
+- providers
+- locations
+
+-----------------------------------
+
+🧠 SEARCH MATCHING:
+
+Use:
+- partial match (LIKE / ILIKE)
+- fuzzy search (optional)
+- keyword matching
+
+-----------------------------------
+
+🎨 UI DESIGN:
+
+- Rounded search bar (top)
+- Placeholder:
+  "Search cars, services, or locations..."
+
+- Dropdown suggestions:
+  - icon + name + category
+
+-----------------------------------
+
+📱 UX FEATURES:
+
+- Show recent searches
+- Show popular searches
+- Highlight matching text
+- Click → go to result directly
+
+-----------------------------------
+
+⚡ PERFORMANCE:
+
+- Debounce API calls
+- Limit results (top 10 per category)
+- Cache recent searches
+
+-----------------------------------
+
+🔐 RULES:
+
+- Sanitize inputs
+- Prevent SQL injection
+- Handle empty results gracefully
+
+-----------------------------------
+
+OUTPUT REQUIRED:
+
+- Search bar UI
+- Smart suggestion dropdown
+- Backend search API
+- Multi-category search logic
+- Results screen
+- Full integration
