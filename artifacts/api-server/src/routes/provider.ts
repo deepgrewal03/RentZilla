@@ -1,0 +1,139 @@
+import { Router, type IRouter, type Request, type Response } from "express";
+import { db } from "@workspace/db";
+import { authMiddleware } from "./users.js";
+
+const router: IRouter = Router();
+type AR = Request & { userId: string };
+
+router.get("/summary", authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as AR).userId;
+
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+    const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString();
+    const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0).toISOString();
+    const todayStart = new Date(now.setHours(0, 0, 0, 0)).toISOString();
+
+    const [earningsRes, thisMonthRes, lastMonthRes, bookingsRes, listingsRes, ridesRes, todayRidesRes] = await Promise.all([
+      // All-time earnings from rental bookings
+      db.execute(`
+        SELECT COALESCE(SUM(total_amount), 0) as total
+        FROM bookings
+        WHERE provider_id = '${userId}' AND status = 'completed'
+      `),
+      // This month's rental earnings
+      db.execute(`
+        SELECT COALESCE(SUM(total_amount), 0) as total
+        FROM bookings
+        WHERE provider_id = '${userId}' AND status = 'completed'
+        AND created_at >= '${monthStart}'
+      `),
+      // Last month's rental earnings
+      db.execute(`
+        SELECT COALESCE(SUM(total_amount), 0) as total
+        FROM bookings
+        WHERE provider_id = '${userId}' AND status = 'completed'
+        AND created_at >= '${lastMonthStart}' AND created_at <= '${lastMonthEnd}'
+      `),
+      // Booking counts
+      db.execute(`
+        SELECT
+          COUNT(*) as total,
+          COUNT(*) FILTER (WHERE status = 'pending') as pending,
+          COUNT(*) FILTER (WHERE status = 'confirmed') as active,
+          COUNT(DISTINCT customer_id) as customers
+        FROM bookings
+        WHERE provider_id = '${userId}'
+      `),
+      // Listing count
+      db.execute(`
+        SELECT
+          COUNT(*) as total,
+          COUNT(*) FILTER (WHERE is_available = true) as active
+        FROM listings
+        WHERE provider_id = '${userId}'
+      `),
+      // Completed ride count and earnings
+      db.execute(`
+        SELECT
+          COUNT(*) as total_trips,
+          COALESCE(SUM(fare), 0) as ride_earnings
+        FROM rides
+        WHERE driver_id = '${userId}' AND status = 'completed'
+      `),
+      // Today's ride earnings
+      db.execute(`
+        SELECT COALESCE(SUM(fare), 0) as today_earnings
+        FROM rides
+        WHERE driver_id = '${userId}' AND status = 'completed'
+        AND completed_at >= '${todayStart}'
+      `),
+    ]);
+
+    const rentalEarnings = Number((earningsRes.rows as any[])[0]?.total ?? 0);
+    const thisMonth = Number((thisMonthRes.rows as any[])[0]?.total ?? 0);
+    const lastMonth = Number((lastMonthRes.rows as any[])[0]?.total ?? 0);
+    const rideEarnings = Number((ridesRes.rows as any[])[0]?.ride_earnings ?? 0);
+    const totalEarnings = rentalEarnings + rideEarnings;
+    const growthPct = lastMonth > 0 ? Math.round(((thisMonth - lastMonth) / lastMonth) * 100) : (thisMonth > 0 ? 100 : 0);
+
+    const bStats = (bookingsRes.rows as any[])[0] ?? {};
+    const lStats = (listingsRes.rows as any[])[0] ?? {};
+    const rStats = (ridesRes.rows as any[])[0] ?? {};
+    const todayEarnings = Number((todayRidesRes.rows as any[])[0]?.today_earnings ?? 0);
+
+    res.json({
+      earnings: {
+        total: totalEarnings,
+        rentalEarnings,
+        rideEarnings,
+        thisMonth,
+        lastMonth,
+        growthPct,
+        todayRideEarnings: todayEarnings,
+      },
+      bookings: {
+        total: Number(bStats.total ?? 0),
+        pending: Number(bStats.pending ?? 0),
+        active: Number(bStats.active ?? 0),
+        customers: Number(bStats.customers ?? 0),
+      },
+      listings: {
+        total: Number(lStats.total ?? 0),
+        active: Number(lStats.active ?? 0),
+      },
+      rides: {
+        totalTrips: Number(rStats.total_trips ?? 0),
+        todayEarnings,
+      },
+    });
+  } catch (err) {
+    req.log.error({ err }, "Provider summary error");
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// Recent bookings for provider (last 10)
+router.get("/recent-bookings", authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as AR).userId;
+    const result = await db.execute(`
+      SELECT
+        b.id, b.status, b.total_amount, b.start_date, b.end_date, b.total_days, b.created_at,
+        l.title as listing_title, l.images as listing_images,
+        u.name as customer_name, u.phone as customer_phone, u.email as customer_email
+      FROM bookings b
+      JOIN listings l ON l.id = b.listing_id
+      JOIN users u ON u.id = b.customer_id
+      WHERE b.provider_id = '${userId}'
+      ORDER BY b.created_at DESC
+      LIMIT 10
+    `);
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+export default router;

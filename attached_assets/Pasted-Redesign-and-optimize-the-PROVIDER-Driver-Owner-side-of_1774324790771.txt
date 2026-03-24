@@ -1,0 +1,186 @@
+Redesign and optimize the PROVIDER (Driver/Owner) side of RentZilla app to match a clean, modern dashboard UI similar to a professional mobile app.
+
+IMPORTANT:
+- This applies ONLY to provider role
+- Do NOT affect customer UI
+- Remove unnecessary or irrelevant features for providers
+- Focus on earnings, bookings, and performance
+
+-----------------------------------
+
+🎯 MAIN GOAL:
+
+- Make provider app simple, clean, and business-focused
+- Show only relevant features (earnings, bookings, listings)
+- Improve UI to modern card-based mobile design
+
+-----------------------------------
+
+🧹 REMOVE UNNECESSARY FEATURES (PROVIDER SIDE):
+
+REMOVE or HIDE:
+
+- Rental browsing (customer feature)
+- Search tab (not needed for provider)
+- Ride booking UI (customer-only)
+- Promotions browsing (optional, keep minimal)
+- Any duplicate or unused tabs
+
+-----------------------------------
+
+✅ KEEP ONLY IMPORTANT PROVIDER FEATURES:
+
+- Earnings dashboard
+- Listings (if rental provider)
+- Ride requests (if driver)
+- Bookings management
+- Chats
+- Profile
+
+-----------------------------------
+
+🎨 UI DESIGN (MATCH GIVEN IMAGE STYLE):
+
+1. HEADER SECTION:
+
+- Show:
+  "Welcome back, [User Name]"
+- Add:
+  "+ Add Listing" button (top right)
+- Add 3-dot menu (settings shortcut)
+
+-----------------------------------
+
+2. ROLE SWITCH TOGGLE:
+
+- Toggle between:
+  - Customer
+  - Provider
+
+- Highlight selected role (orange style)
+
+-----------------------------------
+
+3. EARNINGS CARD (MAIN FOCUS):
+
+Large card at top:
+
+- Title: Total Earnings
+- Big amount (₹ or $)
+- Sub-info:
+  - earnings this month
+  - % growth
+
+Design:
+- Bright color (orange gradient)
+- Rounded corners
+- Shadow for depth
+
+-----------------------------------
+
+4. STATS GRID (4 CARDS):
+
+Create 4 clean cards:
+
+- Active Listings
+- Active Bookings
+- Total Bookings
+- Total Customers
+
+Design:
+- Icon + number + label
+- Soft background
+- Rounded UI
+
+-----------------------------------
+
+5. RECENT BOOKINGS SECTION:
+
+- Title: "Recent Bookings"
+- Show list of latest bookings
+- Add "See All" button
+
+If no data:
+- Show empty state with icon
+
+-----------------------------------
+
+📊 DRIVER MODE (IF PROVIDER = DRIVER):
+
+Replace "Listings" with:
+
+- Total Trips
+- Active Ride
+- Earnings today
+- Online/Offline status
+
+-----------------------------------
+
+📱 BOTTOM NAVIGATION (CLEAN):
+
+Keep ONLY:
+
+- Home
+- Driver (or Listings)
+- Bookings
+- Chats
+- Profile
+
+Remove:
+- Search (if not needed)
+- Extra tabs
+
+-----------------------------------
+
+⚡ FUNCTIONALITY:
+
+- Dashboard updates in real-time
+- Fetch data from backend:
+  - earnings
+  - bookings
+  - stats
+
+- "Add Listing" button:
+  → opens create listing screen
+
+-----------------------------------
+
+🔐 ROLE-BASED LOGIC:
+
+If role = provider:
+→ show this dashboard
+
+If role = customer:
+→ DO NOT show this UI
+
+-----------------------------------
+
+🎯 UX IMPROVEMENTS:
+
+- Smooth animations
+- Card shadows & spacing
+- Loading skeletons
+- Pull-to-refresh
+- Clean typography
+
+-----------------------------------
+
+🎨 DESIGN STYLE:
+
+- Modern mobile UI (like Uber Driver / business apps)
+- Colors:
+  - Primary: orange
+  - Background: light grey/white
+- Rounded corners everywhere
+- Minimal clutter
+
+-----------------------------------
+
+OUTPUT REQUIRED:
+
+- Updated provider dashboard UI
+- Clean navigation
+- Removed unnecessary features
+- Fully connected backend data
+- Mobile-optimized layout
+- Smooth user experience

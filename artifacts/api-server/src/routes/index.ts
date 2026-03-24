@@ -11,6 +11,7 @@ import favoritesRouter from "./favorites.js";
 import settingsRouter from "./settings.js";
 import rolesRouter from "./roles.js";
 import ridesRouter from "./ridesRoute.js";
+import providerRouter from "./provider.js";
 
 const router: IRouter = Router();
 
@@ -26,5 +27,6 @@ router.use("/favorites", favoritesRouter);
 router.use("/settings", settingsRouter);
 router.use("/roles", rolesRouter);
 router.use("/rides", ridesRouter);
+router.use("/provider", providerRouter);
 
 export default router;
