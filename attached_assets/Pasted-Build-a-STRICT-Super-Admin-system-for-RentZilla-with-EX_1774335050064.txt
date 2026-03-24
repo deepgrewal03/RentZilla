@@ -1,0 +1,260 @@
+Build a STRICT Super Admin system for RentZilla with EXACTLY 3 pre-registered Super Admin accounts and NO ability to create new admins.
+
+Also implement a COMPLETE Push Notification system for customers and providers (real-time + scheduled).
+
+-----------------------------------
+
+🚨 CRITICAL RULES:
+
+- ONLY 3 Super Admins exist in the system
+- NO signup or registration allowed for admins
+- NO ability to create/delete additional admins
+- Admin access is WHITELISTED only
+
+-----------------------------------
+
+👑 SUPER ADMIN SYSTEM
+
+-----------------------------------
+
+1. PRE-REGISTERED ADMINS:
+
+Hardcode or seed in database:
+
+Admins:
+- admin1@rentzilla.com
+- admin2@rentzilla.com
+- admin3@rentzilla.com
+
+Fields:
+- id
+- name
+- email
+- password (hashed)
+- role = 'super_admin'
+- is_active = true
+
+-----------------------------------
+
+2. AUTHENTICATION:
+
+- Login via email + password
+- Optional: OTP (2FA)
+
+RULE:
+IF email NOT in pre-registered list:
+→ DENY ACCESS
+→ Show: "Unauthorized admin access"
+
+-----------------------------------
+
+3. ACCESS CONTROL:
+
+- Only role = super_admin allowed
+- No admin creation API
+- No role modification allowed
+
+-----------------------------------
+
+4. ADMIN CAPABILITIES:
+
+All 3 super admins can:
+
+- Manage users (ban, suspend, verify)
+- Manage providers
+- Approve/reject documents
+- Monitor rides/bookings
+- Control platform settings
+- Send notifications
+
+-----------------------------------
+
+5. ADMIN LOGGING:
+
+Track every action:
+
+AdminLogs:
+- id
+- admin_id
+- action
+- target_type
+- target_id
+- timestamp
+
+-----------------------------------
+
+🔔 PUSH NOTIFICATION SYSTEM (ADVANCED)
+
+-----------------------------------
+
+🎯 GOAL:
+
+Send notifications to:
+- Customers
+- Providers
+- Both
+- Specific users
+
+-----------------------------------
+
+📲 NOTIFICATION TYPES:
+
+-----------------------------------
+
+1. RIDE FLOW (AUTO):
+
+For CUSTOMER:
+- Ride accepted
+- Driver arriving
+- Ride started
+- Ride completed
+- Payment successful
+
+For PROVIDER:
+- New ride request
+- Ride cancelled
+- Payment received
+
+-----------------------------------
+
+2. BOOKING SYSTEM:
+
+- Booking confirmed
+- Booking cancelled
+- Service completed
+
+-----------------------------------
+
+3. SAFETY ALERTS:
+
+- Emergency alerts
+- Suspicious activity warning
+- Account blocked/suspended
+
+-----------------------------------
+
+4. ADMIN BROADCAST:
+
+- Promotions
+- Updates
+- Maintenance alerts
+
+-----------------------------------
+
+5. SCHEDULED NOTIFICATIONS:
+
+- Admin selects:
+  - date
+  - time
+- Notification sent automatically
+
+-----------------------------------
+
+📦 NOTIFICATION FEATURES:
+
+Admin can send:
+
+- To ALL users
+- Only CUSTOMERS
+- Only PROVIDERS
+- Specific users (by ID)
+
+Fields:
+- title
+- message
+- image (optional)
+- deep link (open screen)
+
+-----------------------------------
+
+📡 TECH IMPLEMENTATION:
+
+Use:
+- Firebase Cloud Messaging (FCM)
+
+-----------------------------------
+
+🗄️ DATABASE:
+
+Notifications:
+- id
+- title
+- message
+- target_role (customer, provider, all)
+- user_id (optional)
+- type (system, admin, safety)
+- scheduled_at (nullable)
+- status (pending, sent)
+- created_at
+
+-----------------------------------
+
+🔗 API ENDPOINTS:
+
+Auth:
+- POST /admin/login
+
+Notifications:
+- POST /admin/notification/send
+- POST /admin/notification/schedule
+- GET /admin/notification/history
+
+-----------------------------------
+
+📱 ADMIN APP UI:
+
+Create "Notifications" screen:
+
+Features:
+- Create notification
+- Select audience:
+  - all
+  - customers
+  - providers
+- Schedule send
+- View history
+
+-----------------------------------
+
+📱 USER APP:
+
+- Receive push notifications
+- Click → open relevant screen
+- Store notification history
+
+-----------------------------------
+
+⚡ REALTIME:
+
+- Instant delivery using FCM
+- Retry failed notifications
+
+-----------------------------------
+
+🔐 SECURITY:
+
+- JWT authentication
+- Only super_admin can send notifications
+- Validate all inputs
+- Rate-limit notifications
+
+-----------------------------------
+
+🎨 UI DESIGN:
+
+- Clean form for sending notifications
+- Dropdown for audience
+- Date-time picker for scheduling
+- Notification logs list
+
+-----------------------------------
+
+OUTPUT REQUIRED:
+
+- Fixed 3 super admin system (no signup)
+- Secure login system
+- Admin action logs
+- Push notification system (FCM)
+- Scheduled + real-time notifications
+- Admin UI for sending notifications
+- Full backend + frontend integration

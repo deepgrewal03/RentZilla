@@ -4,7 +4,7 @@ import { useAuth } from "@/lib/auth-context";
 import {
   LayoutDashboard, Users, Package, CalendarDays, FileCheck,
   AlertTriangle, Settings, LogOut, Menu, X, Bell, ChevronRight,
-  Shield
+  Shield, Activity
 } from "lucide-react";
 
 const NAV = [
@@ -14,6 +14,8 @@ const NAV = [
   { path: "/bookings", label: "Bookings", icon: CalendarDays },
   { path: "/documents", label: "Documents", icon: FileCheck },
   { path: "/reports", label: "Reports", icon: AlertTriangle },
+  { path: "/notifications", label: "Notifications", icon: Bell },
+  { path: "/logs", label: "Activity Log", icon: Activity },
   { path: "/settings", label: "Settings", icon: Settings },
 ];
 

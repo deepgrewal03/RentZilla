@@ -1,0 +1,260 @@
+Build a COMPLETE Super Admin + Multi-Admin Role Management System with Advanced Push Notifications for RentZilla.
+
+IMPORTANT:
+- Must work with existing backend (no new DB)
+- Role-based access control (RBAC)
+- Scalable for multiple admins
+- Fully secure
+- Include real-time push notifications for customers and providers
+
+-----------------------------------
+
+🎯 MAIN GOAL:
+
+1. Create hierarchy:
+   - Super Admin (full control)
+   - Admin (limited permissions)
+   - Moderator (basic actions)
+
+2. Enable push notifications:
+   - To customers
+   - To providers
+   - Based on events & scheduled campaigns
+
+-----------------------------------
+
+👨‍💼 ADMIN ROLES SYSTEM
+
+-----------------------------------
+
+1. ROLE TYPES:
+
+- super_admin:
+  → full access
+  → manage admins
+  → full system control
+
+- admin:
+  → manage users, providers, rides, payments
+  → cannot manage other admins
+
+- moderator:
+  → handle reports, block users, view data
+
+-----------------------------------
+
+2. PERMISSIONS MATRIX:
+
+Create granular permissions:
+
+- manage_users
+- manage_providers
+- manage_rides
+- manage_payments
+- manage_documents
+- manage_reports
+- send_notifications
+- manage_admins (super_admin only)
+
+-----------------------------------
+
+3. DATABASE STRUCTURE:
+
+Admins Table:
+- id
+- name
+- email
+- role (super_admin, admin, moderator)
+- permissions (JSON)
+- created_at
+
+AdminLogs:
+- id
+- admin_id
+- action
+- target_type (user, ride, etc.)
+- target_id
+- timestamp
+
+-----------------------------------
+
+4. ADMIN MANAGEMENT (SUPER ADMIN ONLY):
+
+- Create admin
+- Assign role
+- Edit permissions
+- Disable admin
+- View admin activity logs
+
+-----------------------------------
+
+5. SECURITY:
+
+- JWT authentication
+- Role-based middleware
+- Log every admin action
+- Prevent unauthorized access
+
+-----------------------------------
+
+🔔 PUSH NOTIFICATION SYSTEM
+
+-----------------------------------
+
+🎯 GOAL:
+
+Send notifications to:
+- Customers
+- Providers
+- Specific users
+- Groups (all providers, all customers)
+
+-----------------------------------
+
+📲 NOTIFICATION TYPES:
+
+1. SYSTEM EVENTS (AUTO):
+
+For CUSTOMER:
+- Ride accepted
+- Driver arrived
+- Ride started
+- Ride completed
+- Payment success
+- Booking confirmed
+
+For PROVIDER:
+- New ride request
+- Ride cancelled
+- Payment received
+- Document approved/rejected
+
+-----------------------------------
+
+2. SAFETY ALERTS:
+
+- Emergency alerts
+- Suspicious activity warnings
+- Account blocked / restricted
+
+-----------------------------------
+
+3. ADMIN BROADCAST:
+
+- Promotions
+- Announcements
+- Maintenance alerts
+
+-----------------------------------
+
+4. SCHEDULED NOTIFICATIONS:
+
+- Send later (date & time picker)
+- Campaign-based notifications
+
+-----------------------------------
+
+📦 NOTIFICATION FEATURES:
+
+- Send to:
+  - All users
+  - Only customers
+  - Only providers
+  - Specific user IDs
+
+- Include:
+  - title
+  - message
+  - optional image
+  - deep link (open screen)
+
+-----------------------------------
+
+📡 TECH IMPLEMENTATION:
+
+Use:
+- Firebase Cloud Messaging (FCM)
+
+-----------------------------------
+
+DATABASE:
+
+Notifications:
+- id
+- title
+- message
+- target_role (customer, provider, all)
+- user_id (optional)
+- type (system, admin, safety)
+- status (sent, scheduled)
+- created_at
+
+-----------------------------------
+
+API ENDPOINTS:
+
+- POST /admin/create-admin
+- GET /admin/list-admins
+- PATCH /admin/update-role
+
+- POST /notifications/send
+- POST /notifications/schedule
+- GET /notifications/history
+
+-----------------------------------
+
+📱 FRONTEND (ADMIN APP):
+
+Add screen:
+
+"Notifications"
+
+Features:
+- Create notification
+- Select audience
+- Schedule notification
+- View history
+
+-----------------------------------
+
+📱 USER APP FEATURES:
+
+- Receive push notifications
+- Click → open relevant screen
+- Store notification history
+
+-----------------------------------
+
+⚡ REALTIME:
+
+- Instant push delivery
+- Retry failed sends
+
+-----------------------------------
+
+🔐 SECURITY:
+
+- Only authorized admins can send notifications
+- Rate limit notifications
+- Validate input
+
+-----------------------------------
+
+🎨 UI DESIGN:
+
+- Clean form UI for sending notifications
+- Dropdown for selecting target audience
+- Calendar for scheduling
+- Logs/history view
+
+-----------------------------------
+
+OUTPUT REQUIRED:
+
+- Role-based admin system
+- Permission middleware
+- Admin management UI
+- Push notification system (FCM)
+- Scheduled notifications
+- Notification history
+- Full backend + frontend integration

@@ -11,6 +11,8 @@ import Bookings from "@/pages/Bookings";
 import Documents from "@/pages/Documents";
 import Reports from "@/pages/Reports";
 import Settings from "@/pages/Settings";
+import Notifications from "@/pages/Notifications";
+import AdminLogs from "@/pages/AdminLogs";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -30,6 +32,8 @@ function ProtectedRoutes() {
         <Route path="/bookings" component={Bookings} />
         <Route path="/documents" component={Documents} />
         <Route path="/reports" component={Reports} />
+        <Route path="/notifications" component={Notifications} />
+        <Route path="/logs" component={AdminLogs} />
         <Route path="/settings" component={Settings} />
         <Route component={NotFound} />
       </Switch>
