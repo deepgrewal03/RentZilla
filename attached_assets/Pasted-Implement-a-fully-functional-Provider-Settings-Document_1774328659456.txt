@@ -1,0 +1,225 @@
+Implement a fully functional Provider Settings + Document Upload system in RentZilla with service-based document verification.
+
+IMPORTANT:
+- Settings page should ONLY open from the bottom "Settings" tab
+- The 3-dot menu on Provider Dashboard should NOT open settings
+- Instead, it should open a DOCUMENTS DRAWER (small modal / side sheet)
+
+-----------------------------------
+
+🎯 MAIN GOAL:
+
+- Clean separation:
+  → Settings (from Settings tab only)
+  → Documents (from 3-dot menu on dashboard)
+
+-----------------------------------
+
+📱 UI BEHAVIOR:
+
+1. SETTINGS ACCESS:
+- Settings page opens ONLY from bottom tab
+- Remove settings access from dashboard menu
+
+-----------------------------------
+
+2. 3-DOT MENU (PROVIDER DASHBOARD):
+
+When clicked:
+→ Open a small drawer / modal
+
+Drawer contains:
+- Title: "Verify Documents"
+- Dropdown: Select Service
+
+-----------------------------------
+
+📋 SERVICE DROPDOWN OPTIONS:
+
+- Cars
+- Tractors
+- Earth Movers
+- Plumbers
+- Electricians
+- Beauty Parlors
+- Mechanic
+
+-----------------------------------
+
+📂 DYNAMIC DOCUMENT FORM:
+
+When a service is selected:
+→ Show REQUIRED document upload fields dynamically
+
+-----------------------------------
+
+🚗 CARS DOCUMENTS:
+
+- Registration Certificate (RC)
+- Pollution Certificate
+- Insurance
+- Driver’s License
+- Car Insurance
+- Taxi Permit
+- Driver Aadhaar / Voter ID
+
+-----------------------------------
+
+🚜 TRACTORS:
+
+- Registration Certificate (RC)
+- Insurance
+- Driver’s License
+- Aadhaar / Voter ID
+
+-----------------------------------
+
+🏗️ EARTH MOVERS:
+
+- Registration Certificate (RC)
+- Insurance
+- Driver’s License
+- Pollution Certificate
+- Fitness Certificate
+
+-----------------------------------
+
+🔧 PLUMBERS:
+
+- Front Face Photo
+- Address Proof
+- Aadhaar Card
+
+-----------------------------------
+
+⚡ ELECTRICIANS:
+
+- Front Face Photo
+- Address Proof
+- Aadhaar Card
+
+-----------------------------------
+
+💄 BEAUTY PARLOR:
+
+- Front Face Photo
+- Address Proof
+- Aadhaar Card
+- Shop Photo
+
+-----------------------------------
+
+🔩 MECHANIC:
+
+- Front Face Photo
+- Address Proof
+- Aadhaar Card
+
+-----------------------------------
+
+📤 FILE UPLOAD SYSTEM:
+
+Features:
+
+- Allow:
+  → Image (jpg, png)
+  → PDF files
+
+- Each field:
+  → Upload button
+  → Preview file
+  → Replace / delete option
+
+-----------------------------------
+
+🧠 AUTO COMPRESSION (VERY IMPORTANT):
+
+Before upload:
+
+IF image:
+→ Compress (reduce size to ~200–500 KB)
+→ Maintain quality
+
+IF PDF:
+→ Optimize size if possible
+
+Use:
+- Image compression library (client-side or backend)
+
+-----------------------------------
+
+📊 DOCUMENT STATUS SYSTEM:
+
+Each document must have status:
+
+- pending
+- approved
+- rejected
+
+Show:
+- status badge for each document
+
+-----------------------------------
+
+🗄️ DATABASE STRUCTURE:
+
+Documents Table:
+
+- id
+- user_id
+- service_type (cars, tractors, etc.)
+- document_type (RC, license, etc.)
+- file_url
+- status (pending, approved, rejected)
+- uploaded_at
+
+-----------------------------------
+
+🔗 API ENDPOINTS:
+
+- POST /documents/upload
+- GET /documents?service_type=
+- DELETE /documents/:id
+
+Admin:
+- PATCH /admin/document/:id/approve
+- PATCH /admin/document/:id/reject
+
+-----------------------------------
+
+🔐 RULES:
+
+- Provider MUST upload required docs before going online
+- Validate file type & size
+- Store files securely (cloud storage like Supabase)
+
+-----------------------------------
+
+🎨 UI DESIGN:
+
+- Drawer / Bottom sheet style
+- Clean dropdown selector
+- Card-based upload fields
+- Show upload progress
+- Show success/error messages
+
+-----------------------------------
+
+⚡ UX IMPROVEMENTS:
+
+- Auto-save uploads
+- Show completion percentage
+- Disable "Go Online" if docs incomplete
+
+-----------------------------------
+
+OUTPUT REQUIRED:
+
+- Drawer UI for documents
+- Service-based dynamic forms
+- File upload system (image + PDF)
+- Compression logic
+- Backend APIs
+- Database schema
+- Admin approval system
+- Fully working integration

@@ -13,6 +13,7 @@ import rolesRouter from "./roles.js";
 import ridesRouter from "./ridesRoute.js";
 import providerRouter from "./provider.js";
 import safetyRouter from "./safety.js";
+import documentsRouter from "./documents.js";
 
 const router: IRouter = Router();
 
@@ -30,5 +31,6 @@ router.use("/roles", rolesRouter);
 router.use("/rides", ridesRouter);
 router.use("/provider", providerRouter);
 router.use("/safety", safetyRouter);
+router.use("/documents", documentsRouter);
 
 export default router;

@@ -26,7 +26,7 @@ Punjab-specific UX: "Sat Sri Akal" greeting, INR (₹) pricing, Punjab India loc
 
 ### Database
 - PostgreSQL (Replit-managed)
-- Tables: `users`, `listings`, `bookings`, `reviews`, `chats`, `messages`, `notifications`, `favorites`, `driver_profiles`, `driver_status`, `driver_locations`, `otps`, `rides`
+- Tables: `users`, `listings`, `bookings`, `reviews`, `chats`, `messages`, `notifications`, `favorites`, `driver_profiles`, `driver_status`, `driver_locations`, `otps`, `rides`, `blocked_users`, `reports`, `emergency_contacts`, `issues`, `otp_codes`, `provider_documents`
 - Seed data: `pnpm --filter @workspace/api-server exec tsx src/seed.ts`
 
 ### Auth

@@ -22,6 +22,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Colors from "@/constants/colors";
 import { useAuth } from "@/context/AuthContext";
 import { useApi } from "@/hooks/useApi";
+import { DocumentsDrawer } from "@/components/DocumentsDrawer";
 
 const C = Colors.light;
 const ORANGE = "#E8742A";
@@ -99,6 +100,7 @@ export default function DashboardScreen() {
   const [listings, setListings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [showDocsDrawer, setShowDocsDrawer] = useState(false);
 
   const topPad = isWeb ? 67 : insets.top;
 
@@ -187,8 +189,11 @@ export default function DashboardScreen() {
               <Ionicons name="add" size={16} color="#fff" />
               <Text style={styles.addListingBtnText}>Add Listing</Text>
             </Pressable>
-            <Pressable onPress={() => router.push("/(tabs)/settings")} style={styles.menuBtn}>
-              <Ionicons name="ellipsis-vertical" size={20} color="rgba(255,255,255,0.7)" />
+            <Pressable
+              onPress={() => { Haptics.selectionAsync(); setShowDocsDrawer(true); }}
+              style={[styles.menuBtn, { backgroundColor: "rgba(232,116,42,0.2)" }]}
+            >
+              <Ionicons name="shield-checkmark-outline" size={18} color={ORANGE} />
             </Pressable>
           </View>
         </View>
@@ -549,6 +554,8 @@ export default function DashboardScreen() {
           )}
         </View>
       </ScrollView>
+
+      <DocumentsDrawer visible={showDocsDrawer} onClose={() => setShowDocsDrawer(false)} />
     </View>
   );
 }
