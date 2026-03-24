@@ -1,6 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
-import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useEffect, useState } from "react";
@@ -17,7 +16,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { BookingStatusBadge } from "@/components/BookingStatusBadge";
-import Colors, { GRADIENT_ORANGE } from "@/constants/colors";
+import Colors from "@/constants/colors";
 import { useAuth } from "@/context/AuthContext";
 import { useApi } from "@/hooks/useApi";
 import { Booking } from "@/types";
@@ -82,17 +81,11 @@ export default function BookingsScreen() {
 
   return (
     <View style={styles.root}>
-      <StatusBar style="light" />
-      <LinearGradient
-        colors={GRADIENT_ORANGE}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={[styles.header, { paddingTop: topPad + 14 }]}
-      >
-        <View style={styles.headerDecCircle} />
+      <StatusBar style="dark" />
+      <View style={[styles.header, { paddingTop: topPad + 8 }]}>
         <Text style={styles.headerTitle}>My Bookings</Text>
         <Text style={styles.headerSub}>{user?.role === "provider" ? "Requests for your listings" : "Your rental history"}</Text>
-      </LinearGradient>
+      </View>
 
       <ScrollView
         style={styles.scroll}
@@ -137,26 +130,22 @@ export default function BookingsScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: C.background },
   header: {
+    backgroundColor: C.backgroundSecondary,
     paddingHorizontal: 20,
-    paddingBottom: 20,
-    gap: 6,
-    overflow: "hidden",
-    position: "relative",
-  },
-  headerDecCircle: {
-    position: "absolute", top: -30, right: -30,
-    width: 130, height: 130, borderRadius: 65,
-    backgroundColor: "rgba(255,255,255,0.12)",
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: C.border,
+    gap: 4,
   },
   headerTitle: {
     fontSize: 28,
     fontWeight: "700",
     fontFamily: "Inter_700Bold",
-    color: "#fff",
+    color: C.text,
   },
   headerSub: {
     fontSize: 13,
-    color: "rgba(255,255,255,0.85)",
+    color: C.textSecondary,
     fontFamily: "Inter_400Regular",
   },
   scroll: { flex: 1 },

@@ -17,7 +17,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import Colors, { GRADIENT_ORANGE } from "@/constants/colors";
+import Colors from "@/constants/colors";
 import { useAuth } from "@/context/AuthContext";
 import { useLang } from "@/context/LanguageContext";
 
@@ -60,7 +60,7 @@ export default function SignInScreen() {
   return (
     <View style={styles.root}>
       <StatusBar style="light" />
-      <LinearGradient colors={["#FF7A18", "#FF9A3C", "#FFB347"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
+      <LinearGradient colors={[C.navy, "#1E3A6E", C.navy]} style={StyleSheet.absoluteFill} />
 
       {/* Language toggle */}
       <Pressable onPress={toggleLanguage} style={[styles.langToggle, { top: topPad + 12 }]}>
@@ -76,7 +76,7 @@ export default function SignInScreen() {
           {/* Brand */}
           <View style={styles.brand}>
             <View style={styles.logoCircle}>
-              <Ionicons name="car-outline" size={36} color="#fff" />
+              <Ionicons name="car-outline" size={36} color={C.tint} />
             </View>
             <Text style={styles.appName}>{t.appName}</Text>
             <Text style={styles.tagline}>{t.appTagline}</Text>
@@ -157,7 +157,7 @@ export default function SignInScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#FF7A18" },
+  root: { flex: 1, backgroundColor: C.navy },
   langToggle: {
     position: "absolute",
     right: 16,
@@ -174,8 +174,8 @@ const styles = StyleSheet.create({
   brand: { alignItems: "center", marginBottom: 32, gap: 10 },
   logoCircle: {
     width: 76, height: 76, borderRadius: 22,
-    backgroundColor: "rgba(255,255,255,0.2)",
-    borderWidth: 2, borderColor: "rgba(255,255,255,0.4)",
+    backgroundColor: "rgba(232,116,42,0.15)",
+    borderWidth: 2, borderColor: `${C.tint}40`,
     alignItems: "center", justifyContent: "center",
   },
   appName: { fontSize: 34, fontWeight: "700", fontFamily: "Inter_700Bold", color: "#fff", letterSpacing: -0.5 },

@@ -9,23 +9,15 @@ import Colors from "@/constants/colors";
 import { Listing } from "@/types";
 
 const C = Colors.light;
-const ORANGE = "#FF7A18";
 
 function getCategoryIcon(category: string, subcategory?: string | null) {
   if (category === "cars") return { name: "car-outline", lib: "ion" };
   if (category === "equipment") {
     if (subcategory?.toLowerCase().includes("tractor")) return { name: "tractor", lib: "mci" };
-    return { name: "hammer-outline", lib: "ion" };
+    return { name: "tools", lib: "ion" };
   }
-  if (category === "services") return { name: "construct-outline", lib: "ion" };
+  if (category === "services") return { name: "briefcase-outline", lib: "ion" };
   return { name: "cube-outline", lib: "ion" };
-}
-
-function getCategoryColor(category: string) {
-  if (category === "cars") return { bg: "#FFF3E0", fg: ORANGE };
-  if (category === "equipment") return { bg: "#E8F5E9", fg: "#2E7D32" };
-  if (category === "services") return { bg: "#E0F7FA", fg: "#0284C7" };
-  return { bg: `${ORANGE}15`, fg: ORANGE };
 }
 
 function formatPrice(price: number, unit: string) {
@@ -39,79 +31,66 @@ interface Props {
 }
 
 export function ListingCard({ listing, style }: Props) {
-  const icon   = getCategoryIcon(listing.category, listing.subcategory);
-  const colors = getCategoryColor(listing.category);
+  const icon = getCategoryIcon(listing.category, listing.subcategory);
   const hasImage = listing.images && listing.images.length > 0;
+
+  function handlePress() {
+    Haptics.selectionAsync();
+    router.push({ pathname: "/listing/[id]", params: { id: listing.id } });
+  }
 
   return (
     <Pressable
-      onPress={() => { Haptics.selectionAsync(); router.push({ pathname: "/listing/[id]", params: { id: listing.id } }); }}
-      style={({ pressed }) => [styles.card, { opacity: pressed ? 0.94 : 1, transform: [{ scale: pressed ? 0.985 : 1 }] }, style]}
+      onPress={handlePress}
+      style={({ pressed }) => [styles.card, { opacity: pressed ? 0.92 : 1, transform: [{ scale: pressed ? 0.98 : 1 }] }, style]}
     >
-      {/* Image */}
-      <View style={styles.imageWrap}>
+      {/* Image / Placeholder */}
+      <View style={styles.imageContainer}>
         {hasImage ? (
           <Image source={{ uri: listing.images[0] }} style={styles.image} contentFit="cover" />
         ) : (
-          <View style={[styles.image, styles.imagePlaceholder, { backgroundColor: colors.bg }]}>
-            <View style={[styles.iconCircle, { backgroundColor: `${colors.fg}18` }]}>
+          <View style={[styles.image, styles.imagePlaceholder]}>
+            <View style={styles.iconCircle}>
               {icon.lib === "ion" ? (
-                <Ionicons name={icon.name as any} size={30} color={colors.fg} />
+                <Ionicons name={icon.name as keyof typeof Ionicons.glyphMap} size={28} color={C.tint} />
               ) : (
-                <MaterialCommunityIcons name={icon.name as any} size={30} color={colors.fg} />
+                <MaterialCommunityIcons name={icon.name as keyof typeof MaterialCommunityIcons.glyphMap} size={28} color={C.tint} />
               )}
             </View>
           </View>
         )}
-
         {/* Availability badge */}
         {!listing.isAvailable && (
-          <View style={styles.unavailBadge}>
-            <Text style={styles.unavailText}>Unavailable</Text>
+          <View style={styles.unavailableBadge}>
+            <Text style={styles.unavailableBadgeText}>Unavailable</Text>
           </View>
         )}
-
         {/* Category chip */}
-        <View style={[styles.catChip, { backgroundColor: `${colors.fg}E6` }]}>
-          <Text style={styles.catChipText}>{listing.subcategory || listing.category}</Text>
+        <View style={styles.categoryChip}>
+          <Text style={styles.categoryChipText}>{listing.subcategory || listing.category}</Text>
         </View>
-
-        {/* Rating overlay (if rated) */}
-        {listing.rating != null && (
-          <View style={styles.ratingBadge}>
-            <Ionicons name="star" size={10} color="#F5C842" />
-            <Text style={styles.ratingBadgeText}>{listing.rating.toFixed(1)}</Text>
-          </View>
-        )}
       </View>
 
       {/* Info */}
       <View style={styles.info}>
         <Text style={styles.title} numberOfLines={2}>{listing.title}</Text>
-
         <View style={styles.locationRow}>
-          <Ionicons name="location-outline" size={12} color={C.textTertiary} />
+          <Ionicons name="location-outline" size={12} color={C.textSecondary} />
           <Text style={styles.location} numberOfLines={1}>{listing.location}</Text>
         </View>
-
         <View style={styles.footer}>
-          <View>
-            <Text style={styles.price}>{formatPrice(listing.price, listing.priceUnit)}</Text>
-            <Text style={styles.provider} numberOfLines={1}>by {listing.providerName || "Provider"}</Text>
-          </View>
-          <View style={styles.bookBtn}>
-            <Text style={styles.bookBtnText}>Book</Text>
-            <Ionicons name="arrow-forward" size={12} color="#fff" />
-          </View>
-        </View>
-
-        {listing.rating == null && (
-          <View style={styles.newBadgeRow}>
-            <View style={styles.newBadge}>
-              <Text style={styles.newBadgeText}>NEW</Text>
+          <Text style={styles.price}>{formatPrice(listing.price, listing.priceUnit)}</Text>
+          {listing.rating != null ? (
+            <View style={styles.ratingRow}>
+              <Ionicons name="star" size={12} color={C.gold} />
+              <Text style={styles.rating}>{listing.rating.toFixed(1)}</Text>
+              <Text style={styles.reviewCount}>({listing.reviewCount})</Text>
             </View>
-          </View>
-        )}
+          ) : (
+            <Text style={styles.newBadge}>NEW</Text>
+          )}
+        </View>
+        <Text style={styles.provider} numberOfLines={1}>by {listing.providerName || "Provider"}</Text>
       </View>
     </Pressable>
   );
@@ -119,63 +98,128 @@ export function ListingCard({ listing, style }: Props) {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: "#fff",
-    borderRadius: 18,
+    backgroundColor: C.card,
+    borderRadius: 16,
     overflow: "hidden",
     borderWidth: 1,
     borderColor: C.cardBorder,
-    shadowColor: "rgba(0,0,0,0.08)",
-    shadowOffset: { width: 0, height: 3 },
+    shadowColor: C.shadow,
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 1,
-    shadowRadius: 12,
-    elevation: 4,
+    shadowRadius: 8,
+    elevation: 3,
   },
-
-  imageWrap: { position: "relative" },
-  image: { width: "100%", height: 170 },
-  imagePlaceholder: { alignItems: "center", justifyContent: "center" },
-  iconCircle: { width: 68, height: 68, borderRadius: 34, alignItems: "center", justifyContent: "center" },
-
-  unavailBadge: {
-    position: "absolute", top: 10, right: 10,
-    backgroundColor: "#EF4444", borderRadius: 8,
-    paddingHorizontal: 8, paddingVertical: 3,
+  imageContainer: {
+    position: "relative",
   },
-  unavailText: { color: "#fff", fontSize: 10, fontWeight: "700", fontFamily: "Inter_700Bold" },
-
-  catChip: {
-    position: "absolute", bottom: 10, left: 10,
-    borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4,
+  image: {
+    width: "100%",
+    height: 160,
   },
-  catChipText: { color: "#fff", fontSize: 10, fontWeight: "700", fontFamily: "Inter_700Bold", textTransform: "capitalize" },
-
-  ratingBadge: {
-    position: "absolute", top: 10, left: 10,
-    flexDirection: "row", alignItems: "center", gap: 3,
-    backgroundColor: "rgba(0,0,0,0.6)", borderRadius: 8,
-    paddingHorizontal: 7, paddingVertical: 4,
+  imagePlaceholder: {
+    backgroundColor: C.backgroundTertiary,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  ratingBadgeText: { color: "#fff", fontSize: 11, fontWeight: "700", fontFamily: "Inter_700Bold" },
-
-  info: { padding: 14, gap: 6 },
-  title: { fontSize: 15, fontWeight: "700", fontFamily: "Inter_700Bold", color: C.text, lineHeight: 21 },
-  locationRow: { flexDirection: "row", alignItems: "center", gap: 3 },
-  location: { fontSize: 12, color: C.textTertiary, fontFamily: "Inter_400Regular", flex: 1 },
-
-  footer: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 4 },
-  price: { fontSize: 17, fontWeight: "700", fontFamily: "Inter_700Bold", color: ORANGE },
-  provider: { fontSize: 11, color: C.textTertiary, fontFamily: "Inter_400Regular", marginTop: 2 },
-  bookBtn: {
-    flexDirection: "row", alignItems: "center", gap: 4,
-    backgroundColor: ORANGE, borderRadius: 10,
-    paddingHorizontal: 12, paddingVertical: 8,
+  iconCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: `${C.tint}15`,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  bookBtnText: { fontSize: 12, fontWeight: "700", fontFamily: "Inter_700Bold", color: "#fff" },
-
-  newBadgeRow: { flexDirection: "row" },
+  unavailableBadge: {
+    position: "absolute",
+    top: 10,
+    right: 10,
+    backgroundColor: C.error,
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  unavailableBadgeText: {
+    color: "#fff",
+    fontSize: 10,
+    fontWeight: "700",
+    fontFamily: "Inter_700Bold",
+  },
+  categoryChip: {
+    position: "absolute",
+    bottom: 10,
+    left: 10,
+    backgroundColor: "rgba(15, 31, 61, 0.75)",
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  categoryChipText: {
+    color: "#fff",
+    fontSize: 10,
+    fontWeight: "600",
+    fontFamily: "Inter_600SemiBold",
+    textTransform: "capitalize",
+  },
+  info: {
+    padding: 12,
+    gap: 4,
+  },
+  title: {
+    fontSize: 15,
+    fontWeight: "600",
+    fontFamily: "Inter_600SemiBold",
+    color: C.text,
+    lineHeight: 20,
+  },
+  locationRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+  },
+  location: {
+    fontSize: 12,
+    color: C.textSecondary,
+    fontFamily: "Inter_400Regular",
+    flex: 1,
+  },
+  footer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 4,
+  },
+  price: {
+    fontSize: 16,
+    fontWeight: "700",
+    fontFamily: "Inter_700Bold",
+    color: C.tint,
+  },
+  ratingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+  },
+  rating: {
+    fontSize: 12,
+    fontWeight: "600",
+    fontFamily: "Inter_600SemiBold",
+    color: C.text,
+  },
+  reviewCount: {
+    fontSize: 11,
+    color: C.textSecondary,
+    fontFamily: "Inter_400Regular",
+  },
   newBadge: {
-    backgroundColor: "#E8F5E9", borderRadius: 6,
-    paddingHorizontal: 7, paddingVertical: 2,
+    fontSize: 10,
+    fontWeight: "700",
+    fontFamily: "Inter_700Bold",
+    color: C.success,
+    letterSpacing: 0.5,
   },
-  newBadgeText: { fontSize: 10, fontWeight: "700", fontFamily: "Inter_700Bold", color: "#2E7D32", letterSpacing: 0.5 },
+  provider: {
+    fontSize: 11,
+    color: C.textSecondary,
+    fontFamily: "Inter_400Regular",
+  },
 });

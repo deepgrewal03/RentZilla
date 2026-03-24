@@ -1,5 +1,4 @@
 import { Ionicons } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
 import { StatusBar } from "expo-status-bar";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
@@ -17,7 +16,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { CategoryPill, CATEGORIES } from "@/components/CategoryPill";
 import { ListingCard } from "@/components/ListingCard";
-import Colors, { GRADIENT_ORANGE } from "@/constants/colors";
+import Colors from "@/constants/colors";
 import { useApi } from "@/hooks/useApi";
 import { Listing, Category } from "@/types";
 
@@ -63,14 +62,9 @@ export default function SearchScreen() {
 
   return (
     <View style={styles.root}>
-      <StatusBar style="light" />
-      <LinearGradient
-        colors={GRADIENT_ORANGE}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={[styles.header, { paddingTop: topPad + 14 }]}
-      >
-        <Text style={[styles.headerTitle, { color: "#fff" }]}>Search</Text>
+      <StatusBar style="dark" />
+      <View style={[styles.header, { paddingTop: topPad + 8 }]}>
+        <Text style={styles.headerTitle}>Search</Text>
 
         {/* Search input */}
         <View style={styles.searchRow}>
@@ -146,7 +140,7 @@ export default function SearchScreen() {
             />
           ))}
         </ScrollView>
-      </LinearGradient>
+      </View>
 
       <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
         <View style={styles.resultsHeader}>
@@ -179,9 +173,10 @@ export default function SearchScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: C.background },
   header: {
+    backgroundColor: C.backgroundSecondary,
     paddingHorizontal: 20,
     paddingBottom: 16,
-    borderBottomWidth: 0,
+    borderBottomWidth: 1,
     borderBottomColor: C.border,
     gap: 12,
   },
@@ -196,35 +191,29 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#fff",
-    borderRadius: 14,
+    backgroundColor: C.backgroundTertiary,
+    borderRadius: 12,
     paddingHorizontal: 12,
     gap: 8,
-    shadowColor: "rgba(0,0,0,0.12)",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 1,
-    shadowRadius: 8,
-    elevation: 4,
+    borderWidth: 1.5,
+    borderColor: C.border,
   },
   searchInput: {
     flex: 1,
     fontSize: 15,
     fontFamily: "Inter_400Regular",
     color: C.text,
-    paddingVertical: 12,
+    paddingVertical: 11,
   },
   filterBtn: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
-    backgroundColor: "#fff",
+    width: 46,
+    height: 46,
+    borderRadius: 12,
+    backgroundColor: C.backgroundTertiary,
+    borderWidth: 1.5,
+    borderColor: C.border,
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "rgba(0,0,0,0.12)",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 1,
-    shadowRadius: 8,
-    elevation: 4,
   },
   filterBtnActive: {
     backgroundColor: C.tint,
