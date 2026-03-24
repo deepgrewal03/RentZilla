@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
+import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useEffect, useState } from "react";
@@ -81,11 +82,16 @@ export default function BookingsScreen() {
 
   return (
     <View style={styles.root}>
-      <StatusBar style="dark" />
-      <View style={[styles.header, { paddingTop: topPad + 8 }]}>
+      <StatusBar style="light" />
+      <LinearGradient
+        colors={["#FF7A18", "#FF9F43"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[styles.header, { paddingTop: topPad + 14 }]}
+      >
         <Text style={styles.headerTitle}>My Bookings</Text>
         <Text style={styles.headerSub}>{user?.role === "provider" ? "Requests for your listings" : "Your rental history"}</Text>
-      </View>
+      </LinearGradient>
 
       <ScrollView
         style={styles.scroll}
@@ -130,22 +136,21 @@ export default function BookingsScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: C.background },
   header: {
-    backgroundColor: C.backgroundSecondary,
     paddingHorizontal: 20,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: C.border,
-    gap: 4,
+    paddingBottom: 20,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+    gap: 6,
   },
   headerTitle: {
-    fontSize: 28,
+    fontSize: 26,
     fontWeight: "700",
     fontFamily: "Inter_700Bold",
-    color: C.text,
+    color: "#fff",
   },
   headerSub: {
     fontSize: 13,
-    color: C.textSecondary,
+    color: "rgba(255,255,255,0.85)",
     fontFamily: "Inter_400Regular",
   },
   scroll: { flex: 1 },

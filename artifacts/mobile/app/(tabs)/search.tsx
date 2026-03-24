@@ -62,9 +62,14 @@ export default function SearchScreen() {
 
   return (
     <View style={styles.root}>
-      <StatusBar style="dark" />
-      <View style={[styles.header, { paddingTop: topPad + 8 }]}>
-        <Text style={styles.headerTitle}>Search</Text>
+      <StatusBar style="light" />
+      <LinearGradient
+        colors={["#FF7A18", "#FF9F43"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[styles.header, { paddingTop: topPad + 14 }]}
+      >
+        <Text style={[styles.headerTitle, { color: "#fff" }]}>Search</Text>
 
         {/* Search input */}
         <View style={styles.searchRow}>
@@ -140,7 +145,7 @@ export default function SearchScreen() {
             />
           ))}
         </ScrollView>
-      </View>
+      </LinearGradient>
 
       <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
         <View style={styles.resultsHeader}>
@@ -173,45 +178,50 @@ export default function SearchScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: C.background },
   header: {
-    backgroundColor: C.backgroundSecondary,
     paddingHorizontal: 20,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: C.border,
+    paddingBottom: 18,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
     gap: 12,
   },
   headerTitle: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: "700",
     fontFamily: "Inter_700Bold",
-    color: C.text,
+    color: "#fff",
   },
   searchRow: { flexDirection: "row", gap: 10 },
   searchBox: {
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: C.backgroundTertiary,
-    borderRadius: 12,
-    paddingHorizontal: 12,
+    backgroundColor: "#fff",
+    borderRadius: 26,
+    paddingHorizontal: 14,
     gap: 8,
-    borderWidth: 1.5,
-    borderColor: C.border,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 5,
   },
   searchInput: {
     flex: 1,
     fontSize: 15,
     fontFamily: "Inter_400Regular",
-    color: C.text,
-    paddingVertical: 11,
+    color: "#2C2C2C",
+    paddingVertical: 13,
   },
   filterBtn: {
     width: 46,
     height: 46,
-    borderRadius: 12,
-    backgroundColor: C.backgroundTertiary,
-    borderWidth: 1.5,
-    borderColor: C.border,
+    borderRadius: 14,
+    backgroundColor: "#fff",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
     alignItems: "center",
     justifyContent: "center",
   },

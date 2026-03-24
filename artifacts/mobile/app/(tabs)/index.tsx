@@ -16,11 +16,10 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { CategoryPill, CATEGORIES } from "@/components/CategoryPill";
 import { ListingCard } from "@/components/ListingCard";
 import { NotificationBell } from "@/components/NotificationBell";
 import { SideDrawer } from "@/components/SideDrawer";
-import Colors from "@/constants/colors";
+import Colors, { GRADIENT_ORANGE } from "@/constants/colors";
 import { useAuth } from "@/context/AuthContext";
 import { useLang } from "@/context/LanguageContext";
 import { useApi } from "@/hooks/useApi";
@@ -28,92 +27,77 @@ import { Listing, Category } from "@/types";
 
 const C = Colors.light;
 
-const FEATURED_SUBCATEGORIES = [
-  { id: "tractor", labelEn: "Tractors", labelPa: "ਟਰੈਕਟਰ", icon: "🚜", color: "#22C55E", bg: "#F0FFF4" },
-  { id: "harvester", labelEn: "Harvesters", labelPa: "ਕੰਬਾਈਨ", icon: "⚙️", color: "#F59E0B", bg: "#FFFBEB" },
-  { id: "plumber", labelEn: "Plumbers", labelPa: "ਪਲੰਬਰ", icon: "🔧", color: "#3B82F6", bg: "#EBF4FF" },
-  { id: "sedan", labelEn: "Cars", labelPa: "ਕਾਰ", icon: "🚗", color: "#8B5CF6", bg: "#F5F0FF" },
-  { id: "electrician", labelEn: "Electricians", labelPa: "ਇਲੈਕਟ੍ਰੀਸ਼ੀਅਨ", icon: "⚡", color: "#EF4444", bg: "#FEF2F2" },
-  { id: "beauty", labelEn: "Beauty", labelPa: "ਸੁੰਦਰਤਾ", icon: "✂️", color: "#EC4899", bg: "#FFF0F8" },
+const TABS: { id: Category | "all"; labelEn: string; labelPa: string }[] = [
+  { id: "all",       labelEn: "All",       labelPa: "ਸਭ" },
+  { id: "cars",      labelEn: "Cars",       labelPa: "ਕਾਰਾਂ" },
+  { id: "equipment", labelEn: "Equipment",  labelPa: "ਮਸ਼ੀਨਰੀ" },
+  { id: "services",  labelEn: "Services",   labelPa: "ਸੇਵਾਵਾਂ" },
 ];
 
 export default function HomeScreen() {
   const { user, activeMode, setActiveMode } = useAuth();
-  const isBoth = user?.role === "both";
+  const isBoth        = user?.role === "both";
   const isPureProvider = user?.role === "provider";
-  const { get } = useApi();
+  const { get }       = useApi();
   const { t, language, toggleLanguage } = useLang();
-  const insets = useSafeAreaInsets();
-  const isWeb = Platform.OS === "web";
-  const isPa = language === "pa";
+  const insets        = useSafeAreaInsets();
+  const isWeb         = Platform.OS === "web";
+  const isPa          = language === "pa";
 
-  const [listings, setListings] = useState<Listing[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+  const [listings, setListings]           = useState<Listing[]>([]);
+  const [loading, setLoading]             = useState(true);
+  const [refreshing, setRefreshing]       = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<Category | "all">("all");
-  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [drawerOpen, setDrawerOpen]       = useState(false);
 
-  // Providers should never see the Home/customer screen
   const inProviderMode = isPureProvider || (isBoth && activeMode === "provider");
 
   useEffect(() => {
-    if (!user) {
-      router.replace("/sign-in");
-      return;
-    }
-    if (inProviderMode) {
-      router.replace("/(tabs)/dashboard");
-      return;
-    }
+    if (!user) { router.replace("/sign-in"); return; }
+    if (inProviderMode) { router.replace("/(tabs)/dashboard"); return; }
     fetchListings();
   }, [user, selectedCategory, inProviderMode]);
 
   async function fetchListings() {
     try {
       const path = selectedCategory === "all" ? "/listings" : `/listings?category=${selectedCategory}`;
-      const data = await get<Listing[]>(path);
-      setListings(data);
-    } catch {
-      // ignore
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
+      setListings(await get<Listing[]>(path));
+    } catch { }
+    finally { setLoading(false); setRefreshing(false); }
   }
 
-  const topPad = isWeb ? 67 : insets.top;
-  const firstName = (user?.firstName || user?.name?.split(" ")[0] || "Friend");
-  const greeting = isPa ? `${t.greeting}, ${firstName} 🌾` : `${t.greeting}, ${firstName} 🌾`;
-
-  const selectedCat = CATEGORIES.find((c) => c.id === selectedCategory);
-  const listingLabel = selectedCategory === "all"
-    ? t.allListings
-    : (isPa ? selectedCat?.label : selectedCat?.label) ?? t.allListings;
+  const topPad    = isWeb ? 67 : insets.top;
+  const firstName = user?.firstName || user?.name?.split(" ")[0] || "Friend";
 
   return (
     <View style={styles.root}>
       <StatusBar style="light" />
       <SideDrawer visible={drawerOpen} onClose={() => setDrawerOpen(false)} />
 
-      {/* Header */}
-      <LinearGradient colors={[C.navy, "#1B3260"]} style={[styles.header, { paddingTop: topPad + 12 }]}>
+      {/* ─── HEADER: orange gradient with rounded bottom ─── */}
+      <LinearGradient
+        colors={GRADIENT_ORANGE}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[styles.header, { paddingTop: topPad + 14 }]}
+      >
+        {/* Top row */}
         <View style={styles.headerTop}>
-          {/* Hamburger */}
-          <Pressable onPress={() => setDrawerOpen(true)} style={styles.headerIconBtn}>
-            <Ionicons name="menu" size={24} color="#fff" />
+          <Pressable onPress={() => setDrawerOpen(true)} style={styles.menuBtn}>
+            <Ionicons name="menu" size={22} color="#fff" />
           </Pressable>
 
-          {/* Greeting */}
-          <View style={styles.headerCenter}>
-            <Text style={styles.greeting} numberOfLines={1}>{greeting}</Text>
-            <View style={styles.locationRow}>
-              <Ionicons name="location" size={12} color={C.tint} />
-              <Text style={styles.locationText}>{t.location}</Text>
+          <View style={styles.headerMid}>
+            <Text style={styles.greeting}>
+              {isPa ? "ਸਤਿ ਸ੍ਰੀ ਅਕਾਲ" : "Hello"}, {firstName} 👋
+            </Text>
+            <View style={styles.locRow}>
+              <Ionicons name="location-sharp" size={11} color="rgba(255,255,255,0.85)" />
+              <Text style={styles.locText}>{t.location}</Text>
             </View>
           </View>
 
-          {/* Right: lang toggle + notification bell */}
-          <View style={styles.headerRight}>
+          <View style={styles.headerActions}>
             <Pressable onPress={toggleLanguage} style={styles.langPill}>
               <Text style={styles.langPillText}>{isPa ? "EN" : "ਪੰਜਾਬੀ"}</Text>
             </Pressable>
@@ -121,15 +105,15 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {/* Mode switcher for dual-role users */}
+        {/* Dual-role switcher */}
         {isBoth && (
-          <View style={styles.modeSwitcher}>
+          <View style={styles.modeRow}>
             <Pressable
               onPress={() => { Haptics.selectionAsync(); setActiveMode("customer"); }}
-              style={[styles.modeBtn, activeMode === "customer" && styles.modeBtnActive]}
+              style={[styles.modeBtn, activeMode === "customer" && styles.modeBtnOn]}
             >
-              <Ionicons name="person-outline" size={14} color={activeMode === "customer" ? "#fff" : "rgba(255,255,255,0.6)"} />
-              <Text style={[styles.modeBtnText, activeMode === "customer" && styles.modeBtnTextActive]}>Customer</Text>
+              <Ionicons name="person-outline" size={13} color={activeMode === "customer" ? "#FF7A18" : "rgba(255,255,255,0.8)"} />
+              <Text style={[styles.modeTxt, activeMode === "customer" && styles.modeTxtOn]}>Customer</Text>
             </Pressable>
             <Pressable
               onPress={() => {
@@ -137,82 +121,72 @@ export default function HomeScreen() {
                 setActiveMode("provider");
                 router.replace("/(tabs)/dashboard");
               }}
-              style={[styles.modeBtn, activeMode === "provider" && styles.modeBtnActive]}
+              style={[styles.modeBtn, activeMode === "provider" && styles.modeBtnOn]}
             >
-              <Ionicons name="car-outline" size={14} color={activeMode === "provider" ? "#fff" : "rgba(255,255,255,0.6)"} />
-              <Text style={[styles.modeBtnText, activeMode === "provider" && styles.modeBtnTextActive]}>Provider</Text>
+              <Ionicons name="briefcase-outline" size={13} color={activeMode === "provider" ? "#FF7A18" : "rgba(255,255,255,0.8)"} />
+              <Text style={[styles.modeTxt, activeMode === "provider" && styles.modeTxtOn]}>Provider</Text>
             </Pressable>
           </View>
         )}
 
-        {/* Search bar */}
+        {/* ─── Floating search bar (inside header, visually floats) ─── */}
         <Pressable onPress={() => router.push("/(tabs)/search")} style={styles.searchBar}>
-          <Ionicons name="search" size={16} color={C.textSecondary} />
-          <Text style={styles.searchPlaceholder}>{t.searchPlaceholder}</Text>
-          <Ionicons name="options-outline" size={16} color={C.textTertiary} />
+          <Ionicons name="search" size={17} color="#AEAEAE" />
+          <Text style={styles.searchHint}>{t.searchPlaceholder}</Text>
+          <View style={styles.micBtn}>
+            <Ionicons name="mic" size={15} color="#FF7A18" />
+          </View>
         </Pressable>
       </LinearGradient>
 
+      {/* ─── SCROLLABLE CONTENT ─── */}
       <ScrollView
         style={styles.scroll}
-        contentInsetAdjustmentBehavior="automatic"
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchListings(); }} tintColor={C.tint} />}
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => { setRefreshing(true); fetchListings(); }}
+            tintColor="#FF7A18"
+          />
+        }
         showsVerticalScrollIndicator={false}
       >
-        {/* Categories */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t.browseByCategory}</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.catScroll}>
-            {CATEGORIES.map((cat) => (
-              <CategoryPill
-                key={cat.id}
-                category={cat}
-                selected={selectedCategory === cat.id}
-                onPress={() => setSelectedCategory(cat.id as Category | "all")}
-              />
-            ))}
-          </ScrollView>
-        </View>
-
-        {/* Quick access grid */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t.popularInPunjab}</Text>
-          <View style={styles.quickGrid}>
-            {FEATURED_SUBCATEGORIES.map((item) => (
+        {/* Category tabs */}
+        <View style={styles.tabsRow}>
+          {TABS.map((tab) => {
+            const active = selectedCategory === tab.id;
+            return (
               <Pressable
-                key={item.id}
-                onPress={() => router.push({ pathname: "/(tabs)/search", params: { q: item.labelEn } })}
-                style={({ pressed }) => [styles.quickItem, { backgroundColor: item.bg, opacity: pressed ? 0.85 : 1 }]}
+                key={tab.id}
+                onPress={() => { Haptics.selectionAsync(); setSelectedCategory(tab.id); }}
+                style={styles.tab}
               >
-                <Text style={styles.quickIcon}>{item.icon}</Text>
-                <Text style={[styles.quickLabel, { color: item.color }]}>
-                  {isPa ? item.labelPa : item.labelEn}
+                <Text style={[styles.tabTxt, active && styles.tabTxtActive]}>
+                  {isPa ? tab.labelPa : tab.labelEn}
                 </Text>
+                {active && <View style={styles.tabUnderline} />}
               </Pressable>
-            ))}
-          </View>
+            );
+          })}
         </View>
 
         {/* Listings */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>{listingLabel}</Text>
-            <Text style={styles.listingCount}>{listings.length} {t.found}</Text>
-          </View>
-
+        <View style={styles.listingsWrap}>
           {loading ? (
-            <View style={styles.loadingBox}><ActivityIndicator color={C.tint} size="large" /></View>
+            <View style={styles.center}>
+              <ActivityIndicator color="#FF7A18" size="large" />
+            </View>
           ) : listings.length === 0 ? (
-            <View style={styles.emptyBox}>
-              <Ionicons name="cube-outline" size={48} color={C.textTertiary} />
-              <Text style={styles.emptyTitle}>{isPa ? "ਕੋਈ ਲਿਸਟਿੰਗ ਨਹੀਂ" : "No listings yet"}</Text>
+            <View style={styles.center}>
+              <Ionicons name="search-outline" size={52} color="#AEAEAE" />
+              <Text style={styles.emptyTitle}>{isPa ? "ਕੋਈ ਲਿਸਟਿੰਗ ਨਹੀਂ" : "No listings found"}</Text>
+              <Text style={styles.emptyHint}>{isPa ? "ਹੋਰ ਸ਼੍ਰੇਣੀ ਚੁਣੋ" : "Try a different category"}</Text>
             </View>
           ) : (
-            <View style={styles.listingsGrid}>
-              {listings.map((listing) => (
-                <ListingCard key={listing.id} listing={listing} />
-              ))}
-            </View>
+            listings.map((listing) => (
+              <ListingCard key={listing.id} listing={listing} />
+            ))
           )}
         </View>
 
@@ -225,7 +199,9 @@ export default function HomeScreen() {
           onPress={() => router.push("/add-listing")}
           style={[styles.fab, { bottom: (isWeb ? 34 : insets.bottom) + 80 }]}
         >
-          <Ionicons name="add" size={28} color="#fff" />
+          <LinearGradient colors={GRADIENT_ORANGE} style={styles.fabGrad}>
+            <Ionicons name="add" size={28} color="#fff" />
+          </LinearGradient>
         </Pressable>
       )}
     </View>
@@ -233,70 +209,105 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: C.background },
-  header: { paddingHorizontal: 16, paddingBottom: 20 },
-  headerTop: { flexDirection: "row", alignItems: "center", marginBottom: 14, gap: 10 },
-  headerIconBtn: {
-    width: 40, height: 40, borderRadius: 20,
-    backgroundColor: "rgba(255,255,255,0.12)",
+  root: { flex: 1, backgroundColor: "#F5F6FA" },
+
+  // ── Header ──────────────────────────────────────────────────
+  header: {
+    paddingHorizontal: 18,
+    paddingBottom: 24,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+  },
+  headerTop: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 18 },
+  menuBtn: {
+    width: 38, height: 38, borderRadius: 19,
+    backgroundColor: "rgba(255,255,255,0.2)",
     alignItems: "center", justifyContent: "center",
   },
-  headerCenter: { flex: 1 },
+  headerMid: { flex: 1 },
   greeting: { fontSize: 17, fontWeight: "700", fontFamily: "Inter_700Bold", color: "#fff" },
-  locationRow: { flexDirection: "row", alignItems: "center", gap: 3, marginTop: 2 },
-  locationText: { fontSize: 11, color: "rgba(255,255,255,0.7)", fontFamily: "Inter_400Regular" },
-  headerRight: { flexDirection: "row", alignItems: "center", gap: 8 },
+  locRow: { flexDirection: "row", alignItems: "center", gap: 3, marginTop: 3 },
+  locText: { fontSize: 12, color: "rgba(255,255,255,0.85)", fontFamily: "Inter_400Regular" },
+  headerActions: { flexDirection: "row", alignItems: "center", gap: 8 },
   langPill: {
-    backgroundColor: "rgba(255,255,255,0.12)",
-    borderRadius: 14,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.2)",
+    backgroundColor: "rgba(255,255,255,0.2)", borderRadius: 12,
+    paddingHorizontal: 10, paddingVertical: 5,
+    borderWidth: 1, borderColor: "rgba(255,255,255,0.3)",
   },
-  langPillText: { color: "#fff", fontSize: 11, fontWeight: "600", fontFamily: "Inter_600SemiBold" },
-  modeSwitcher: {
-    flexDirection: "row",
-    backgroundColor: "rgba(255,255,255,0.12)",
-    borderRadius: 20,
-    padding: 3,
-    alignSelf: "center",
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.15)",
+  langPillText: { color: "#fff", fontSize: 11, fontWeight: "700", fontFamily: "Inter_700Bold" },
+
+  // Mode switcher
+  modeRow: {
+    flexDirection: "row", alignSelf: "center",
+    backgroundColor: "rgba(0,0,0,0.15)", borderRadius: 20, padding: 3,
+    marginBottom: 16, borderWidth: 1, borderColor: "rgba(255,255,255,0.15)",
   },
-  modeBtn: {
-    flexDirection: "row", alignItems: "center", gap: 6,
-    paddingHorizontal: 16, paddingVertical: 7, borderRadius: 17,
-  },
-  modeBtnActive: { backgroundColor: C.tint },
-  modeBtnText: { fontSize: 13, fontWeight: "600", fontFamily: "Inter_600SemiBold", color: "rgba(255,255,255,0.6)" },
-  modeBtnTextActive: { color: "#fff" },
+  modeBtn: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 16, paddingVertical: 6, borderRadius: 17 },
+  modeBtnOn: { backgroundColor: "#fff" },
+  modeTxt: { fontSize: 12, fontWeight: "600", fontFamily: "Inter_600SemiBold", color: "rgba(255,255,255,0.8)" },
+  modeTxtOn: { color: "#FF7A18" },
+
+  // Search bar (inside header, floats visually)
   searchBar: {
     flexDirection: "row", alignItems: "center", gap: 10,
-    backgroundColor: "#fff", borderRadius: 14,
-    paddingHorizontal: 14, paddingVertical: 12,
+    backgroundColor: "#fff",
+    borderRadius: 28,
+    paddingHorizontal: 16, paddingVertical: 13,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    elevation: 6,
   },
-  searchPlaceholder: { flex: 1, fontSize: 14, color: C.textTertiary, fontFamily: "Inter_400Regular" },
+  searchHint: { flex: 1, fontSize: 14, color: "#AEAEAE", fontFamily: "Inter_400Regular" },
+  micBtn: {
+    width: 32, height: 32, borderRadius: 16,
+    backgroundColor: "#FFF3E9",
+    alignItems: "center", justifyContent: "center",
+  },
+
+  // ── Scroll ───────────────────────────────────────────────────
   scroll: { flex: 1 },
-  section: { paddingTop: 22, paddingHorizontal: 20 },
-  sectionTitle: { fontSize: 17, fontWeight: "700", fontFamily: "Inter_700Bold", color: C.text, marginBottom: 14 },
-  sectionHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 14 },
-  listingCount: { fontSize: 13, color: C.textSecondary, fontFamily: "Inter_400Regular" },
-  catScroll: { gap: 10, paddingRight: 20 },
-  quickGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
-  quickItem: { borderRadius: 14, padding: 14, alignItems: "center", gap: 6, minWidth: 90, flex: 1 },
-  quickIcon: { fontSize: 24 },
-  quickLabel: { fontSize: 11, fontWeight: "600", fontFamily: "Inter_600SemiBold", textAlign: "center" },
-  listingsGrid: { gap: 14 },
-  loadingBox: { height: 200, alignItems: "center", justifyContent: "center" },
-  emptyBox: { height: 200, alignItems: "center", justifyContent: "center", gap: 8 },
-  emptyTitle: { fontSize: 16, fontWeight: "600", fontFamily: "Inter_600SemiBold", color: C.text },
+  scrollContent: { paddingTop: 8 },
+
+  // Category tabs
+  tabsRow: {
+    flexDirection: "row",
+    paddingHorizontal: 18,
+    paddingTop: 16,
+    paddingBottom: 4,
+    backgroundColor: "#F5F6FA",
+    borderBottomWidth: 1,
+    borderBottomColor: "#EAEAEA",
+    marginBottom: 16,
+  },
+  tab: {
+    flex: 1, alignItems: "center", paddingVertical: 10, position: "relative",
+  },
+  tabTxt: {
+    fontSize: 13, fontWeight: "500", fontFamily: "Inter_500Medium",
+    color: "#AEAEAE",
+  },
+  tabTxtActive: {
+    color: "#FF7A18", fontWeight: "700", fontFamily: "Inter_700Bold",
+  },
+  tabUnderline: {
+    position: "absolute", bottom: -1, left: "15%", right: "15%",
+    height: 3, borderRadius: 2, backgroundColor: "#FF7A18",
+  },
+
+  // Listings
+  listingsWrap: { paddingHorizontal: 18, gap: 14 },
+  center: { alignItems: "center", justifyContent: "center", paddingVertical: 60, gap: 10 },
+  emptyTitle: { fontSize: 16, fontWeight: "600", fontFamily: "Inter_600SemiBold", color: "#2C2C2C" },
+  emptyHint: { fontSize: 13, color: "#AEAEAE", fontFamily: "Inter_400Regular" },
+
+  // FAB
   fab: {
     position: "absolute", right: 20,
-    width: 56, height: 56, borderRadius: 28,
-    backgroundColor: C.tint, alignItems: "center", justifyContent: "center",
-    shadowColor: C.tint, shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4, shadowRadius: 10, elevation: 8,
+    width: 56, height: 56, borderRadius: 28, overflow: "hidden",
+    shadowColor: "#FF7A18", shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.45, shadowRadius: 10, elevation: 8,
   },
+  fabGrad: { flex: 1, alignItems: "center", justifyContent: "center" },
 });
