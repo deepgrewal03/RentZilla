@@ -1,0 +1,270 @@
+Enhance and fully activate the Settings module in RentZilla app with complete backend + frontend functionality.
+
+IMPORTANT:
+- All features must be fully functional (not UI-only)
+- Must be secure, scalable, and role-based
+- Mobile-friendly UI required
+
+-----------------------------------
+
+🔒 1. TWO-FACTOR AUTHENTICATION (2FA)
+
+Features:
+- Enable/disable toggle in settings
+- OTP-based verification (SMS or email)
+- Required during login if enabled
+
+Flow:
+1. User enables 2FA
+2. Send OTP → verify
+3. Mark is_2fa_enabled = true
+
+Login Flow:
+- If enabled:
+  → ask OTP after password login
+
+Security:
+- OTP expiry (5 min)
+- Rate limit OTP requests
+
+-----------------------------------
+
+🚫 2. BLOCKED USERS (FULL SYSTEM)
+
+Features:
+- Block user
+- Unblock user
+- View blocked users list in settings
+
+Logic:
+- Blocked users cannot:
+  - message
+  - book rides/services
+  - view profile
+
+Database:
+BlockedUsers:
+- blocker_id
+- blocked_id
+
+UI:
+- Settings → Blocked Users → list + unblock button
+
+-----------------------------------
+
+⚠️ 3. REPORT USER (FULL SYSTEM)
+
+Features:
+- Report any user
+- Select reason:
+  - spam
+  - fraud
+  - abuse
+  - fake listing
+  - other
+
+- Add description
+
+Admin:
+- View reports
+- Take actions:
+  - suspend
+  - ban
+  - resolve
+
+Database:
+Reports:
+- reporter_id
+- reported_user_id
+- reason
+- description
+- status
+
+-----------------------------------
+
+🎨 4. APPEARANCE (DARK / LIGHT MODE)
+
+Features:
+- Options:
+  - Light
+  - Dark
+  - System default
+
+Functionality:
+- Apply theme instantly
+- Persist in database
+- Sync across sessions
+
+UI:
+- Toggle or selection list
+
+-----------------------------------
+
+📉 5. DATA SAVER MODE
+
+Features:
+- Toggle ON/OFF
+
+If ON:
+- Reduce image quality
+- Reduce API calls frequency
+- Reduce map refresh rate
+- Disable background sync
+
+Store:
+- user_preferences.data_saver = true/false
+
+-----------------------------------
+
+🚨 6. SAFETY & SUPPORT FEATURES
+
+-----------------------------------
+
+A. EMERGENCY CONTACT
+
+Features:
+- Add contact (name + phone)
+- Edit / delete
+- Store securely
+
+Use Case:
+- Quick access during rides/services
+
+Database:
+EmergencyContacts:
+- user_id
+- name
+- phone
+
+-----------------------------------
+
+B. REPORT AN ISSUE
+
+Features:
+- Submit issue to admin
+
+Fields:
+- category:
+  - payment
+  - booking
+  - driver
+  - app bug
+- description
+
+Admin:
+- View issues
+- mark resolved
+
+-----------------------------------
+
+C. FAQs (WRITE & DISPLAY)
+
+Create FAQ section with real content for RentZilla:
+
+FAQs:
+
+1. How do I book a car on RentZilla?
+→ Go to Cars tab, enter pickup & destination, choose vehicle, and book.
+
+2. Can I rent agricultural equipment?
+→ Yes, you can browse and book tractors, harvesters, and other equipment.
+
+3. How do I hire a plumber or electrician?
+→ Go to Services section and select the required professional.
+
+4. How do I list my equipment or vehicle?
+→ Switch to Provider mode and click "Add Listing".
+
+5. When do I get paid as a provider?
+→ Payments are transferred after service completion.
+
+6. What if I face an issue during a ride?
+→ Use "Report an Issue" or contact emergency support.
+
+7. Can I cancel a booking?
+→ Yes, cancellation depends on provider policy.
+
+8. Are my payments secure?
+→ Yes, all transactions are secured via payment gateway.
+
+9. How do I contact support?
+→ Use Help section or live chat.
+
+-----------------------------------
+
+TECH STACK:
+
+- Backend: Node.js / FastAPI
+- Database: PostgreSQL (Supabase)
+- Auth: JWT + OTP system
+
+-----------------------------------
+
+API ENDPOINTS:
+
+2FA:
+- POST /auth/send-otp
+- POST /auth/verify-otp
+- PATCH /settings/2fa
+
+Block:
+- POST /block-user
+- GET /blocked-users
+- DELETE /block-user/:id
+
+Report:
+- POST /report-user
+- GET /admin/reports
+
+Preferences:
+- PATCH /settings/theme
+- PATCH /settings/data-saver
+
+Emergency:
+- POST /emergency-contact
+- GET /emergency-contact
+
+Support:
+- POST /report-issue
+- GET /faqs
+
+-----------------------------------
+
+SECURITY:
+
+- JWT authentication required
+- Encrypt sensitive data
+- Role-based access
+- Prevent spam reports
+- Validate all inputs
+
+-----------------------------------
+
+UI REQUIREMENTS:
+
+Settings Sections:
+
+- Security
+- Privacy
+- Appearance
+- Data Saver
+- Blocked Users
+- Support & Safety
+
+Use:
+- Toggles
+- Clean lists
+- Mobile-friendly design
+
+-----------------------------------
+
+OUTPUT REQUIRED:
+
+- Full backend implementation
+- Database schema
+- API routes
+- OTP system
+- UI screens for all features
+- Admin moderation panel
+- Working FAQs section
+- Instructions to run

@@ -12,6 +12,7 @@ import settingsRouter from "./settings.js";
 import rolesRouter from "./roles.js";
 import ridesRouter from "./ridesRoute.js";
 import providerRouter from "./provider.js";
+import safetyRouter from "./safety.js";
 
 const router: IRouter = Router();
 
@@ -28,5 +29,6 @@ router.use("/settings", settingsRouter);
 router.use("/roles", rolesRouter);
 router.use("/rides", ridesRouter);
 router.use("/provider", providerRouter);
+router.use("/safety", safetyRouter);
 
 export default router;
