@@ -15,6 +15,9 @@ export const usersTable = pgTable("users", {
   role: roleEnum("role").notNull().default("customer"),
   location: text("location"),
   profileImage: text("profile_image"),
+  isAdmin: boolean("is_admin").notNull().default(false),
+  isSuspended: boolean("is_suspended").notNull().default(false),
+  adminNotes: text("admin_notes"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

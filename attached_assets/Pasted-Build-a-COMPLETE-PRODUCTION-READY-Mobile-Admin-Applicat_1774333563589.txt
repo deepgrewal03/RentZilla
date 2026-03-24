@@ -1,0 +1,261 @@
+Build a COMPLETE, PRODUCTION-READY Mobile Admin Application for RentZilla (rental + ride-booking platform).
+
+IMPORTANT:
+- This must be a separate mobile app (independent frontend)
+- It must connect to the existing RentZilla backend via secure APIs
+- Do NOT create a new database
+- Sync all data in real-time with main app
+- Must support scalability (future growth)
+
+-----------------------------------
+
+🎯 MAIN GOAL:
+
+Create a powerful admin mobile app to:
+- Monitor platform activity
+- Control users, providers, rides, listings
+- Manage payments, safety, and growth
+
+-----------------------------------
+
+📱 TECH STACK:
+
+Frontend:
+- React Native (Expo)
+- NativeWind (Tailwind for mobile)
+
+Backend:
+- Use existing APIs (Node.js / FastAPI)
+
+Realtime:
+- WebSockets or Supabase Realtime
+
+Authentication:
+- JWT + Role-based access (admin only)
+
+-----------------------------------
+
+🔐 AUTH SYSTEM:
+
+- Admin login (email/password)
+- Only role = admin can access
+- Add optional 2FA (OTP)
+- Auto logout on token expiry
+
+-----------------------------------
+
+📊 1. DASHBOARD (REAL-TIME)
+
+Show live stats:
+
+- Total users (customers + providers)
+- Active drivers (online/offline)
+- Active bookings
+- Total revenue
+- Daily earnings graph
+
+Extras:
+- Recent activity feed
+- Alerts (fraud, complaints)
+
+-----------------------------------
+
+👥 2. USER MANAGEMENT
+
+- View all users
+- Filters:
+  - customer
+  - provider
+
+Actions:
+- Suspend
+- Ban
+- Verify user
+- View full profile
+- View booking history
+
+-----------------------------------
+
+🚗 3. DRIVER / PROVIDER MANAGEMENT
+
+- View providers
+- Approve / reject registrations
+- View uploaded documents
+- Verify documents
+- Toggle:
+  - online/offline
+  - active/inactive
+
+-----------------------------------
+
+📄 4. DOCUMENT VERIFICATION SYSTEM
+
+- View all uploaded documents
+- Filter by:
+  - service type (cars, plumber, etc.)
+- Approve / reject documents
+- Add rejection reason
+
+-----------------------------------
+
+🚕 5. RIDES & BOOKINGS MANAGEMENT
+
+- View all rides
+- Filters:
+  - ongoing
+  - completed
+  - cancelled
+
+Actions:
+- Cancel ride
+- Reassign driver (advanced)
+- View route on map
+
+-----------------------------------
+
+💳 6. PAYMENTS & WALLET
+
+- View all transactions
+- Platform revenue tracking
+- Commission tracking
+- Driver payouts
+
+-----------------------------------
+
+🎁 7. PROMOTIONS MANAGEMENT
+
+- Create coupons
+- Edit / delete coupons
+- Track usage
+- Manage referral rewards
+
+-----------------------------------
+
+⚠️ 8. REPORTS & SAFETY
+
+- View reported users
+- View reported rides/services
+- Take actions:
+  - suspend
+  - ban
+- Mark resolved
+
+-----------------------------------
+
+📢 9. PUSH NOTIFICATIONS SYSTEM
+
+- Send notifications to:
+  - all users
+  - specific users
+  - providers only
+
+Examples:
+- offers
+- alerts
+- announcements
+
+-----------------------------------
+
+⚙️ 10. PLATFORM SETTINGS CONTROL
+
+- Set:
+  - base fare
+  - per km rate
+  - surge multiplier
+  - commission %
+
+- Toggle features:
+  - instant booking
+  - scheduled rides
+  - service categories
+
+-----------------------------------
+
+📍 11. LIVE MAP MONITORING
+
+- Show all active rides on map
+- Track drivers in real-time
+- View route paths
+
+-----------------------------------
+
+📊 12. ANALYTICS & REPORTS
+
+- Daily / weekly / monthly reports
+- Graphs:
+  - revenue
+  - bookings
+  - user growth
+
+-----------------------------------
+
+📱 UI DESIGN:
+
+- Mobile-first design
+- Bottom navigation or drawer
+
+Tabs:
+- Dashboard
+- Users
+- Providers
+- Rides
+- Payments
+- Reports
+- Settings
+
+Use:
+- Cards instead of tables
+- Clean modern UI
+- Fast loading
+
+-----------------------------------
+
+⚡ REALTIME FEATURES:
+
+- Live driver status
+- Live ride updates
+- Instant notifications
+
+-----------------------------------
+
+🔗 API INTEGRATION:
+
+Use existing backend APIs:
+
+- /admin/dashboard
+- /admin/users
+- /admin/providers
+- /admin/rides
+- /admin/documents
+- /admin/transactions
+- /admin/reports
+
+-----------------------------------
+
+🔐 SECURITY:
+
+- JWT authentication
+- Role-based access
+- Encrypt sensitive data
+- Activity logs for admin actions
+
+-----------------------------------
+
+📦 EXTRA ADVANCED FEATURES:
+
+- Fraud detection flags
+- Auto alerts for suspicious activity
+- Admin notes on users
+- Multi-admin support (super admin / sub-admin)
+
+-----------------------------------
+
+OUTPUT REQUIRED:
+
+- Full React Native mobile app
+- All screens implemented
+- API integration
+- Realtime sync
+- Admin authentication
+- Clean UI
+- Instructions to run (Expo)

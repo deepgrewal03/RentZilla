@@ -15,6 +15,7 @@ import providerRouter from "./provider.js";
 import safetyRouter from "./safety.js";
 import documentsRouter from "./documents.js";
 import searchRouter from "./search.js";
+import adminRouter from "./admin.js";
 
 const router: IRouter = Router();
 
@@ -34,5 +35,6 @@ router.use("/provider", providerRouter);
 router.use("/safety", safetyRouter);
 router.use("/documents", documentsRouter);
 router.use("/search", searchRouter);
+router.use("/admin", adminRouter);
 
 export default router;
