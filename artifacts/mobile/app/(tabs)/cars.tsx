@@ -17,7 +17,7 @@ import { SchedulePickerModal, type ScheduledTime } from "@/components/rides/Sche
 const C = Colors.light;
 const { width: SW, height: SH } = Dimensions.get("window");
 
-const ORANGE = "#E8742A";
+const ORANGE = "#FF7A18";
 const NAVY = "#0F1F3D";
 const GOLD = "#F5C842";
 const GREEN = "#22C55E";

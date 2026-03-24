@@ -1,0 +1,179 @@
+# 🎨 RentZilla UI Design Prompt (Orange Theme – Exact Style)
+
+## 🎯 Objective
+
+Design the RentZilla mobile app UI using a **modern orange gradient theme** similar to the provided design. The UI must feel:
+
+* Warm
+* Friendly
+* Clean
+* Easy for rural + urban users
+
+---
+
+## 🎨 Color System (STRICT – FOLLOW EXACTLY)
+
+### 🟠 Primary Gradient (Main Brand Color)
+
+* Top Gradient: `#FF7A18`
+* Bottom Gradient: `#FFB347`
+
+👉 Use this gradient for:
+
+* Header background
+* Main banners
+* Primary buttons (Rent Now, Book Now)
+
+---
+
+### ⚪ Background Colors
+
+* Main Background: `#F8F9FB` (light grey)
+* Cards: `#FFFFFF` (white)
+
+---
+
+### 🔤 Text Colors
+
+* Primary Text: `#2D2D2D`
+* Secondary Text: `#6B6B6B`
+* Light Text (on orange): `#FFFFFF`
+
+---
+
+### 🟢 Accent Colors
+
+* Green (for agriculture category): `#2E7D32`
+* Light Green Background: `#E8F5E9`
+
+---
+
+### 🔵 Optional Accent (for services)
+
+* Blue: `#4FC3F7`
+
+---
+
+## 📱 UI Screen Requirements
+
+### 1. 🏠 Home Screen
+
+* Top header with **orange gradient background**
+* Greeting text: “Hello, [Name] 👋”
+* Location below greeting
+* Rounded search bar with shadow
+* Category cards:
+
+  * 🚗 Car Rentals (orange theme)
+  * 🚜 Tractors & Equipment (green theme)
+  * 🛠 Services (blue/light theme)
+* Popular listings section (card layout)
+
+---
+
+### 2. 📋 Listing Screen
+
+* White background
+* Tabs at top:
+
+  * Cars
+  * Equipment
+  * Services
+* Each listing card includes:
+
+  * Image (rounded corners)
+  * Title
+  * Price (₹/day or hour)
+  * Rating ⭐
+  * Location
+
+---
+
+### 3. 📄 Detail Screen
+
+* Large image at top
+* Title + rating + provider name
+* Features list (icons + text)
+* Date/time picker
+* Sticky bottom button:
+  👉 Orange gradient “Rent Now ₹XXXX”
+
+---
+
+### 4. 📅 Booking Screen
+
+* Calendar picker
+* Time selection
+* Price summary
+* Confirm button (orange gradient)
+
+---
+
+### 5. 💬 Chat Screen
+
+* Simple clean UI
+* White background
+* Orange send button
+
+---
+
+### 6. 👤 Profile Screen
+
+* User info card
+* Booking history
+* Logout button
+
+---
+
+## 🧭 Navigation
+
+Bottom navigation bar:
+
+* Home
+* Bookings
+* Chat
+* Profile
+
+Active tab color: **Orange (#FF7A18)**
+Inactive: Grey
+
+---
+
+## 🎨 UI Style Guidelines
+
+* Use **rounded corners (12–16px)**
+* Soft shadows on cards
+* Large touch-friendly buttons
+* Minimal text, more icons
+* Clean spacing and padding
+
+---
+
+## ⚡ Performance Design
+
+* Lightweight UI
+* Optimized images
+* Fast loading lists (lazy loading)
+
+---
+
+## 🧠 Instructions to AI
+
+* Follow this color system strictly
+* Keep UI simple and clean
+* Match modern apps like Zomato/Uber style
+* Ensure accessibility (good contrast)
+* Make UI consistent across all screens
+
+---
+
+## ✅ Output Required
+
+* Full UI screens implemented in Flutter
+* Reusable components (cards, buttons, headers)
+* Theme file with defined colors
+
+---
+
+**Goal:**
+Create a visually attractive, modern RentZilla app using this orange gradient style that users instantly trust and enjoy using.
