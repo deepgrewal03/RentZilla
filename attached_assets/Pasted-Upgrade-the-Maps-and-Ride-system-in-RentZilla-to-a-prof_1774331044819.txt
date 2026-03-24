@@ -1,0 +1,209 @@
+Upgrade the Maps and Ride system in RentZilla to a professional, smooth, production-level experience.
+
+IMPORTANT:
+- Remove static pickup city list completely
+- Replace with real Google Maps + search
+- Improve both Rider and Provider (Driver) experience
+- Ensure smooth UI, accurate navigation, and real-time updates
+
+-----------------------------------
+
+🎯 MAIN GOAL:
+
+- Professional Google Maps UI
+- Real address search across Punjab (India)
+- Current location selection
+- Full navigation for drivers (pickup + destination)
+
+-----------------------------------
+
+🚫 REMOVE OLD SYSTEM:
+
+- Remove hardcoded pickup city list
+- Remove static dropdowns for location
+
+-----------------------------------
+
+🗺️ RIDER SIDE (CUSTOMER APP):
+
+-----------------------------------
+
+1. GOOGLE MAPS INTEGRATION:
+
+- Integrate Google Maps SDK
+- Show:
+  → live user location
+  → smooth map animations
+  → zoom + pan gestures
+
+-----------------------------------
+
+2. PICKUP LOCATION:
+
+Features:
+- Auto-detect current location (GPS)
+- Button: "Use Current Location"
+- Allow user to:
+  → tap on map
+  → search location manually
+
+-----------------------------------
+
+3. DESTINATION SEARCH:
+
+- Click input → open search modal
+- Use Google Places Autocomplete API
+
+Search should support:
+- ANY location in Punjab, India
+
+Examples:
+- Chandigarh
+- Ludhiana
+- Amritsar
+- Mohali
+- Villages, streets, landmarks
+
+-----------------------------------
+
+4. SEARCH EXPERIENCE:
+
+- Show suggestions in real-time
+- Show:
+  - place name
+  - full address
+
+- Save:
+  - recent locations
+  - frequently used places
+
+-----------------------------------
+
+5. ROUTE DISPLAY:
+
+After pickup + destination selected:
+
+- Draw route line on map
+- Show:
+  - distance (km)
+  - estimated time
+  - fare estimate
+
+-----------------------------------
+
+🚗 PROVIDER SIDE (DRIVER APP):
+
+-----------------------------------
+
+1. RIDE REQUEST SCREEN:
+
+When ride appears:
+
+- Show:
+  - pickup location
+  - destination
+  - distance to pickup
+  - trip distance
+
+-----------------------------------
+
+2. NAVIGATION TO PICKUP:
+
+When driver ACCEPTS ride:
+
+→ Open in-app navigation
+
+- Show route from:
+  driver → pickup location
+- Turn-by-turn navigation
+- Voice guidance (optional)
+
+-----------------------------------
+
+3. NAVIGATION TO DESTINATION:
+
+After driver STARTS ride:
+
+→ Switch navigation to:
+
+- pickup → destination
+
+-----------------------------------
+
+4. IN-APP MAP FEATURES:
+
+- Real-time driver location updates
+- Smooth movement (no jumps)
+- Route recalculation if missed turn
+
+-----------------------------------
+
+5. UI DESIGN (DRIVER):
+
+- Full-screen map
+- Bottom panel:
+  - Start ride
+  - End ride
+- Clear navigation instructions
+
+-----------------------------------
+
+⚡ REALTIME SYSTEM:
+
+- Driver location updates every 3–5 seconds
+- Rider sees live movement
+- Use WebSockets or Realtime DB
+
+-----------------------------------
+
+🎨 UI IMPROVEMENTS:
+
+- Smooth map transitions
+- Clean markers:
+  - pickup (green)
+  - destination (red)
+  - driver (car icon)
+
+- Modern bottom sheet (Uber-style)
+
+-----------------------------------
+
+📡 BACKEND REQUIREMENTS:
+
+- Integrate Google APIs:
+  - Maps SDK
+  - Places API
+  - Directions API
+
+- Create API:
+  GET /route
+  → returns distance + duration + polyline
+
+-----------------------------------
+
+🔐 RULES:
+
+- Validate all location inputs
+- Handle GPS permission errors
+- Fallback if location not available
+
+-----------------------------------
+
+⚡ PERFORMANCE:
+
+- Debounce search input
+- Cache recent locations
+- Optimize API calls
+
+-----------------------------------
+
+OUTPUT REQUIRED:
+
+- Full Google Maps integration
+- Punjab-wide address search
+- Current location feature
+- Route drawing system
+- Driver navigation (pickup + destination)
+- Real-time tracking
+- Smooth mobile UI
+- Fully working frontend + backend integration

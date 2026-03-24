@@ -13,6 +13,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useApi } from "@/hooks/useApi";
 import { LocationSearchModal, type LocationResult } from "@/components/rides/LocationSearchModal";
 import { SchedulePickerModal, type ScheduledTime } from "@/components/rides/SchedulePickerModal";
+import LeafletMapView, { type MapRef } from "@/components/rides/LeafletMapView";
 
 const C = Colors.light;
 const { width: SW, height: SH } = Dimensions.get("window");
@@ -59,117 +60,6 @@ const VEHICLE_TYPES = [
 function fmt(n?: number | null, d = 1) { return n != null ? n.toFixed(d) : "—"; }
 function pad(n: number) { return String(n).padStart(2, "0"); }
 
-// ─── Punjab Map Canvas ──────────────────────────────────────────────────────
-function PunjabMapCanvas({ pickup, drop, driverCoords, status }: {
-  pickup?: Coords; drop?: Coords;
-  driverCoords?: { lat: number; lng: number };
-  status?: string;
-}) {
-  const driverAnim = useRef(new Animated.Value(0)).current;
-  const pickupPulse = useRef(new Animated.Value(1)).current;
-
-  useEffect(() => {
-    Animated.loop(Animated.sequence([
-      Animated.timing(pickupPulse, { toValue: 1.3, duration: 900, useNativeDriver: false }),
-      Animated.timing(pickupPulse, { toValue: 1,   duration: 900, useNativeDriver: false }),
-    ])).start();
-    Animated.loop(Animated.sequence([
-      Animated.timing(driverAnim, { toValue: 1, duration: 2500, useNativeDriver: false }),
-      Animated.timing(driverAnim, { toValue: 0, duration: 2500, useNativeDriver: false }),
-    ])).start();
-  }, []);
-
-  // District "stars" on the map
-  const DISTRICTS = [
-    { x: 0.22, y: 0.35, label: "Amritsar" },
-    { x: 0.48, y: 0.28, label: "Gurdaspur" },
-    { x: 0.55, y: 0.55, label: "Chandigarh" },
-    { x: 0.30, y: 0.62, label: "Ludhiana" },
-    { x: 0.72, y: 0.70, label: "Patiala" },
-    { x: 0.18, y: 0.72, label: "Firozpur" },
-    { x: 0.65, y: 0.40, label: "Hoshiarpur" },
-    { x: 0.42, y: 0.78, label: "Bathinda" },
-  ];
-
-  return (
-    <LinearGradient colors={["#0a1628", "#0d1f3e", "#091525"]} style={[styles.mapCanvas, { height: MAP_HEIGHT }]}>
-      {/* Subtle grid */}
-      {[...Array(12)].map((_, i) => (
-        <View key={`h${i}`} style={[styles.gridH, { top: `${(i + 1) * 8}%` }]} />
-      ))}
-      {[...Array(8)].map((_, i) => (
-        <View key={`v${i}`} style={[styles.gridV, { left: `${(i + 1) * 12}%` }]} />
-      ))}
-
-      {/* District dots */}
-      {DISTRICTS.map(d => (
-        <View key={d.label} style={[styles.districtDot, { left: `${d.x * 100}%`, top: `${d.y * 100}%` }]}>
-          <View style={styles.districtCircle} />
-          <Text style={styles.districtLabel}>{d.label}</Text>
-        </View>
-      ))}
-
-      {/* Route arc */}
-      {pickup && drop && (
-        <LinearGradient
-          colors={[GREEN + "cc", ORANGE + "cc"]}
-          start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-          style={[styles.routeLine, { left: SW * 0.2, top: "45%", width: SW * 0.55 }]}
-        />
-      )}
-
-      {/* Pickup pin */}
-      {pickup && (
-        <View style={styles.pickupPin}>
-          <Animated.View style={[styles.pickupRing, { transform: [{ scale: pickupPulse }] }]} />
-          <View style={styles.pickupDot} />
-          <View style={styles.pinBubble}>
-            <Text style={styles.pinBubbleText} numberOfLines={1}>
-              {pickup.address.split(",")[0]}
-            </Text>
-          </View>
-        </View>
-      )}
-
-      {/* Drop pin */}
-      {drop && (
-        <View style={styles.dropPin}>
-          <View style={styles.dropDot} />
-          <View style={[styles.pinBubble, { backgroundColor: ORANGE + "ee", borderColor: ORANGE }]}>
-            <Text style={styles.pinBubbleText} numberOfLines={1}>
-              {drop.address.split(",")[0]}
-            </Text>
-          </View>
-        </View>
-      )}
-
-      {/* Moving driver */}
-      {driverCoords && (["accepted", "ongoing"].includes(status ?? "")) && (
-        <Animated.View style={[styles.driverPin, {
-          left: driverAnim.interpolate({ inputRange: [0, 1], outputRange: [SW * 0.3, SW * 0.55] }),
-          top: MAP_HEIGHT * 0.4,
-        }]}>
-          <Text style={styles.driverPinIcon}>🚗</Text>
-        </Animated.View>
-      )}
-
-      {/* Gradient overlay at bottom for sheet bleed */}
-      <LinearGradient
-        colors={["transparent", "rgba(8,15,30,0.5)"]}
-        style={styles.mapOverlay}
-        pointerEvents="none"
-      />
-
-      {/* Coordinates badge */}
-      {pickup && (
-        <View style={styles.coordBadge}>
-          <Feather name="navigation" size={10} color={GOLD} />
-          <Text style={styles.coordText}>{fmt(pickup.lat, 4)}, {fmt(pickup.lng, 4)}</Text>
-        </View>
-      )}
-    </LinearGradient>
-  );
-}
 
 // ─── STATUS STEP BAR ─────────────────────────────────────────────────────────
 function RideSteps({ status }: { status: string }) {
@@ -326,6 +216,15 @@ export default function CarsScreen() {
   const [selectedRequest, setSelectedRequest] = useState<RideRequest | null>(null);
 
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const mapRef = useRef<MapRef>(null);
+  const mapReadyRef = useRef(false);
+
+  const syncPickupToMap = useCallback((loc: Coords) => {
+    if (mapReadyRef.current) mapRef.current?.setPickup(loc.lat, loc.lng, loc.address);
+  }, []);
+  const syncDropToMap = useCallback((loc: Coords) => {
+    if (mapReadyRef.current) mapRef.current?.setDrop(loc.lat, loc.lng, loc.address);
+  }, []);
 
   // ── Location ──
   useEffect(() => {
@@ -333,7 +232,10 @@ export default function CarsScreen() {
       setLocLoading(true);
       try {
         const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status !== "granted") return;
+        if (status !== "granted") {
+          setLocLoading(false);
+          return;
+        }
         const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
         const { latitude: lat, longitude: lng } = loc.coords;
         let address = "Current Location";
@@ -344,26 +246,28 @@ export default function CarsScreen() {
             address = [g.name, g.city, g.region].filter(Boolean).join(", ").substring(0, 50);
           }
         } catch {}
-        setPickup({ lat, lng, address });
+        const loc2: Coords = { lat, lng, address };
+        setPickup(loc2);
+        syncPickupToMap(loc2);
       } catch {}
       finally { setLocLoading(false); }
     })();
   }, []);
 
-  // ── Estimate when drop changes ──
+  // ── Update estimate when vehicle type changes (if we have a map route) ──
   useEffect(() => {
-    if (!drop) { setEstimate(null); return; }
-    (async () => {
-      try {
-        const data = await post<RideEstimate>("/rides/estimate", {
-          pickupLat: pickup.lat, pickupLng: pickup.lng,
-          dropLat: drop.lat, dropLng: drop.lng, vehicleType,
-        });
-        setEstimate(data);
-        setSheetExpanded(true);
-      } catch {}
-    })();
-  }, [drop, vehicleType]);
+    if (!estimate || !drop) return;
+    const selectedV = VEHICLE_TYPES.find(v => v.id === vehicleType) ?? VEHICLE_TYPES[2];
+    const fare = Math.max(selectedV.baseFare, Math.round(selectedV.baseFare + estimate.distanceKm * selectedV.perKm));
+    setEstimate(prev => prev ? { ...prev, fare } : null);
+  }, [vehicleType]);
+
+  const handleRouteCalculated = useCallback((distanceKm: number, durationMin: number) => {
+    const selectedV = VEHICLE_TYPES.find(v => v.id === vehicleType) ?? VEHICLE_TYPES[2];
+    const fare = Math.max(selectedV.baseFare, Math.round(selectedV.baseFare + distanceKm * selectedV.perKm));
+    setEstimate({ distanceKm, durationMin, fare });
+    setSheetExpanded(true);
+  }, [vehicleType]);
 
   // ── Poll rider active ride ──
   useEffect(() => {
@@ -439,7 +343,8 @@ export default function CarsScreen() {
     try {
       await patch(`/rides/${activeRide.id}/cancel`, {});
       setActiveRide(null); setRideStatus("idle"); setDrop(null);
-      setScheduledTime(null); setSheetExpanded(false);
+      setScheduledTime(null); setSheetExpanded(false); setEstimate(null);
+      mapRef.current?.clearDrop();
     } catch {}
   };
 
@@ -482,13 +387,36 @@ export default function CarsScreen() {
 
     return (
       <>
-        {/* Map */}
-        <PunjabMapCanvas
-          pickup={pickup}
-          drop={drop ?? undefined}
-          driverCoords={activeRide?.driver_lat ? { lat: activeRide.driver_lat, lng: activeRide.driver_lng! } : undefined}
-          status={rideStatus}
-        />
+        {/* Real Interactive Map */}
+        <View style={[styles.mapContainer, { height: MAP_HEIGHT }]}>
+          <LeafletMapView
+            ref={mapRef}
+            initialLat={pickup.lat}
+            initialLng={pickup.lng}
+            onReady={() => {
+              mapReadyRef.current = true;
+              mapRef.current?.setPickup(pickup.lat, pickup.lng, pickup.address);
+              if (drop) mapRef.current?.setDrop(drop.lat, drop.lng, drop.address);
+            }}
+            onRouteCalculated={handleRouteCalculated}
+            onGpsLocation={(lat, lng, address) => {
+              const loc: Coords = { lat, lng, address };
+              setPickup(loc);
+            }}
+            onLocationSelected={(mode, lat, lng, address) => {
+              if (mode === "pickup") {
+                setPickup({ lat, lng, address });
+              } else {
+                const loc: Coords = { lat, lng, address };
+                setDrop(loc);
+                setEstimate(null);
+              }
+            }}
+          />
+          {activeRide?.driver_lat && ["accepted", "ongoing"].includes(rideStatus) && (
+            <View pointerEvents="none" style={StyleSheet.absoluteFillObject} />
+          )}
+        </View>
 
         {/* Bottom Sheet */}
         <BottomSheet isExpanded={sheetExpanded} onToggle={() => setSheetExpanded(v => !v)}>
@@ -911,14 +839,28 @@ export default function CarsScreen() {
       <LocationSearchModal
         visible={pickupModalOpen}
         onClose={() => setPickupModalOpen(false)}
-        onSelect={(loc: LocationResult) => setPickup({ lat: loc.lat, lng: loc.lng, address: loc.address })}
+        onSelect={(loc: LocationResult) => {
+          const p: Coords = { lat: loc.lat, lng: loc.lng, address: loc.address };
+          setPickup(p);
+          mapRef.current?.setPickup(loc.lat, loc.lng, loc.address);
+          mapRef.current?.setMode("drop");
+        }}
         title="Choose Pickup"
         color={GREEN}
+        showCurrentLocation
+        onCurrentLocation={() => {
+          mapRef.current?.getCurrentLocation();
+        }}
       />
       <LocationSearchModal
         visible={dropModalOpen}
         onClose={() => setDropModalOpen(false)}
-        onSelect={(loc: LocationResult) => setDrop({ lat: loc.lat, lng: loc.lng, address: loc.address })}
+        onSelect={(loc: LocationResult) => {
+          const d: Coords = { lat: loc.lat, lng: loc.lng, address: loc.address };
+          setDrop(d);
+          setEstimate(null);
+          mapRef.current?.setDrop(loc.lat, loc.lng, loc.address);
+        }}
         title="Choose Destination"
         color={ORANGE}
       />
@@ -945,25 +887,8 @@ const styles = StyleSheet.create({
   tabPillText: { fontSize: 12, color: "rgba(255,255,255,0.55)", fontFamily: "Inter_500Medium" },
   tabPillTextActive: { color: "#fff", fontFamily: "Inter_700Bold" },
 
-  // Map canvas
-  mapCanvas: { width: "100%", overflow: "hidden" },
-  gridH: { position: "absolute", left: 0, right: 0, height: 1, backgroundColor: "rgba(255,255,255,0.04)" },
-  gridV: { position: "absolute", top: 0, bottom: 0, width: 1, backgroundColor: "rgba(255,255,255,0.04)" },
-  districtDot: { position: "absolute" },
-  districtCircle: { width: 5, height: 5, borderRadius: 2.5, backgroundColor: "rgba(245,200,66,0.4)" },
-  districtLabel: { fontSize: 8, color: "rgba(245,200,66,0.55)", fontFamily: "Inter_400Regular", marginTop: 2 },
-  routeLine: { position: "absolute", height: 3, borderRadius: 2 },
-  pickupPin: { position: "absolute", bottom: "25%", left: "28%" },
-  pickupRing: { position: "absolute", width: 22, height: 22, borderRadius: 11, backgroundColor: `${GREEN}33`, top: -5, left: -5 },
-  pickupDot: { width: 12, height: 12, borderRadius: 6, backgroundColor: GREEN, borderWidth: 2, borderColor: "#fff" },
-  dropPin: { position: "absolute", top: "22%", right: "22%" },
-  dropDot: { width: 12, height: 12, borderRadius: 6, backgroundColor: ORANGE, borderWidth: 2, borderColor: "#fff" },
-  pinBubble: { position: "absolute", left: 16, top: -6, backgroundColor: "rgba(0,0,0,0.7)ee", paddingHorizontal: 6, paddingVertical: 3, borderRadius: 8, borderWidth: 1, borderColor: GREEN + "80", minWidth: 60, maxWidth: 120 },
-  pinBubbleText: { fontSize: 10, color: "#fff", fontFamily: "Inter_500Medium" },
-  driverPin: { position: "absolute" },
-  driverPinIcon: { fontSize: 22 },
-  mapOverlay: { position: "absolute", bottom: 0, left: 0, right: 0, height: 60 },
-  coordBadge: { position: "absolute", bottom: 8, left: 10, flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: "rgba(0,0,0,0.65)", paddingHorizontal: 7, paddingVertical: 3, borderRadius: 8 },
+  // Map container
+  mapContainer: { width: "100%", overflow: "hidden", position: "relative", backgroundColor: "#e8ddd0" },
   coordText: { fontSize: 10, color: GOLD, fontFamily: "Inter_400Regular" },
 
   // Bottom sheet
