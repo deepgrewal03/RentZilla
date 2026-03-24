@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
+import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useEffect, useRef, useState } from "react";
@@ -98,11 +99,16 @@ export default function ChatScreen() {
 
   return (
     <View style={styles.root}>
-      <StatusBar style="dark" />
+      <StatusBar style="light" />
       {/* Header */}
-      <View style={[styles.header, { paddingTop: topPad + 8 }]}>
+      <LinearGradient
+        colors={["#FF7A18", "#FF9F43"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[styles.header, { paddingTop: topPad + 10 }]}
+      >
         <Pressable onPress={() => router.back()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={22} color={C.text} />
+          <Ionicons name="arrow-back" size={22} color="#fff" />
         </Pressable>
         <View style={styles.headerCenter}>
           <View style={styles.avatar}>
@@ -115,7 +121,7 @@ export default function ChatScreen() {
             )}
           </View>
         </View>
-      </View>
+      </LinearGradient>
 
       <KAV behavior="padding" style={{ flex: 1 }} keyboardVerticalOffset={0}>
         <FlatList
@@ -185,29 +191,28 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: C.background },
   center: { alignItems: "center", justifyContent: "center" },
   header: {
-    backgroundColor: C.backgroundSecondary,
     paddingHorizontal: 16,
     paddingBottom: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: C.border,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
   },
   backBtn: {
     width: 36, height: 36, borderRadius: 18,
-    backgroundColor: C.backgroundTertiary,
+    backgroundColor: "rgba(255,255,255,0.2)",
     alignItems: "center", justifyContent: "center",
   },
   headerCenter: { flexDirection: "row", alignItems: "center", gap: 10, flex: 1 },
   avatar: {
     width: 38, height: 38, borderRadius: 19,
-    backgroundColor: `${C.tint}20`,
+    backgroundColor: "rgba(255,255,255,0.25)",
     alignItems: "center", justifyContent: "center",
   },
-  avatarText: { fontSize: 16, fontWeight: "700", fontFamily: "Inter_700Bold", color: C.tint },
-  headerName: { fontSize: 16, fontWeight: "600", fontFamily: "Inter_600SemiBold", color: C.text },
-  headerListing: { fontSize: 11, color: C.tint, fontFamily: "Inter_400Regular" },
+  avatarText: { fontSize: 16, fontWeight: "700", fontFamily: "Inter_700Bold", color: "#fff" },
+  headerName: { fontSize: 16, fontWeight: "600", fontFamily: "Inter_600SemiBold", color: "#fff" },
+  headerListing: { fontSize: 11, color: "rgba(255,255,255,0.8)", fontFamily: "Inter_400Regular" },
   messageList: {
     paddingHorizontal: 16,
     paddingVertical: 12,

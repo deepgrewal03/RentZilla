@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
+import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useState } from "react";
@@ -88,13 +89,18 @@ export default function ProfileScreen() {
 
   return (
     <View style={styles.root}>
-      <StatusBar style="dark" />
-      <View style={[styles.header, { paddingTop: topPad + 8 }]}>
+      <StatusBar style="light" />
+      <LinearGradient
+        colors={["#FF7A18", "#FF9F43"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[styles.header, { paddingTop: topPad + 14 }]}
+      >
         <Text style={styles.headerTitle}>Profile</Text>
         <Pressable onPress={() => { Haptics.selectionAsync(); setEditMode(!editMode); }}>
           <Text style={styles.editText}>{editMode ? "Cancel" : "Edit"}</Text>
         </Pressable>
-      </View>
+      </LinearGradient>
 
       <ScrollView style={styles.scroll} contentInsetAdjustmentBehavior="automatic" showsVerticalScrollIndicator={false}>
         {/* Avatar & Info */}
@@ -206,11 +212,10 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: C.background },
   header: {
-    backgroundColor: C.backgroundSecondary,
     paddingHorizontal: 20,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: C.border,
+    paddingBottom: 20,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-end",
@@ -219,11 +224,11 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: "700",
     fontFamily: "Inter_700Bold",
-    color: C.text,
+    color: "#fff",
   },
   editText: {
     fontSize: 16,
-    color: C.tint,
+    color: "rgba(255,255,255,0.9)",
     fontFamily: "Inter_500Medium",
     marginBottom: 4,
   },

@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
+import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useState } from "react";
@@ -92,16 +93,21 @@ export default function AddListingScreen() {
 
   return (
     <View style={styles.root}>
-      <StatusBar style="dark" />
-      <View style={[styles.header, { paddingTop: topPad + 8 }]}>
+      <StatusBar style="light" />
+      <LinearGradient
+        colors={["#FF7A18", "#FF9F43"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[styles.header, { paddingTop: topPad + 10 }]}
+      >
         <Pressable onPress={() => router.back()} style={styles.closeBtn}>
-          <Ionicons name="close" size={22} color={C.text} />
+          <Ionicons name="close" size={22} color="#fff" />
         </Pressable>
         <Text style={styles.headerTitle}>New Listing</Text>
         <Pressable onPress={handleSave} disabled={saving} style={styles.saveBtn}>
-          {saving ? <ActivityIndicator color="#fff" size="small" /> : <Text style={styles.saveBtnText}>Post</Text>}
+          {saving ? <ActivityIndicator color="#FF7A18" size="small" /> : <Text style={styles.saveBtnText}>Post</Text>}
         </Pressable>
-      </View>
+      </LinearGradient>
 
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1 }}>
         <ScrollView style={styles.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
@@ -241,30 +247,29 @@ export default function AddListingScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: C.background },
   header: {
-    backgroundColor: C.backgroundSecondary,
     paddingHorizontal: 16,
     paddingBottom: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: C.border,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
   },
   closeBtn: {
     width: 36, height: 36, borderRadius: 18,
-    backgroundColor: C.backgroundTertiary,
+    backgroundColor: "rgba(255,255,255,0.2)",
     alignItems: "center", justifyContent: "center",
   },
-  headerTitle: { fontSize: 17, fontWeight: "700", fontFamily: "Inter_700Bold", color: C.text },
+  headerTitle: { fontSize: 17, fontWeight: "700", fontFamily: "Inter_700Bold", color: "#fff" },
   saveBtn: {
-    backgroundColor: C.tint,
+    backgroundColor: "#fff",
     borderRadius: 10,
     paddingHorizontal: 18,
     paddingVertical: 8,
     minWidth: 56,
     alignItems: "center",
   },
-  saveBtnText: { color: "#fff", fontSize: 15, fontWeight: "700", fontFamily: "Inter_700Bold" },
+  saveBtnText: { color: "#FF7A18", fontSize: 15, fontWeight: "700", fontFamily: "Inter_700Bold" },
   scroll: { flex: 1 },
   section: { paddingHorizontal: 20, paddingTop: 20 },
   fieldLabel: {

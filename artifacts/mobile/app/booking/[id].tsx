@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
+import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useEffect, useState } from "react";
@@ -126,13 +127,18 @@ export default function BookingDetailScreen() {
 
   return (
     <View style={styles.root}>
-      <StatusBar style="dark" />
-      <View style={[styles.header, { paddingTop: topPad + 8 }]}>
+      <StatusBar style="light" />
+      <LinearGradient
+        colors={["#FF7A18", "#FF9F43"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[styles.header, { paddingTop: topPad + 10 }]}
+      >
         <Pressable onPress={() => router.back()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={22} color={C.text} />
+          <Ionicons name="arrow-back" size={22} color="#fff" />
         </Pressable>
         <Text style={styles.headerTitle}>Booking Details</Text>
-      </View>
+      </LinearGradient>
 
       <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
         {/* Hero */}
@@ -248,21 +254,20 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: C.background },
   center: { alignItems: "center", justifyContent: "center" },
   header: {
-    backgroundColor: C.backgroundSecondary,
     paddingHorizontal: 20,
     paddingBottom: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: C.border,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
     flexDirection: "row",
     alignItems: "center",
     gap: 14,
   },
   backBtn: {
     width: 36, height: 36, borderRadius: 18,
-    backgroundColor: C.backgroundTertiary,
+    backgroundColor: "rgba(255,255,255,0.2)",
     alignItems: "center", justifyContent: "center",
   },
-  headerTitle: { fontSize: 18, fontWeight: "700", fontFamily: "Inter_700Bold", color: C.text },
+  headerTitle: { fontSize: 18, fontWeight: "700", fontFamily: "Inter_700Bold", color: "#fff" },
   scroll: { flex: 1 },
   hero: {
     backgroundColor: C.backgroundSecondary,

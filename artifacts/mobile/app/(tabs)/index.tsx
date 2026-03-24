@@ -152,6 +152,35 @@ export default function HomeScreen() {
         }
         showsVerticalScrollIndicator={false}
       >
+        {/* ─── Quick Feature Cards ─── */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.featureRow}>
+          {[
+            { icon: "car-sport-outline", label: isPa ? "ਕਾਰਾਂ" : "Cars", color: "#FF7A18", bg: "#FFF3E9", cat: "cars" as Category },
+            { icon: "hammer-outline", label: isPa ? "ਮਸ਼ੀਨਰੀ" : "Equipment", color: "#2E7D32", bg: "#E8F5E9", cat: "equipment" as Category },
+            { icon: "construct-outline", label: isPa ? "ਸੇਵਾਵਾਂ" : "Services", color: "#0288D1", bg: "#E0F7FA", cat: "services" as Category },
+          ].map((item) => (
+            <Pressable
+              key={item.cat}
+              onPress={() => { Haptics.selectionAsync(); setSelectedCategory(item.cat); }}
+              style={[styles.featureCard, { backgroundColor: item.bg }, selectedCategory === item.cat && styles.featureCardActive]}
+            >
+              <View style={[styles.featureIconCircle, { backgroundColor: `${item.color}20` }]}>
+                <Ionicons name={item.icon as keyof typeof Ionicons.glyphMap} size={22} color={item.color} />
+              </View>
+              <Text style={[styles.featureLabel, { color: item.color }]}>{item.label}</Text>
+            </Pressable>
+          ))}
+          <Pressable
+            onPress={() => router.push("/(tabs)/cars")}
+            style={[styles.featureCard, { backgroundColor: "#1A1A2E" }]}
+          >
+            <View style={[styles.featureIconCircle, { backgroundColor: "rgba(255,255,255,0.15)" }]}>
+              <Ionicons name="speedometer-outline" size={22} color="#fff" />
+            </View>
+            <Text style={[styles.featureLabel, { color: "#fff" }]}>{isPa ? "ਰਾਈਡ" : "Rides"}</Text>
+          </Pressable>
+        </ScrollView>
+
         {/* Category tabs */}
         <View style={styles.tabsRow}>
           {TABS.map((tab) => {
@@ -169,6 +198,14 @@ export default function HomeScreen() {
               </Pressable>
             );
           })}
+        </View>
+
+        {/* Section label */}
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>{isPa ? "ਉਪਲਬਧ ਕਿਰਾਏ" : "Available Rentals"}</Text>
+          <Pressable onPress={() => router.push("/(tabs)/search")}>
+            <Text style={styles.sectionLink}>{isPa ? "ਸਭ ਵੇਖੋ" : "See all"}</Text>
+          </Pressable>
         </View>
 
         {/* Listings */}
@@ -269,6 +306,51 @@ const styles = StyleSheet.create({
   // ── Scroll ───────────────────────────────────────────────────
   scroll: { flex: 1 },
   scrollContent: { paddingTop: 8 },
+
+  // Feature cards row
+  featureRow: {
+    paddingHorizontal: 18,
+    paddingVertical: 16,
+    gap: 12,
+  },
+  featureCard: {
+    width: 90,
+    paddingVertical: 14,
+    paddingHorizontal: 10,
+    borderRadius: 16,
+    alignItems: "center",
+    gap: 8,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  featureCardActive: {
+    shadowOpacity: 0.15,
+    elevation: 5,
+    transform: [{ scale: 1.04 }],
+  },
+  featureIconCircle: {
+    width: 44, height: 44, borderRadius: 22,
+    alignItems: "center", justifyContent: "center",
+  },
+  featureLabel: {
+    fontSize: 11, fontWeight: "700", fontFamily: "Inter_700Bold",
+    textAlign: "center",
+  },
+
+  // Section header
+  sectionHeader: {
+    flexDirection: "row", justifyContent: "space-between", alignItems: "center",
+    paddingHorizontal: 18, marginBottom: 12,
+  },
+  sectionTitle: {
+    fontSize: 16, fontWeight: "700", fontFamily: "Inter_700Bold", color: "#2C2C2C",
+  },
+  sectionLink: {
+    fontSize: 13, fontWeight: "600", fontFamily: "Inter_600SemiBold", color: "#FF7A18",
+  },
 
   // Category tabs
   tabsRow: {
