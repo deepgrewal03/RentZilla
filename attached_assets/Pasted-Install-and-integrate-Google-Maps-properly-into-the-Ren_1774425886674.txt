@@ -1,0 +1,168 @@
+Install and integrate Google Maps properly into the RentZilla app with full functionality and accurate address detection.
+
+IMPORTANT:
+- Must be production-level integration (not basic)
+- Must support full address search using Google data
+- Must be smooth, fast, and mobile-friendly
+
+-----------------------------------
+
+🎯 MAIN GOAL:
+
+- Use Google Maps for:
+  → live map display
+  → address search
+  → route calculation
+  → real-time navigation
+
+- Fetch ALL addresses exactly as available in Google Maps
+
+-----------------------------------
+
+🗺️ GOOGLE MAPS INTEGRATION:
+
+Use:
+- Google Maps SDK (React Native or Web)
+- Google Places API
+- Google Directions API
+
+-----------------------------------
+
+📍 MAP FEATURES:
+
+- Show live user location (GPS)
+- Smooth zoom and pan
+- High-quality map rendering
+- Custom markers:
+  - pickup (green)
+  - destination (red)
+  - driver (car icon)
+
+-----------------------------------
+
+🔍 ADDRESS SEARCH (VERY IMPORTANT):
+
+- Implement Google Places Autocomplete
+
+Features:
+- Real-time suggestions as user types
+- Show:
+  - full address
+  - place name
+- Allow ANY address from Google Maps
+
+Examples:
+- Streets
+- Cities
+- Villages
+- Landmarks
+- Shops
+
+-----------------------------------
+
+📍 LOCATION SELECTION:
+
+User can:
+
+1. Type and search address
+2. Tap on map to select location
+3. Use "Current Location" button
+
+-----------------------------------
+
+📦 DATA TO EXTRACT:
+
+From Google response:
+
+- latitude
+- longitude
+- formatted_address
+- place_id
+
+-----------------------------------
+
+🛣️ ROUTE & DISTANCE:
+
+After selecting pickup + destination:
+
+- Use Directions API
+- Show:
+  - route line (polyline)
+  - distance (km)
+  - duration (time)
+
+-----------------------------------
+
+🚗 DRIVER NAVIGATION:
+
+- Show route:
+  driver → pickup
+- Then:
+  pickup → destination
+
+- Real-time updates
+- Recalculate route if needed
+
+-----------------------------------
+
+📱 USER EXPERIENCE:
+
+- Fast search (debounced input)
+- Smooth map animations
+- Bottom sheet for inputs
+- Clear UI
+
+-----------------------------------
+
+⚡ PERFORMANCE:
+
+- Debounce search input (300ms)
+- Cache recent searches
+- Limit API calls
+
+-----------------------------------
+
+🔐 ERROR HANDLING:
+
+- Handle no results
+- Handle API failure
+- Handle location permission denied
+
+-----------------------------------
+
+🔑 API KEY SETUP:
+
+- Add Google Maps API key securely
+- Enable:
+  - Maps SDK
+  - Places API
+  - Directions API
+
+-----------------------------------
+
+🎨 UI DESIGN:
+
+- Full-screen map
+- Search bar on top
+- Bottom panel for booking
+- Clean, modern look (Uber-style)
+
+-----------------------------------
+
+🔐 SECURITY:
+
+- Restrict API key usage
+- Validate inputs
+- Protect endpoints
+
+-----------------------------------
+
+OUTPUT REQUIRED:
+
+- Full Google Maps integration
+- Address search working (Google data)
+- Pickup/destination selection
+- Route drawing
+- Driver navigation
+- Smooth UI
+- Fully functional app integration
