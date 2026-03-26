@@ -140,8 +140,9 @@ function parsePredictions(predictions: GPlace[]): LocationResult[] {
 /**
  * On NATIVE: calls Google Places API directly (no CORS restriction in React Native).
  * On WEB: calls our server proxy (no CORS since same origin).
- * Runs two parallel requests — address type (house numbers/streets) + establishment (businesses).
- * Uses getMapsKey() which fetches at runtime — works in ANY bundle, even cached old ones.
+ * 4 rounds: address+establishment → geocode → no-type → city-enhanced query.
+ * Final fallback: Geocoding API (handles bare house numbers like "1792").
+ * Uses getMapsKey() which fetches at runtime — works in ANY bundle, even cached ones.
  */
 async function searchGooglePlaces(
   query: string,
@@ -167,35 +168,56 @@ async function searchGooglePlaces(
       ...locationBias,
     };
 
-    const callPlaces = async (extraParams: Record<string, string>) => {
+    const callPlaces = async (input: string, extraParams: Record<string, string>) => {
       try {
-        const p = new URLSearchParams({ ...common, input: query, ...extraParams });
+        const p = new URLSearchParams({ ...common, input, ...extraParams });
         const r = await fetch(`${base}?${p}`);
         const d = await r.json();
         return (["OK", "ZERO_RESULTS"].includes(d.status) ? d.predictions || [] : []) as GPlace[];
       } catch { return [] as GPlace[]; }
     };
 
+    const dedup = (list: GPlace[]): GPlace[] => {
+      const seen = new Set<string>();
+      return list.filter((p) => { if (seen.has(p.place_id)) return false; seen.add(p.place_id); return true; });
+    };
+
     // Round 1: precise addresses + businesses in parallel
     const [addr, est] = await Promise.all([
-      callPlaces({ types: "address" }),
-      callPlaces({ types: "establishment" }),
+      callPlaces(query, { types: "address" }),
+      callPlaces(query, { types: "establishment" }),
     ]);
-
-    const seen = new Set<string>();
-    const merged: GPlace[] = [];
-    for (const p of [...addr, ...est]) {
-      if (!seen.has(p.place_id)) { seen.add(p.place_id); merged.push(p); }
-    }
+    const merged = dedup([...addr, ...est]);
     if (merged.length > 0) return parsePredictions(merged.slice(0, 8));
 
     // Round 2: broader geocode search (areas, sectors, neighborhoods, pin codes)
-    const geo = await callPlaces({ types: "geocode" });
+    const geo = await callPlaces(query, { types: "geocode" });
     if (geo.length > 0) return parsePredictions(geo.slice(0, 8));
 
-    // Round 3: no type restriction — most permissive (catches anything)
-    const any = await callPlaces({});
+    // Round 3: no type restriction — most permissive
+    const any = await callPlaces(query, {});
     if (any.length > 0) return parsePredictions(any.slice(0, 8));
+
+    // Round 4: smart query enhancement — append nearest city for bare house numbers
+    if (isShortOrNumeric(query)) {
+      const nearestCity = getNearestCity(lat, lng);
+      const enhanced = `${query.trim()} ${nearestCity} Punjab`;
+      const [eAddr, eEst] = await Promise.all([
+        callPlaces(enhanced, { types: "address" }),
+        callPlaces(enhanced, { types: "geocode" }),
+      ]);
+      const eMerged = dedup([...eAddr, ...eEst]);
+      if (eMerged.length > 0) return parsePredictions(eMerged.slice(0, 8));
+    }
+
+    // Round 5: Geocoding API — handles exact addresses Autocomplete can't find
+    const geocodeResults = await geocodeQuery(
+      isShortOrNumeric(query) ? `${query.trim()} ${getNearestCity(lat, lng)} Punjab` : query,
+      key,
+      lat,
+      lng
+    );
+    if (geocodeResults.length > 0) return geocodeResults;
 
     return []; // truly nothing found
   }
@@ -277,6 +299,69 @@ function buildAddress(
   return parts.length >= 2 ? parts.join(", ") : fallback;
 }
 
+// ── Nearest Punjab city helper ────────────────────────────────────────────────
+const PUNJAB_CITIES = [
+  { name: "Ludhiana", lat: 30.9009, lng: 75.8573 },
+  { name: "Chandigarh", lat: 30.7333, lng: 76.7794 },
+  { name: "Amritsar", lat: 31.6340, lng: 74.8723 },
+  { name: "Jalandhar", lat: 31.3260, lng: 75.5762 },
+  { name: "Mohali", lat: 30.7046, lng: 76.7179 },
+  { name: "Patiala", lat: 30.3398, lng: 76.3869 },
+  { name: "Bathinda", lat: 30.2099, lng: 74.9455 },
+];
+
+function getNearestCity(lat?: number, lng?: number): string {
+  if (lat == null || lng == null) return "Ludhiana";
+  let nearest = PUNJAB_CITIES[0];
+  let minDist = Infinity;
+  for (const c of PUNJAB_CITIES) {
+    const d = Math.abs(c.lat - lat) + Math.abs(c.lng - lng);
+    if (d < minDist) { minDist = d; nearest = c; }
+  }
+  return nearest.name;
+}
+
+/** Returns true if the query looks like a bare house number / short code */
+function isShortOrNumeric(q: string) {
+  const t = q.trim();
+  return t.length <= 8 && /^\d/.test(t) && !/[a-zA-Z]{3,}/.test(t);
+}
+
+// ── Geocoding API fallback (for bare house numbers that Autocomplete misses) ──
+async function geocodeQuery(
+  query: string,
+  key: string,
+  lat?: number,
+  lng?: number
+): Promise<LocationResult[]> {
+  const base = "https://maps.googleapis.com/maps/api/geocode/json";
+  const params: Record<string, string> = {
+    address: query,
+    key,
+    language: "en",
+    components: "country:in",
+  };
+  if (lat != null && lng != null) {
+    params.bounds = `${lat - 0.4},${lng - 0.4}|${lat + 0.4},${lng + 0.4}`;
+  }
+  try {
+    const r = await fetch(`${base}?${new URLSearchParams(params)}`);
+    const d = await r.json();
+    if (!["OK", "ZERO_RESULTS"].includes(d.status)) return [];
+    return (d.results || []).slice(0, 6).map((result: any) => {
+      const loc = result.geometry?.location;
+      const addr = buildAddress(result.address_components, result.formatted_address);
+      const parts = result.formatted_address.split(",").map((s: string) => s.trim());
+      return {
+        label: parts[0] || result.formatted_address,
+        address: addr || result.formatted_address,
+        lat: loc?.lat || 0,
+        lng: loc?.lng || 0,
+      };
+    });
+  } catch { return []; }
+}
+
 // ── Nominatim fallback ────────────────────────────────────────────────────────
 const PUNJAB_VIEWBOX = "73.8,34.0,76.9,29.5";
 async function searchNominatim(query: string): Promise<LocationResult[]> {
@@ -316,6 +401,7 @@ export function LocationSearchModal({
   const [resolving, setResolving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [usingGoogle, setUsingGoogle] = useState(false);
+  const nearestCity = getNearestCity(userLat, userLng);
   const slideAnim = useRef(new Animated.Value(900)).current;
   const inputRef = useRef<TextInput>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -496,11 +582,21 @@ export function LocationSearchModal({
                   </View>
                 )}
 
+                {showingQuery && loading && isShortOrNumeric(query) && (
+                  <View style={styles.searchingNear}>
+                    <ActivityIndicator size="small" color={color} />
+                    <Text style={styles.searchingNearText}>Searching near {nearestCity}…</Text>
+                  </View>
+                )}
+
                 {showingQuery && !loading && results.length === 0 && (
                   <View style={styles.empty}>
-                    <Feather name="search" size={32} color={C.textTertiary} />
-                    <Text style={styles.emptyTitle}>No places found</Text>
-                    <Text style={styles.emptyText}>Try adding the city name — e.g. "House 1792 Ludhiana"</Text>
+                    <Feather name="map-pin" size={32} color={C.textTertiary} />
+                    <Text style={styles.emptyTitle}>No address found</Text>
+                    <Text style={styles.emptyText}>
+                      Try a more complete address, like{"\n"}
+                      "{query.trim()} {nearestCity}" or add a street name
+                    </Text>
                   </View>
                 )}
 
@@ -569,5 +665,7 @@ const styles = StyleSheet.create({
   rowAddr: { fontSize: 12, color: C.textSecondary, fontFamily: "Inter_400Regular", marginTop: 1 },
   empty: { padding: 48, alignItems: "center", gap: 10 },
   emptyTitle: { fontSize: 16, fontWeight: "600", color: C.text, fontFamily: "Inter_600SemiBold" },
-  emptyText: { fontSize: 13, color: C.textSecondary, fontFamily: "Inter_400Regular", textAlign: "center" },
+  emptyText: { fontSize: 13, color: C.textSecondary, fontFamily: "Inter_400Regular", textAlign: "center", lineHeight: 20 },
+  searchingNear: { flexDirection: "row", alignItems: "center", gap: 10, padding: 20, paddingLeft: 24 },
+  searchingNearText: { fontSize: 14, color: C.textSecondary, fontFamily: "Inter_400Regular" },
 });
