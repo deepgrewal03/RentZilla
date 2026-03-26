@@ -851,6 +851,8 @@ export default function CarsScreen() {
         onCurrentLocation={() => {
           mapRef.current?.getCurrentLocation();
         }}
+        userLat={pickup.lat}
+        userLng={pickup.lng}
       />
       <LocationSearchModal
         visible={dropModalOpen}
@@ -863,6 +865,8 @@ export default function CarsScreen() {
         }}
         title="Choose Destination"
         color={ORANGE}
+        userLat={pickup.lat}
+        userLng={pickup.lng}
       />
       <SchedulePickerModal
         visible={scheduleModalOpen}
