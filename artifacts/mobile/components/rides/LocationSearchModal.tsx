@@ -20,17 +20,9 @@ export interface LocationResult {
   placeId?: string;
 }
 
-// API base — works in Expo web and native
-function apiBase(): string {
-  if (typeof window !== "undefined") {
-    const b = (window as any).__BASE_URL__ || "";
-    if (b) return b;
-    // Expo web: same origin
-    return window.location.origin;
-  }
-  // Native: use environment variable
-  return `https://${process.env.EXPO_PUBLIC_DOMAIN}`;
-}
+// API base — same pattern as useApi.ts, works in both native and web
+// (window.location.origin fails in React Native; process.env is substituted at build time)
+const API_BASE = `https://${process.env.EXPO_PUBLIC_DOMAIN}`;
 
 // Popular Punjab fallback list (shown when no search query)
 const POPULAR: LocationResult[] = [
@@ -64,10 +56,9 @@ interface GPlace {
 }
 
 async function searchGooglePlaces(query: string, lat?: number, lng?: number): Promise<LocationResult[]> {
-  const base = apiBase();
   const params = new URLSearchParams({ q: query });
   if (lat != null && lng != null) { params.set("lat", String(lat)); params.set("lng", String(lng)); }
-  const res = await fetch(`${base}/api/maps/places?${params}`);
+  const res = await fetch(`${API_BASE}/api/maps/places?${params}`);
   if (!res.ok) throw new Error("places api failed");
   const data: { predictions: GPlace[] } = await res.json();
 
@@ -81,8 +72,7 @@ async function searchGooglePlaces(query: string, lat?: number, lng?: number): Pr
 }
 
 async function getPlaceDetails(placeId: string): Promise<{ lat: number; lng: number; address: string }> {
-  const base = apiBase();
-  const res = await fetch(`${base}/api/maps/place-details?place_id=${encodeURIComponent(placeId)}`);
+  const res = await fetch(`${API_BASE}/api/maps/place-details?place_id=${encodeURIComponent(placeId)}`);
   if (!res.ok) throw new Error("place details failed");
   const d = await res.json();
   // Use the most precise available address string
