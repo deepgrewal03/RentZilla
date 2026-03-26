@@ -90,27 +90,45 @@ async function searchGooglePlaces(
       ...locationBias,
     };
 
-    const [addrRes, estRes] = await Promise.allSettled([
-      fetch(`${base}?${new URLSearchParams({ ...common, input: query, types: "address" })}`).then((r) => r.json()),
-      fetch(`${base}?${new URLSearchParams({ ...common, input: query, types: "establishment" })}`).then((r) => r.json()),
-    ]);
+    const callPlaces = async (types: string) => {
+      try {
+        const r = await fetch(`${base}?${new URLSearchParams({ ...common, input: query, types })}`);
+        const d = await r.json();
+        return (["OK", "ZERO_RESULTS"].includes(d.status) ? d.predictions || [] : []) as GPlace[];
+      } catch { return [] as GPlace[]; }
+    };
 
-    const addr: GPlace[] = addrRes.status === "fulfilled" &&
-      ["OK", "ZERO_RESULTS"].includes(addrRes.value.status)
-      ? addrRes.value.predictions || [] : [];
-    const est: GPlace[] = estRes.status === "fulfilled" &&
-      ["OK", "ZERO_RESULTS"].includes(estRes.value.status)
-      ? estRes.value.predictions || [] : [];
+    // Round 1: precise addresses + businesses in parallel
+    const [addr, est] = await Promise.all([
+      callPlaces("address"),
+      callPlaces("establishment"),
+    ]);
 
     const seen = new Set<string>();
     const merged: GPlace[] = [];
     for (const p of [...addr, ...est]) {
       if (!seen.has(p.place_id)) { seen.add(p.place_id); merged.push(p); }
     }
-    if (merged.length > 0 || addr.length === 0 && est.length === 0) {
+
+    if (merged.length > 0) {
       return parsePredictions(merged.slice(0, 8));
     }
-    // If both returned empty, fall through to server proxy
+
+    // Round 2: broader geocode search (areas, sectors, neighborhoods, pin codes)
+    const geo = await callPlaces("geocode");
+    if (geo.length > 0) {
+      return parsePredictions(geo.slice(0, 8));
+    }
+
+    // Round 3: no type restriction — most permissive (catches anything)
+    try {
+      const r = await fetch(`${base}?${new URLSearchParams({ ...common, input: query })}`);
+      const d = await r.json();
+      const any: GPlace[] = ["OK", "ZERO_RESULTS"].includes(d.status) ? d.predictions || [] : [];
+      if (any.length > 0) return parsePredictions(any.slice(0, 8));
+    } catch {}
+
+    return []; // truly nothing found
   }
 
   // ── Server proxy (web or native fallback) ─────────────────────────────────

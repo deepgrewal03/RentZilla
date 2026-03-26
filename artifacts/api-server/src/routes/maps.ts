@@ -58,38 +58,42 @@ router.get("/places", async (req: Request, res: Response) => {
     return `https://maps.googleapis.com/maps/api/place/autocomplete/json?${p}`;
   };
 
+  const callPlaces = async (extraParams: Record<string, string>): Promise<any[]> => {
+    try {
+      const r = await fetch(buildUrl(extraParams));
+      const d: any = await r.json();
+      return ["OK", "ZERO_RESULTS"].includes(d.status) ? d.predictions || [] : [];
+    } catch { return []; }
+  };
+
   try {
-    // Parallel: precise addresses + establishments/businesses
-    const [addrRes, estRes] = await Promise.allSettled([
-      fetch(buildUrl({ types: "address" })).then((r) => r.json()),
-      fetch(buildUrl({ types: "establishment" })).then((r) => r.json()),
+    // Round 1: precise addresses + businesses in parallel
+    const [addrP, estP] = await Promise.all([
+      callPlaces({ types: "address" }),
+      callPlaces({ types: "establishment" }),
     ]);
 
-    const addrPredictions: any[] =
-      addrRes.status === "fulfilled" &&
-      (addrRes.value.status === "OK" || addrRes.value.status === "ZERO_RESULTS")
-        ? addrRes.value.predictions || []
-        : [];
-
-    const estPredictions: any[] =
-      estRes.status === "fulfilled" &&
-      (estRes.value.status === "OK" || estRes.value.status === "ZERO_RESULTS")
-        ? estRes.value.predictions || []
-        : [];
-
-    // Merge: addresses first (more precise), then establishments
-    // Deduplicate by place_id
     const seen = new Set<string>();
     const merged: any[] = [];
-    for (const p of [...addrPredictions, ...estPredictions]) {
-      if (!seen.has(p.place_id)) {
-        seen.add(p.place_id);
-        merged.push(p);
-      }
+    for (const p of [...addrP, ...estP]) {
+      if (!seen.has(p.place_id)) { seen.add(p.place_id); merged.push(p); }
     }
 
-    // Cap at 8 results
-    res.json({ predictions: merged.slice(0, 8) });
+    if (merged.length > 0) {
+      res.json({ predictions: merged.slice(0, 8) });
+      return;
+    }
+
+    // Round 2: broader geocode (areas, sectors, pin codes, neighborhoods)
+    const geoP = await callPlaces({ types: "geocode" });
+    if (geoP.length > 0) {
+      res.json({ predictions: geoP.slice(0, 8) });
+      return;
+    }
+
+    // Round 3: no type restriction — catches everything
+    const anyP = await callPlaces({});
+    res.json({ predictions: anyP.slice(0, 8) });
   } catch (err) {
     req.log?.error({ err }, "Places proxy error");
     res.status(500).json({ error: "Failed to fetch places" });
