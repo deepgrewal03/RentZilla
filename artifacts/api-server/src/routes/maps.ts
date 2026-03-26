@@ -5,8 +5,6 @@ const router = Router();
 /**
  * GET /api/maps/key
  * Returns the Google Maps API key so it's never bundled into client code.
- * Rate-limited by the fact it's a simple GET with no sensitive data exposure
- * (the key itself must be restricted in Google Cloud Console to your domain).
  */
 router.get("/key", (_req: Request, res: Response) => {
   const key = process.env["GOOGLE_MAPS_API_KEY"] || "";
@@ -14,9 +12,11 @@ router.get("/key", (_req: Request, res: Response) => {
 });
 
 /**
- * GET /api/maps/places?q=query
- * Server-side Google Places Autocomplete proxy — keeps the key off the client
- * for the search modal (which can't use an iframe).
+ * GET /api/maps/places?q=query&lat=xx&lng=yy
+ * Server-side Google Places Autocomplete proxy.
+ * Runs TWO parallel requests: one for precise street addresses ("address")
+ * and one for businesses/POIs ("establishment"), then merges + deduplicates.
+ * This gives house numbers, street names, flats, AND shop names.
  */
 router.get("/places", async (req: Request, res: Response) => {
   const { q, lat, lng } = req.query as Record<string, string>;
@@ -31,36 +31,65 @@ router.get("/places", async (req: Request, res: Response) => {
     return;
   }
 
+  const inputText = q.trim();
+
+  // Base params shared by both requests
+  const baseParams: Record<string, string> = {
+    input: inputText,
+    key,
+    language: "en",
+    components: "country:in",
+  };
+
+  // Bias toward Punjab; if user location supplied, use that radius=50km
+  if (lat && lng) {
+    baseParams["location"] = `${lat},${lng}`;
+    baseParams["radius"] = "50000";
+    baseParams["strictbounds"] = "false";
+  } else {
+    // Default center on Punjab (Chandigarh)
+    baseParams["location"] = "30.7333,76.7794";
+    baseParams["radius"] = "250000";
+    baseParams["strictbounds"] = "false";
+  }
+
+  const buildUrl = (extraParams: Record<string, string>) => {
+    const p = new URLSearchParams({ ...baseParams, ...extraParams });
+    return `https://maps.googleapis.com/maps/api/place/autocomplete/json?${p}`;
+  };
+
   try {
-    const params = new URLSearchParams({
-      input: q.trim(),
-      key,
-      language: "en",
-      components: "country:in",
-      types: "geocode|establishment",
-    });
+    // Parallel: precise addresses + establishments/businesses
+    const [addrRes, estRes] = await Promise.allSettled([
+      fetch(buildUrl({ types: "address" })).then((r) => r.json()),
+      fetch(buildUrl({ types: "establishment" })).then((r) => r.json()),
+    ]);
 
-    // Bias results toward Punjab if user location available
-    if (lat && lng) {
-      params.set("location", `${lat},${lng}`);
-      params.set("radius", "100000");
-    } else {
-      // Center on Punjab (Chandigarh)
-      params.set("location", "30.7333,76.7794");
-      params.set("radius", "300000");
+    const addrPredictions: any[] =
+      addrRes.status === "fulfilled" &&
+      (addrRes.value.status === "OK" || addrRes.value.status === "ZERO_RESULTS")
+        ? addrRes.value.predictions || []
+        : [];
+
+    const estPredictions: any[] =
+      estRes.status === "fulfilled" &&
+      (estRes.value.status === "OK" || estRes.value.status === "ZERO_RESULTS")
+        ? estRes.value.predictions || []
+        : [];
+
+    // Merge: addresses first (more precise), then establishments
+    // Deduplicate by place_id
+    const seen = new Set<string>();
+    const merged: any[] = [];
+    for (const p of [...addrPredictions, ...estPredictions]) {
+      if (!seen.has(p.place_id)) {
+        seen.add(p.place_id);
+        merged.push(p);
+      }
     }
 
-    const url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?${params}`;
-    const r = await fetch(url);
-    const data: any = await r.json();
-
-    if (data.status !== "OK" && data.status !== "ZERO_RESULTS") {
-      req.log?.warn({ status: data.status }, "Places API error");
-      res.json({ predictions: [] });
-      return;
-    }
-
-    res.json({ predictions: data.predictions || [] });
+    // Cap at 8 results
+    res.json({ predictions: merged.slice(0, 8) });
   } catch (err) {
     req.log?.error({ err }, "Places proxy error");
     res.status(500).json({ error: "Failed to fetch places" });
@@ -69,7 +98,7 @@ router.get("/places", async (req: Request, res: Response) => {
 
 /**
  * GET /api/maps/place-details?place_id=xxx
- * Returns lat/lng for a selected Place ID.
+ * Returns full address details including street number, route, sublocality, etc.
  */
 router.get("/place-details", async (req: Request, res: Response) => {
   const { place_id } = req.query as Record<string, string>;
@@ -84,7 +113,7 @@ router.get("/place-details", async (req: Request, res: Response) => {
     const params = new URLSearchParams({
       place_id,
       key,
-      fields: "geometry,formatted_address,name",
+      fields: "geometry,formatted_address,name,address_components",
       language: "en",
     });
 
@@ -97,13 +126,48 @@ router.get("/place-details", async (req: Request, res: Response) => {
       return;
     }
 
-    const loc = data.result.geometry?.location;
+    const result = data.result;
+    const loc = result.geometry?.location;
+
+    // Extract structured address components
+    const components: Record<string, string> = {};
+    for (const comp of result.address_components || []) {
+      for (const type of comp.types as string[]) {
+        components[type] = comp.long_name;
+      }
+    }
+
+    // Build a human-friendly street address
+    const streetNumber = components["street_number"] || "";
+    const route = components["route"] || "";
+    const sublocality =
+      components["sublocality_level_1"] ||
+      components["sublocality"] ||
+      "";
+    const locality = components["locality"] || components["administrative_area_level_2"] || "";
+    const state = components["administrative_area_level_1"] || "";
+
+    let streetAddress = result.formatted_address || result.name || "";
+
+    // If address_components has detail, build a cleaner display string
+    const parts: string[] = [];
+    if (streetNumber && route) parts.push(`${streetNumber} ${route}`);
+    else if (route) parts.push(route);
+    if (sublocality) parts.push(sublocality);
+    if (locality) parts.push(locality);
+    if (state) parts.push(state);
+
+    if (parts.length >= 2) {
+      streetAddress = parts.join(", ");
+    }
+
     res.json({
       lat: loc?.lat,
       lng: loc?.lng,
-      formatted_address: data.result.formatted_address,
-      name: data.result.name,
+      formatted_address: streetAddress,
+      name: result.name,
       place_id,
+      components,
     });
   } catch (err) {
     req.log?.error({ err }, "Place details proxy error");

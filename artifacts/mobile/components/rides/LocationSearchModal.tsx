@@ -85,7 +85,9 @@ async function getPlaceDetails(placeId: string): Promise<{ lat: number; lng: num
   const res = await fetch(`${base}/api/maps/place-details?place_id=${encodeURIComponent(placeId)}`);
   if (!res.ok) throw new Error("place details failed");
   const d = await res.json();
-  return { lat: d.lat, lng: d.lng, address: d.formatted_address || d.name };
+  // Use the most precise available address string
+  const address = d.formatted_address || d.name || "";
+  return { lat: d.lat, lng: d.lng, address };
 }
 
 // ── Nominatim fallback ────────────────────────────────────────────────────────
@@ -263,7 +265,7 @@ export function LocationSearchModal({
             <TextInput
               ref={inputRef}
               style={styles.searchInput}
-              placeholder="Search city, village, landmark…"
+              placeholder="Street, house no., shop, landmark…"
               placeholderTextColor={C.textTertiary}
               value={query}
               onChangeText={onChangeText}

@@ -1,0 +1,151 @@
+Fix the Google Maps Places Autocomplete issue in my React Native (Expo Go) app.
+
+### ❗ PROBLEM
+
+* When searching addresses, only general place names are showing (e.g., villages, areas)
+* Street names, house numbers, flat numbers, and business addresses are NOT appearing
+* This issue happens especially in Expo Go / production (publish mode)
+
+---
+
+### 🎯 GOAL
+
+Ensure full, detailed address search results including:
+
+* Street name
+* House number
+* Flat / apartment number
+* Business names
+* Precise locations (not just cities/villages)
+
+---
+
+### 🔧 REQUIRED FIXES
+
+#### 1. Use Correct Google Places API Configuration
+
+* Use **Places API (New)** or ensure proper configuration of Places API
+* Enable:
+
+  * Place Autocomplete
+  * Place Details
+* Use `types: "address"` instead of `(regions)` or `(cities)`
+
+Example:
+
+```js
+query={{
+  key: GOOGLE_MAPS_API_KEY,
+  language: "en",
+  components: "country:in",
+  types: "address"
+}}
+```
+
+---
+
+#### 2. Enable `fetchDetails = true`
+
+* This is required to get full address details including street number
+
+```js
+fetchDetails={true}
+```
+
+---
+
+#### 3. Use Proper Fields in Place Details
+
+Request these fields:
+
+* `formatted_address`
+* `address_components`
+* `geometry`
+* `name`
+
+---
+
+#### 4. Extract Street-Level Data
+
+From `address_components`, extract:
+
+* street_number
+* route
+* sublocality
+* locality
+* administrative_area_level_1
+
+---
+
+#### 5. Improve Search Precision
+
+* Set:
+
+```js
+minLength={2}
+debounce={300}
+```
+
+---
+
+#### 6. Remove Wrong Restrictions
+
+* Do NOT use:
+
+  * `types: "(regions)"`
+  * `types: "(cities)"`
+    These block detailed addresses
+
+---
+
+#### 7. Expo Go Fix (IMPORTANT)
+
+* Ensure API key is NOT restricted incorrectly
+* For testing in Expo Go:
+
+  * Temporarily remove HTTP referrer restriction
+  * Or allow all origins
+* Enable billing in Google Cloud
+
+---
+
+#### 8. Punjab Restriction (Optional Enhancement)
+
+* Use:
+
+```js
+components: "country:in"
+```
+
+* After selection, validate if location is inside Punjab using lat/lng
+
+---
+
+### 📱 EXPECTED RESULT
+
+* When user types:
+  "1792" or partial address
+  → Show full addresses like:
+
+  * House No. 1792, Street XX, Ludhiana
+  * Flat 1792, Tower A, Mohali
+  * Business addresses with exact numbers
+
+---
+
+### 💡 BONUS
+
+* Show selected location on map
+* Save full structured address in database
+
+---
+
+### ⚙️ TECH STACK
+
+* React Native (Expo)
+* react-native-google-places-autocomplete
+* Google Maps Places API
+
+---
+
+Fix the issue completely and ensure it works both in Expo Go and production build.
