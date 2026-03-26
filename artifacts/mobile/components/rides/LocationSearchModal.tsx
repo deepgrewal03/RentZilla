@@ -6,6 +6,7 @@ import {
 import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import Constants from "expo-constants";
 import Colors from "@/constants/colors";
 
 const C = Colors.light;
@@ -20,11 +21,83 @@ export interface LocationResult {
   placeId?: string;
 }
 
-// ── API base (server proxy — web only) ───────────────────────────────────────
-const API_BASE = `https://${process.env.EXPO_PUBLIC_DOMAIN}`;
+// ── Runtime API server URL detection ─────────────────────────────────────────
+// Works across ALL bundle versions — doesn't rely on build-time env vars.
+function getServerCandidates(): string[] {
+  const urls: string[] = [];
 
-// ── Direct Google key (native only, no CORS restriction in React Native) ─────
-const GMAPS_KEY = process.env.EXPO_PUBLIC_GMAPS_KEY || "";
+  // 1. Build-time env var (fastest — works when freshly bundled)
+  const envDomain = process.env.EXPO_PUBLIC_DOMAIN;
+  if (envDomain && envDomain !== "undefined") {
+    urls.push(`https://${envDomain}`);
+  }
+
+  // 2. Constants.expoConfig.hostUri — Expo Go sets this at runtime to the
+  //    Metro packager address. In Replit, Metro is at xxx.expo.worf.replit.dev
+  //    and the API is at xxx.worf.replit.dev — remove the ".expo." segment.
+  try {
+    const hostUri: string = (Constants.expoConfig as any)?.hostUri || "";
+    if (hostUri) {
+      const host = hostUri.split(":")[0]; // strip port
+      const apiHost = host.replace(".expo.", "."); // Replit-specific transform
+      const candidate = `https://${apiHost}`;
+      if (!urls.includes(candidate)) urls.push(candidate);
+      // Also try the raw host without transform (in case of non-Replit env)
+      const rawCandidate = `https://${host}`;
+      if (!urls.includes(rawCandidate)) urls.push(rawCandidate);
+    }
+  } catch {}
+
+  // 3. Web origin fallback
+  if (typeof window !== "undefined" && (window as any).location?.origin) {
+    const origin: string = (window as any).location.origin;
+    if (!urls.includes(origin)) urls.push(origin);
+  }
+
+  return urls;
+}
+
+// ── Lazy-loaded Google Maps key ───────────────────────────────────────────────
+// Fetches from server at runtime — works even if EXPO_PUBLIC_GMAPS_KEY wasn't
+// set during bundle compilation.
+let _mapsKey: string = process.env.EXPO_PUBLIC_GMAPS_KEY || "";
+let _serverBase: string = process.env.EXPO_PUBLIC_DOMAIN
+  ? `https://${process.env.EXPO_PUBLIC_DOMAIN}` : "";
+let _keyFetchPromise: Promise<string> | null = null;
+
+async function getMapsKey(): Promise<string> {
+  if (_mapsKey) return _mapsKey;
+  if (_keyFetchPromise) return _keyFetchPromise;
+  _keyFetchPromise = (async () => {
+    for (const base of getServerCandidates()) {
+      try {
+        const r = await fetch(`${base}/api/maps/key`, {
+          signal: AbortSignal.timeout(5000),
+        });
+        if (r.ok) {
+          const d: any = await r.json();
+          if (d.key) {
+            _mapsKey = d.key;
+            _serverBase = base; // remember working server URL
+            return d.key;
+          }
+        }
+      } catch {}
+    }
+    return "";
+  })();
+  return _keyFetchPromise;
+}
+
+// Eagerly start key fetch when module loads (so it's ready when user opens search)
+getMapsKey().catch(() => {});
+
+// ── Web proxy base URL ────────────────────────────────────────────────────────
+function getProxyBase(): string {
+  if (_serverBase) return _serverBase;
+  const candidates = getServerCandidates();
+  return candidates[0] || "";
+}
 
 // Popular Punjab fallback list (shown when no search query)
 const POPULAR: LocationResult[] = [
@@ -68,6 +141,7 @@ function parsePredictions(predictions: GPlace[]): LocationResult[] {
  * On NATIVE: calls Google Places API directly (no CORS restriction in React Native).
  * On WEB: calls our server proxy (no CORS since same origin).
  * Runs two parallel requests — address type (house numbers/streets) + establishment (businesses).
+ * Uses getMapsKey() which fetches at runtime — works in ANY bundle, even cached old ones.
  */
 async function searchGooglePlaces(
   query: string,
@@ -79,20 +153,24 @@ async function searchGooglePlaces(
     ? { location: `${lat},${lng}`, radius: "50000" }
     : { location: "30.7333,76.7794", radius: "250000" };
 
-  if (isNative && GMAPS_KEY) {
+  // Fetch key at runtime (cached after first call)
+  const key = await getMapsKey();
+
+  if (isNative && key) {
     // ── Direct Google Places API (React Native — no CORS) ──────────────────
     const base = "https://maps.googleapis.com/maps/api/place/autocomplete/json";
     const common: Record<string, string> = {
-      key: GMAPS_KEY,
+      key,
       language: "en",
       components: "country:in",
       strictbounds: "false",
       ...locationBias,
     };
 
-    const callPlaces = async (types: string) => {
+    const callPlaces = async (extraParams: Record<string, string>) => {
       try {
-        const r = await fetch(`${base}?${new URLSearchParams({ ...common, input: query, types })}`);
+        const p = new URLSearchParams({ ...common, input: query, ...extraParams });
+        const r = await fetch(`${base}?${p}`);
         const d = await r.json();
         return (["OK", "ZERO_RESULTS"].includes(d.status) ? d.predictions || [] : []) as GPlace[];
       } catch { return [] as GPlace[]; }
@@ -100,8 +178,8 @@ async function searchGooglePlaces(
 
     // Round 1: precise addresses + businesses in parallel
     const [addr, est] = await Promise.all([
-      callPlaces("address"),
-      callPlaces("establishment"),
+      callPlaces({ types: "address" }),
+      callPlaces({ types: "establishment" }),
     ]);
 
     const seen = new Set<string>();
@@ -109,35 +187,30 @@ async function searchGooglePlaces(
     for (const p of [...addr, ...est]) {
       if (!seen.has(p.place_id)) { seen.add(p.place_id); merged.push(p); }
     }
-
-    if (merged.length > 0) {
-      return parsePredictions(merged.slice(0, 8));
-    }
+    if (merged.length > 0) return parsePredictions(merged.slice(0, 8));
 
     // Round 2: broader geocode search (areas, sectors, neighborhoods, pin codes)
-    const geo = await callPlaces("geocode");
-    if (geo.length > 0) {
-      return parsePredictions(geo.slice(0, 8));
-    }
+    const geo = await callPlaces({ types: "geocode" });
+    if (geo.length > 0) return parsePredictions(geo.slice(0, 8));
 
     // Round 3: no type restriction — most permissive (catches anything)
-    try {
-      const r = await fetch(`${base}?${new URLSearchParams({ ...common, input: query })}`);
-      const d = await r.json();
-      const any: GPlace[] = ["OK", "ZERO_RESULTS"].includes(d.status) ? d.predictions || [] : [];
-      if (any.length > 0) return parsePredictions(any.slice(0, 8));
-    } catch {}
+    const any = await callPlaces({});
+    if (any.length > 0) return parsePredictions(any.slice(0, 8));
 
     return []; // truly nothing found
   }
 
-  // ── Server proxy (web or native fallback) ─────────────────────────────────
+  // ── Server proxy (web or native without key) ──────────────────────────────
+  const serverBase = getProxyBase();
+  if (!serverBase) return [];
   const params = new URLSearchParams({ q: query });
   if (lat != null && lng != null) { params.set("lat", String(lat)); params.set("lng", String(lng)); }
-  const res = await fetch(`${API_BASE}/api/maps/places?${params}`);
-  if (!res.ok) throw new Error("places api failed");
-  const data: { predictions: GPlace[] } = await res.json();
-  return parsePredictions(data.predictions);
+  try {
+    const res = await fetch(`${serverBase}/api/maps/places?${params}`);
+    if (!res.ok) return [];
+    const data: { predictions: GPlace[] } = await res.json();
+    return parsePredictions(data.predictions);
+  } catch { return []; }
 }
 
 /**
@@ -148,11 +221,12 @@ async function getPlaceDetails(
   placeId: string
 ): Promise<{ lat: number; lng: number; address: string }> {
   const isNative = Platform.OS !== "web";
+  const key = await getMapsKey();
 
-  if (isNative && GMAPS_KEY) {
+  if (isNative && key) {
     const params = new URLSearchParams({
       place_id: placeId,
-      key: GMAPS_KEY,
+      key,
       fields: "geometry,formatted_address,name,address_components",
       language: "en",
     });
@@ -168,8 +242,10 @@ async function getPlaceDetails(
   }
 
   // Server proxy fallback
+  const serverBase = getProxyBase();
+  if (!serverBase) throw new Error("no server URL available");
   const res = await fetch(
-    `${API_BASE}/api/maps/place-details?place_id=${encodeURIComponent(placeId)}`
+    `${serverBase}/api/maps/place-details?place_id=${encodeURIComponent(placeId)}`
   );
   if (!res.ok) throw new Error("place details failed");
   const d = await res.json();
