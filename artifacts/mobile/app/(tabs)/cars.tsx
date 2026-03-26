@@ -216,8 +216,15 @@ export default function CarsScreen() {
   const [selectedRequest, setSelectedRequest] = useState<RideRequest | null>(null);
 
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const watchRef = useRef<Location.LocationSubscription | null>(null);
   const mapRef = useRef<MapRef>(null);
   const mapReadyRef = useRef(false);
+  const [autoCenter, setAutoCenter] = useState(true);
+  const [liveTracking, setLiveTracking] = useState(false);
+  const autoCenterRef = useRef(true);
+
+  // Keep ref in sync with state for use in async callbacks
+  useEffect(() => { autoCenterRef.current = autoCenter; }, [autoCenter]);
 
   const syncPickupToMap = useCallback((loc: Coords) => {
     if (mapReadyRef.current) mapRef.current?.setPickup(loc.lat, loc.lng, loc.address);
@@ -226,32 +233,44 @@ export default function CarsScreen() {
     if (mapReadyRef.current) mapRef.current?.setDrop(loc.lat, loc.lng, loc.address);
   }, []);
 
-  // ── Location ──
+  // ── Initial location + live watch ──
   useEffect(() => {
+    let cancelled = false;
     (async () => {
       setLocLoading(true);
       try {
         const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status !== "granted") {
-          setLocLoading(false);
-          return;
-        }
+        if (status !== "granted") { setLocLoading(false); return; }
+
+        // Get initial position fast
         const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+        if (cancelled) return;
         const { latitude: lat, longitude: lng } = loc.coords;
-        let address = "Current Location";
-        try {
-          const geo = await Location.reverseGeocodeAsync({ latitude: lat, longitude: lng });
-          if (geo[0]) {
-            const g = geo[0];
-            address = [g.name, g.city, g.region].filter(Boolean).join(", ").substring(0, 50);
-          }
-        } catch {}
-        const loc2: Coords = { lat, lng, address };
+        // Address will be filled by map's reverse geocode on centerChanged — set a placeholder
+        const loc2: Coords = { lat, lng, address: "Locating…" };
         setPickup(loc2);
-        syncPickupToMap(loc2);
+        if (mapReadyRef.current) {
+          mapRef.current?.setMyLocation(lat, lng);
+          if (autoCenterRef.current) mapRef.current?.panTo(lat, lng);
+        }
+
+        // Live position watch — updates the pulsing dot and optionally re-centers
+        watchRef.current = await Location.watchPositionAsync(
+          { accuracy: Location.Accuracy.Balanced, timeInterval: 3000, distanceInterval: 8 },
+          (update) => {
+            if (cancelled) return;
+            const { latitude: wLat, longitude: wLng } = update.coords;
+            setLiveTracking(true);
+            mapRef.current?.setMyLocation(wLat, wLng);
+            if (autoCenterRef.current && rideStatus === "idle") {
+              mapRef.current?.panTo(wLat, wLng);
+            }
+          }
+        );
       } catch {}
-      finally { setLocLoading(false); }
+      finally { if (!cancelled) setLocLoading(false); }
     })();
+    return () => { cancelled = true; watchRef.current?.remove(); watchRef.current = null; };
   }, []);
 
   // ── Update estimate when vehicle type changes (if we have a map route) ──
@@ -268,6 +287,13 @@ export default function CarsScreen() {
     setEstimate({ distanceKm, durationMin, fare });
     setSheetExpanded(true);
   }, [vehicleType]);
+
+  // ── Forward driver location to map when ride is active ──
+  useEffect(() => {
+    if (activeRide?.driver_lat && activeRide?.driver_lng && mapReadyRef.current) {
+      mapRef.current?.setDriver(activeRide.driver_lat, activeRide.driver_lng);
+    }
+  }, [activeRide?.driver_lat, activeRide?.driver_lng]);
 
   // ── Poll rider active ride ──
   useEffect(() => {
@@ -397,30 +423,48 @@ export default function CarsScreen() {
               mapReadyRef.current = true;
               mapRef.current?.setPickup(pickup.lat, pickup.lng, pickup.address);
               if (drop) mapRef.current?.setDrop(drop.lat, drop.lng, drop.address);
+              // Push live location dot on ready
+              if (pickup.lat !== 30.7333) mapRef.current?.setMyLocation(pickup.lat, pickup.lng);
             }}
             onRouteCalculated={handleRouteCalculated}
             onCenterChanged={(lat, lng, address) => {
-              // When user drags the map — update pickup with the fully reverse-geocoded address
+              // User dragged the map — disable auto-center so we don't fight them
               if (rideStatus === "idle" && !activeRide) {
+                setAutoCenter(false);
                 setPickup({ lat, lng, address });
               }
             }}
             onGpsLocation={(lat, lng, address) => {
-              const loc: Coords = { lat, lng, address };
-              setPickup(loc);
+              setPickup({ lat, lng, address });
+              setAutoCenter(true); // re-enable after GPS tap
             }}
             onLocationSelected={(mode, lat, lng, address) => {
               if (mode === "pickup") {
                 setPickup({ lat, lng, address });
               } else {
-                const loc: Coords = { lat, lng, address };
-                setDrop(loc);
+                setDrop({ lat, lng, address });
                 setEstimate(null);
               }
             }}
           />
-          {activeRide?.driver_lat && ["accepted", "ongoing"].includes(rideStatus) && (
-            <View pointerEvents="none" style={StyleSheet.absoluteFillObject} />
+
+          {/* Auto-center / recenter button */}
+          <TouchableOpacity
+            style={[styles.recenterBtn, autoCenter && { backgroundColor: ORANGE }]}
+            onPress={() => {
+              setAutoCenter(true);
+              mapRef.current?.panTo(pickup.lat, pickup.lng);
+            }}
+          >
+            <Feather name="crosshair" size={18} color={autoCenter ? "#fff" : C.text} />
+          </TouchableOpacity>
+
+          {/* Live tracking indicator */}
+          {liveTracking && (
+            <View style={styles.liveIndicator}>
+              <View style={styles.liveDot} />
+              <Text style={styles.liveText}>Live</Text>
+            </View>
           )}
         </View>
 
@@ -900,6 +944,10 @@ const styles = StyleSheet.create({
   // Map container
   mapContainer: { width: "100%", overflow: "hidden", position: "relative", backgroundColor: "#e8ddd0" },
   coordText: { fontSize: 10, color: GOLD, fontFamily: "Inter_400Regular" },
+  recenterBtn: { position: "absolute", bottom: 16, right: 12, width: 44, height: 44, borderRadius: 22, backgroundColor: "#fff", alignItems: "center", justifyContent: "center", shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 8, elevation: 8, zIndex: 10 },
+  liveIndicator: { position: "absolute", top: 12, left: 12, flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: "rgba(15,31,61,0.8)", borderRadius: 12, paddingHorizontal: 10, paddingVertical: 5, zIndex: 10 },
+  liveDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: GREEN },
+  liveText: { fontSize: 11, fontWeight: "700", color: "#fff", fontFamily: "Inter_700Bold" },
 
   // Bottom sheet
   bottomSheet: { position: "absolute", bottom: 0, left: 0, right: 0, backgroundColor: C.background, borderTopLeftRadius: 28, borderTopRightRadius: 28, shadowColor: "#000", shadowOffset: { width: 0, height: -6 }, shadowOpacity: 0.2, shadowRadius: 20, elevation: 20 },
