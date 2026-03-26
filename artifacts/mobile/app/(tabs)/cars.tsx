@@ -399,6 +399,12 @@ export default function CarsScreen() {
               if (drop) mapRef.current?.setDrop(drop.lat, drop.lng, drop.address);
             }}
             onRouteCalculated={handleRouteCalculated}
+            onCenterChanged={(lat, lng, address) => {
+              // When user drags the map — update pickup with the fully reverse-geocoded address
+              if (rideStatus === "idle" && !activeRide) {
+                setPickup({ lat, lng, address });
+              }
+            }}
             onGpsLocation={(lat, lng, address) => {
               const loc: Coords = { lat, lng, address };
               setPickup(loc);

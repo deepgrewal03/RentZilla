@@ -1,0 +1,154 @@
+Build and fix a React Native (Expo Go) screen for a ride/service booking app that works exactly like Uber-style pickup UI with Google Maps and full address details.
+
+---
+
+### 🎯 GOAL
+
+* Show a live Google Map (centered on user location – Punjab, India)
+* Display a pickup input field with:
+
+  * Full formatted address
+  * Including house number, street name, road, area, city
+* Ensure this works perfectly in Expo Go AND published (production) mode
+
+---
+
+### 📍 MAP UI (LIKE IMAGE)
+
+* Full-width map at top
+* Center pin marker fixed in middle of screen
+* When user moves map → update address automatically
+* Show city label (e.g., Ludhiana)
+
+---
+
+### 📦 ADDRESS REQUIREMENTS (IMPORTANT)
+
+When selecting or moving map, always return full address:
+
+* House number (street_number)
+* Street / road (route)
+* Area (sublocality / neighborhood)
+* City (locality)
+* State (Punjab)
+* Country (India)
+
+Example output:
+"House No. 1792, Street 5, Model Town, Ludhiana, Punjab, India"
+
+---
+
+### 🔧 GOOGLE MAPS CONFIGURATION
+
+#### APIs to enable:
+
+* Maps JavaScript API (or Maps SDK for Android/iOS)
+* Places API
+* Geocoding API
+
+---
+
+### 🔑 IMPLEMENTATION DETAILS
+
+#### 1. Reverse Geocoding (CRITICAL)
+
+* When map region changes:
+
+  * Call Google Geocoding API using lat/lng
+  * Extract:
+
+    * street_number
+    * route
+    * sublocality
+    * locality
+    * administrative_area_level_1
+    * country
+
+---
+
+#### 2. Autocomplete Search (Pickup Input)
+
+* Use:
+  react-native-google-places-autocomplete
+
+* Config:
+
+```js
+query={{
+  key: GOOGLE_MAPS_API_KEY,
+  language: "en",
+  components: "country:in",
+  types: "address"
+}}
+fetchDetails={true}
+```
+
+---
+
+#### 3. Format Address Properly
+
+Create function:
+
+```js
+function formatAddress(components) {
+  return `${street_number} ${route}, ${sublocality}, ${locality}, Punjab, India`;
+}
+```
+
+---
+
+#### 4. Expo Go / Production Fix
+
+* API key must:
+
+  * Have billing enabled
+  * NOT be restricted incorrectly (allow mobile apps)
+* Use environment variables (.env)
+* Ensure correct permissions:
+
+  * Location permission enabled
+
+---
+
+#### 5. Punjab Restriction
+
+* Validate selected location:
+
+  * Only allow if state === "Punjab"
+  * Otherwise show error
+
+---
+
+### 📲 UI FEATURES
+
+* "Book Now" button
+* "Schedule" option
+* Pickup field auto-filled from map
+* Smooth animations like Uber
+* Bottom sheet UI for address & actions
+
+---
+
+### ⚠️ COMMON ISSUE FIX
+
+If street numbers not showing:
+
+* Ensure:
+
+  * `types: "address"` (NOT regions)
+  * `fetchDetails: true`
+  * Use Geocoding API for reverse lookup (IMPORTANT)
+* Do NOT rely only on autocomplete
+
+---
+
+### ✅ FINAL RESULT
+
+* User moves map → exact house-level address updates
+* User searches → sees full addresses (not just cities)
+* Works in Expo Go AND production build
+* Clean Uber-like UI with accurate location
+
+---
+
+Make it production-ready, smooth, and accurate like Uber/OLA apps.

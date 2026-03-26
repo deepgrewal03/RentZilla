@@ -26,16 +26,13 @@ interface Props {
     lng: number,
     address: string
   ) => void;
+  onCenterChanged?: (lat: number, lng: number, address: string) => void;
   onRouteCalculated?: (distanceKm: number, durationMin: number) => void;
   onGpsLocation?: (lat: number, lng: number, address: string) => void;
   onGpsError?: (msg: string) => void;
   onReady?: () => void;
   style?: object;
 }
-
-// Google Maps API key — fetched at runtime from our API so it's never in client bundle
-const GMAPS_KEY = (window as any).__GOOGLE_MAPS_KEY__ ||
-  process.env.EXPO_PUBLIC_GOOGLE_MAPS_KEY || "";
 
 function buildGoogleMapHtml(lat: number, lng: number, apiKey: string): string {
   return `<!DOCTYPE html>
@@ -60,10 +57,18 @@ function buildGoogleMapHtml(lat: number, lng: number, apiKey: string): string {
       font-family:sans-serif;pointer-events:none;
       box-shadow:0 2px 10px rgba(0,0,0,0.3);
     }
+    #center-pin{
+      position:absolute;top:50%;left:50%;transform:translate(-50%,-100%);
+      z-index:998;pointer-events:none;font-size:28px;
+      filter:drop-shadow(0 2px 4px rgba(0,0,0,0.5));
+      transition:transform 0.15s ease;
+    }
+    #center-pin.dragging{transform:translate(-50%,-115%) scale(1.15);}
   </style>
 </head>
 <body>
 <div id="map"></div>
+<div id="center-pin">📍</div>
 <button id="gps-btn" onclick="doGPS()">📍</button>
 <div id="mode-pill">Set Pickup</div>
 <script>
@@ -72,6 +77,8 @@ var INIT_LAT=${lat},INIT_LNG=${lng};
 var settingMode='pickup';
 var pickupM=null,dropM=null,driverM=null,routeRenderer=null,map=null;
 var modePill=document.getElementById('mode-pill');
+var centerPin=document.getElementById('center-pin');
+var geocodeTimeout=null;
 
 function send(data){
   var s=JSON.stringify(data);
@@ -80,14 +87,14 @@ function send(data){
 }
 
 function updateModePill(){
-  modePill.textContent=settingMode==='pickup'?'Tap to set Pickup':'Tap to set Destination';
+  modePill.textContent=settingMode==='pickup'?'Drag map to set Pickup':'Drag map to set Destination';
   modePill.style.display=(pickupM&&dropM)?'none':'block';
 }
 
 function initMap(){
   map=new google.maps.Map(document.getElementById('map'),{
     center:{lat:INIT_LAT,lng:INIT_LNG},
-    zoom:13,
+    zoom:15,
     mapTypeControl:false,
     streetViewControl:false,
     fullscreenControl:false,
@@ -105,6 +112,24 @@ function initMap(){
     polylineOptions:{strokeColor:'#FF7A18',strokeWeight:5,strokeOpacity:0.85}
   });
 
+  // Animate center pin during drag
+  map.addListener('dragstart',function(){
+    centerPin.classList.add('dragging');
+    if(geocodeTimeout){clearTimeout(geocodeTimeout);geocodeTimeout=null;}
+  });
+
+  // On drag end — reverse geocode center and fire centerChanged
+  map.addListener('dragend',function(){
+    centerPin.classList.remove('dragging');
+    var center=map.getCenter();
+    var lat=center.lat(),lng=center.lng();
+    geocodeTimeout=setTimeout(async function(){
+      var addr=await reverseGeocode(lat,lng);
+      send({type:'centerChanged',lat:lat,lng:lng,address:addr});
+    },300);
+  });
+
+  // Click still works to set markers
   map.addListener('click',async function(e){
     var lat=e.latLng.lat(),lng=e.latLng.lng();
     var addr=await reverseGeocode(lat,lng);
@@ -112,22 +137,20 @@ function initMap(){
   });
 
   updateModePill();
-  setTimeout(function(){send({type:'ready'});},600);
+  setTimeout(function(){
+    // Fire initial center geocode
+    reverseGeocode(INIT_LAT,INIT_LNG).then(function(addr){
+      send({type:'centerChanged',lat:INIT_LAT,lng:INIT_LNG,address:addr});
+    });
+    send({type:'ready'});
+  },800);
 }
 
 function mkPickupIcon(){
-  return{
-    path:google.maps.SymbolPath.CIRCLE,
-    fillColor:'#22C55E',fillOpacity:1,
-    strokeColor:'#fff',strokeWeight:3,scale:10
-  };
+  return{path:google.maps.SymbolPath.CIRCLE,fillColor:'#22C55E',fillOpacity:1,strokeColor:'#fff',strokeWeight:3,scale:10};
 }
 function mkDropIcon(){
-  return{
-    path:google.maps.SymbolPath.CIRCLE,
-    fillColor:'#FF7A18',fillOpacity:1,
-    strokeColor:'#fff',strokeWeight:3,scale:10
-  };
+  return{path:google.maps.SymbolPath.CIRCLE,fillColor:'#FF7A18',fillOpacity:1,strokeColor:'#fff',strokeWeight:3,scale:10};
 }
 function mkDriverIcon(){
   return{
@@ -136,29 +159,20 @@ function mkDriverIcon(){
       '<circle cx="20" cy="20" r="18" fill="#0F1F3D" stroke="#fff" stroke-width="2"/>'+
       '<text x="20" y="26" font-size="18" text-anchor="middle" fill="white">🚗</text>'+
       '</svg>'),
-    scaledSize:new google.maps.Size(40,40),
-    anchor:new google.maps.Point(20,20)
+    scaledSize:new google.maps.Size(40,40),anchor:new google.maps.Point(20,20)
   };
 }
 
 function setPickup(lat,lng,addr){
   if(pickupM) pickupM.setMap(null);
-  pickupM=new google.maps.Marker({
-    position:{lat,lng},map,icon:mkPickupIcon(),
-    title:'Pickup: '+(addr||''),
-    zIndex:2
-  });
+  pickupM=new google.maps.Marker({position:{lat,lng},map,icon:mkPickupIcon(),title:'Pickup: '+(addr||''),zIndex:2});
   if(!dropM) map.panTo({lat,lng});
   if(dropM) drawRoute();
   updateModePill();
 }
 function setDrop(lat,lng,addr){
   if(dropM) dropM.setMap(null);
-  dropM=new google.maps.Marker({
-    position:{lat,lng},map,icon:mkDropIcon(),
-    title:'Destination: '+(addr||''),
-    zIndex:2
-  });
+  dropM=new google.maps.Marker({position:{lat,lng},map,icon:mkDropIcon(),title:'Destination: '+(addr||''),zIndex:2});
   if(pickupM) drawRoute();
   updateModePill();
 }
@@ -176,8 +190,7 @@ function drawRoute(){
   if(!pickupM||!dropM) return;
   var svc=new google.maps.DirectionsService();
   svc.route({
-    origin:pickupM.getPosition(),
-    destination:dropM.getPosition(),
+    origin:pickupM.getPosition(),destination:dropM.getPosition(),
     travelMode:google.maps.TravelMode.DRIVING
   },function(result,status){
     if(status==='OK'&&result){
@@ -190,8 +203,7 @@ function drawRoute(){
       bounds.extend(dropM.getPosition());
       map.fitBounds(bounds,{top:80,right:60,bottom:60,left:60});
       send({type:'routeCalculated',distanceKm:distKm,durationMin:durMin});
-    } else {
-      // Fallback: haversine estimate
+    }else{
       var p=pickupM.getPosition(),d=dropM.getPosition();
       var R=6371,la1=p.lat()*Math.PI/180,la2=d.lat()*Math.PI/180;
       var dLa=(d.lat()-p.lat())*Math.PI/180,dLo=(d.lng()-p.lng())*Math.PI/180;
@@ -202,16 +214,38 @@ function drawRoute(){
   });
 }
 
+/**
+ * Full reverse geocoding — extracts street_number, route, sublocality, city, state.
+ * Returns a precise address like "1792 Model Town Road, Model Town, Ludhiana, Punjab".
+ */
 async function reverseGeocode(lat,lng){
   try{
     var gc=new google.maps.Geocoder();
     return await new Promise(function(resolve){
       gc.geocode({location:{lat,lng}},function(results,status){
-        if(status==='OK'&&results[0]) resolve(results[0].formatted_address);
-        else resolve(lat.toFixed(4)+', '+lng.toFixed(4));
+        if(status==='OK'&&results&&results[0]){
+          var comps={};
+          (results[0].address_components||[]).forEach(function(c){
+            c.types.forEach(function(t){comps[t]=c.long_name;});
+          });
+          var streetNum=comps['street_number']||'';
+          var route=comps['route']||'';
+          var sub=comps['sublocality_level_1']||comps['sublocality']||comps['neighborhood']||'';
+          var city=comps['locality']||comps['administrative_area_level_2']||'';
+          var state=comps['administrative_area_level_1']||'';
+          var parts=[];
+          if(streetNum&&route) parts.push(streetNum+' '+route);
+          else if(route) parts.push(route);
+          if(sub) parts.push(sub);
+          if(city) parts.push(city);
+          if(state) parts.push(state);
+          resolve(parts.length>=2?parts.join(', '):results[0].formatted_address);
+        }else{
+          resolve(lat.toFixed(4)+', '+lng.toFixed(4));
+        }
       });
     });
-  }catch(e){ return lat.toFixed(4)+', '+lng.toFixed(4); }
+  }catch(e){return lat.toFixed(4)+', '+lng.toFixed(4);}
 }
 
 function doGPS(){
@@ -256,7 +290,6 @@ document.addEventListener('message',handleMsg);
 </html>`;
 }
 
-// Fallback Leaflet map (used if no Google key)
 function buildLeafletMapHtml(lat: number, lng: number): string {
   return `<!DOCTYPE html>
 <html>
@@ -269,31 +302,66 @@ function buildLeafletMapHtml(lat: number, lng: number): string {
     html,body,#map{width:100%;height:100%;background:#e8ddd0}
     .lbl{background:rgba(15,31,61,0.88)!important;border:none!important;color:#fff!important;font-size:11px!important;font-weight:700!important;padding:3px 8px!important;border-radius:8px!important;box-shadow:0 2px 8px rgba(0,0,0,0.4)!important;white-space:nowrap!important;}
     .lbl::before{display:none!important}
-    .leaflet-routing-container{display:none!important}
+    #center-pin{position:absolute;top:50%;left:50%;transform:translate(-50%,-100%);z-index:999;pointer-events:none;font-size:28px;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.5));}
   </style>
 </head>
 <body>
 <div id="map"></div>
+<div id="center-pin">📍</div>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
 <script>
 var INIT_LAT=${lat},INIT_LNG=${lng};
-var map=L.map('map',{center:[INIT_LAT,INIT_LNG],zoom:11});
+var map=L.map('map',{center:[INIT_LAT,INIT_LNG],zoom:15});
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'&copy; OpenStreetMap',maxZoom:19}).addTo(map);
 var settingMode='pickup',pickupM=null,dropM=null,driverM=null,routeLayer=null;
+var geocodeTimeout=null;
 function mkCircle(c){return L.divIcon({className:'',html:'<div style="width:18px;height:18px;border-radius:50%;background:'+c+';border:3px solid #fff;box-shadow:0 2px 10px rgba(0,0,0,0.55)"></div>',iconSize:[18,18],iconAnchor:[9,9],tooltipAnchor:[0,-12]});}
 function mkDriver(){return L.divIcon({className:'',html:'<div style="font-size:28px;line-height:1;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.5))">🚗</div>',iconSize:[34,34],iconAnchor:[17,17]});}
 function send(data){var s=JSON.stringify(data);try{window.parent.postMessage(s,'*');}catch(e){}try{if(window.ReactNativeWebView)window.ReactNativeWebView.postMessage(s);}catch(e){}}
-async function reverseGeocode(lat,lng){try{var r=await fetch('https://nominatim.openstreetmap.org/reverse?lat='+lat+'&lon='+lng+'&format=json&accept-language=en',{headers:{'User-Agent':'RentZilla/1.0'}});var d=await r.json();var a=d.address||{};var parts=[a.road||a.suburb||a.neighbourhood,a.city||a.town||a.village||a.county,a.state].filter(Boolean);return parts.length?parts.join(', '):d.display_name||(lat.toFixed(4)+', '+lng.toFixed(4));}catch(e){return lat.toFixed(4)+', '+lng.toFixed(4);}}
+
+async function reverseGeocode(lat,lng){
+  try{
+    var r=await fetch('https://nominatim.openstreetmap.org/reverse?lat='+lat+'&lon='+lng+'&format=json&accept-language=en&zoom=18&addressdetails=1',{headers:{'User-Agent':'RentZilla/1.0'}});
+    var d=await r.json();
+    var a=d.address||{};
+    var parts=[];
+    var houseNum=a.house_number||'';
+    var road=a.road||a.street||'';
+    var sub=a.suburb||a.neighbourhood||a.residential||'';
+    var city=a.city||a.town||a.village||a.county||'';
+    var state=a.state||'';
+    if(houseNum&&road) parts.push(houseNum+' '+road);
+    else if(road) parts.push(road);
+    if(sub) parts.push(sub);
+    if(city) parts.push(city);
+    if(state) parts.push(state);
+    return parts.length>=2?parts.join(', '):(d.display_name||(lat.toFixed(4)+', '+lng.toFixed(4)));
+  }catch(e){return lat.toFixed(4)+', '+lng.toFixed(4);}
+}
+
 function setPickup(lat,lng,addr){if(pickupM)map.removeLayer(pickupM);pickupM=L.marker([lat,lng],{icon:mkCircle('#22C55E')}).bindTooltip(addr.split(',')[0]||'Pickup',{permanent:true,direction:'top',className:'lbl'}).addTo(map);if(!dropM)map.panTo([lat,lng],{animate:true});if(dropM)drawRoute();}
 function setDrop(lat,lng,addr){if(dropM)map.removeLayer(dropM);if(routeLayer){map.removeLayer(routeLayer);routeLayer=null;}dropM=L.marker([lat,lng],{icon:mkCircle('#FF7A18')}).bindTooltip(addr.split(',')[0]||'Destination',{permanent:true,direction:'top',className:'lbl'}).addTo(map);if(pickupM)drawRoute();}
 function clearDrop(){if(dropM){map.removeLayer(dropM);dropM=null;}if(routeLayer){map.removeLayer(routeLayer);routeLayer=null;}}
 function setDriver(lat,lng){if(driverM)driverM.setLatLng([lat,lng]);else driverM=L.marker([lat,lng],{icon:mkDriver()}).addTo(map);}
 async function drawRoute(){if(!pickupM||!dropM)return;var p=pickupM.getLatLng(),d=dropM.getLatLng();try{var r=await fetch('https://router.project-osrm.org/route/v1/driving/'+p.lng+','+p.lat+';'+d.lng+','+d.lat+'?overview=full&geometries=geojson');var data=await r.json();if(data.routes&&data.routes[0]){if(routeLayer)map.removeLayer(routeLayer);routeLayer=L.geoJSON(data.routes[0].geometry,{style:{color:'#FF7A18',weight:5,opacity:0.85,lineCap:'round',lineJoin:'round'}}).addTo(map);var dist=data.routes[0].distance/1000,dur=Math.round(data.routes[0].duration/60);map.fitBounds([[p.lat,p.lng],[d.lat,d.lng]],{padding:[70,70],animate:true});send({type:'routeCalculated',distanceKm:parseFloat(dist.toFixed(1)),durationMin:dur});return;}}catch(e){}var R=6371,dLa=(d.lat-p.lat)*Math.PI/180,dLo=(d.lng-p.lng)*Math.PI/180,a=Math.sin(dLa/2)**2+Math.cos(p.lat*Math.PI/180)*Math.cos(d.lat*Math.PI/180)*Math.sin(dLo/2)**2,fallback=R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));send({type:'routeCalculated',distanceKm:parseFloat(fallback.toFixed(1)),durationMin:Math.round(fallback*3)});}
+
+map.on('dragend',async function(){
+  if(geocodeTimeout){clearTimeout(geocodeTimeout);}
+  geocodeTimeout=setTimeout(async function(){
+    var c=map.getCenter();
+    var addr=await reverseGeocode(c.lat,c.lng);
+    send({type:'centerChanged',lat:c.lat,lng:c.lng,address:addr});
+  },400);
+});
 map.on('click',async function(e){var addr=await reverseGeocode(e.latlng.lat,e.latlng.lng);send({type:'locationSelected',mode:settingMode,lat:e.latlng.lat,lng:e.latlng.lng,address:addr});});
-function doGPS(){if(!navigator.geolocation){send({type:'gpsError',message:'Not supported'});return;}send({type:'gpsLoading'});navigator.geolocation.getCurrentPosition(async function(pos){var lat=pos.coords.latitude,lng=pos.coords.longitude;var addr=await reverseGeocode(lat,lng);send({type:'gpsLocation',lat:lat,lng:lng,address:addr});},function(err){send({type:'gpsError',message:err.message});},{enableHighAccuracy:true,timeout:12000});}
+function doGPS(){if(!navigator.geolocation){send({type:'gpsError',message:'Not supported'});return;}send({type:'gpsLoading'});navigator.geolocation.getCurrentPosition(async function(pos){var lat=pos.coords.latitude,lng=pos.coords.longitude;var addr=await reverseGeocode(lat,lng);send({type:'gpsLocation',lat:lat,lng:lng,address:addr});map.panTo([lat,lng],{animate:true});},function(err){send({type:'gpsError',message:err.message});},{enableHighAccuracy:true,timeout:12000});}
 function handleMsg(e){try{var m=JSON.parse(e.data);if(m.type==='setPickup')setPickup(m.lat,m.lng,m.address);else if(m.type==='setDrop')setDrop(m.lat,m.lng,m.address);else if(m.type==='clearDrop')clearDrop();else if(m.type==='setDriver')setDriver(m.lat,m.lng);else if(m.type==='setMode')settingMode=m.mode;else if(m.type==='fitBounds'&&pickupM&&dropM)map.fitBounds([pickupM.getLatLng(),dropM.getLatLng()],{padding:[70,70],animate:true});else if(m.type==='getCurrentLocation')doGPS();else if(m.type==='panTo')map.panTo([m.lat,m.lng],{animate:true});}catch(e){}}
 window.addEventListener('message',handleMsg);document.addEventListener('message',handleMsg);
-setTimeout(function(){send({type:'ready'});},600);
+setTimeout(async function(){
+  var addr=await reverseGeocode(INIT_LAT,INIT_LNG);
+  send({type:'centerChanged',lat:INIT_LAT,lng:INIT_LNG,address:addr});
+  send({type:'ready'});
+},800);
 </script>
 </body>
 </html>`;
@@ -305,6 +373,7 @@ const LeafletMapView = forwardRef<MapRef, Props>(
       initialLat = 30.7333,
       initialLng = 76.7794,
       onLocationSelected,
+      onCenterChanged,
       onRouteCalculated,
       onGpsLocation,
       onGpsError,
@@ -317,32 +386,23 @@ const LeafletMapView = forwardRef<MapRef, Props>(
     const [apiKey, setApiKey] = useState<string>("");
     const [keyLoaded, setKeyLoaded] = useState(false);
 
-    // Fetch API key from our backend proxy so it's never bundled in client code
     useEffect(() => {
       const base = (window as any).__BASE_URL__ || "";
       fetch(`${base}/api/maps/key`)
         .then((r) => r.json())
-        .then((d) => {
-          setApiKey(d.key || "");
-          setKeyLoaded(true);
-        })
+        .then((d) => { setApiKey(d.key || ""); setKeyLoaded(true); })
         .catch(() => setKeyLoaded(true));
     }, []);
 
     const send = (data: object) => {
       try {
-        iframeRef.current?.contentWindow?.postMessage(
-          JSON.stringify(data),
-          "*"
-        );
+        iframeRef.current?.contentWindow?.postMessage(JSON.stringify(data), "*");
       } catch {}
     };
 
     useImperativeHandle(ref, () => ({
-      setPickup: (lat, lng, address) =>
-        send({ type: "setPickup", lat, lng, address }),
-      setDrop: (lat, lng, address) =>
-        send({ type: "setDrop", lat, lng, address }),
+      setPickup: (lat, lng, address) => send({ type: "setPickup", lat, lng, address }),
+      setDrop: (lat, lng, address) => send({ type: "setDrop", lat, lng, address }),
       clearDrop: () => send({ type: "clearDrop" }),
       setDriver: (lat, lng) => send({ type: "setDriver", lat, lng }),
       setMode: (mode) => send({ type: "setMode", mode }),
@@ -357,6 +417,8 @@ const LeafletMapView = forwardRef<MapRef, Props>(
           const msg = JSON.parse(e.data);
           if (msg.type === "locationSelected")
             onLocationSelected?.(msg.mode, msg.lat, msg.lng, msg.address);
+          else if (msg.type === "centerChanged")
+            onCenterChanged?.(msg.lat, msg.lng, msg.address);
           else if (msg.type === "routeCalculated")
             onRouteCalculated?.(msg.distanceKm, msg.durationMin);
           else if (msg.type === "gpsLocation")
@@ -367,7 +429,7 @@ const LeafletMapView = forwardRef<MapRef, Props>(
       };
       window.addEventListener("message", handler);
       return () => window.removeEventListener("message", handler);
-    }, [onLocationSelected, onRouteCalculated, onGpsLocation, onGpsError, onReady]);
+    }, [onLocationSelected, onCenterChanged, onRouteCalculated, onGpsLocation, onGpsError, onReady]);
 
     if (!keyLoaded) {
       return (
@@ -386,15 +448,9 @@ const LeafletMapView = forwardRef<MapRef, Props>(
         {React.createElement("iframe", {
           ref: iframeRef,
           srcDoc: html,
-          style: {
-            width: "100%",
-            height: "100%",
-            border: "none",
-            display: "block",
-          },
+          style: { width: "100%", height: "100%", border: "none", display: "block" },
           allow: "geolocation",
-          sandbox:
-            "allow-scripts allow-same-origin allow-forms allow-popups",
+          sandbox: "allow-scripts allow-same-origin allow-forms allow-popups",
         })}
       </View>
     );

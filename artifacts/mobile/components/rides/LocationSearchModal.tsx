@@ -20,9 +20,11 @@ export interface LocationResult {
   placeId?: string;
 }
 
-// API base — same pattern as useApi.ts, works in both native and web
-// (window.location.origin fails in React Native; process.env is substituted at build time)
+// ── API base (server proxy — web only) ───────────────────────────────────────
 const API_BASE = `https://${process.env.EXPO_PUBLIC_DOMAIN}`;
+
+// ── Direct Google key (native only, no CORS restriction in React Native) ─────
+const GMAPS_KEY = process.env.EXPO_PUBLIC_GMAPS_KEY || "";
 
 // Popular Punjab fallback list (shown when no search query)
 const POPULAR: LocationResult[] = [
@@ -45,39 +47,140 @@ const POPULAR: LocationResult[] = [
 
 const RECENT_KEY = "rides_recent_v3";
 
-// ── Google Places via our server proxy ────────────────────────────────────────
+// ── Google Places via server proxy ────────────────────────────────────────────
 interface GPlace {
   place_id: string;
   description: string;
-  structured_formatting: {
-    main_text: string;
-    secondary_text: string;
-  };
+  structured_formatting: { main_text: string; secondary_text: string };
 }
 
-async function searchGooglePlaces(query: string, lat?: number, lng?: number): Promise<LocationResult[]> {
-  const params = new URLSearchParams({ q: query });
-  if (lat != null && lng != null) { params.set("lat", String(lat)); params.set("lng", String(lng)); }
-  const res = await fetch(`${API_BASE}/api/maps/places?${params}`);
-  if (!res.ok) throw new Error("places api failed");
-  const data: { predictions: GPlace[] } = await res.json();
-
-  return data.predictions.map((p) => ({
+function parsePredictions(predictions: GPlace[]): LocationResult[] {
+  return predictions.map((p) => ({
     label: p.structured_formatting?.main_text || p.description.split(",")[0],
     address: p.description,
-    lat: 0, // resolved lazily in getPlaceDetails
+    lat: 0,
     lng: 0,
     placeId: p.place_id,
   }));
 }
 
-async function getPlaceDetails(placeId: string): Promise<{ lat: number; lng: number; address: string }> {
-  const res = await fetch(`${API_BASE}/api/maps/place-details?place_id=${encodeURIComponent(placeId)}`);
+/**
+ * On NATIVE: calls Google Places API directly (no CORS restriction in React Native).
+ * On WEB: calls our server proxy (no CORS since same origin).
+ * Runs two parallel requests — address type (house numbers/streets) + establishment (businesses).
+ */
+async function searchGooglePlaces(
+  query: string,
+  lat?: number,
+  lng?: number
+): Promise<LocationResult[]> {
+  const isNative = Platform.OS !== "web";
+  const locationBias = lat != null && lng != null
+    ? { location: `${lat},${lng}`, radius: "50000" }
+    : { location: "30.7333,76.7794", radius: "250000" };
+
+  if (isNative && GMAPS_KEY) {
+    // ── Direct Google Places API (React Native — no CORS) ──────────────────
+    const base = "https://maps.googleapis.com/maps/api/place/autocomplete/json";
+    const common: Record<string, string> = {
+      key: GMAPS_KEY,
+      language: "en",
+      components: "country:in",
+      strictbounds: "false",
+      ...locationBias,
+    };
+
+    const [addrRes, estRes] = await Promise.allSettled([
+      fetch(`${base}?${new URLSearchParams({ ...common, input: query, types: "address" })}`).then((r) => r.json()),
+      fetch(`${base}?${new URLSearchParams({ ...common, input: query, types: "establishment" })}`).then((r) => r.json()),
+    ]);
+
+    const addr: GPlace[] = addrRes.status === "fulfilled" &&
+      ["OK", "ZERO_RESULTS"].includes(addrRes.value.status)
+      ? addrRes.value.predictions || [] : [];
+    const est: GPlace[] = estRes.status === "fulfilled" &&
+      ["OK", "ZERO_RESULTS"].includes(estRes.value.status)
+      ? estRes.value.predictions || [] : [];
+
+    const seen = new Set<string>();
+    const merged: GPlace[] = [];
+    for (const p of [...addr, ...est]) {
+      if (!seen.has(p.place_id)) { seen.add(p.place_id); merged.push(p); }
+    }
+    if (merged.length > 0 || addr.length === 0 && est.length === 0) {
+      return parsePredictions(merged.slice(0, 8));
+    }
+    // If both returned empty, fall through to server proxy
+  }
+
+  // ── Server proxy (web or native fallback) ─────────────────────────────────
+  const params = new URLSearchParams({ q: query });
+  if (lat != null && lng != null) { params.set("lat", String(lat)); params.set("lng", String(lng)); }
+  const res = await fetch(`${API_BASE}/api/maps/places?${params}`);
+  if (!res.ok) throw new Error("places api failed");
+  const data: { predictions: GPlace[] } = await res.json();
+  return parsePredictions(data.predictions);
+}
+
+/**
+ * Fetch precise lat/lng + full formatted address for a place_id.
+ * Native: calls Google directly. Web: uses server proxy.
+ */
+async function getPlaceDetails(
+  placeId: string
+): Promise<{ lat: number; lng: number; address: string }> {
+  const isNative = Platform.OS !== "web";
+
+  if (isNative && GMAPS_KEY) {
+    const params = new URLSearchParams({
+      place_id: placeId,
+      key: GMAPS_KEY,
+      fields: "geometry,formatted_address,name,address_components",
+      language: "en",
+    });
+    const res = await fetch(
+      `https://maps.googleapis.com/maps/api/place/details/json?${params}`
+    );
+    const d = await res.json();
+    if (d.status === "OK" && d.result) {
+      const loc = d.result.geometry?.location;
+      const address = buildAddress(d.result.address_components, d.result.formatted_address);
+      return { lat: loc.lat, lng: loc.lng, address };
+    }
+  }
+
+  // Server proxy fallback
+  const res = await fetch(
+    `${API_BASE}/api/maps/place-details?place_id=${encodeURIComponent(placeId)}`
+  );
   if (!res.ok) throw new Error("place details failed");
   const d = await res.json();
-  // Use the most precise available address string
-  const address = d.formatted_address || d.name || "";
-  return { lat: d.lat, lng: d.lng, address };
+  return { lat: d.lat, lng: d.lng, address: d.formatted_address || d.name || "" };
+}
+
+/** Build a detailed address string from Google address_components */
+function buildAddress(
+  components: Array<{ long_name: string; types: string[] }> = [],
+  fallback: string
+): string {
+  const c: Record<string, string> = {};
+  for (const comp of components) {
+    for (const type of comp.types) c[type] = comp.long_name;
+  }
+  const streetNum = c["street_number"] || "";
+  const route = c["route"] || "";
+  const sub = c["sublocality_level_1"] || c["sublocality"] || c["neighborhood"] || "";
+  const city = c["locality"] || c["administrative_area_level_2"] || "";
+  const state = c["administrative_area_level_1"] || "";
+
+  const parts: string[] = [];
+  if (streetNum && route) parts.push(`${streetNum} ${route}`);
+  else if (route) parts.push(route);
+  if (sub) parts.push(sub);
+  if (city) parts.push(city);
+  if (state) parts.push(state);
+
+  return parts.length >= 2 ? parts.join(", ") : fallback;
 }
 
 // ── Nominatim fallback ────────────────────────────────────────────────────────
@@ -146,7 +249,6 @@ export function LocationSearchModal({
   };
 
   const handleSelect = async (loc: LocationResult) => {
-    // If it's a Google Place with no coords yet, resolve them first
     if (loc.placeId && (loc.lat === 0 || loc.lng === 0)) {
       setResolving(true);
       try {
@@ -157,7 +259,6 @@ export function LocationSearchModal({
         onSelect(resolved);
         onClose();
       } catch {
-        // Fallback: close without coords — caller must handle gracefully
         Keyboard.dismiss();
         onSelect(loc);
         onClose();
@@ -180,13 +281,11 @@ export function LocationSearchModal({
     setLoading(true);
     debounceRef.current = setTimeout(async () => {
       try {
-        // Try Google Places first (via our proxy)
         const res = await searchGooglePlaces(text, userLat, userLng);
         setResults(res);
         setUsingGoogle(true);
         setError(res.length === 0 ? "No results found" : null);
       } catch {
-        // Fallback to Nominatim
         setUsingGoogle(false);
         try {
           const res = await searchNominatim(text);
@@ -200,7 +299,7 @@ export function LocationSearchModal({
       } finally {
         setLoading(false);
       }
-    }, 350);
+    }, 300);
   }, [userLat, userLng]);
 
   const clearQuery = () => { setQuery(""); setResults([]); setError(null); inputRef.current?.focus(); };
@@ -216,7 +315,7 @@ export function LocationSearchModal({
         </View>
         <View style={{ flex: 1 }}>
           <Text style={styles.rowLabel} numberOfLines={1}>{item.label}</Text>
-          <Text style={styles.rowAddr} numberOfLines={1}>{item.address}</Text>
+          <Text style={styles.rowAddr} numberOfLines={2}>{item.address}</Text>
         </View>
         <Feather name="arrow-up-left" size={13} color={C.textTertiary} />
       </TouchableOpacity>
@@ -255,7 +354,7 @@ export function LocationSearchModal({
             <TextInput
               ref={inputRef}
               style={styles.searchInput}
-              placeholder="Street, house no., shop, landmark…"
+              placeholder="House no., street, shop, landmark…"
               placeholderTextColor={C.textTertiary}
               value={query}
               onChangeText={onChangeText}
@@ -293,13 +392,6 @@ export function LocationSearchModal({
             showsVerticalScrollIndicator={false}
             ListHeaderComponent={() => (
               <View>
-                {error && !loading && showingQuery && results.length > 0 && (
-                  <View style={styles.errorBanner}>
-                    <Feather name="wifi-off" size={13} color={ORANGE} />
-                    <Text style={styles.errorText}>{error}</Text>
-                  </View>
-                )}
-
                 {showingQuery && results.length > 0 && (
                   <View>
                     <View style={styles.sectionRow}>
@@ -310,19 +402,11 @@ export function LocationSearchModal({
                   </View>
                 )}
 
-                {showingQuery && !loading && results.length === 0 && !error && (
+                {showingQuery && !loading && results.length === 0 && (
                   <View style={styles.empty}>
                     <Feather name="search" size={32} color={C.textTertiary} />
                     <Text style={styles.emptyTitle}>No places found</Text>
-                    <Text style={styles.emptyText}>Try a different spelling or search for a nearby city</Text>
-                  </View>
-                )}
-
-                {showingQuery && !loading && results.length === 0 && error && (
-                  <View style={styles.empty}>
-                    <Feather name="wifi-off" size={32} color={C.textTertiary} />
-                    <Text style={styles.emptyTitle}>Search unavailable</Text>
-                    <Text style={styles.emptyText}>Check your connection or pick from popular places below</Text>
+                    <Text style={styles.emptyText}>Try adding the city name — e.g. "House 1792 Ludhiana"</Text>
                   </View>
                 )}
 
@@ -389,8 +473,6 @@ const styles = StyleSheet.create({
   rowIcon: { width: 36, height: 36, borderRadius: 10, alignItems: "center", justifyContent: "center" },
   rowLabel: { fontSize: 15, fontWeight: "600", color: C.text, fontFamily: "Inter_600SemiBold" },
   rowAddr: { fontSize: 12, color: C.textSecondary, fontFamily: "Inter_400Regular", marginTop: 1 },
-  errorBanner: { flexDirection: "row", alignItems: "center", gap: 6, marginHorizontal: 16, marginTop: 8, backgroundColor: `${ORANGE}15`, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8 },
-  errorText: { fontSize: 12, color: ORANGE, fontFamily: "Inter_400Regular", flex: 1 },
   empty: { padding: 48, alignItems: "center", gap: 10 },
   emptyTitle: { fontSize: 16, fontWeight: "600", color: C.text, fontFamily: "Inter_600SemiBold" },
   emptyText: { fontSize: 13, color: C.textSecondary, fontFamily: "Inter_400Regular", textAlign: "center" },
