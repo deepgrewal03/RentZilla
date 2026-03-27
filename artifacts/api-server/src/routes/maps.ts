@@ -94,7 +94,64 @@ router.get("/places", async (req: Request, res: Response) => {
     } catch { return []; }
   };
 
+  /** Convert Geocoding API results into autocomplete-shaped predictions */
+  const geocodeToPredictions = (geocodeResults: any[]): any[] =>
+    geocodeResults.slice(0, 6).map((r: any) => {
+      const comps: Record<string, string> = {};
+      for (const comp of r.address_components || []) {
+        for (const t of comp.types as string[]) comps[t] = comp.long_name;
+      }
+      const streetNum = comps["street_number"] || "";
+      const route = comps["route"] || "";
+      const sub = comps["sublocality_level_1"] || comps["sublocality"] || comps["neighborhood"] || "";
+      const city2 = comps["locality"] || comps["administrative_area_level_2"] || "";
+      const state = comps["administrative_area_level_1"] || "";
+      const parts: string[] = [];
+      if (streetNum && route) parts.push(`${streetNum} ${route}`); else if (route) parts.push(route);
+      if (sub) parts.push(sub); if (city2) parts.push(city2); if (state) parts.push(state);
+      const addr = parts.length >= 2 ? parts.join(", ") : r.formatted_address;
+      const mainText = parts[0] || addr.split(",")[0];
+      return {
+        place_id: r.place_id,
+        description: addr,
+        structured_formatting: { main_text: mainText, secondary_text: parts.slice(1).join(", ") },
+        _fromGeocode: true,
+        _lat: r.geometry?.location?.lat,
+        _lng: r.geometry?.location?.lng,
+      };
+    });
+
   try {
+    // For short/numeric queries, run Places + Geocoding in parallel from the start —
+    // no need to exhaust 4 rounds of Autocomplete before falling back.
+    if (isShortOrNumeric) {
+      const enhanced = `${inputText} ${nearestCity} Punjab`;
+      const buildEnhanced = (extra: Record<string, string>) =>
+        `https://maps.googleapis.com/maps/api/place/autocomplete/json?${new URLSearchParams({ ...baseParams, input: enhanced, ...extra })}`;
+      const callEnhanced = async (extra: Record<string, string>): Promise<any[]> => {
+        try { const r = await fetch(buildEnhanced(extra)); const d: any = await r.json(); return ["OK","ZERO_RESULTS"].includes(d.status) ? d.predictions || [] : []; } catch { return []; }
+      };
+
+      const [addrP, estP, eAddr, eGeo, geoFallback] = await Promise.all([
+        callPlaces({ types: "address" }),
+        callPlaces({ types: "establishment" }),
+        callEnhanced({ types: "address" }),
+        callEnhanced({ types: "geocode" }),
+        callGeocode(enhanced),
+      ]);
+
+      const seen = new Set<string>(); const merged: any[] = [];
+      for (const p of [...addrP, ...estP, ...eAddr, ...eGeo]) {
+        if (!seen.has(p.place_id)) { seen.add(p.place_id); merged.push(p); }
+      }
+      if (merged.length > 0) { res.json({ predictions: merged.slice(0, 8) }); return; }
+
+      const geoPreds = geocodeToPredictions(geoFallback);
+      if (geoPreds.length > 0) { res.json({ predictions: geoPreds }); return; }
+
+      res.json({ predictions: [] }); return;
+    }
+
     // Round 1: precise addresses + businesses in parallel
     const [addrP, estP] = await Promise.all([
       callPlaces({ types: "address" }),
@@ -116,52 +173,10 @@ router.get("/places", async (req: Request, res: Response) => {
     const anyP = await callPlaces({});
     if (anyP.length > 0) { res.json({ predictions: anyP.slice(0, 8) }); return; }
 
-    // Round 4: smart query enhancement for bare house numbers
-    if (isShortOrNumeric) {
-      const enhanced = `${inputText} ${nearestCity} Punjab`;
-      const buildEnhanced = (extraParams: Record<string, string>) => {
-        const p = new URLSearchParams({ ...baseParams, input: enhanced, ...extraParams });
-        return `https://maps.googleapis.com/maps/api/place/autocomplete/json?${p}`;
-      };
-      const [eAddr, eGeo] = await Promise.all([
-        (async () => { try { const r = await fetch(buildEnhanced({ types: "address" })); const d: any = await r.json(); return ["OK","ZERO_RESULTS"].includes(d.status) ? d.predictions || [] : []; } catch { return []; } })(),
-        (async () => { try { const r = await fetch(buildEnhanced({ types: "geocode" })); const d: any = await r.json(); return ["OK","ZERO_RESULTS"].includes(d.status) ? d.predictions || [] : []; } catch { return []; } })(),
-      ]);
-      const eSeen = new Set<string>(); const eMerged: any[] = [];
-      for (const p of [...eAddr, ...eGeo]) { if (!eSeen.has(p.place_id)) { eSeen.add(p.place_id); eMerged.push(p); } }
-      if (eMerged.length > 0) { res.json({ predictions: eMerged.slice(0, 8) }); return; }
-    }
-
-    // Round 5: Geocoding API fallback — finds exact house numbers
-    const geocodeAddr = isShortOrNumeric ? `${inputText} ${nearestCity} Punjab` : inputText;
-    const geocodeResults = await callGeocode(geocodeAddr);
+    // Round 4: Geocoding API — final fallback for hard-to-find addresses
+    const geocodeResults = await callGeocode(inputText);
     if (geocodeResults.length > 0) {
-      // Convert geocode results to prediction-like format
-      const fakePredict = geocodeResults.slice(0, 6).map((r: any) => {
-        const comps: Record<string, string> = {};
-        for (const comp of r.address_components || []) {
-          for (const t of comp.types as string[]) comps[t] = comp.long_name;
-        }
-        const streetNum = comps["street_number"] || "";
-        const route = comps["route"] || "";
-        const sub = comps["sublocality_level_1"] || comps["sublocality"] || comps["neighborhood"] || "";
-        const city2 = comps["locality"] || comps["administrative_area_level_2"] || "";
-        const state = comps["administrative_area_level_1"] || "";
-        const parts: string[] = [];
-        if (streetNum && route) parts.push(`${streetNum} ${route}`); else if (route) parts.push(route);
-        if (sub) parts.push(sub); if (city2) parts.push(city2); if (state) parts.push(state);
-        const addr = parts.length >= 2 ? parts.join(", ") : r.formatted_address;
-        const mainText = parts[0] || addr.split(",")[0];
-        return {
-          place_id: r.place_id,
-          description: addr,
-          structured_formatting: { main_text: mainText, secondary_text: parts.slice(1).join(", ") },
-          _fromGeocode: true,
-          _lat: r.geometry?.location?.lat,
-          _lng: r.geometry?.location?.lng,
-        };
-      });
-      res.json({ predictions: fakePredict }); return;
+      res.json({ predictions: geocodeToPredictions(geocodeResults) }); return;
     }
 
     res.json({ predictions: [] });

@@ -1,0 +1,140 @@
+Fix my React Native (Expo Go) Google Maps address search so it behaves like Uber and matches the previous UI design.
+
+---
+
+### ❗ CURRENT ISSUE
+
+* Typing only house number (e.g., "1792") shows:
+  → "No places found"
+* But I want results like:
+  → House No. 1792, Street X, Ludhiana, Punjab
+
+---
+
+### 🎯 REQUIRED BEHAVIOR (IMPORTANT)
+
+1. Even if user types:
+
+   * "1792"
+   * "45"
+   * "221B"
+
+   The app should:
+   ✅ Automatically append nearby city (like Ludhiana)
+   ✅ Return full address suggestions
+
+---
+
+### 🔧 CORE FIX (MOST IMPORTANT)
+
+#### 1. Smart Query Enhancement (MANDATORY)
+
+If input is only numbers or incomplete:
+
+* Auto-convert:
+  "1792" → "1792 Ludhiana Punjab"
+  "45" → "45 Mohali Punjab"
+
+Implement logic:
+
+```js
+const enhancedQuery = input.length < 6 
+  ? `${input} Ludhiana Punjab`
+  : input;
+```
+
+---
+
+#### 2. Use Correct Places Autocomplete Config
+
+```js
+query={{
+  key: GOOGLE_MAPS_API_KEY,
+  language: "en",
+  components: "country:in",
+  types: "address"
+}}
+fetchDetails={true}
+minLength={2}
+debounce={300}
+```
+
+---
+
+#### 3. ADD Nearby Bias (CRITICAL)
+
+Use current location bias:
+
+```js
+location: `${latitude},${longitude}`,
+radius: 50000,
+```
+
+This helps Google return nearby house-level results
+
+---
+
+#### 4. FALLBACK USING GEOCODING API (VERY IMPORTANT)
+
+If autocomplete returns empty:
+
+* Call Geocoding API manually:
+
+```js
+https://maps.googleapis.com/maps/api/geocode/json?address=1792+Ludhiana+Punjab&key=API_KEY
+```
+
+---
+
+#### 5. ALWAYS FORMAT FULL ADDRESS
+
+Extract and display:
+
+* street_number
+* route
+* area
+* city
+
+Example output:
+"House No. 1792, Street 4, Model Town, Ludhiana, Punjab, India"
+
+---
+
+### 📍 UI REQUIREMENTS (MATCH PREVIOUS IMAGE)
+
+* Show dropdown results like:
+
+  * Bold title (place/street)
+  * Small subtitle (full address)
+* Green dot icon for pickup
+* Clean list (like Uber)
+
+---
+
+### 📱 EXTRA UX IMPROVEMENTS
+
+* If no result:
+  ❌ Do NOT show "No places found"
+  ✅ Instead show:
+  "Searching near Ludhiana..."
+
+---
+
+### ⚠️ EXPO GO FIX
+
+* Remove API key restrictions temporarily
+* Enable billing
+* Ensure Places API + Geocoding API enabled
+
+---
+
+### ✅ FINAL RESULT
+
+* Typing "1792" → shows nearby full addresses
+* No empty results
+* Looks exactly like Uber pickup UI
+* Works in Expo Go AND production
+
+---
+
+Make the system smart, location-aware, and never return empty results for partial address input.

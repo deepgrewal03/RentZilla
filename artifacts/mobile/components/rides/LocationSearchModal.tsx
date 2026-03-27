@@ -457,29 +457,29 @@ export function LocationSearchModal({
     setQuery(text);
     setError(null);
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    if (text.trim().length < 2) { setResults([]); setLoading(false); return; }
+    if (text.trim().length < 1) { setResults([]); setLoading(false); return; }
     setLoading(true);
     debounceRef.current = setTimeout(async () => {
       try {
         const res = await searchGooglePlaces(text, userLat, userLng);
         setResults(res);
         setUsingGoogle(true);
-        setError(res.length === 0 ? "No results found" : null);
+        setError(null);
       } catch {
         setUsingGoogle(false);
         try {
           const res = await searchNominatim(text);
           setResults(res);
-          setError(res.length === 0 ? "No results found" : null);
+          setError(null);
         } catch {
-          setError("Search unavailable — showing local results");
+          setError(null);
           const q = text.toLowerCase();
           setResults(POPULAR.filter((p) => p.label.toLowerCase().includes(q) || p.address.toLowerCase().includes(q)));
         }
       } finally {
         setLoading(false);
       }
-    }, 300);
+    }, 400);
   }, [userLat, userLng]);
 
   const clearQuery = () => { setQuery(""); setResults([]); setError(null); inputRef.current?.focus(); };
@@ -502,7 +502,7 @@ export function LocationSearchModal({
     );
   };
 
-  const showingQuery = query.trim().length >= 2;
+  const showingQuery = query.trim().length >= 1;
 
   return (
     <Modal visible={visible} transparent animationType="none" statusBarTranslucent onRequestClose={onClose}>
@@ -582,7 +582,7 @@ export function LocationSearchModal({
                   </View>
                 )}
 
-                {showingQuery && loading && isShortOrNumeric(query) && (
+                {showingQuery && loading && (
                   <View style={styles.searchingNear}>
                     <ActivityIndicator size="small" color={color} />
                     <Text style={styles.searchingNearText}>Searching near {nearestCity}…</Text>
@@ -591,11 +591,11 @@ export function LocationSearchModal({
 
                 {showingQuery && !loading && results.length === 0 && (
                   <View style={styles.empty}>
-                    <Feather name="map-pin" size={32} color={C.textTertiary} />
-                    <Text style={styles.emptyTitle}>No address found</Text>
+                    <Feather name="search" size={32} color={C.textTertiary} />
+                    <Text style={styles.emptyTitle}>No results near {nearestCity}</Text>
                     <Text style={styles.emptyText}>
-                      Try a more complete address, like{"\n"}
-                      "{query.trim()} {nearestCity}" or add a street name
+                      Add a street name or area to narrow it down.{"\n"}
+                      e.g. "{query.trim()} Street 4, Model Town"
                     </Text>
                   </View>
                 )}
