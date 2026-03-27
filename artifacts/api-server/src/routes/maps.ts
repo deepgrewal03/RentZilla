@@ -13,171 +13,198 @@ router.get("/key", (_req: Request, res: Response) => {
 
 /**
  * GET /api/maps/places?q=query&lat=xx&lng=yy
- * Server-side Google Places Autocomplete proxy.
- * Runs TWO parallel requests: one for precise street addresses ("address")
- * and one for businesses/POIs ("establishment"), then merges + deduplicates.
- * This gives house numbers, street names, flats, AND shop names.
+ *
+ * Google Places Autocomplete + Geocoding proxy.
+ *
+ * Strategy (India-tuned):
+ * – types:"address" is unreliable in India for house numbers.
+ * – We use NO type filter as the primary call so Google returns the
+ *   broadest set (house numbers, areas, businesses, landmarks).
+ * – For short/numeric queries (e.g. "1972") we simultaneously hit the
+ *   city-enhanced variant ("1972 Ludhiana Punjab") + Geocoding API.
+ * – Geocoding results are filtered: only include rows whose
+ *   formatted_address contains the original query token (so "1972"
+ *   doesn't match a result for "Ludhiana city").
  */
 router.get("/places", async (req: Request, res: Response) => {
+  // Never serve stale place results — disable browser/proxy caching
+  res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+  res.setHeader("Pragma", "no-cache");
+
   const { q, lat, lng } = req.query as Record<string, string>;
   const key = process.env["GOOGLE_MAPS_API_KEY"] || "";
 
-  if (!key) {
-    res.status(503).json({ error: "Maps not configured" });
-    return;
-  }
-  if (!q?.trim()) {
-    res.json({ predictions: [] });
-    return;
-  }
+  if (!key) { res.status(503).json({ error: "Maps not configured" }); return; }
+  if (!q?.trim()) { res.json({ predictions: [] }); return; }
 
   const inputText = q.trim();
 
-  // Base params shared by both requests
+  // Location bias — user GPS wins; default to Chandigarh (centre of Punjab)
+  const locParams: Record<string, string> = lat && lng
+    ? { location: `${lat},${lng}`, radius: "50000", strictbounds: "false" }
+    : { location: "30.7333,76.7794", radius: "250000", strictbounds: "false" };
+
+  // Base autocomplete params (NO types filter — broadest results)
   const baseParams: Record<string, string> = {
-    input: inputText,
     key,
     language: "en",
     components: "country:in",
+    ...locParams,
   };
 
-  // Bias toward Punjab; if user location supplied, use that radius=50km
-  if (lat && lng) {
-    baseParams["location"] = `${lat},${lng}`;
-    baseParams["radius"] = "50000";
-    baseParams["strictbounds"] = "false";
-  } else {
-    // Default center on Punjab (Chandigarh)
-    baseParams["location"] = "30.7333,76.7794";
-    baseParams["radius"] = "250000";
-    baseParams["strictbounds"] = "false";
-  }
-
-  const buildUrl = (extraParams: Record<string, string>) => {
-    const p = new URLSearchParams({ ...baseParams, ...extraParams });
-    return `https://maps.googleapis.com/maps/api/place/autocomplete/json?${p}`;
-  };
-
-  const callPlaces = async (extraParams: Record<string, string>): Promise<any[]> => {
+  /** Call Places Autocomplete with a specific input string + extra params */
+  const callPlaces = async (input: string, extra: Record<string, string> = {}): Promise<any[]> => {
     try {
-      const r = await fetch(buildUrl(extraParams));
+      const p = new URLSearchParams({ ...baseParams, input, ...extra });
+      const r = await fetch(`https://maps.googleapis.com/maps/api/place/autocomplete/json?${p}`);
       const d: any = await r.json();
-      return ["OK", "ZERO_RESULTS"].includes(d.status) ? d.predictions || [] : [];
+      if (!["OK", "ZERO_RESULTS"].includes(d.status)) {
+        req.log?.warn({ status: d.status, input }, "Places API non-OK");
+      }
+      return d.predictions || [];
     } catch { return []; }
   };
 
-  // Detect bare house number queries (e.g. "1792", "45B", "221")
-  const isShortOrNumeric = /^\d/.test(inputText) && inputText.length <= 8 && !/[a-zA-Z]{3,}/.test(inputText);
+  /** Call Geocoding API */
+  const callGeocode = async (address: string): Promise<any[]> => {
+    try {
+      const p = new URLSearchParams({ address, key, language: "en", components: "country:in" });
+      if (lat && lng) {
+        const la = parseFloat(lat), ln = parseFloat(lng);
+        p.set("bounds", `${la - 0.5},${ln - 0.5}|${la + 0.5},${ln + 0.5}`);
+      }
+      const r = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?${p}`);
+      const d: any = await r.json();
+      return d.results || [];
+    } catch { return []; }
+  };
+
+  /** Nearest Punjab city from GPS coords */
   const nearestCity = (() => {
-    if (!lat || !lng) return "Ludhiana";
     const cities = [
       { name: "Ludhiana", la: 30.9009, ln: 75.8573 },
       { name: "Chandigarh", la: 30.7333, ln: 76.7794 },
-      { name: "Amritsar", la: 31.634, ln: 74.8723 },
-      { name: "Jalandhar", la: 31.326, ln: 75.5762 },
+      { name: "Amritsar", la: 31.6340, ln: 74.8723 },
+      { name: "Jalandhar", la: 31.3260, ln: 75.5762 },
       { name: "Mohali", la: 30.7046, ln: 76.7179 },
       { name: "Patiala", la: 30.3398, ln: 76.3869 },
     ];
+    if (!lat || !lng) return cities[0].name;
     const la = parseFloat(lat), ln = parseFloat(lng);
     let best = cities[0], minD = Infinity;
     for (const c of cities) { const d = Math.abs(c.la - la) + Math.abs(c.ln - ln); if (d < minD) { minD = d; best = c; } }
     return best.name;
   })();
 
-  const callGeocode = async (address: string): Promise<any[]> => {
-    try {
-      const p = new URLSearchParams({ address, key, language: "en", components: "country:in" });
-      if (lat && lng) p.set("bounds", `${parseFloat(lat)-0.4},${parseFloat(lng)-0.4}|${parseFloat(lat)+0.4},${parseFloat(lng)+0.4}`);
-      const r = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?${p}`);
-      const d: any = await r.json();
-      return ["OK", "ZERO_RESULTS"].includes(d.status) ? (d.results || []) : [];
-    } catch { return []; }
+  /**
+   * Convert Geocoding API results into autocomplete-shaped predictions.
+   * Filters out results that do not contain the original query token
+   * (prevents city-level results from bleeding through when user types "1972").
+   */
+  const geocodeToPredictions = (geocodeResults: any[], queryToken: string): any[] => {
+    const token = queryToken.toLowerCase();
+    return geocodeResults
+      .filter((r: any) => {
+        // Only include result if formatted_address actually contains the token
+        return r.formatted_address?.toLowerCase().includes(token);
+      })
+      .slice(0, 6)
+      .map((r: any) => {
+        const comps: Record<string, string> = {};
+        for (const comp of r.address_components || []) {
+          for (const t of comp.types as string[]) comps[t] = comp.long_name;
+        }
+        const streetNum = comps["street_number"] || "";
+        const route     = comps["route"] || "";
+        const sub       = comps["sublocality_level_2"] || comps["sublocality_level_1"] || comps["sublocality"] || comps["neighborhood"] || "";
+        const city2     = comps["locality"] || comps["administrative_area_level_2"] || "";
+        const state     = comps["administrative_area_level_1"] || "";
+
+        // Build the main display label — always lead with house number if present
+        let mainText: string;
+        if (streetNum && route)      mainText = `${streetNum}, ${route}`;
+        else if (streetNum && sub)   mainText = `${streetNum}, ${sub}`;
+        else if (streetNum && city2) mainText = `${streetNum}, ${city2}`;
+        else if (streetNum)          mainText = streetNum;
+        else if (route)              mainText = route;
+        else if (sub)                mainText = sub;
+        else                         mainText = r.formatted_address.split(",")[0];
+
+        // Build secondary text (everything after mainText)
+        const secondary = r.formatted_address
+          .replace(mainText, "")
+          .replace(/^,\s*/, "")
+          .trim();
+
+        return {
+          place_id: r.place_id,
+          description: r.formatted_address,
+          structured_formatting: { main_text: mainText, secondary_text: secondary },
+          _fromGeocode: true,
+          _lat: r.geometry?.location?.lat,
+          _lng: r.geometry?.location?.lng,
+        };
+      });
   };
 
-  /** Convert Geocoding API results into autocomplete-shaped predictions */
-  const geocodeToPredictions = (geocodeResults: any[]): any[] =>
-    geocodeResults.slice(0, 6).map((r: any) => {
-      const comps: Record<string, string> = {};
-      for (const comp of r.address_components || []) {
-        for (const t of comp.types as string[]) comps[t] = comp.long_name;
-      }
-      const streetNum = comps["street_number"] || "";
-      const route = comps["route"] || "";
-      const sub = comps["sublocality_level_1"] || comps["sublocality"] || comps["neighborhood"] || "";
-      const city2 = comps["locality"] || comps["administrative_area_level_2"] || "";
-      const state = comps["administrative_area_level_1"] || "";
-      const parts: string[] = [];
-      if (streetNum && route) parts.push(`${streetNum} ${route}`); else if (route) parts.push(route);
-      if (sub) parts.push(sub); if (city2) parts.push(city2); if (state) parts.push(state);
-      const addr = parts.length >= 2 ? parts.join(", ") : r.formatted_address;
-      const mainText = parts[0] || addr.split(",")[0];
-      return {
-        place_id: r.place_id,
-        description: addr,
-        structured_formatting: { main_text: mainText, secondary_text: parts.slice(1).join(", ") },
-        _fromGeocode: true,
-        _lat: r.geometry?.location?.lat,
-        _lng: r.geometry?.location?.lng,
-      };
+  /** Deduplicate a list of predictions by place_id */
+  const dedup = (list: any[]): any[] => {
+    const seen = new Set<string>();
+    return list.filter((p) => {
+      if (seen.has(p.place_id)) return false;
+      seen.add(p.place_id);
+      return true;
     });
+  };
+
+  // Detect bare house number queries (e.g. "1972", "45B", "221A")
+  const isShortOrNumeric = /^\d/.test(inputText) && inputText.length <= 10 && !/[a-zA-Z]{4,}/.test(inputText);
 
   try {
-    // For short/numeric queries, run Places + Geocoding in parallel from the start —
-    // no need to exhaust 4 rounds of Autocomplete before falling back.
     if (isShortOrNumeric) {
+      // For numeric house-number queries, run FOUR calls in parallel:
+      // 1) Original query, no type filter (broadest — finds "1972, Sector 7-C" etc)
+      // 2) City-enhanced query, no type filter ("1972 Ludhiana Punjab")
+      // 3) Original + establishments (shops/flats)
+      // 4) Geocoding API with city context (hard fallback)
       const enhanced = `${inputText} ${nearestCity} Punjab`;
-      const buildEnhanced = (extra: Record<string, string>) =>
-        `https://maps.googleapis.com/maps/api/place/autocomplete/json?${new URLSearchParams({ ...baseParams, input: enhanced, ...extra })}`;
-      const callEnhanced = async (extra: Record<string, string>): Promise<any[]> => {
-        try { const r = await fetch(buildEnhanced(extra)); const d: any = await r.json(); return ["OK","ZERO_RESULTS"].includes(d.status) ? d.predictions || [] : []; } catch { return []; }
-      };
-
-      const [addrP, estP, eAddr, eGeo, geoFallback] = await Promise.all([
-        callPlaces({ types: "address" }),
-        callPlaces({ types: "establishment" }),
-        callEnhanced({ types: "address" }),
-        callEnhanced({ types: "geocode" }),
+      const [noType, enhanced1, estP, geoResults] = await Promise.all([
+        callPlaces(inputText),
+        callPlaces(enhanced),
+        callPlaces(inputText, { types: "establishment" }),
         callGeocode(enhanced),
       ]);
 
-      const seen = new Set<string>(); const merged: any[] = [];
-      for (const p of [...addrP, ...estP, ...eAddr, ...eGeo]) {
-        if (!seen.has(p.place_id)) { seen.add(p.place_id); merged.push(p); }
+      const merged = dedup([...noType, ...enhanced1, ...estP]);
+      if (merged.length > 0) {
+        res.json({ predictions: merged.slice(0, 8) });
+        return;
       }
-      if (merged.length > 0) { res.json({ predictions: merged.slice(0, 8) }); return; }
 
-      const geoPreds = geocodeToPredictions(geoFallback);
-      if (geoPreds.length > 0) { res.json({ predictions: geoPreds }); return; }
+      // Geocoding fallback — filter to results that actually contain the number
+      const geoPreds = geocodeToPredictions(geoResults, inputText);
+      if (geoPreds.length > 0) {
+        res.json({ predictions: geoPreds });
+        return;
+      }
 
-      res.json({ predictions: [] }); return;
+      res.json({ predictions: [] });
+      return;
     }
 
-    // Round 1: precise addresses + businesses in parallel
-    const [addrP, estP] = await Promise.all([
-      callPlaces({ types: "address" }),
-      callPlaces({ types: "establishment" }),
+    // ── Normal (non-numeric) query ──────────────────────────────────────────
+    // Round 1: no type filter (broadest) + establishments in parallel
+    const [anyP, estP] = await Promise.all([
+      callPlaces(inputText),
+      callPlaces(inputText, { types: "establishment" }),
     ]);
-
-    const seen = new Set<string>();
-    const merged: any[] = [];
-    for (const p of [...addrP, ...estP]) {
-      if (!seen.has(p.place_id)) { seen.add(p.place_id); merged.push(p); }
-    }
+    const merged = dedup([...anyP, ...estP]);
     if (merged.length > 0) { res.json({ predictions: merged.slice(0, 8) }); return; }
 
-    // Round 2: broader geocode (areas, sectors, pin codes, neighborhoods)
-    const geoP = await callPlaces({ types: "geocode" });
-    if (geoP.length > 0) { res.json({ predictions: geoP.slice(0, 8) }); return; }
-
-    // Round 3: no type restriction — catches everything
-    const anyP = await callPlaces({});
-    if (anyP.length > 0) { res.json({ predictions: anyP.slice(0, 8) }); return; }
-
-    // Round 4: Geocoding API — final fallback for hard-to-find addresses
-    const geocodeResults = await callGeocode(inputText);
-    if (geocodeResults.length > 0) {
-      res.json({ predictions: geocodeToPredictions(geocodeResults) }); return;
-    }
+    // Round 2: Geocoding API fallback
+    const geoResults = await callGeocode(inputText);
+    const geoPreds = geocodeToPredictions(geoResults, inputText);
+    if (geoPreds.length > 0) { res.json({ predictions: geoPreds }); return; }
 
     res.json({ predictions: [] });
   } catch (err) {
