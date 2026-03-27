@@ -12,6 +12,8 @@ import Colors from "@/constants/colors";
 const C = Colors.light;
 const ORANGE = "#E8742A";
 const GREEN = "#22C55E";
+const DARK_GREEN = "#2E7D32";
+const LIGHT_GREEN_BG = "#E8F5E9";
 
 export interface LocationResult {
   label: string;
@@ -119,6 +121,26 @@ const POPULAR: LocationResult[] = [
 ];
 
 const RECENT_KEY = "rides_recent_v3";
+
+// ── Highlight matching query text in bold ──────────────────────────────────────
+function HighlightText({ text, query, style }: { text: string; query: string; style?: object }) {
+  if (!query || query.trim().length === 0) {
+    return <Text style={style}>{text}</Text>;
+  }
+  const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const parts = text.split(new RegExp(`(${escaped})`, "gi"));
+  return (
+    <Text style={style}>
+      {parts.map((part, i) =>
+        part.toLowerCase() === query.toLowerCase() ? (
+          <Text key={i} style={{ fontWeight: "800", color: DARK_GREEN }}>{part}</Text>
+        ) : (
+          <Text key={i}>{part}</Text>
+        )
+      )}
+    </Text>
+  );
+}
 
 // ── Google Places via server proxy ────────────────────────────────────────────
 interface GPlace {
@@ -401,6 +423,7 @@ export function LocationSearchModal({
   const [resolving, setResolving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [usingGoogle, setUsingGoogle] = useState(false);
+  const [focused, setFocused] = useState(false);
   const nearestCity = getNearestCity(userLat, userLng);
   const slideAnim = useRef(new Animated.Value(900)).current;
   const inputRef = useRef<TextInput>(null);
@@ -457,7 +480,7 @@ export function LocationSearchModal({
     setQuery(text);
     setError(null);
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    if (text.trim().length < 2) { setResults([]); setLoading(false); return; }
+    if (text.trim().length < 1) { setResults([]); setLoading(false); return; }
     setLoading(true);
     debounceRef.current = setTimeout(async () => {
       try {
@@ -485,24 +508,32 @@ export function LocationSearchModal({
   const clearQuery = () => { setQuery(""); setResults([]); setError(null); inputRef.current?.focus(); };
 
   const renderRow = (item: LocationResult, type: "recent" | "popular" | "result") => {
-    const iconName = type === "recent" ? "clock" : type === "result" ? "map-pin" : "navigation";
-    const iconColor = type === "recent" ? C.textTertiary : type === "result" ? color : ORANGE;
-    const iconBg = type === "recent" ? `${C.textTertiary}18` : type === "result" ? `${color}18` : `${ORANGE}18`;
+    const isResult = type === "result";
+    const isRecent = type === "recent";
+    const iconName = isRecent ? "clock" : "map-pin";
+    const iconColor = isRecent ? C.textSecondary : DARK_GREEN;
+    const iconBg = isRecent ? C.backgroundSecondary : LIGHT_GREEN_BG;
+    const activeQuery = isResult ? query : "";
     return (
-      <TouchableOpacity key={`${item.address}-${item.placeId || type}`} style={styles.row} onPress={() => handleSelect(item)} activeOpacity={0.7}>
+      <TouchableOpacity
+        key={`${item.address}-${item.placeId || type}`}
+        style={styles.row}
+        onPress={() => handleSelect(item)}
+        activeOpacity={0.72}
+      >
         <View style={[styles.rowIcon, { backgroundColor: iconBg }]}>
           <Feather name={iconName as any} size={16} color={iconColor} />
         </View>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.rowLabel} numberOfLines={1}>{item.label}</Text>
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <HighlightText text={item.label} query={activeQuery} style={styles.rowLabel} />
           <Text style={styles.rowAddr} numberOfLines={2}>{item.address}</Text>
         </View>
-        <Feather name="arrow-up-left" size={13} color={C.textTertiary} />
+        <Feather name="chevron-right" size={16} color={C.textTertiary} />
       </TouchableOpacity>
     );
   };
 
-  const showingQuery = query.trim().length >= 2;
+  const showingQuery = query.trim().length >= 1;
 
   return (
     <Modal visible={visible} transparent animationType="none" statusBarTranslucent onRequestClose={onClose}>
@@ -517,36 +548,44 @@ export function LocationSearchModal({
         <Animated.View style={[styles.sheet, { paddingTop: insets.top + 8, transform: [{ translateY: slideAnim }] }]}>
           {/* Header */}
           <View style={styles.header}>
-            <TouchableOpacity style={styles.backBtn} onPress={onClose}>
+            <TouchableOpacity style={styles.backBtn} onPress={onClose} activeOpacity={0.75}>
               <Feather name="arrow-left" size={20} color={C.text} />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>{title}</Text>
-            {usingGoogle && showingQuery && (
-              <View style={styles.googleBadge}>
-                <Text style={styles.googleBadgeText}>G</Text>
-              </View>
-            )}
+            <View style={styles.avatarCircle}>
+              <Feather name="user" size={16} color={DARK_GREEN} />
+            </View>
           </View>
 
-          {/* Search input */}
-          <View style={[styles.searchBar, { borderColor: query ? color : C.border }]}>
-            <View style={[styles.searchDot, { backgroundColor: color }]} />
+          {/* Search input — pill shape, green active border */}
+          <View style={[
+            styles.searchBar,
+            focused || query
+              ? { borderColor: DARK_GREEN, borderWidth: 2 }
+              : { borderColor: C.border, borderWidth: 1.5 },
+          ]}>
+            {/* Green dot indicator */}
+            <View style={styles.searchDotWrap}>
+              <View style={styles.searchDot} />
+            </View>
             <TextInput
               ref={inputRef}
               style={styles.searchInput}
-              placeholder="House no., street, shop, landmark…"
+              placeholder="House no., street, area, landmark…"
               placeholderTextColor={C.textTertiary}
               value={query}
               onChangeText={onChangeText}
+              onFocus={() => setFocused(true)}
+              onBlur={() => setFocused(false)}
               autoCorrect={false}
               autoCapitalize="words"
               returnKeyType="search"
             />
             {loading ? (
-              <ActivityIndicator size="small" color={color} />
+              <ActivityIndicator size="small" color={DARK_GREEN} />
             ) : query.length > 0 ? (
               <TouchableOpacity onPress={clearQuery} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                <Feather name="x" size={16} color={C.textTertiary} />
+                <Feather name="x-circle" size={18} color={C.textTertiary} />
               </TouchableOpacity>
             ) : null}
           </View>
@@ -575,8 +614,13 @@ export function LocationSearchModal({
                 {showingQuery && results.length > 0 && (
                   <View>
                     <View style={styles.sectionRow}>
-                      <Text style={styles.section}>Results ({results.length})</Text>
-                      {usingGoogle && <Text style={styles.poweredBy}>Powered by Google</Text>}
+                      <Text style={styles.section}>RESULTS ({results.length})</Text>
+                      {usingGoogle && (
+                        <View style={styles.poweredByWrap}>
+                          <View style={styles.gDot}><Text style={styles.gDotText}>G</Text></View>
+                          <Text style={styles.poweredBy}>Powered by Google</Text>
+                        </View>
+                      )}
                     </View>
                     {results.map((item) => renderRow(item, "result"))}
                   </View>
@@ -624,12 +668,12 @@ export function LocationSearchModal({
 }
 
 const styles = StyleSheet.create({
-  backdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.35)", justifyContent: "flex-end" },
+  backdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)", justifyContent: "flex-end" },
   sheet: {
     flex: 1, backgroundColor: C.background,
-    borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    borderTopLeftRadius: 28, borderTopRightRadius: 28,
     shadowColor: "#000", shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.15, shadowRadius: 20, elevation: 20,
+    shadowOpacity: 0.18, shadowRadius: 24, elevation: 24,
   },
   resolvingOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -637,32 +681,52 @@ const styles = StyleSheet.create({
     alignItems: "center", justifyContent: "center", zIndex: 999, gap: 12,
   },
   resolvingText: { color: "#fff", fontSize: 15, fontWeight: "600" },
-  header: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingBottom: 12, gap: 12 },
-  backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: C.backgroundSecondary, alignItems: "center", justifyContent: "center" },
+
+  // Header
+  header: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingBottom: 14, gap: 12 },
+  backBtn: { width: 38, height: 38, borderRadius: 19, backgroundColor: C.backgroundSecondary, alignItems: "center", justifyContent: "center" },
   headerTitle: { flex: 1, fontSize: 18, fontWeight: "700", color: C.text, fontFamily: "Inter_700Bold" },
-  googleBadge: { width: 24, height: 24, borderRadius: 12, backgroundColor: "#4285F4", alignItems: "center", justifyContent: "center" },
-  googleBadgeText: { color: "#fff", fontSize: 12, fontWeight: "900" },
+  avatarCircle: { width: 38, height: 38, borderRadius: 19, backgroundColor: LIGHT_GREEN_BG, alignItems: "center", justifyContent: "center" },
+
+  // Search bar — pill shape
   searchBar: {
     flexDirection: "row", alignItems: "center", gap: 10,
-    marginHorizontal: 16, marginBottom: 4,
+    marginHorizontal: 16, marginBottom: 6,
     backgroundColor: C.backgroundSecondary,
-    borderRadius: 14, paddingHorizontal: 14, paddingVertical: 12, borderWidth: 1.5,
+    borderRadius: 24, paddingHorizontal: 16, paddingVertical: 13,
   },
-  searchDot: { width: 10, height: 10, borderRadius: 5 },
+  searchDotWrap: { width: 14, height: 14, borderRadius: 7, backgroundColor: `${DARK_GREEN}22`, alignItems: "center", justifyContent: "center" },
+  searchDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: DARK_GREEN },
   searchInput: { flex: 1, fontSize: 15, color: C.text, fontFamily: "Inter_400Regular" },
+
+  // Current location shortcut
   currentLocBtn: {
     flexDirection: "row", alignItems: "center", gap: 12,
-    paddingHorizontal: 16, paddingVertical: 12,
+    paddingHorizontal: 16, paddingVertical: 13,
     marginHorizontal: 16, marginTop: 8,
-    backgroundColor: "#22C55E10", borderRadius: 14, borderWidth: 1, borderColor: "#22C55E30",
+    backgroundColor: LIGHT_GREEN_BG, borderRadius: 16,
+    borderWidth: 1, borderColor: `${DARK_GREEN}30`,
   },
-  sectionRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8 },
-  section: { fontSize: 11, fontWeight: "700", color: C.textTertiary, fontFamily: "Inter_700Bold", textTransform: "uppercase", letterSpacing: 0.8 },
+
+  // Section headers
+  sectionRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingTop: 18, paddingBottom: 8 },
+  section: { fontSize: 11, fontWeight: "700", color: C.textTertiary, fontFamily: "Inter_700Bold", textTransform: "uppercase", letterSpacing: 1 },
+  poweredByWrap: { flexDirection: "row", alignItems: "center", gap: 5 },
   poweredBy: { fontSize: 10, color: "#4285F4", fontWeight: "600" },
-  row: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: C.border + "50" },
-  rowIcon: { width: 36, height: 36, borderRadius: 10, alignItems: "center", justifyContent: "center" },
+  gDot: { width: 16, height: 16, borderRadius: 8, backgroundColor: "#4285F4", alignItems: "center", justifyContent: "center" },
+  gDotText: { color: "#fff", fontSize: 9, fontWeight: "900" },
+
+  // Result rows — Google-style
+  row: {
+    flexDirection: "row", alignItems: "center", gap: 14,
+    paddingHorizontal: 16, paddingVertical: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: C.border,
+  },
+  rowIcon: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center", flexShrink: 0 },
   rowLabel: { fontSize: 15, fontWeight: "600", color: C.text, fontFamily: "Inter_600SemiBold" },
-  rowAddr: { fontSize: 12, color: C.textSecondary, fontFamily: "Inter_400Regular", marginTop: 1 },
+  rowAddr: { fontSize: 12, color: C.textSecondary, fontFamily: "Inter_400Regular", marginTop: 2, lineHeight: 17 },
+
+  // States
   empty: { padding: 48, alignItems: "center", gap: 10 },
   emptyTitle: { fontSize: 16, fontWeight: "600", color: C.text, fontFamily: "Inter_600SemiBold" },
   emptyText: { fontSize: 13, color: C.textSecondary, fontFamily: "Inter_400Regular", textAlign: "center", lineHeight: 20 },

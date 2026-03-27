@@ -1,0 +1,202 @@
+# 📍 RentZilla Address Search Upgrade Prompt (Google-style Full Address Search)
+
+## 🎯 Objective
+
+Implement a **Google-like address search system** in RentZilla that:
+
+* Allows searching from **house number (e.g., 2962, 791, etc.)**
+* Returns **full, accurate addresses**
+* Matches the UI/UX shown in the reference screenshots
+
+---
+
+## 🔍 Core Functionality
+
+### ✅ Smart Address Search
+
+* User can type:
+
+  * House number (e.g., "2962", "791")
+  * Street name
+  * Area/locality
+* System should return **full address suggestions**
+
+---
+
+## ⚙️ API Integration (MANDATORY)
+
+### Use:
+
+* **Google Places Autocomplete API**
+
+### Requirements:
+
+* Enable:
+
+  * Places API
+  * Maps SDK
+
+### Query Behavior:
+
+* Fetch suggestions as user types (debounced input)
+* Restrict results to:
+  👉 Punjab, India
+
+---
+
+## 🧠 Search Logic
+
+* Start searching from **first character**
+
+* Prioritize:
+
+  1. Exact house number matches
+  2. Nearby results
+  3. Popular locations
+
+* Show:
+
+  * Main title (bold)
+  * Full address (subtitle)
+
+---
+
+## 📱 UI Design (MATCH REFERENCE EXACTLY)
+
+### 🔝 Header
+
+* Title: **"Choose Pickup"**
+* Back button (left)
+* Profile/avatar (right)
+
+---
+
+### 🔍 Search Bar
+
+* Full width
+* Rounded corners (pill shape)
+* Light grey background
+* Green border when active
+* Left icon: green dot (location indicator)
+* Right icon: clear (X)
+
+---
+
+### 📍 Results Section
+
+#### Structure:
+
+* "RESULTS (X)" label
+* "Powered by Google" (right side)
+
+---
+
+### 📄 Result Item Design
+
+Each result should have:
+
+* Left: location icon inside light green circle
+* Title (bold): e.g. "2962, CRP Colony Rd"
+* Subtitle: full address
+* Right: arrow icon
+
+---
+
+## 🎨 Color Styling
+
+### Search Bar Active Border:
+
+* Green: `#2E7D32`
+
+### Icons Background:
+
+* Light Green: `#E8F5E9`
+
+### Text:
+
+* Primary: `#2C2C2C`
+* Secondary: `#7A7A7A`
+
+---
+
+## ⚡ UX Enhancements
+
+* Debounce input (300ms)
+* Show loader while fetching
+* Highlight matching text
+* Smooth list animations
+* Auto-focus search field on screen open
+
+---
+
+## 📍 On Selection
+
+When user selects an address:
+
+* Save:
+
+  * Full address
+  * Latitude
+  * Longitude
+* Autofill pickup location
+* Navigate back to booking screen
+
+---
+
+## 🛠 Technical Implementation
+
+### Example Flow:
+
+1. User types "791"
+2. Call Google Places API
+3. Fetch predictions
+4. Display results
+5. On click → get place details (lat/lng)
+
+---
+
+## 🔐 API Key Setup
+
+* Store Google API key in environment variables:
+
+  ```
+  GOOGLE_MAPS_API_KEY=xxxx
+  ```
+
+---
+
+## 🧪 Testing (IMPORTANT)
+
+* Test with:
+
+  * House numbers
+  * Full addresses
+  * Partial inputs
+* Ensure accurate results
+* Ensure no crashes
+
+---
+
+## 📦 Output Required
+
+* Fully working address search screen
+* Google Places API integration
+* UI matching provided screenshots
+* Smooth and fast performance
+
+---
+
+## 🧠 Instructions to AI Agent
+
+* Match UI closely to screenshots
+* Focus on accuracy of results
+* Keep UI clean and responsive
+* Optimize API calls
+
+---
+
+## 🎯 Final Goal
+
+A **fast, accurate, Google-like address search** where users can:
+👉 Enter house number → get full address instantly
+👉 Select location easily for bookings
