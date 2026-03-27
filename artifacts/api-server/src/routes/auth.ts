@@ -2,7 +2,8 @@ import { Router, type IRouter } from "express";
 import bcrypt from "bcryptjs";
 import { db } from "@workspace/db";
 import { usersTable } from "@workspace/db";
-import { eq, or } from "drizzle-orm";
+import { eq, or, sql } from "drizzle-orm";
+import { sendOtpEmail } from "../lib/email";
 
 const router: IRouter = Router();
 
@@ -145,6 +146,90 @@ router.post("/login", async (req, res) => {
 // POST /api/auth/logout  — client should clear token; server can blacklist later
 router.post("/logout", (_req, res) => {
   res.json({ success: true, message: "Logged out successfully" });
+});
+
+// ─── POST /api/auth/forgot-password ─────────────────────────────────────────
+// Generate & email a 6-digit OTP valid for 10 minutes
+router.post("/forgot-password", async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) { res.status(400).json({ error: "Email is required" }); return; }
+
+    const addr = (email as string).toLowerCase().trim();
+
+    // Check user exists (we still return 200 either way to avoid user enumeration)
+    const users = await db.select().from(usersTable).where(eq(usersTable.email, addr)).limit(1);
+    if (users.length === 0) {
+      res.json({ success: true });
+      return;
+    }
+
+    // Invalidate old OTPs, generate a fresh one
+    await db.execute(sql.raw(
+      `UPDATE password_reset_otps SET used = TRUE WHERE email = '${addr.replace(/'/g, "''")}'`
+    ));
+
+    const otp       = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+
+    await db.execute(sql.raw(
+      `INSERT INTO password_reset_otps (id, email, otp, expires_at, used)
+       VALUES ('${generateId()}', '${addr.replace(/'/g, "''")}', '${otp}', '${expiresAt}', FALSE)`
+    ));
+
+    await sendOtpEmail(addr, otp);
+
+    res.json({ success: true });
+  } catch (err) {
+    req.log.error({ err }, "Forgot password error");
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ─── POST /api/auth/reset-password ──────────────────────────────────────────
+// Verify OTP, update password
+router.post("/reset-password", async (req, res) => {
+  try {
+    const { email, otp, newPassword } = req.body;
+    if (!email || !otp || !newPassword) {
+      res.status(400).json({ error: "Email, OTP, and new password are required" });
+      return;
+    }
+    if ((newPassword as string).length < 6) {
+      res.status(400).json({ error: "Password must be at least 6 characters" });
+      return;
+    }
+
+    const addr    = (email as string).toLowerCase().trim();
+    const otpStr  = (otp as string).replace(/'/g, "''");
+
+    const rows = await db.execute(sql.raw(
+      `SELECT id FROM password_reset_otps
+       WHERE email = '${addr.replace(/'/g, "''")}'
+         AND otp   = '${otpStr}'
+         AND used  = FALSE
+         AND expires_at > NOW()
+       ORDER BY created_at DESC LIMIT 1`
+    ));
+
+    const record = (rows as any).rows?.[0] ?? (rows as any)[0];
+    if (!record) {
+      res.status(400).json({ error: "Invalid or expired OTP. Please request a new one." });
+      return;
+    }
+
+    await db.execute(sql.raw(
+      `UPDATE password_reset_otps SET used = TRUE WHERE id = '${record.id}'`
+    ));
+
+    const passwordHash = await bcrypt.hash(newPassword as string, 10);
+    await db.update(usersTable).set({ passwordHash } as any).where(eq(usersTable.email, addr));
+
+    res.json({ success: true, message: "Password reset successfully." });
+  } catch (err) {
+    req.log.error({ err }, "Reset password error");
+    res.status(500).json({ error: "Internal server error" });
+  }
 });
 
 export default router;
