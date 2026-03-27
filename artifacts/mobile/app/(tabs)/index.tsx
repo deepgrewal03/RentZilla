@@ -5,8 +5,10 @@ import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   Platform,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -14,71 +16,65 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { ListingCard } from "@/components/ListingCard";
 import { NotificationBell } from "@/components/NotificationBell";
 import { SideDrawer } from "@/components/SideDrawer";
 import Colors, { GRADIENT_ORANGE } from "@/constants/colors";
 import { useAuth } from "@/context/AuthContext";
 import { useLang } from "@/context/LanguageContext";
+import { useApi } from "@/hooks/useApi";
+import { Listing, Category } from "@/types";
 
 const C = Colors.light;
 
-const SERVICES = [
-  { icon: "car-outline",           labelEn: "Car Rental",     labelPa: "ਕਾਰ ਕਿਰਾਇਆ",        color: "#FF7A18", bg: "#FFF3E9", cat: "services" },
-  { icon: "construct-outline",     labelEn: "Tractor Hire",   labelPa: "ਟਰੈਕਟਰ ਕਿਰਾਇਆ",     color: "#2E7D32", bg: "#E8F5E9", cat: "services" },
-  { icon: "umbrella-outline",      labelEn: "Tent & Marquee", labelPa: "ਤੰਬੂ & ਮਾਰਕੀ",      color: "#7B1FA2", bg: "#F3E5F5", cat: "services" },
-  { icon: "musical-notes-outline", labelEn: "Sound System",   labelPa: "ਸਾਊਂਡ ਸਿਸਟਮ",       color: "#0288D1", bg: "#E0F7FA", cat: "services" },
-  { icon: "camera-outline",        labelEn: "Photography",    labelPa: "ਫੋਟੋਗ੍ਰਾਫੀ",         color: "#F57C00", bg: "#FFF8E1", cat: "services" },
-  { icon: "restaurant-outline",    labelEn: "Catering",       labelPa: "ਕੈਟਰਿੰਗ",            color: "#C62828", bg: "#FFEBEE", cat: "services" },
-  { icon: "sparkles-outline",      labelEn: "Cleaning",       labelPa: "ਸਫਾਈ ਸੇਵਾ",          color: "#00838F", bg: "#E0F2F1", cat: "services" },
-  { icon: "water-outline",         labelEn: "Plumbing",       labelPa: "ਪਲੰਬਿੰਗ",            color: "#1565C0", bg: "#E3F2FD", cat: "services" },
-  { icon: "flash-outline",         labelEn: "Electrician",    labelPa: "ਇਲੈਕਟ੍ਰੀਸ਼ੀਅਨ",      color: "#F9A825", bg: "#FFFDE7", cat: "services" },
-  { icon: "thermometer-outline",   labelEn: "AC Repair",      labelPa: "ਏਸੀ ਰਿਪੇਅਰ",         color: "#0277BD", bg: "#E1F5FE", cat: "services" },
-];
-
-const EQUIPMENT = [
-  { icon: "cog-outline",             labelEn: "Tractor",       labelPa: "ਟਰੈਕਟਰ",            color: "#33691E", bg: "#F1F8E9" },
-  { icon: "settings-outline",        labelEn: "Thresher",      labelPa: "ਥਰੈਸ਼ਰ",            color: "#558B2F", bg: "#DCEDC8" },
-  { icon: "hammer-outline",          labelEn: "JCB / Excavator",labelPa: "ਜੇਸੀਬੀ",           color: "#E65100", bg: "#FBE9E7" },
-  { icon: "battery-charging-outline",labelEn: "Generator",     labelPa: "ਜਨਰੇਟਰ",           color: "#AD1457", bg: "#FCE4EC" },
-  { icon: "water-outline",           labelEn: "Water Pump",    labelPa: "ਵਾਟਰ ਪੰਪ",         color: "#006064", bg: "#E0F7FA" },
-  { icon: "leaf-outline",            labelEn: "Crop Sprayer",  labelPa: "ਸਪ੍ਰੇਅਰ",           color: "#1B5E20", bg: "#E8F5E9" },
-  { icon: "grid-outline",            labelEn: "Scaffolding",   labelPa: "ਸਕੈਫੋਲਡਿੰਗ",       color: "#37474F", bg: "#ECEFF1" },
-  { icon: "build-outline",           labelEn: "Drill Machine", labelPa: "ਡਰਿੱਲ ਮਸ਼ੀਨ",      color: "#4E342E", bg: "#EFEBE9" },
-  { icon: "layers-outline",          labelEn: "Compactor",     labelPa: "ਕੰਪੈਕਟਰ",           color: "#455A64", bg: "#ECEFF1" },
-  { icon: "flame-outline",           labelEn: "Welder",        labelPa: "ਵੈਲਡਰ",             color: "#BF360C", bg: "#FBE9E7" },
+const TABS: { id: Category | "all"; labelEn: string; labelPa: string }[] = [
+  { id: "all",       labelEn: "All",       labelPa: "ਸਭ" },
+  { id: "cars",      labelEn: "Cars",       labelPa: "ਕਾਰਾਂ" },
+  { id: "equipment", labelEn: "Equipment",  labelPa: "ਮਸ਼ੀਨਰੀ" },
+  { id: "services",  labelEn: "Services",   labelPa: "ਸੇਵਾਵਾਂ" },
 ];
 
 export default function HomeScreen() {
   const { user, activeMode, setActiveMode } = useAuth();
-  const isBoth         = user?.role === "both";
+  const isBoth        = user?.role === "both";
   const isPureProvider = user?.role === "provider";
+  const { get }       = useApi();
   const { t, language, toggleLanguage } = useLang();
-  const insets         = useSafeAreaInsets();
-  const isWeb          = Platform.OS === "web";
-  const isPa           = language === "pa";
+  const insets        = useSafeAreaInsets();
+  const isWeb         = Platform.OS === "web";
+  const isPa          = language === "pa";
 
-  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [listings, setListings]           = useState<Listing[]>([]);
+  const [loading, setLoading]             = useState(true);
+  const [refreshing, setRefreshing]       = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<Category | "all">("all");
+  const [drawerOpen, setDrawerOpen]       = useState(false);
+
   const inProviderMode = isPureProvider || (isBoth && activeMode === "provider");
 
   useEffect(() => {
     if (!user) { router.replace("/sign-in"); return; }
     if (inProviderMode) { router.replace("/(tabs)/dashboard"); return; }
-  }, [user, inProviderMode]);
+    fetchListings();
+  }, [user, selectedCategory, inProviderMode]);
+
+  async function fetchListings() {
+    try {
+      const path = selectedCategory === "all" ? "/listings" : `/listings?category=${selectedCategory}`;
+      setListings(await get<Listing[]>(path));
+    } catch { }
+    finally { setLoading(false); setRefreshing(false); }
+  }
 
   const topPad    = isWeb ? 67 : insets.top;
   const firstName = user?.firstName || user?.name?.split(" ")[0] || "Friend";
-
-  function handleServicePress(cat: string) {
-    Haptics.selectionAsync();
-    router.push({ pathname: "/(tabs)/search", params: { category: cat } });
-  }
 
   return (
     <View style={styles.root}>
       <StatusBar style="light" />
       <SideDrawer visible={drawerOpen} onClose={() => setDrawerOpen(false)} />
 
-      {/* ─── HEADER ─── */}
+      {/* ─── HEADER: orange gradient with rounded bottom ─── */}
       <LinearGradient
         colors={GRADIENT_ORANGE}
         start={{ x: 0, y: 0 }}
@@ -90,6 +86,7 @@ export default function HomeScreen() {
           <Pressable onPress={() => setDrawerOpen(true)} style={styles.menuBtn}>
             <Ionicons name="menu" size={22} color="#fff" />
           </Pressable>
+
           <View style={styles.headerMid}>
             <Text style={styles.greeting}>
               {isPa ? "ਸਤਿ ਸ੍ਰੀ ਅਕਾਲ" : "Hello"}, {firstName} 👋
@@ -132,7 +129,7 @@ export default function HomeScreen() {
           </View>
         )}
 
-        {/* Floating search bar */}
+        {/* ─── Floating search bar (inside header, visually floats) ─── */}
         <Pressable onPress={() => router.push("/(tabs)/search")} style={styles.searchBar}>
           <Ionicons name="search" size={17} color="#AEAEAE" />
           <Text style={styles.searchHint}>{t.searchPlaceholder}</Text>
@@ -146,65 +143,89 @@ export default function HomeScreen() {
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => { setRefreshing(true); fetchListings(); }}
+            tintColor="#FF7A18"
+          />
+        }
         showsVerticalScrollIndicator={false}
       >
-        {/* ── Services Section ── */}
+        {/* ─── Quick Feature Cards ─── */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.featureRow}>
+          {[
+            { icon: "car-sport-outline", label: isPa ? "ਕਾਰਾਂ" : "Cars", color: "#FF7A18", bg: "#FFF3E9", cat: "cars" as Category },
+            { icon: "hammer-outline", label: isPa ? "ਮਸ਼ੀਨਰੀ" : "Equipment", color: "#2E7D32", bg: "#E8F5E9", cat: "equipment" as Category },
+            { icon: "construct-outline", label: isPa ? "ਸੇਵਾਵਾਂ" : "Services", color: "#0288D1", bg: "#E0F7FA", cat: "services" as Category },
+          ].map((item) => (
+            <Pressable
+              key={item.cat}
+              onPress={() => { Haptics.selectionAsync(); setSelectedCategory(item.cat); }}
+              style={[styles.featureCard, { backgroundColor: item.bg }, selectedCategory === item.cat && styles.featureCardActive]}
+            >
+              <View style={[styles.featureIconCircle, { backgroundColor: `${item.color}20` }]}>
+                <Ionicons name={item.icon as keyof typeof Ionicons.glyphMap} size={22} color={item.color} />
+              </View>
+              <Text style={[styles.featureLabel, { color: item.color }]}>{item.label}</Text>
+            </Pressable>
+          ))}
+          <Pressable
+            onPress={() => router.push("/(tabs)/cars")}
+            style={[styles.featureCard, { backgroundColor: "#1A1A2E" }]}
+          >
+            <View style={[styles.featureIconCircle, { backgroundColor: "rgba(255,255,255,0.15)" }]}>
+              <Ionicons name="speedometer-outline" size={22} color="#fff" />
+            </View>
+            <Text style={[styles.featureLabel, { color: "#fff" }]}>{isPa ? "ਰਾਈਡ" : "Rides"}</Text>
+          </Pressable>
+        </ScrollView>
+
+        {/* Category tabs */}
+        <View style={styles.tabsRow}>
+          {TABS.map((tab) => {
+            const active = selectedCategory === tab.id;
+            return (
+              <Pressable
+                key={tab.id}
+                onPress={() => { Haptics.selectionAsync(); setSelectedCategory(tab.id); }}
+                style={styles.tab}
+              >
+                <Text style={[styles.tabTxt, active && styles.tabTxtActive]}>
+                  {isPa ? tab.labelPa : tab.labelEn}
+                </Text>
+                {active && <View style={styles.tabUnderline} />}
+              </Pressable>
+            );
+          })}
+        </View>
+
+        {/* Section label */}
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>{isPa ? "ਸੇਵਾਵਾਂ" : "Services"}</Text>
-          <Pressable onPress={() => handleServicePress("services")}>
+          <Text style={styles.sectionTitle}>{isPa ? "ਉਪਲਬਧ ਕਿਰਾਏ" : "Available Rentals"}</Text>
+          <Pressable onPress={() => router.push("/(tabs)/search")}>
             <Text style={styles.sectionLink}>{isPa ? "ਸਭ ਵੇਖੋ" : "See all"}</Text>
           </Pressable>
         </View>
 
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.chipRow}
-        >
-          {SERVICES.map((item) => (
-            <Pressable
-              key={item.labelEn}
-              onPress={() => handleServicePress(item.cat)}
-              style={[styles.chip, { backgroundColor: item.bg }]}
-            >
-              <View style={[styles.chipIcon, { backgroundColor: `${item.color}22` }]}>
-                <Ionicons name={item.icon as keyof typeof Ionicons.glyphMap} size={22} color={item.color} />
-              </View>
-              <Text style={[styles.chipLabel, { color: item.color }]} numberOfLines={2}>
-                {isPa ? item.labelPa : item.labelEn}
-              </Text>
-            </Pressable>
-          ))}
-        </ScrollView>
-
-        {/* ── Equipment Section ── */}
-        <View style={[styles.sectionHeader, { marginTop: 8 }]}>
-          <Text style={styles.sectionTitle}>{isPa ? "ਮਸ਼ੀਨਰੀ" : "Equipment"}</Text>
-          <Pressable onPress={() => handleServicePress("equipment")}>
-            <Text style={styles.sectionLink}>{isPa ? "ਸਭ ਵੇਖੋ" : "See all"}</Text>
-          </Pressable>
+        {/* Listings */}
+        <View style={styles.listingsWrap}>
+          {loading ? (
+            <View style={styles.center}>
+              <ActivityIndicator color="#FF7A18" size="large" />
+            </View>
+          ) : listings.length === 0 ? (
+            <View style={styles.center}>
+              <Ionicons name="search-outline" size={52} color="#AEAEAE" />
+              <Text style={styles.emptyTitle}>{isPa ? "ਕੋਈ ਲਿਸਟਿੰਗ ਨਹੀਂ" : "No listings found"}</Text>
+              <Text style={styles.emptyHint}>{isPa ? "ਹੋਰ ਸ਼੍ਰੇਣੀ ਚੁਣੋ" : "Try a different category"}</Text>
+            </View>
+          ) : (
+            listings.map((listing) => (
+              <ListingCard key={listing.id} listing={listing} />
+            ))
+          )}
         </View>
-
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.chipRow}
-        >
-          {EQUIPMENT.map((item) => (
-            <Pressable
-              key={item.labelEn}
-              onPress={() => handleServicePress("equipment")}
-              style={[styles.chip, { backgroundColor: item.bg }]}
-            >
-              <View style={[styles.chipIcon, { backgroundColor: `${item.color}22` }]}>
-                <Ionicons name={item.icon as keyof typeof Ionicons.glyphMap} size={22} color={item.color} />
-              </View>
-              <Text style={[styles.chipLabel, { color: item.color }]} numberOfLines={2}>
-                {isPa ? item.labelPa : item.labelEn}
-              </Text>
-            </Pressable>
-          ))}
-        </ScrollView>
 
         <View style={{ height: isWeb ? 34 : 100 }} />
       </ScrollView>
@@ -227,6 +248,7 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: "#F5F6FA" },
 
+  // ── Header ──────────────────────────────────────────────────
   header: {
     paddingHorizontal: 18,
     paddingBottom: 24,
@@ -251,6 +273,7 @@ const styles = StyleSheet.create({
   },
   langPillText: { color: "#fff", fontSize: 11, fontWeight: "700", fontFamily: "Inter_700Bold" },
 
+  // Mode switcher
   modeRow: {
     flexDirection: "row", alignSelf: "center",
     backgroundColor: "rgba(0,0,0,0.15)", borderRadius: 20, padding: 3,
@@ -261,12 +284,17 @@ const styles = StyleSheet.create({
   modeTxt: { fontSize: 12, fontWeight: "600", fontFamily: "Inter_600SemiBold", color: "rgba(255,255,255,0.8)" },
   modeTxtOn: { color: "#FF7A18" },
 
+  // Search bar (inside header, floats visually)
   searchBar: {
     flexDirection: "row", alignItems: "center", gap: 10,
-    backgroundColor: "#fff", borderRadius: 28,
+    backgroundColor: "#fff",
+    borderRadius: 28,
     paddingHorizontal: 16, paddingVertical: 13,
-    shadowColor: "#000", shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12, shadowRadius: 12, elevation: 6,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    elevation: 6,
   },
   searchHint: { flex: 1, fontSize: 14, color: "#AEAEAE", fontFamily: "Inter_400Regular" },
   micBtn: {
@@ -275,47 +303,88 @@ const styles = StyleSheet.create({
     alignItems: "center", justifyContent: "center",
   },
 
+  // ── Scroll ───────────────────────────────────────────────────
   scroll: { flex: 1 },
-  scrollContent: { paddingTop: 20, paddingBottom: 20 },
+  scrollContent: { paddingTop: 8 },
 
-  sectionHeader: {
-    flexDirection: "row", justifyContent: "space-between", alignItems: "center",
-    paddingHorizontal: 18, marginBottom: 12,
-  },
-  sectionTitle: {
-    fontSize: 17, fontWeight: "700", fontFamily: "Inter_700Bold", color: "#2C2C2C",
-  },
-  sectionLink: {
-    fontSize: 13, fontWeight: "600", fontFamily: "Inter_600SemiBold", color: "#FF7A18",
-  },
-
-  chipRow: {
+  // Feature cards row
+  featureRow: {
     paddingHorizontal: 18,
-    paddingBottom: 16,
+    paddingVertical: 16,
     gap: 12,
   },
-  chip: {
-    width: 88,
+  featureCard: {
+    width: 90,
     paddingVertical: 14,
-    paddingHorizontal: 8,
+    paddingHorizontal: 10,
     borderRadius: 16,
     alignItems: "center",
     gap: 8,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
+    shadowOpacity: 0.05,
     shadowRadius: 6,
     elevation: 2,
   },
-  chipIcon: {
-    width: 46, height: 46, borderRadius: 23,
+  featureCardActive: {
+    shadowOpacity: 0.15,
+    elevation: 5,
+    transform: [{ scale: 1.04 }],
+  },
+  featureIconCircle: {
+    width: 44, height: 44, borderRadius: 22,
     alignItems: "center", justifyContent: "center",
   },
-  chipLabel: {
+  featureLabel: {
     fontSize: 11, fontWeight: "700", fontFamily: "Inter_700Bold",
-    textAlign: "center", lineHeight: 14,
+    textAlign: "center",
   },
 
+  // Section header
+  sectionHeader: {
+    flexDirection: "row", justifyContent: "space-between", alignItems: "center",
+    paddingHorizontal: 18, marginBottom: 12,
+  },
+  sectionTitle: {
+    fontSize: 16, fontWeight: "700", fontFamily: "Inter_700Bold", color: "#2C2C2C",
+  },
+  sectionLink: {
+    fontSize: 13, fontWeight: "600", fontFamily: "Inter_600SemiBold", color: "#FF7A18",
+  },
+
+  // Category tabs
+  tabsRow: {
+    flexDirection: "row",
+    paddingHorizontal: 18,
+    paddingTop: 16,
+    paddingBottom: 4,
+    backgroundColor: "#F5F6FA",
+    borderBottomWidth: 1,
+    borderBottomColor: "#EAEAEA",
+    marginBottom: 16,
+  },
+  tab: {
+    flex: 1, alignItems: "center", paddingVertical: 10, position: "relative",
+  },
+  tabTxt: {
+    fontSize: 13, fontWeight: "500", fontFamily: "Inter_500Medium",
+    color: "#AEAEAE",
+  },
+  tabTxtActive: {
+    color: "#FF7A18", fontWeight: "700", fontFamily: "Inter_700Bold",
+  },
+  tabUnderline: {
+    position: "absolute", bottom: -1, left: "15%", right: "15%",
+    height: 3, borderRadius: 2, backgroundColor: "#FF7A18",
+  },
+
+  // Listings
+  listingsWrap: { paddingHorizontal: 18, gap: 14 },
+  center: { alignItems: "center", justifyContent: "center", paddingVertical: 60, gap: 10 },
+  emptyTitle: { fontSize: 16, fontWeight: "600", fontFamily: "Inter_600SemiBold", color: "#2C2C2C" },
+  emptyHint: { fontSize: 13, color: "#AEAEAE", fontFamily: "Inter_400Regular" },
+
+  // FAB
   fab: {
     position: "absolute", right: 20,
     width: 56, height: 56, borderRadius: 28, overflow: "hidden",

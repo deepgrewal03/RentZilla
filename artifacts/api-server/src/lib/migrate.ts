@@ -171,14 +171,6 @@ export async function runMigrations() {
       created_by TEXT NOT NULL,
       created_at TIMESTAMP NOT NULL DEFAULT NOW()
     )`,
-    `CREATE TABLE IF NOT EXISTS password_reset_otps (
-      id TEXT PRIMARY KEY,
-      email TEXT NOT NULL,
-      otp TEXT NOT NULL,
-      expires_at TIMESTAMP NOT NULL,
-      used BOOLEAN NOT NULL DEFAULT FALSE,
-      created_at TIMESTAMP NOT NULL DEFAULT NOW()
-    )`,
   ];
 
   for (const stmt of statements) {

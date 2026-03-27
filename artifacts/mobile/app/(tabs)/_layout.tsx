@@ -90,12 +90,11 @@ export default function TabLayout() {
         }}
       />
 
-      {/* ── Cars: hidden for customers, shown for providers/drivers ── */}
+      {/* ── Cars: everyone ── */}
       <Tabs.Screen
         name="cars"
         options={{
           title: "Cars",
-          href: inCustomerMode ? null : undefined,
           tabBarIcon: ({ color }) => <Feather name="truck" size={22} color={color} />,
         }}
       />
