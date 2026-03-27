@@ -244,25 +244,6 @@ export default function HomeScreen() {
           })}
         </ScrollView>
 
-        {/* ─── Category filter tabs ─── */}
-        <View style={styles.tabsRow}>
-          {TABS.map((tab) => {
-            const active = selectedCategory === tab.id && !selectedSubcat;
-            return (
-              <Pressable
-                key={tab.id}
-                onPress={() => pickCategory(tab.id)}
-                style={styles.tab}
-              >
-                <Text style={[styles.tabTxt, active && styles.tabTxtActive]}>
-                  {isPa ? tab.labelPa : tab.labelEn}
-                </Text>
-                {active && <View style={styles.tabUnderline} />}
-              </Pressable>
-            );
-          })}
-        </View>
-
         {/* Section label */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>{isPa ? "ਉਪਲਬਧ ਕਿਰਾਏ" : "Available Rentals"}</Text>
