@@ -1,0 +1,192 @@
+Upgrade the Google Maps experience inside my Rentzilla app (React Native Expo) to be fully production-ready, real-time, and visually identical to Uber/Ola apps.
+
+---
+
+### 🎯 MAIN OBJECTIVE
+
+* Map must feel REAL (not static or laggy)
+* Smooth UI like Uber
+* Accurate live location + full address
+* Must work perfectly in:
+
+  * Expo Go (development)
+  * Production build (APK / IPA)
+
+---
+
+### 📍 MAP UI DESIGN (HIGH PRIORITY)
+
+Create a professional ride-booking UI:
+
+* Full-screen Google Map
+* Fixed center pin (pickup marker)
+* Top search bar ("Choose Pickup")
+* Bottom sheet with:
+
+  * Pickup address (auto-updating)
+  * Drop location input
+  * "Book Now" button
+* Floating buttons:
+
+  * Current location (GPS button)
+  * Zoom controls
+
+Style:
+
+* Clean, modern, minimal
+* Rounded corners
+* Smooth transitions
+* Light & dark mode support
+
+---
+
+### 📡 LIVE LOCATION SYSTEM (MANDATORY)
+
+* Track user location in real-time using:
+  expo-location → watchPositionAsync()
+
+* Update location every 2–5 seconds
+
+* Animate marker smoothly (no jumping)
+
+* Auto-center map on user (optional toggle)
+
+---
+
+### 📍 LIVE ADDRESS DETECTION (CRITICAL)
+
+* When user moves the map:
+
+  1. Get latitude & longitude
+  2. Call Google Geocoding API
+  3. Extract full address:
+
+Must include:
+
+* House number (street_number)
+* Street name (route)
+* Area (sublocality)
+* City (locality)
+* State (Punjab)
+
+Display example:
+"House 1792, Street 5, Model Town, Ludhiana, Punjab, India"
+
+---
+
+### 🔍 SMART SEARCH (AUTOCOMPLETE FIX)
+
+Fix "No places found" issue:
+
+* If user types only numbers:
+  → Auto-enhance query:
+  "1792" → "1792 Ludhiana Punjab"
+
+* Use:
+
+```js
+query={{
+  key: GOOGLE_MAPS_API_KEY,
+  language: "en",
+  components: "country:in",
+  types: "address"
+}}
+fetchDetails={true}
+location: `${latitude},${longitude}`
+radius: 50000
+```
+
+* Always return detailed addresses (not just cities)
+
+---
+
+### 🛣️ LIVE ROUTE + ETA (IMPORTANT)
+
+* When pickup & drop selected:
+
+  * Draw route using Directions API
+  * Show:
+
+    * Distance
+    * Estimated time (ETA)
+
+* Use:
+  react-native-maps-directions
+
+---
+
+### 🚗 DRIVER LIVE TRACKING (ADVANCED)
+
+* Show nearby drivers/providers on map
+* Update every 2–5 seconds
+* Animate movement smoothly
+
+---
+
+### ⚙️ PRODUCTION MODE FIXES (VERY IMPORTANT)
+
+#### 1. API KEY SETUP
+
+* Enable:
+
+  * Maps SDK (Android + iOS)
+  * Places API
+  * Geocoding API
+  * Directions API
+
+* Add restrictions properly:
+
+  * Android → package name + SHA-1
+  * iOS → bundle identifier
+
+---
+
+#### 2. ENVIRONMENT VARIABLES
+
+* Store API key in:
+  .env file
+
+---
+
+#### 3. PERMISSIONS
+
+* Location permissions must be enabled:
+
+  * Foreground location
+  * Background (optional)
+
+---
+
+#### 4. PERFORMANCE
+
+* Use debounce for API calls
+* Avoid unnecessary re-renders
+* Optimize map rendering
+
+---
+
+### 🧠 UX IMPROVEMENTS
+
+* If no results:
+  ❌ Do NOT show empty screen
+  ✅ Show: "Searching nearby locations..."
+
+* Auto-detect city (Ludhiana / Punjab)
+
+* Smooth loading states
+
+---
+
+### ✅ FINAL RESULT
+
+* Map feels exactly like Uber:
+
+  * Live moving location
+  * Smooth animations
+  * Accurate full address (house + street)
+  * No "No places found" issue
+* Works perfectly in production build (not just Expo Go)
+
+---
+
+Make it premium, fast, and realistic — like a real-world ride booking app.

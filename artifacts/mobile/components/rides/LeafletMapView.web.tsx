@@ -15,6 +15,8 @@ export interface MapRef {
   setMode: (mode: "pickup" | "drop") => void;
   getCurrentLocation: () => void;
   fitBounds: () => void;
+  setMyLocation: (lat: number, lng: number) => void;
+  panTo: (lat: number, lng: number) => void;
 }
 
 interface Props {
@@ -43,13 +45,20 @@ function buildGoogleMapHtml(lat: number, lng: number, apiKey: string): string {
   <style>
     *{margin:0;padding:0;box-sizing:border-box}
     html,body,#map{width:100%;height:100%;background:#f0ebe3}
+
+    /* GPS crosshair button */
     #gps-btn{
-      position:absolute;bottom:120px;right:12px;z-index:999;
-      width:42px;height:42px;border-radius:50%;
+      position:absolute;bottom:80px;right:12px;z-index:999;
+      width:44px;height:44px;border-radius:50%;
       background:#fff;border:none;cursor:pointer;
-      box-shadow:0 2px 10px rgba(0,0,0,0.25);
-      display:flex;align-items:center;justify-content:center;font-size:20px;
+      box-shadow:0 2px 12px rgba(0,0,0,0.22);
+      display:flex;align-items:center;justify-content:center;
+      transition:transform 0.12s;
     }
+    #gps-btn:active{transform:scale(0.9);}
+    #gps-btn svg{width:22px;height:22px;}
+
+    /* Mode pill */
     #mode-pill{
       position:absolute;top:12px;left:50%;transform:translateX(-50%);z-index:999;
       background:rgba(15,31,61,0.85);color:#fff;
@@ -57,34 +66,93 @@ function buildGoogleMapHtml(lat: number, lng: number, apiKey: string): string {
       font-family:sans-serif;pointer-events:none;
       box-shadow:0 2px 10px rgba(0,0,0,0.3);
     }
+
+    /* Center drag pin — custom orange SVG */
     #center-pin{
-      position:absolute;top:50%;left:50%;transform:translate(-50%,-100%);
-      z-index:998;pointer-events:none;font-size:28px;
-      filter:drop-shadow(0 2px 4px rgba(0,0,0,0.5));
-      transition:transform 0.15s ease;
+      position:absolute;top:50%;left:50%;
+      transform:translate(-50%,-100%);
+      z-index:998;pointer-events:none;
+      transition:transform 0.18s cubic-bezier(0.34,1.56,0.64,1),filter 0.15s;
+      filter:drop-shadow(0 3px 7px rgba(0,0,0,0.45));
     }
-    #center-pin.dragging{transform:translate(-50%,-115%) scale(1.15);}
+    #center-pin.dragging{
+      transform:translate(-50%,-120%) scale(1.18);
+      filter:drop-shadow(0 7px 14px rgba(0,0,0,0.38));
+    }
+
+    /* "Finding address…" pill — appears below pin while geocoding */
+    #addr-pill{
+      position:absolute;top:50%;left:50%;
+      transform:translate(-50%,10px);
+      z-index:997;pointer-events:none;
+      background:rgba(15,31,61,0.82);
+      color:#fff;font-size:11px;font-weight:600;font-family:sans-serif;
+      border-radius:10px;padding:4px 11px;
+      opacity:0;transition:opacity 0.2s;white-space:nowrap;
+    }
+    #addr-pill.show{opacity:1;}
+
+    /* Pulsing blue "my location" dot */
+    .my-loc-ring{
+      width:22px;height:22px;border-radius:50%;
+      background:rgba(66,133,244,0.22);
+      display:flex;align-items:center;justify-content:center;
+      animation:loc-pulse 1.8s ease-out infinite;
+    }
+    .my-loc-dot{
+      width:12px;height:12px;border-radius:50%;
+      background:#4285F4;border:2.5px solid #fff;
+      box-shadow:0 1px 5px rgba(0,0,0,0.3);
+    }
+    @keyframes loc-pulse{
+      0%{box-shadow:0 0 0 0 rgba(66,133,244,0.45);}
+      70%{box-shadow:0 0 0 11px rgba(66,133,244,0);}
+      100%{box-shadow:0 0 0 0 rgba(66,133,244,0);}
+    }
   </style>
 </head>
 <body>
 <div id="map"></div>
-<div id="center-pin">📍</div>
-<button id="gps-btn" onclick="doGPS()">📍</button>
+
+<!-- Custom SVG orange center pin -->
+<div id="center-pin">
+  <svg width="36" height="46" viewBox="0 0 36 46" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M18 0C8.059 0 0 8.059 0 18c0 10.627 14.14 24.532 17.057 27.293a1.32 1.32 0 001.886 0C21.86 42.532 36 28.627 36 18 36 8.059 27.941 0 18 0z" fill="#FF7A18"/>
+    <circle cx="18" cy="18" r="7.5" fill="white"/>
+  </svg>
+</div>
+<div id="addr-pill">Finding address…</div>
+
+<!-- SVG crosshair GPS button -->
+<button id="gps-btn" onclick="doGPS()" title="My location">
+  <svg viewBox="0 0 24 24" fill="none" stroke="#FF7A18" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="3"/>
+    <line x1="12" y1="1" x2="12" y2="6"/>
+    <line x1="12" y1="18" x2="12" y2="23"/>
+    <line x1="1" y1="12" x2="6" y2="12"/>
+    <line x1="18" y1="12" x2="23" y2="12"/>
+  </svg>
+</button>
 <div id="mode-pill">Set Pickup</div>
+
 <script>
 var GKEY='${apiKey}';
 var INIT_LAT=${lat},INIT_LNG=${lng};
 var settingMode='pickup';
-var pickupM=null,dropM=null,driverM=null,routeRenderer=null,map=null;
+var pickupM=null,dropM=null,driverM=null,myLocM=null,routeRenderer=null,map=null;
 var modePill=document.getElementById('mode-pill');
 var centerPin=document.getElementById('center-pin');
+var addrPill=document.getElementById('addr-pill');
 var geocodeTimeout=null;
+var driverAnimId=null;
 
 function send(data){
   var s=JSON.stringify(data);
   try{window.parent.postMessage(s,'*');}catch(e){}
   try{if(window.ReactNativeWebView)window.ReactNativeWebView.postMessage(s);}catch(e){}
 }
+
+function showAddr(v){v?addrPill.classList.add('show'):addrPill.classList.remove('show');}
 
 function updateModePill(){
   modePill.textContent=settingMode==='pickup'?'Drag map to set Pickup':'Drag map to set Destination';
@@ -101,44 +169,45 @@ function initMap(){
     zoomControl:true,
     zoomControlOptions:{position:google.maps.ControlPosition.RIGHT_CENTER},
     styles:[
-      {featureType:'poi.business',stylers:[{visibility:'simplified'}]},
-      {featureType:'transit',stylers:[{visibility:'simplified'}]}
+      {featureType:'poi.business',stylers:[{visibility:'off'}]},
+      {featureType:'transit',stylers:[{visibility:'simplified'}]},
+      {featureType:'road',elementType:'labels.icon',stylers:[{visibility:'off'}]}
     ]
   });
 
   routeRenderer=new google.maps.DirectionsRenderer({
-    map:map,
-    suppressMarkers:true,
-    polylineOptions:{strokeColor:'#FF7A18',strokeWeight:5,strokeOpacity:0.85}
+    map:map,suppressMarkers:true,
+    polylineOptions:{strokeColor:'#FF7A18',strokeWeight:5,strokeOpacity:0.9}
   });
 
-  // Animate center pin during drag
   map.addListener('dragstart',function(){
     centerPin.classList.add('dragging');
+    showAddr(false);
     if(geocodeTimeout){clearTimeout(geocodeTimeout);geocodeTimeout=null;}
   });
 
-  // On drag end — reverse geocode center and fire centerChanged
   map.addListener('dragend',function(){
     centerPin.classList.remove('dragging');
+    showAddr(true);
     var center=map.getCenter();
     var lat=center.lat(),lng=center.lng();
     geocodeTimeout=setTimeout(async function(){
       var addr=await reverseGeocode(lat,lng);
+      showAddr(false);
       send({type:'centerChanged',lat:lat,lng:lng,address:addr});
-    },300);
+    },350);
   });
 
-  // Click still works to set markers
   map.addListener('click',async function(e){
     var lat=e.latLng.lat(),lng=e.latLng.lng();
+    showAddr(true);
     var addr=await reverseGeocode(lat,lng);
+    showAddr(false);
     send({type:'locationSelected',mode:settingMode,lat:lat,lng:lng,address:addr});
   });
 
   updateModePill();
   setTimeout(function(){
-    // Fire initial center geocode
     reverseGeocode(INIT_LAT,INIT_LNG).then(function(addr){
       send({type:'centerChanged',lat:INIT_LAT,lng:INIT_LNG,address:addr});
     });
@@ -147,32 +216,32 @@ function initMap(){
 }
 
 function mkPickupIcon(){
-  return{path:google.maps.SymbolPath.CIRCLE,fillColor:'#22C55E',fillOpacity:1,strokeColor:'#fff',strokeWeight:3,scale:10};
+  return{path:google.maps.SymbolPath.CIRCLE,fillColor:'#22C55E',fillOpacity:1,strokeColor:'#fff',strokeWeight:3,scale:11};
 }
 function mkDropIcon(){
-  return{path:google.maps.SymbolPath.CIRCLE,fillColor:'#FF7A18',fillOpacity:1,strokeColor:'#fff',strokeWeight:3,scale:10};
+  return{path:google.maps.SymbolPath.CIRCLE,fillColor:'#FF7A18',fillOpacity:1,strokeColor:'#fff',strokeWeight:3,scale:11};
 }
 function mkDriverIcon(){
   return{
     url:'data:image/svg+xml;charset=UTF-8,'+encodeURIComponent(
-      '<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40">'+
-      '<circle cx="20" cy="20" r="18" fill="#0F1F3D" stroke="#fff" stroke-width="2"/>'+
-      '<text x="20" y="26" font-size="18" text-anchor="middle" fill="white">🚗</text>'+
+      '<svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 44 44">'+
+      '<circle cx="22" cy="22" r="20" fill="#0F1F3D" stroke="#fff" stroke-width="2"/>'+
+      '<text x="22" y="29" font-size="20" text-anchor="middle" fill="white">🚗</text>'+
       '</svg>'),
-    scaledSize:new google.maps.Size(40,40),anchor:new google.maps.Point(20,20)
+    scaledSize:new google.maps.Size(44,44),anchor:new google.maps.Point(22,22)
   };
 }
 
 function setPickup(lat,lng,addr){
   if(pickupM) pickupM.setMap(null);
-  pickupM=new google.maps.Marker({position:{lat,lng},map,icon:mkPickupIcon(),title:'Pickup: '+(addr||''),zIndex:2});
+  pickupM=new google.maps.Marker({position:{lat,lng},map,icon:mkPickupIcon(),title:'Pickup',zIndex:2});
   if(!dropM) map.panTo({lat,lng});
   if(dropM) drawRoute();
   updateModePill();
 }
 function setDrop(lat,lng,addr){
   if(dropM) dropM.setMap(null);
-  dropM=new google.maps.Marker({position:{lat,lng},map,icon:mkDropIcon(),title:'Destination: '+(addr||''),zIndex:2});
+  dropM=new google.maps.Marker({position:{lat,lng},map,icon:mkDropIcon(),title:'Drop',zIndex:2});
   if(pickupM) drawRoute();
   updateModePill();
 }
@@ -181,9 +250,46 @@ function clearDrop(){
   if(routeRenderer) routeRenderer.setDirections({routes:[]});
   updateModePill();
 }
+
+/* Pulsing blue "my location" marker */
+function setMyLocation(lat,lng){
+  if(myLocM){
+    try{myLocM.position={lat,lng};}catch(ex){myLocM.setPosition({lat,lng});}
+    return;
+  }
+  try{
+    var el=document.createElement('div');
+    el.className='my-loc-ring';
+    var dot=document.createElement('div');
+    dot.className='my-loc-dot';
+    el.appendChild(dot);
+    myLocM=new google.maps.marker.AdvancedMarkerElement({position:{lat,lng},map:map,content:el,zIndex:1});
+  }catch(ex){
+    myLocM=new google.maps.Marker({
+      position:{lat,lng},map,
+      icon:{path:google.maps.SymbolPath.CIRCLE,fillColor:'#4285F4',fillOpacity:1,strokeColor:'#fff',strokeWeight:2.5,scale:7},
+      zIndex:1
+    });
+  }
+}
+
+/* Smooth driver marker — easeInOut interpolation */
 function setDriver(lat,lng){
-  if(driverM) driverM.setPosition({lat,lng});
-  else driverM=new google.maps.Marker({position:{lat,lng},map,icon:mkDriverIcon(),zIndex:3});
+  if(!driverM){
+    driverM=new google.maps.Marker({position:{lat,lng},map,icon:mkDriverIcon(),zIndex:3});
+    return;
+  }
+  var sp=driverM.getPosition();
+  var sLat=sp.lat(),sLng=sp.lng(),eLat=lat,eLng=lng;
+  var t0=performance.now(),DUR=1200;
+  if(driverAnimId) cancelAnimationFrame(driverAnimId);
+  function step(now){
+    var t=Math.min((now-t0)/DUR,1);
+    var e=t<0.5?2*t*t:1-Math.pow(-2*t+2,2)/2;
+    driverM.setPosition({lat:sLat+(eLat-sLat)*e,lng:sLng+(eLng-sLng)*e});
+    if(t<1) driverAnimId=requestAnimationFrame(step);
+  }
+  driverAnimId=requestAnimationFrame(step);
 }
 
 function drawRoute(){
@@ -201,7 +307,7 @@ function drawRoute(){
       var bounds=new google.maps.LatLngBounds();
       bounds.extend(pickupM.getPosition());
       bounds.extend(dropM.getPosition());
-      map.fitBounds(bounds,{top:80,right:60,bottom:60,left:60});
+      map.fitBounds(bounds,{top:80,right:60,bottom:80,left:60});
       send({type:'routeCalculated',distanceKm:distKm,durationMin:durMin});
     }else{
       var p=pickupM.getPosition(),d=dropM.getPosition();
@@ -214,10 +320,7 @@ function drawRoute(){
   });
 }
 
-/**
- * Full reverse geocoding — extracts street_number, route, sublocality, city, state.
- * Returns a precise address like "1792 Model Town Road, Model Town, Ludhiana, Punjab".
- */
+/* Full address: street_number + route + sublocality + city + state */
 async function reverseGeocode(lat,lng){
   try{
     var gc=new google.maps.Geocoder();
@@ -254,7 +357,10 @@ function doGPS(){
   navigator.geolocation.getCurrentPosition(
     async function(pos){
       var lat=pos.coords.latitude,lng=pos.coords.longitude;
+      setMyLocation(lat,lng);
+      showAddr(true);
       var addr=await reverseGeocode(lat,lng);
+      showAddr(false);
       send({type:'gpsLocation',lat:lat,lng:lng,address:addr});
       map.panTo({lat,lng});
     },
@@ -270,21 +376,22 @@ function handleMsg(e){
     else if(m.type==='setDrop') setDrop(m.lat,m.lng,m.address);
     else if(m.type==='clearDrop') clearDrop();
     else if(m.type==='setDriver') setDriver(m.lat,m.lng);
+    else if(m.type==='setMyLocation') setMyLocation(m.lat,m.lng);
     else if(m.type==='setMode'){settingMode=m.mode;updateModePill();}
     else if(m.type==='fitBounds'&&pickupM&&dropM){
       var b=new google.maps.LatLngBounds();
       b.extend(pickupM.getPosition());b.extend(dropM.getPosition());
-      map.fitBounds(b,{top:80,right:60,bottom:60,left:60});
+      map.fitBounds(b,{top:80,right:60,bottom:80,left:60});
     }
     else if(m.type==='getCurrentLocation') doGPS();
-    else if(m.type==='panTo') map.panTo({lat:m.lat,lng:m.lng});
+    else if(m.type==='panTo'&&map) map.panTo({lat:m.lat,lng:m.lng});
   }catch(e){}
 }
 window.addEventListener('message',handleMsg);
 document.addEventListener('message',handleMsg);
 </script>
 <script async
-  src="https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places,geometry&callback=initMap">
+  src="https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places,geometry,marker&callback=initMap">
 </script>
 </body>
 </html>`;
@@ -408,6 +515,8 @@ const LeafletMapView = forwardRef<MapRef, Props>(
       setMode: (mode) => send({ type: "setMode", mode }),
       getCurrentLocation: () => send({ type: "getCurrentLocation" }),
       fitBounds: () => send({ type: "fitBounds" }),
+      setMyLocation: (lat, lng) => send({ type: "setMyLocation", lat, lng }),
+      panTo: (lat, lng) => send({ type: "panTo", lat, lng }),
     }));
 
     useEffect(() => {
