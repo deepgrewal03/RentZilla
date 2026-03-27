@@ -29,7 +29,6 @@ const C = Colors.light;
 
 const TABS: { id: Category | "all"; labelEn: string; labelPa: string }[] = [
   { id: "all",       labelEn: "All",       labelPa: "ਸਭ" },
-  { id: "cars",      labelEn: "Cars",       labelPa: "ਕਾਰਾਂ" },
   { id: "equipment", labelEn: "Equipment",  labelPa: "ਮਸ਼ੀਨਰੀ" },
   { id: "services",  labelEn: "Services",   labelPa: "ਸੇਵਾਵਾਂ" },
 ];
@@ -155,7 +154,6 @@ export default function HomeScreen() {
         {/* ─── Quick Feature Cards ─── */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.featureRow}>
           {[
-            { icon: "car-sport-outline", label: isPa ? "ਕਾਰਾਂ" : "Cars", color: "#FF7A18", bg: "#FFF3E9", cat: "cars" as Category },
             { icon: "hammer-outline", label: isPa ? "ਮਸ਼ੀਨਰੀ" : "Equipment", color: "#2E7D32", bg: "#E8F5E9", cat: "equipment" as Category },
             { icon: "construct-outline", label: isPa ? "ਸੇਵਾਵਾਂ" : "Services", color: "#0288D1", bg: "#E0F7FA", cat: "services" as Category },
           ].map((item) => (
