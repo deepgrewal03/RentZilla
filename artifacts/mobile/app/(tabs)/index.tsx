@@ -43,11 +43,12 @@ export default function HomeScreen() {
   const isWeb         = Platform.OS === "web";
   const isPa          = language === "pa";
 
-  const [listings, setListings]           = useState<Listing[]>([]);
-  const [loading, setLoading]             = useState(true);
-  const [refreshing, setRefreshing]       = useState(false);
+  const [listings, setListings]               = useState<Listing[]>([]);
+  const [loading, setLoading]                 = useState(true);
+  const [refreshing, setRefreshing]           = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<Category | "all">("all");
-  const [drawerOpen, setDrawerOpen]       = useState(false);
+  const [selectedSubcat, setSelectedSubcat]   = useState<string>("");
+  const [drawerOpen, setDrawerOpen]           = useState(false);
 
   const inProviderMode = isPureProvider || (isBoth && activeMode === "provider");
 
@@ -55,14 +56,34 @@ export default function HomeScreen() {
     if (!user) { router.replace("/sign-in"); return; }
     if (inProviderMode) { router.replace("/(tabs)/dashboard"); return; }
     fetchListings();
-  }, [user, selectedCategory, inProviderMode]);
+  }, [user, selectedCategory, selectedSubcat, inProviderMode]);
 
   async function fetchListings() {
     try {
-      const path = selectedCategory === "all" ? "/listings" : `/listings?category=${selectedCategory}`;
+      let path = "/listings";
+      const params: string[] = [];
+      if (selectedCategory !== "all") params.push(`category=${selectedCategory}`);
+      if (selectedSubcat)             params.push(`subcategory=${encodeURIComponent(selectedSubcat)}`);
+      if (params.length)              path += "?" + params.join("&");
       setListings(await get<Listing[]>(path));
     } catch { }
     finally { setLoading(false); setRefreshing(false); }
+  }
+
+  function pickSubcat(cat: Category, sub: string) {
+    Haptics.selectionAsync();
+    if (selectedCategory === cat && selectedSubcat === sub) {
+      setSelectedSubcat("");
+    } else {
+      setSelectedCategory(cat);
+      setSelectedSubcat(sub);
+    }
+  }
+
+  function pickCategory(cat: Category | "all") {
+    Haptics.selectionAsync();
+    setSelectedCategory(cat);
+    setSelectedSubcat("");
   }
 
   const topPad    = isWeb ? 67 : insets.top;
@@ -151,42 +172,86 @@ export default function HomeScreen() {
         }
         showsVerticalScrollIndicator={false}
       >
-        {/* ─── Quick Feature Cards ─── */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.featureRow}>
-          {[
-            { icon: "hammer-outline", label: isPa ? "ਮਸ਼ੀਨਰੀ" : "Equipment", color: "#2E7D32", bg: "#E8F5E9", cat: "equipment" as Category },
-            { icon: "construct-outline", label: isPa ? "ਸੇਵਾਵਾਂ" : "Services", color: "#0288D1", bg: "#E0F7FA", cat: "services" as Category },
-          ].map((item) => (
-            <Pressable
-              key={item.cat}
-              onPress={() => { Haptics.selectionAsync(); setSelectedCategory(item.cat); }}
-              style={[styles.featureCard, { backgroundColor: item.bg }, selectedCategory === item.cat && styles.featureCardActive]}
-            >
-              <View style={[styles.featureIconCircle, { backgroundColor: `${item.color}20` }]}>
-                <Ionicons name={item.icon as keyof typeof Ionicons.glyphMap} size={22} color={item.color} />
-              </View>
-              <Text style={[styles.featureLabel, { color: item.color }]}>{item.label}</Text>
-            </Pressable>
-          ))}
-          <Pressable
-            onPress={() => router.push("/(tabs)/cars")}
-            style={[styles.featureCard, { backgroundColor: "#1A1A2E" }]}
-          >
-            <View style={[styles.featureIconCircle, { backgroundColor: "rgba(255,255,255,0.15)" }]}>
-              <Ionicons name="speedometer-outline" size={22} color="#fff" />
-            </View>
-            <Text style={[styles.featureLabel, { color: "#fff" }]}>{isPa ? "ਰਾਈਡ" : "Rides"}</Text>
+        {/* ─── Equipment chips ─── */}
+        <View style={[styles.sectionHeader, { marginTop: 12 }]}>
+          <Text style={styles.sectionTitle}>{isPa ? "ਮਸ਼ੀਨਰੀ" : "Equipment"}</Text>
+          <Pressable onPress={() => pickCategory("equipment")}>
+            <Text style={[styles.sectionLink, selectedCategory === "equipment" && !selectedSubcat && styles.sectionLinkActive]}>
+              {isPa ? "ਸਭ ਵੇਖੋ" : "See all"}
+            </Text>
           </Pressable>
+        </View>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
+          {[
+            { label: "Tractor",   labelPa: "ਟਰੈਕਟਰ",    icon: "cog-outline",      color: "#33691E", bg: "#F1F8E9" },
+            { label: "Harvester", labelPa: "ਹਾਰਵੈਸਟਰ",  icon: "settings-outline", color: "#558B2F", bg: "#DCEDC8" },
+            { label: "Rotavator", labelPa: "ਰੋਟਾਵੇਟਰ",  icon: "sync-outline",     color: "#00695C", bg: "#E0F2F1" },
+            { label: "Sprayer",   labelPa: "ਸਪ੍ਰੇਅਰ",   icon: "leaf-outline",     color: "#1B5E20", bg: "#E8F5E9" },
+            { label: "Plough",    labelPa: "ਹਲ",         icon: "git-branch-outline",color: "#4E342E", bg: "#EFEBE9" },
+            { label: "Cultivator",labelPa: "ਕਲਟੀਵੇਟਰ",  icon: "grid-outline",     color: "#37474F", bg: "#ECEFF1" },
+          ].map((item) => {
+            const active = selectedCategory === "equipment" && selectedSubcat === item.label;
+            return (
+              <Pressable
+                key={item.label}
+                onPress={() => pickSubcat("equipment", item.label)}
+                style={[styles.chip, { backgroundColor: active ? item.color : item.bg }]}
+              >
+                <View style={[styles.chipIcon, { backgroundColor: active ? "rgba(255,255,255,0.25)" : `${item.color}22` }]}>
+                  <Ionicons name={item.icon as keyof typeof Ionicons.glyphMap} size={22} color={active ? "#fff" : item.color} />
+                </View>
+                <Text style={[styles.chipLabel, { color: active ? "#fff" : item.color }]} numberOfLines={2}>
+                  {isPa ? item.labelPa : item.label}
+                </Text>
+              </Pressable>
+            );
+          })}
         </ScrollView>
 
-        {/* Category tabs */}
+        {/* ─── Services chips ─── */}
+        <View style={[styles.sectionHeader, { marginTop: 4 }]}>
+          <Text style={styles.sectionTitle}>{isPa ? "ਸੇਵਾਵਾਂ" : "Services"}</Text>
+          <Pressable onPress={() => pickCategory("services")}>
+            <Text style={[styles.sectionLink, selectedCategory === "services" && !selectedSubcat && styles.sectionLinkActive]}>
+              {isPa ? "ਸਭ ਵੇਖੋ" : "See all"}
+            </Text>
+          </Pressable>
+        </View>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
+          {[
+            { label: "Plumber",     labelPa: "ਪਲੰਬਰ",          icon: "water-outline",       color: "#1565C0", bg: "#E3F2FD" },
+            { label: "Electrician", labelPa: "ਇਲੈਕਟ੍ਰੀਸ਼ੀਅਨ",  icon: "flash-outline",       color: "#F57F17", bg: "#FFFDE7" },
+            { label: "Beauty",      labelPa: "ਬਿਊਟੀ",           icon: "flower-outline",      color: "#AD1457", bg: "#FCE4EC" },
+            { label: "Carpenter",   labelPa: "ਤਰਖਾਣ",           icon: "hammer-outline",      color: "#4E342E", bg: "#EFEBE9" },
+            { label: "Painter",     labelPa: "ਪੇਂਟਰ",           icon: "brush-outline",       color: "#E65100", bg: "#FBE9E7" },
+            { label: "AC Repair",   labelPa: "ਏਸੀ ਰਿਪੇਅਰ",     icon: "thermometer-outline", color: "#0277BD", bg: "#E1F5FE" },
+          ].map((item) => {
+            const active = selectedCategory === "services" && selectedSubcat === item.label;
+            return (
+              <Pressable
+                key={item.label}
+                onPress={() => pickSubcat("services", item.label)}
+                style={[styles.chip, { backgroundColor: active ? item.color : item.bg }]}
+              >
+                <View style={[styles.chipIcon, { backgroundColor: active ? "rgba(255,255,255,0.25)" : `${item.color}22` }]}>
+                  <Ionicons name={item.icon as keyof typeof Ionicons.glyphMap} size={22} color={active ? "#fff" : item.color} />
+                </View>
+                <Text style={[styles.chipLabel, { color: active ? "#fff" : item.color }]} numberOfLines={2}>
+                  {isPa ? item.labelPa : item.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+
+        {/* ─── Category filter tabs ─── */}
         <View style={styles.tabsRow}>
           {TABS.map((tab) => {
-            const active = selectedCategory === tab.id;
+            const active = selectedCategory === tab.id && !selectedSubcat;
             return (
               <Pressable
                 key={tab.id}
-                onPress={() => { Haptics.selectionAsync(); setSelectedCategory(tab.id); }}
+                onPress={() => pickCategory(tab.id)}
                 style={styles.tab}
               >
                 <Text style={[styles.tabTxt, active && styles.tabTxtActive]}>
@@ -348,6 +413,38 @@ const styles = StyleSheet.create({
   },
   sectionLink: {
     fontSize: 13, fontWeight: "600", fontFamily: "Inter_600SemiBold", color: "#FF7A18",
+  },
+  sectionLinkActive: {
+    textDecorationLine: "underline",
+    opacity: 0.75,
+  },
+
+  // Subcategory chip rows
+  chipRow: {
+    paddingHorizontal: 18,
+    paddingBottom: 14,
+    gap: 10,
+  },
+  chip: {
+    width: 84,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    borderRadius: 14,
+    alignItems: "center",
+    gap: 7,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 5,
+    elevation: 2,
+  },
+  chipIcon: {
+    width: 42, height: 42, borderRadius: 21,
+    alignItems: "center", justifyContent: "center",
+  },
+  chipLabel: {
+    fontSize: 10, fontWeight: "700", fontFamily: "Inter_700Bold",
+    textAlign: "center", lineHeight: 13,
   },
 
   // Category tabs

@@ -41,12 +41,13 @@ async function enrichListing(listing: typeof listingsTable.$inferSelect) {
 
 router.get("/", async (req: Request, res: Response) => {
   try {
-    const { category, search, minPrice, maxPrice, providerId } = req.query;
+    const { category, subcategory, search, minPrice, maxPrice, providerId } = req.query;
 
     let query = db.select().from(listingsTable);
     const conditions = [];
 
     if (category) conditions.push(eq(listingsTable.category, category as "cars" | "equipment" | "services"));
+    if (subcategory) conditions.push(eq(listingsTable.subcategory, subcategory as string));
     if (providerId) conditions.push(eq(listingsTable.providerId, providerId as string));
     if (minPrice) conditions.push(gte(listingsTable.price, Number(minPrice)));
     if (maxPrice) conditions.push(lte(listingsTable.price, Number(maxPrice)));
