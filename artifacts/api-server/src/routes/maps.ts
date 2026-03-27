@@ -160,17 +160,36 @@ router.get("/places", async (req: Request, res: Response) => {
   // Detect bare house number queries (e.g. "1972", "45B", "221A")
   const isShortOrNumeric = /^\d/.test(inputText) && inputText.length <= 10 && !/[a-zA-Z]{4,}/.test(inputText);
 
+  // Punjab-wide params — used for the city-context enhanced query so results
+  // are NOT locked to the user's 50 km radius around a single city.
+  const punjabWideParams: Record<string, string> = {
+    key,
+    language: "en",
+    components: "country:in",
+    location: "30.7333,76.7794", // Chandigarh — geographic centre of Punjab
+    radius: "300000",            // 300 km covers all of Punjab + Haryana belt
+    strictbounds: "false",
+  };
+  const callPlacesPunjab = async (input: string, extra: Record<string, string> = {}): Promise<any[]> => {
+    try {
+      const p = new URLSearchParams({ ...punjabWideParams, input, ...extra });
+      const r = await fetch(`https://maps.googleapis.com/maps/api/place/autocomplete/json?${p}`);
+      const d: any = await r.json();
+      return d.predictions || [];
+    } catch { return []; }
+  };
+
   try {
     if (isShortOrNumeric) {
       // For numeric house-number queries, run FOUR calls in parallel:
-      // 1) Original query, no type filter (broadest — finds "1972, Sector 7-C" etc)
-      // 2) City-enhanced query, no type filter ("1972 Ludhiana Punjab")
+      // 1) Original query, user-biased radius (finds nearby results first)
+      // 2) "701 Punjab India" — Punjab-wide, NOT city-restricted
       // 3) Original + establishments (shops/flats)
-      // 4) Geocoding API with city context (hard fallback)
-      const enhanced = `${inputText} ${nearestCity} Punjab`;
+      // 4) Geocoding API with Punjab context (hard fallback)
+      const enhanced = `${inputText} Punjab India`;
       const [noType, enhanced1, estP, geoResults] = await Promise.all([
         callPlaces(inputText),
-        callPlaces(enhanced),
+        callPlacesPunjab(enhanced),
         callPlaces(inputText, { types: "establishment" }),
         callGeocode(enhanced),
       ]);

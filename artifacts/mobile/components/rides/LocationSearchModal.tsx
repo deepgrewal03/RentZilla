@@ -185,12 +185,22 @@ async function searchGooglePlaces(
     };
 
     if (isShortOrNumeric(query)) {
-      // House-number query: run no-type + city-enhanced + establishments in parallel
-      const nearestCity = getNearestCity(lat, lng);
-      const enhanced = `${query.trim()} ${nearestCity} Punjab`;
+      // House-number query: run no-type + Punjab-wide enhanced + establishments in parallel
+      // Use "Punjab India" — NOT a single city — so results span all of Punjab
+      const enhanced = `${query.trim()} Punjab India`;
+      // Punjab-wide location bias for the enhanced call (300 km from Chandigarh centre)
+      const punjabWide = { location: "30.7333,76.7794", radius: "300000", strictbounds: "false" };
+      const callPlacesPunjab = async (input: string, extra: Record<string, string> = {}) => {
+        try {
+          const p = new URLSearchParams({ ...common, ...punjabWide, input, ...extra });
+          const r = await fetch(`${base}?${p}`);
+          const d = await r.json();
+          return (d.predictions || []) as GPlace[];
+        } catch { return [] as GPlace[]; }
+      };
       const [noType, enhancedP, estP, geoResults] = await Promise.all([
         callPlaces(query),
-        callPlaces(enhanced),
+        callPlacesPunjab(enhanced),
         callPlaces(query, { types: "establishment" }),
         geocodeQuery(enhanced, key, lat, lng, query),
       ]);
@@ -606,16 +616,16 @@ export function LocationSearchModal({
                 {showingQuery && loading && (
                   <View style={styles.searchingNear}>
                     <ActivityIndicator size="small" color={color} />
-                    <Text style={styles.searchingNearText}>Searching near {nearestCity}…</Text>
+                    <Text style={styles.searchingNearText}>Searching across Punjab…</Text>
                   </View>
                 )}
 
                 {showingQuery && !loading && results.length === 0 && (
                   <View style={styles.empty}>
                     <Feather name="search" size={32} color={C.textTertiary} />
-                    <Text style={styles.emptyTitle}>No results near {nearestCity}</Text>
+                    <Text style={styles.emptyTitle}>No results found in Punjab</Text>
                     <Text style={styles.emptyText}>
-                      Add a street name or area to narrow it down.{"\n"}
+                      Try adding a street name or area.{"\n"}
                       e.g. "{query.trim()} Street 4, Model Town"
                     </Text>
                   </View>

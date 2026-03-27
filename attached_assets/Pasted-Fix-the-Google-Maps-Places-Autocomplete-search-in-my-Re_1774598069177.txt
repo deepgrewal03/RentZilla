@@ -1,0 +1,143 @@
+Fix the Google Maps Places Autocomplete search in my Rentzilla app (React Native Expo) so it searches across ALL Punjab instead of being restricted to only Patiala.
+
+---
+
+### ❗ CURRENT ISSUE
+
+* When user types:
+  "701"
+* It shows:
+  → "No results near Patiala"
+* Search is incorrectly restricted to Patiala only
+
+---
+
+### 🎯 REQUIRED BEHAVIOR
+
+* Search should work across ALL Punjab cities:
+
+* Results should NOT be limited to one city
+
+---
+
+### 🔧 CORE FIXES
+
+#### 1. REMOVE HARDCODED CITY (CRITICAL)
+
+* Remove any hardcoded:
+
+```js
+"Patiala"
+```
+
+* Do NOT append only one city in search query
+
+---
+
+#### 2. USE PUNJAB-LEVEL SEARCH CONTEXT
+
+Instead of:
+
+```js
+"701 Patiala"
+```
+
+Use:
+
+```js
+"701 Punjab India"
+```
+
+---
+
+#### 3. UPDATE AUTOCOMPLETE CONFIG
+
+```js
+query={{
+  key: GOOGLE_MAPS_API_KEY,
+  language: "en",
+  components: "country:in",
+  types: "address"
+}}
+```
+
+❌ Do NOT use:
+
+* strictBounds with Patiala
+* location bias locked to Patiala
+
+---
+
+#### 4. REMOVE STRICT LOCATION BIAS (IMPORTANT)
+
+If using:
+
+```js
+location: "Patiala coordinates"
+radius: small value
+```
+
+👉 Replace with:
+
+```js
+location: currentUserLatLng
+radius: 200000 // large enough to cover Punjab
+```
+
+OR remove bias completely
+
+---
+
+#### 5. SMART QUERY ENHANCEMENT (FIX NUMBER SEARCH)
+
+```js
+const enhancedQuery = input.length < 6 
+  ? `${input} Punjab India`
+  : input;
+```
+
+---
+
+#### 6. FALLBACK SEARCH (GEOCODING API)
+
+If no results:
+
+```js
+https://maps.googleapis.com/maps/api/geocode/json?address=701+Punjab+India&key=API_KEY
+```
+
+---
+
+### 📍 OPTIONAL: PUNJAB VALIDATION (AFTER SELECTION)
+
+* After user selects location:
+
+  * Check if state === "Punjab"
+  * If not → show error:
+    "Service available only in Punjab"
+
+---
+
+### 📱 UI FIX
+
+* Replace:
+  ❌ "No results near Patiala"
+  ✅ "Searching across Punjab..."
+
+---
+
+### ✅ FINAL RESULT
+
+* Typing "701" → shows results from:
+
+  * Ludhiana
+  * Mohali
+  * Amritsar
+  * etc.
+* No city lock issue
+* Full Punjab coverage
+* Works in Expo Go + production
+
+---
+
+Make the search dynamic, location-aware, and not restricted to a single city.
