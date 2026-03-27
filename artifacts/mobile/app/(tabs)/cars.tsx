@@ -218,8 +218,6 @@ export default function CarsScreen() {
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const mapRef = useRef<MapRef>(null);
   const mapReadyRef = useRef(false);
-  const watchRef = useRef<Location.LocationSubscription | null>(null);
-  const autoCenterRef = useRef(true);
 
   const syncPickupToMap = useCallback((loc: Coords) => {
     if (mapReadyRef.current) mapRef.current?.setPickup(loc.lat, loc.lng, loc.address);
@@ -255,28 +253,6 @@ export default function CarsScreen() {
       finally { setLocLoading(false); }
     })();
   }, []);
-
-  // ── Rider live location tracking → pulsing blue dot on map ──
-  useEffect(() => {
-    if (tab !== "rider") return;
-    let sub: Location.LocationSubscription | null = null;
-    (async () => {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== "granted") return;
-      sub = await Location.watchPositionAsync(
-        { accuracy: Location.Accuracy.Balanced, timeInterval: 3000, distanceInterval: 5 },
-        (loc) => {
-          const { latitude: lat, longitude: lng } = loc.coords;
-          if (mapReadyRef.current) {
-            mapRef.current?.setMyLocation(lat, lng);
-            if (autoCenterRef.current) mapRef.current?.panTo(lat, lng);
-          }
-        }
-      );
-      watchRef.current = sub;
-    })();
-    return () => { sub?.remove(); watchRef.current = null; };
-  }, [tab]);
 
   // ── Update estimate when vehicle type changes (if we have a map route) ──
   useEffect(() => {
@@ -424,7 +400,7 @@ export default function CarsScreen() {
             }}
             onRouteCalculated={handleRouteCalculated}
             onCenterChanged={(lat, lng, address) => {
-              autoCenterRef.current = false;
+              // When user drags the map — update pickup with the fully reverse-geocoded address
               if (rideStatus === "idle" && !activeRide) {
                 setPickup({ lat, lng, address });
               }
@@ -443,25 +419,6 @@ export default function CarsScreen() {
               }
             }}
           />
-          {/* Live indicator badge */}
-          <View style={styles.liveIndicator} pointerEvents="none">
-            <View style={styles.liveDot} />
-            <Text style={styles.liveText}>LIVE</Text>
-          </View>
-
-          {/* Re-center button */}
-          <TouchableOpacity
-            style={styles.recenterBtn}
-            onPress={() => {
-              autoCenterRef.current = true;
-              watchRef.current; // triggers next position update; panTo handled by watcher
-              mapRef.current?.getCurrentLocation();
-            }}
-            activeOpacity={0.8}
-          >
-            <Feather name="crosshair" size={20} color={ORANGE} />
-          </TouchableOpacity>
-
           {activeRide?.driver_lat && ["accepted", "ongoing"].includes(rideStatus) && (
             <View pointerEvents="none" style={StyleSheet.absoluteFillObject} />
           )}
@@ -943,10 +900,6 @@ const styles = StyleSheet.create({
   // Map container
   mapContainer: { width: "100%", overflow: "hidden", position: "relative", backgroundColor: "#e8ddd0" },
   coordText: { fontSize: 10, color: GOLD, fontFamily: "Inter_400Regular" },
-  liveIndicator: { position: "absolute", top: 12, left: 12, flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: "rgba(15,31,61,0.8)", borderRadius: 12, paddingHorizontal: 9, paddingVertical: 5, zIndex: 10, pointerEvents: "none" as any },
-  liveDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: GREEN },
-  liveText: { fontSize: 11, fontWeight: "700" as const, color: "#fff", fontFamily: "Inter_700Bold" },
-  recenterBtn: { position: "absolute", bottom: 14, right: 10, width: 44, height: 44, borderRadius: 22, backgroundColor: "#fff", alignItems: "center", justifyContent: "center", shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.22, shadowRadius: 8, elevation: 8, zIndex: 10 },
 
   // Bottom sheet
   bottomSheet: { position: "absolute", bottom: 0, left: 0, right: 0, backgroundColor: C.background, borderTopLeftRadius: 28, borderTopRightRadius: 28, shadowColor: "#000", shadowOffset: { width: 0, height: -6 }, shadowOpacity: 0.2, shadowRadius: 20, elevation: 20 },
