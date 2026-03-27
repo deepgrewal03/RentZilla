@@ -1,0 +1,154 @@
+Upgrade the Google Maps experience in my Rentzilla app (React Native Expo) to feel fully real-time, interactive, and production-level like Uber/Ola.
+
+---
+
+### 🎯 GOAL
+
+* Map should feel LIVE (not static)
+* Smooth movement, real-time updates
+* Accurate address detection (house number, street, area)
+* Professional UI/UX like ride-booking apps
+
+---
+
+### 📍 CORE MAP FEATURES
+
+#### 1. LIVE USER LOCATION (MANDATORY)
+
+* Detect and track user’s real-time location
+* Update position every few seconds
+* Smooth marker movement (no jumping)
+
+Use:
+
+* expo-location
+* watchPositionAsync()
+
+---
+
+#### 2. CENTER PIN PICKUP SYSTEM (UBER STYLE)
+
+* Fixed marker at center of screen
+* When user moves map:
+  → Address updates automatically
+* DO NOT move marker — move map under it
+
+---
+
+#### 3. REAL-TIME ADDRESS UPDATE (VERY IMPORTANT)
+
+* On map drag:
+
+  * Get latitude & longitude
+  * Call Google Geocoding API
+  * Show full address:
+
+Include:
+
+* House number
+* Street name
+* Area
+* City (Ludhiana / Punjab)
+
+---
+
+#### 4. SMOOTH MAP ANIMATIONS
+
+* Enable:
+
+  * Smooth zoom
+  * Smooth pan
+  * Marker animation
+* Use:
+  animateToRegion()
+
+---
+
+#### 5. AUTOCOMPLETE SEARCH (SMART)
+
+* Use Google Places Autocomplete
+* Always return detailed addresses
+* If user types:
+  "1792" → auto search:
+  "1792 Ludhiana Punjab"
+
+---
+
+#### 6. LIVE ROUTE DRAWING (IMPORTANT)
+
+* When pickup + drop selected:
+
+  * Draw route on map
+* Use:
+  react-native-maps-directions
+
+Show:
+
+* Route line
+* Distance
+* Estimated time (ETA)
+
+---
+
+#### 7. DRIVER / PROVIDER LIVE LOCATION (ADVANCED)
+
+* Simulate or fetch real-time driver location
+* Update every 2–5 seconds
+* Move marker smoothly
+
+---
+
+### 🎨 UI DESIGN (MATCH REAL APPS)
+
+* Clean modern map style
+* Light + dark mode
+* Bottom sheet with:
+
+  * Pickup address
+  * Drop location
+  * Book button
+
+---
+
+### ⚡ PERFORMANCE OPTIMIZATION
+
+* Lazy load map
+* Avoid unnecessary re-renders
+* Use debounce for API calls
+
+---
+
+### 🔐 API SETUP
+
+Enable:
+
+* Maps SDK
+* Places API
+* Geocoding API
+* Directions API
+
+---
+
+### 📱 EXPO GO COMPATIBILITY
+
+* Ensure it works in Expo Go AND production build
+* Proper permissions:
+
+  * Location access
+* API key unrestricted for testing
+
+---
+
+### ✅ FINAL RESULT
+
+* Map feels like Uber:
+
+  * Live movement
+  * Real-time address updates
+  * Smooth animations
+  * Accurate house-level address
+* Fully interactive and production ready
+
+---
+
+Make the experience premium, fast, and realistic — like a real ride-booking app used by millions.
