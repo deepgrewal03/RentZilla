@@ -129,6 +129,13 @@ export default function SignInScreen() {
 
             {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
+            {/* Forgot password */}
+            <Pressable onPress={() => router.push("/forgot-password")} style={styles.forgotRow}>
+              <Text style={styles.forgotText}>
+                {language === "pa" ? "ਪਾਸਵਰਡ ਭੁੱਲ ਗਏ?" : "Forgot Password?"}
+              </Text>
+            </Pressable>
+
             <Pressable
               onPress={handleLogin}
               disabled={loading}
@@ -209,6 +216,8 @@ const styles = StyleSheet.create({
     flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8,
   },
   loginBtnText: { color: "#fff", fontSize: 16, fontWeight: "700", fontFamily: "Inter_700Bold" },
+  forgotRow: { alignItems: "flex-end", marginTop: -6 },
+  forgotText: { fontSize: 13, color: C.tint, fontWeight: "600", fontFamily: "Inter_600SemiBold" },
   switchRow: { flexDirection: "row", justifyContent: "center", alignItems: "center" },
   switchText: { fontSize: 14, color: C.textSecondary, fontFamily: "Inter_400Regular" },
   switchLink: { fontSize: 14, color: C.tint, fontWeight: "700", fontFamily: "Inter_700Bold" },
