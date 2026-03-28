@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Animated,
   Modal,
@@ -41,6 +41,8 @@ function timeAgo(dateStr: string, isPa: boolean) {
   return `${Math.floor(diff / 86400)}d ago`;
 }
 
+const SPRING = { useNativeDriver: false, tension: 340, friction: 12 };
+
 export function NotificationBell() {
   const { get, put } = useApi();
   const { t, language } = useLang();
@@ -48,6 +50,8 @@ export function NotificationBell() {
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const isWeb = Platform.OS === "web";
+
+  const bellScale = useRef(new Animated.Value(1)).current;
 
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 
@@ -73,6 +77,12 @@ export function NotificationBell() {
 
   function openPanel() {
     Haptics.selectionAsync();
+    // Bell bounce on tap
+    Animated.sequence([
+      Animated.spring(bellScale, { toValue: 0.82, ...SPRING, tension: 420 }),
+      Animated.spring(bellScale, { toValue: 1.12, ...SPRING, tension: 260, friction: 7 }),
+      Animated.spring(bellScale, { toValue: 1,    ...SPRING }),
+    ]).start();
     setOpen(true);
     fetchNotifications();
   }
@@ -82,13 +92,15 @@ export function NotificationBell() {
 
   return (
     <>
-      <Pressable onPress={openPanel} style={styles.bellBtn}>
-        <Ionicons name="notifications-outline" size={22} color="#fff" />
-        {unreadCount > 0 && (
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>{unreadCount > 9 ? "9+" : unreadCount}</Text>
-          </View>
-        )}
+      <Pressable onPress={openPanel}>
+        <Animated.View style={[styles.bellBtn, { transform: [{ scale: bellScale }] }]}>
+          <Ionicons name="notifications-outline" size={22} color="#fff" />
+          {unreadCount > 0 && (
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>{unreadCount > 9 ? "9+" : unreadCount}</Text>
+            </View>
+          )}
+        </Animated.View>
       </Pressable>
 
       <Modal visible={open} transparent animationType="none" onRequestClose={() => setOpen(false)}>

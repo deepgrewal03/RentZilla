@@ -3,8 +3,9 @@ import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
+  Animated,
   Platform,
   Pressable,
   RefreshControl,
@@ -50,7 +51,12 @@ export default function HomeScreen() {
   const [selectedSubcat, setSelectedSubcat]   = useState<string>("");
   const [drawerOpen, setDrawerOpen]           = useState(false);
 
+  const fadeAnim = useRef(new Animated.Value(0)).current;
   const inProviderMode = isPureProvider || (isBoth && activeMode === "provider");
+
+  useEffect(() => {
+    Animated.timing(fadeAnim, { toValue: 1, duration: 300, useNativeDriver: false }).start();
+  }, []);
 
   useEffect(() => {
     if (!user) { router.replace("/sign-in"); return; }
@@ -160,6 +166,7 @@ export default function HomeScreen() {
       </LinearGradient>
 
       {/* ─── SCROLLABLE CONTENT ─── */}
+      <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
@@ -195,7 +202,11 @@ export default function HomeScreen() {
               <Pressable
                 key={item.label}
                 onPress={() => pickSubcat("equipment", item.label)}
-                style={[styles.chip, { backgroundColor: active ? item.color : item.bg }]}
+                style={({ pressed }) => [
+                  styles.chip,
+                  { backgroundColor: active ? item.color : item.bg },
+                  pressed && { transform: [{ scale: 0.91 }], opacity: 0.82 },
+                ]}
               >
                 <View style={[styles.chipIcon, { backgroundColor: active ? "rgba(255,255,255,0.25)" : `${item.color}22` }]}>
                   <Ionicons name={item.icon as keyof typeof Ionicons.glyphMap} size={22} color={active ? "#fff" : item.color} />
@@ -231,7 +242,11 @@ export default function HomeScreen() {
               <Pressable
                 key={item.label}
                 onPress={() => pickSubcat("services", item.label)}
-                style={[styles.chip, { backgroundColor: active ? item.color : item.bg }]}
+                style={({ pressed }) => [
+                  styles.chip,
+                  { backgroundColor: active ? item.color : item.bg },
+                  pressed && { transform: [{ scale: 0.91 }], opacity: 0.82 },
+                ]}
               >
                 <View style={[styles.chipIcon, { backgroundColor: active ? "rgba(255,255,255,0.25)" : `${item.color}22` }]}>
                   <Ionicons name={item.icon as keyof typeof Ionicons.glyphMap} size={22} color={active ? "#fff" : item.color} />
@@ -275,6 +290,7 @@ export default function HomeScreen() {
 
         <View style={{ height: isWeb ? 34 : 100 }} />
       </ScrollView>
+      </Animated.View>
 
       {/* FAB for providers */}
       {(user?.role === "provider" || (user?.role === "both" && activeMode === "provider")) && (

@@ -2,8 +2,8 @@ import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
 import { router } from "expo-router";
-import React from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import React, { useRef } from "react";
+import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
 
 import Colors from "@/constants/colors";
 import { Listing } from "@/types";
@@ -33,22 +33,31 @@ function formatPrice(price: number, unit: string) {
 
 interface Props { listing: Listing; style?: object; }
 
+const SPRING = { useNativeDriver: false, tension: 340, friction: 12 };
+
 export function ListingCard({ listing, style }: Props) {
   const icon   = getCategoryIcon(listing.category, listing.subcategory);
   const accent = getCategoryAccent(listing.category);
   const hasImg = listing.images && listing.images.length > 0;
 
+  const scale = useRef(new Animated.Value(1)).current;
+
+  function onPressIn() {
+    Animated.spring(scale, { toValue: 0.97, ...SPRING }).start();
+  }
+  function onPressOut() {
+    Animated.spring(scale, { toValue: 1, ...SPRING }).start();
+  }
+
   return (
+    <Animated.View style={[styles.card, style, { transform: [{ scale }] }]}>
     <Pressable
       onPress={() => {
         Haptics.selectionAsync();
         router.push({ pathname: "/listing/[id]", params: { id: listing.id } });
       }}
-      style={({ pressed }) => [
-        styles.card,
-        { opacity: pressed ? 0.95 : 1, transform: [{ scale: pressed ? 0.985 : 1 }] },
-        style,
-      ]}
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
     >
       {/* Image */}
       <View style={styles.imgWrap}>
@@ -107,6 +116,7 @@ export function ListingCard({ listing, style }: Props) {
         <Text style={styles.providerText} numberOfLines={1}>by {listing.providerName || "Provider"}</Text>
       </View>
     </Pressable>
+    </Animated.View>
   );
 }
 

@@ -3,8 +3,9 @@ import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
+  Animated,
   Platform,
   Pressable,
   RefreshControl,
@@ -61,9 +62,12 @@ export default function BookingsScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+
   const topPad = isWeb ? 67 : insets.top;
 
   useEffect(() => {
+    Animated.timing(fadeAnim, { toValue: 1, duration: 300, useNativeDriver: false }).start();
     fetchBookings();
   }, []);
 
@@ -93,6 +97,7 @@ export default function BookingsScreen() {
         <Text style={styles.headerSub}>{user?.role === "provider" ? "Requests for your listings" : "Your rental history"}</Text>
       </LinearGradient>
 
+      <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
       <ScrollView
         style={styles.scroll}
         contentInsetAdjustmentBehavior="automatic"
@@ -131,6 +136,7 @@ export default function BookingsScreen() {
         )}
         <View style={{ height: isWeb ? 34 : 100 }} />
       </ScrollView>
+      </Animated.View>
     </View>
   );
 }
