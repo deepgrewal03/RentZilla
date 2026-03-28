@@ -1,0 +1,160 @@
+Update the booking system in my Rentzilla app (React Native Expo + backend) to include date selection and fixed time slots for all services and equipment (excluding cars).
+
+---
+
+### 🎯 GOAL
+
+* Users can select:
+  ✅ Available date from calendar
+  ✅ Time slot (2-hour intervals)
+* Applies ONLY to:
+
+  * Services
+  * Equipment
+* NOT applicable to Cars (cars already removed)
+
+---
+
+## 📱 FRONTEND IMPLEMENTATION
+
+### 1. BOOKING SCREEN UI
+
+Add the following sections:
+
+#### 📅 DATE SELECTION (CALENDAR)
+
+* Show calendar picker
+* Allow selection of:
+
+  * Today + future dates only
+* Disable:
+
+  * Past dates
+* Highlight selected date
+
+---
+
+#### ⏰ TIME SLOT SELECTION
+
+Create fixed time slots:
+
+* 08:00 AM – 10:00 AM
+* 10:00 AM – 12:00 PM
+* 12:00 PM – 02:00 PM
+* 02:00 PM – 04:00 PM
+* 04:00 PM – 06:00 PM
+
+UI:
+
+* Show as selectable cards/buttons
+* Highlight selected slot
+* Disable already booked slots
+
+---
+
+### 2. SLOT SELECTION LOGIC
+
+* User must select:
+
+  * Date
+  * Time slot
+* If not selected → show error:
+  "Please select date and time"
+
+---
+
+### 3. BOOKING CONFIRMATION
+
+* On clicking "Book Now":
+
+  * Save:
+
+    * service/equipment ID
+    * selected date
+    * selected time slot
+    * user ID
+* Show confirmation message
+
+---
+
+## ⚙️ BACKEND IMPLEMENTATION
+
+### 1. BOOKING MODEL
+
+Add fields:
+
+* booking_date
+* time_slot (string or start/end time)
+* service_id / equipment_id
+* user_id
+
+---
+
+### 2. SLOT AVAILABILITY API
+
+GET /availability
+
+Input:
+
+* date
+* service/equipment ID
+
+Logic:
+
+* Fetch existing bookings
+* Return available slots
+* Disable already booked slots
+
+---
+
+### 3. CREATE BOOKING API
+
+POST /book
+
+Input:
+
+* user_id
+* service/equipment_id
+* booking_date
+* time_slot
+
+Logic:
+
+* Check slot availability
+* Prevent double booking
+* Save booking
+
+---
+
+## 🔒 VALIDATION
+
+* No double booking allowed
+* Cannot book past dates
+* Time slot must be valid
+
+---
+
+## 🎨 UI/UX IMPROVEMENTS
+
+* Smooth calendar UI
+* Highlight selected date & time
+* Show:
+
+  * "Available"
+  * "Booked"
+* Mobile-friendly layout
+
+---
+
+## ✅ FINAL RESULT
+
+* User selects service/equipment
+* Chooses date from calendar
+* Selects 2-hour time slot
+* Books successfully
+* No conflicts or duplicate bookings
+* Clean and professional UX
+
+---
+
+Make the booking experience simple, fast, and reliable.

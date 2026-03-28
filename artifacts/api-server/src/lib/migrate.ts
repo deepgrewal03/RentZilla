@@ -185,5 +185,14 @@ export async function runMigrations() {
     await db.execute(sql.raw(stmt));
   }
 
+  const alterStatements = [
+    `ALTER TABLE bookings ADD COLUMN IF NOT EXISTS booking_date TEXT`,
+    `ALTER TABLE bookings ADD COLUMN IF NOT EXISTS time_slot TEXT`,
+  ];
+
+  for (const stmt of alterStatements) {
+    await db.execute(sql.raw(stmt));
+  }
+
   logger.info("Database migrations complete.");
 }

@@ -25,9 +25,144 @@ import { Listing, Review } from "@/types";
 
 const C = Colors.light;
 
-function formatDate(d: Date) {
-  return d.toISOString().split("T")[0];
+const TINT = "#FF7A18";
+
+const TIME_SLOTS = [
+  "08:00 AM – 10:00 AM",
+  "10:00 AM – 12:00 PM",
+  "12:00 PM – 02:00 PM",
+  "02:00 PM – 04:00 PM",
+  "04:00 PM – 06:00 PM",
+];
+
+const WEEKDAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
+const MONTHS = [
+  "January","February","March","April","May","June",
+  "July","August","September","October","November","December",
+];
+
+function toDateStr(d: Date) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }
+
+function isBefore(a: Date, b: Date) {
+  return a.getFullYear() < b.getFullYear() ||
+    (a.getFullYear() === b.getFullYear() && a.getMonth() < b.getMonth()) ||
+    (a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() < b.getDate());
+}
+
+interface CalendarProps {
+  selected: string;
+  onSelect: (dateStr: string) => void;
+}
+
+function MiniCalendar({ selected, onSelect }: CalendarProps) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const [viewYear, setViewYear] = useState(today.getFullYear());
+  const [viewMonth, setViewMonth] = useState(today.getMonth());
+
+  const firstDay = new Date(viewYear, viewMonth, 1).getDay();
+  const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+
+  const cells: (number | null)[] = [];
+  for (let i = 0; i < firstDay; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+  while (cells.length % 7 !== 0) cells.push(null);
+
+  const rows: (number | null)[][] = [];
+  for (let i = 0; i < cells.length; i += 7) rows.push(cells.slice(i, i + 7));
+
+  function prevMonth() {
+    if (viewMonth === 0) { setViewYear(viewYear - 1); setViewMonth(11); }
+    else setViewMonth(viewMonth - 1);
+  }
+  function nextMonth() {
+    if (viewMonth === 11) { setViewYear(viewYear + 1); setViewMonth(0); }
+    else setViewMonth(viewMonth + 1);
+  }
+
+  const canGoPrev =
+    viewYear > today.getFullYear() ||
+    (viewYear === today.getFullYear() && viewMonth > today.getMonth());
+
+  return (
+    <View style={cal.root}>
+      <View style={cal.header}>
+        <Pressable onPress={prevMonth} disabled={!canGoPrev} style={cal.navBtn}>
+          <Ionicons name="chevron-back" size={20} color={canGoPrev ? TINT : "#ccc"} />
+        </Pressable>
+        <Text style={cal.monthLabel}>{MONTHS[viewMonth]} {viewYear}</Text>
+        <Pressable onPress={nextMonth} style={cal.navBtn}>
+          <Ionicons name="chevron-forward" size={20} color={TINT} />
+        </Pressable>
+      </View>
+
+      <View style={cal.weekRow}>
+        {WEEKDAYS.map((d) => (
+          <Text key={d} style={cal.weekDay}>{d}</Text>
+        ))}
+      </View>
+
+      {rows.map((row, ri) => (
+        <View key={ri} style={cal.row}>
+          {row.map((day, ci) => {
+            if (!day) return <View key={ci} style={cal.cell} />;
+            const cellDate = new Date(viewYear, viewMonth, day);
+            cellDate.setHours(0, 0, 0, 0);
+            const past = isBefore(cellDate, today);
+            const dateStr = toDateStr(cellDate);
+            const isToday = dateStr === toDateStr(today);
+            const isSel = dateStr === selected;
+
+            return (
+              <Pressable
+                key={ci}
+                onPress={() => { if (!past) { Haptics.selectionAsync(); onSelect(dateStr); } }}
+                style={[
+                  cal.cell,
+                  isToday && !isSel && cal.todayCell,
+                  isSel && cal.selectedCell,
+                  past && cal.pastCell,
+                ]}
+              >
+                <Text style={[
+                  cal.dayText,
+                  past && cal.pastText,
+                  isToday && !isSel && cal.todayText,
+                  isSel && cal.selectedText,
+                ]}>
+                  {day}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      ))}
+    </View>
+  );
+}
+
+const cal = StyleSheet.create({
+  root: { backgroundColor: "#fff", borderRadius: 16, padding: 12, marginBottom: 14 },
+  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 10 },
+  navBtn: { width: 34, height: 34, alignItems: "center", justifyContent: "center" },
+  monthLabel: { fontSize: 15, fontWeight: "700", color: "#2C2C2C" },
+  weekRow: { flexDirection: "row", marginBottom: 4 },
+  weekDay: { flex: 1, textAlign: "center", fontSize: 11, fontWeight: "600", color: "#AEAEAE" },
+  row: { flexDirection: "row" },
+  cell: { flex: 1, height: 38, alignItems: "center", justifyContent: "center", borderRadius: 19, margin: 1 },
+  todayCell: { borderWidth: 1.5, borderColor: TINT },
+  selectedCell: { backgroundColor: TINT },
+  pastCell: {},
+  dayText: { fontSize: 14, fontWeight: "500", color: "#2C2C2C" },
+  pastText: { color: "#D0D0D0" },
+  todayText: { color: TINT, fontWeight: "700" },
+  selectedText: { color: "#fff", fontWeight: "700" },
+});
 
 export default function ListingDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -40,10 +175,11 @@ export default function ListingDetailScreen() {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Booking flow
   const [showBooking, setShowBooking] = useState(false);
-  const [startDate, setStartDate] = useState(formatDate(new Date()));
-  const [endDate, setEndDate] = useState(formatDate(new Date(Date.now() + 86400000)));
+  const [bookingDate, setBookingDate] = useState(toDateStr(new Date()));
+  const [selectedSlot, setSelectedSlot] = useState("");
+  const [slotStatus, setSlotStatus] = useState<{ slot: string; available: boolean }[]>([]);
+  const [slotsLoading, setSlotsLoading] = useState(false);
   const [notes, setNotes] = useState("");
   const [booking, setBooking] = useState(false);
 
@@ -52,6 +188,12 @@ export default function ListingDetailScreen() {
   useEffect(() => {
     loadData();
   }, [id]);
+
+  useEffect(() => {
+    if (showBooking && bookingDate && listing) {
+      fetchSlots();
+    }
+  }, [bookingDate, showBooking, listing]);
 
   async function loadData() {
     try {
@@ -62,25 +204,62 @@ export default function ListingDetailScreen() {
       setListing(l);
       setReviews(r);
     } catch {
-      // ignore
     } finally {
       setLoading(false);
     }
   }
 
+  async function fetchSlots() {
+    if (!listing) return;
+    setSlotsLoading(true);
+    setSelectedSlot("");
+    try {
+      const data = await get<{ slots: { slot: string; available: boolean }[] }>(
+        `/bookings/availability?listingId=${listing.id}&date=${bookingDate}`
+      );
+      setSlotStatus(data.slots || []);
+    } catch {
+      setSlotStatus(TIME_SLOTS.map((slot) => ({ slot, available: true })));
+    } finally {
+      setSlotsLoading(false);
+    }
+  }
+
   async function handleBook() {
     if (!listing) return;
+    if (!bookingDate) {
+      Alert.alert("Missing Info", "Please select a date.");
+      return;
+    }
+    if (!selectedSlot) {
+      Alert.alert("Missing Info", "Please select a time slot.");
+      return;
+    }
+
     setBooking(true);
     try {
-      await post("/bookings", { listingId: listing.id, startDate, endDate, notes });
+      await post("/bookings", {
+        listingId: listing.id,
+        startDate: bookingDate,
+        endDate: bookingDate,
+        bookingDate,
+        timeSlot: selectedSlot,
+        notes,
+      });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      Alert.alert("Booking Sent!", "Your booking request has been sent to the provider.", [
-        { text: "View Bookings", onPress: () => router.push("/(tabs)/bookings") },
-        { text: "OK" },
-      ]);
+      Alert.alert(
+        "Booking Sent!",
+        `Your booking for ${bookingDate} at ${selectedSlot} has been sent to the provider.`,
+        [
+          { text: "View Bookings", onPress: () => router.push("/(tabs)/bookings") },
+          { text: "OK" },
+        ]
+      );
       setShowBooking(false);
-    } catch {
-      Alert.alert("Error", "Could not create booking. Please try again.");
+      setSelectedSlot("");
+    } catch (e: any) {
+      const msg = e?.message || "Could not create booking. Please try again.";
+      Alert.alert("Error", msg);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     } finally {
       setBooking(false);
@@ -119,10 +298,9 @@ export default function ListingDetailScreen() {
     );
   }
 
-  const totalDays = Math.max(1, Math.ceil((new Date(endDate).getTime() - new Date(startDate).getTime()) / 86400000));
-  const total = listing.price * totalDays;
   const isOwner = user?.id === listing.providerId;
   const isCustomer = user?.role === "customer";
+  const isCarListing = listing.category === "cars";
 
   return (
     <View style={styles.root}>
@@ -153,7 +331,6 @@ export default function ListingDetailScreen() {
               <Ionicons name="cube-outline" size={48} color={C.textTertiary} />
             </View>
           )}
-          {/* Back button */}
           <Pressable onPress={() => router.back()} style={[styles.backCircle, { top: (isWeb ? 67 : insets.top) + 12 }]}>
             <Ionicons name="arrow-back" size={20} color="#fff" />
           </Pressable>
@@ -161,7 +338,6 @@ export default function ListingDetailScreen() {
 
         {/* Content */}
         <View style={styles.content}>
-          {/* Title & price */}
           <View style={styles.titleRow}>
             <View style={{ flex: 1 }}>
               <Text style={styles.title}>{listing.title}</Text>
@@ -182,7 +358,6 @@ export default function ListingDetailScreen() {
             <Text style={styles.priceUnit}>/{listing.priceUnit === "per_day" ? "day" : "hour"}</Text>
           </View>
 
-          {/* Rating */}
           {listing.rating != null && (
             <View style={styles.ratingRow}>
               <StarRating rating={Math.round(listing.rating)} size={16} />
@@ -190,7 +365,6 @@ export default function ListingDetailScreen() {
             </View>
           )}
 
-          {/* Description */}
           {listing.description && (
             <View style={styles.descSection}>
               <Text style={styles.sectionTitle}>Description</Text>
@@ -198,7 +372,6 @@ export default function ListingDetailScreen() {
             </View>
           )}
 
-          {/* Provider */}
           <View style={styles.providerCard}>
             <View style={styles.providerAvatar}>
               <Text style={styles.providerAvatarText}>{(listing.providerName || "P")[0].toUpperCase()}</Text>
@@ -219,7 +392,6 @@ export default function ListingDetailScreen() {
             )}
           </View>
 
-          {/* Reviews */}
           {reviews.length > 0 && (
             <View style={styles.reviewSection}>
               <Text style={styles.sectionTitle}>Reviews</Text>
@@ -241,32 +413,56 @@ export default function ListingDetailScreen() {
             </View>
           )}
 
-          {/* Booking form */}
-          {showBooking && isCustomer && (
+          {/* Booking form — date + slot picker */}
+          {showBooking && isCustomer && !isCarListing && (
             <View style={styles.bookingForm}>
               <Text style={styles.sectionTitle}>Book This Listing</Text>
-              <View style={styles.dateRow}>
-                <View style={styles.dateField}>
-                  <Text style={styles.dateLabel}>Start Date</Text>
-                  <TextInput
-                    style={styles.dateInput}
-                    value={startDate}
-                    onChangeText={setStartDate}
-                    placeholder="YYYY-MM-DD"
-                    placeholderTextColor={C.textTertiary}
-                  />
+
+              {/* Calendar */}
+              <Text style={styles.fieldLabel}>Select Date</Text>
+              <MiniCalendar selected={bookingDate} onSelect={setBookingDate} />
+
+              {/* Time Slots */}
+              <Text style={styles.fieldLabel}>Select Time Slot</Text>
+              {slotsLoading ? (
+                <View style={styles.slotsLoading}>
+                  <ActivityIndicator color={TINT} />
+                  <Text style={styles.slotsLoadingText}>Checking availability…</Text>
                 </View>
-                <View style={styles.dateField}>
-                  <Text style={styles.dateLabel}>End Date</Text>
-                  <TextInput
-                    style={styles.dateInput}
-                    value={endDate}
-                    onChangeText={setEndDate}
-                    placeholder="YYYY-MM-DD"
-                    placeholderTextColor={C.textTertiary}
-                  />
+              ) : (
+                <View style={styles.slotsGrid}>
+                  {(slotStatus.length ? slotStatus : TIME_SLOTS.map((s) => ({ slot: s, available: true }))).map(({ slot, available }) => {
+                    const isSel = selectedSlot === slot;
+                    return (
+                      <Pressable
+                        key={slot}
+                        onPress={() => {
+                          if (!available) return;
+                          Haptics.selectionAsync();
+                          setSelectedSlot(isSel ? "" : slot);
+                        }}
+                        style={[
+                          styles.slotBtn,
+                          isSel && styles.slotBtnSelected,
+                          !available && styles.slotBtnBooked,
+                        ]}
+                      >
+                        <Ionicons
+                          name={!available ? "close-circle" : isSel ? "checkmark-circle" : "time-outline"}
+                          size={16}
+                          color={!available ? "#AEAEAE" : isSel ? "#fff" : TINT}
+                        />
+                        <Text style={[styles.slotText, isSel && styles.slotTextSel, !available && styles.slotTextBooked]}>
+                          {slot}
+                        </Text>
+                        {!available && <Text style={styles.bookedBadge}>Booked</Text>}
+                      </Pressable>
+                    );
+                  })}
                 </View>
-              </View>
+              )}
+
+              {/* Notes */}
               <TextInput
                 style={styles.notesInput}
                 value={notes}
@@ -276,15 +472,23 @@ export default function ListingDetailScreen() {
                 multiline
                 numberOfLines={3}
               />
-              <View style={styles.totalRow}>
-                <Text style={styles.totalLabel}>{totalDays} day(s) × ₹{listing.price.toLocaleString("en-IN")}</Text>
-                <Text style={styles.totalAmount}>₹{total.toLocaleString("en-IN")}</Text>
-              </View>
+
+              {/* Summary */}
+              {selectedSlot && (
+                <View style={styles.summaryRow}>
+                  <Ionicons name="calendar-outline" size={15} color={TINT} />
+                  <Text style={styles.summaryText}>
+                    {bookingDate} · {selectedSlot}
+                  </Text>
+                  <Text style={styles.summaryAmount}>₹{listing.price.toLocaleString("en-IN")}</Text>
+                </View>
+              )}
+
               <View style={styles.formActions}>
-                <Pressable onPress={() => setShowBooking(false)} style={styles.cancelFormBtn}>
+                <Pressable onPress={() => { setShowBooking(false); setSelectedSlot(""); }} style={styles.cancelFormBtn}>
                   <Text style={styles.cancelFormText}>Cancel</Text>
                 </Pressable>
-                <Pressable onPress={handleBook} disabled={booking} style={styles.confirmBookBtn}>
+                <Pressable onPress={handleBook} disabled={booking || !selectedSlot} style={[styles.confirmBookBtn, (!selectedSlot || booking) && styles.confirmBookBtnDisabled]}>
                   {booking ? (
                     <ActivityIndicator color="#fff" />
                   ) : (
@@ -299,8 +503,8 @@ export default function ListingDetailScreen() {
         </View>
       </ScrollView>
 
-      {/* Bottom actions */}
-      {!isOwner && listing.isAvailable && isCustomer && !showBooking && (
+      {/* Bottom action bar */}
+      {!isOwner && listing.isAvailable && isCustomer && !showBooking && !isCarListing && (
         <View style={[styles.bottomBar, { paddingBottom: (isWeb ? 34 : insets.bottom) + 12 }]}>
           <View>
             <Text style={styles.bottomPrice}>₹{listing.price.toLocaleString("en-IN")}</Text>
@@ -325,16 +529,12 @@ const styles = StyleSheet.create({
   imagePlaceholder: { backgroundColor: C.backgroundTertiary, alignItems: "center", justifyContent: "center" },
   thumbScroll: { position: "absolute", bottom: 10, paddingHorizontal: 12 },
   thumb: { width: 56, height: 44, borderRadius: 8, marginRight: 8, borderWidth: 2, borderColor: "transparent" },
-  thumbActive: { borderColor: C.tint },
+  thumbActive: { borderColor: TINT },
   backCircle: {
-    position: "absolute",
-    left: 16,
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    position: "absolute", left: 16,
+    width: 38, height: 38, borderRadius: 19,
     backgroundColor: "rgba(0,0,0,0.45)",
-    alignItems: "center",
-    justifyContent: "center",
+    alignItems: "center", justifyContent: "center",
   },
   content: { padding: 20 },
   titleRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 },
@@ -344,7 +544,7 @@ const styles = StyleSheet.create({
   unavailBadge: { backgroundColor: C.error, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 },
   unavailText: { color: "#fff", fontSize: 11, fontWeight: "700", fontFamily: "Inter_700Bold" },
   priceRow: { flexDirection: "row", alignItems: "baseline", gap: 3, marginBottom: 10 },
-  price: { fontSize: 28, fontWeight: "700", fontFamily: "Inter_700Bold", color: C.tint },
+  price: { fontSize: 28, fontWeight: "700", fontFamily: "Inter_700Bold", color: TINT },
   priceUnit: { fontSize: 14, color: C.textSecondary, fontFamily: "Inter_400Regular" },
   ratingRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 16 },
   ratingText: { fontSize: 13, color: C.textSecondary, fontFamily: "Inter_400Regular" },
@@ -352,42 +552,30 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 17, fontWeight: "700", fontFamily: "Inter_700Bold", color: C.text, marginBottom: 10 },
   description: { fontSize: 14, color: C.textSecondary, fontFamily: "Inter_400Regular", lineHeight: 22 },
   providerCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: C.card,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: C.cardBorder,
-    padding: 14,
-    gap: 12,
-    marginBottom: 20,
+    flexDirection: "row", alignItems: "center",
+    backgroundColor: C.card, borderRadius: 16,
+    borderWidth: 1, borderColor: C.cardBorder,
+    padding: 14, gap: 12, marginBottom: 20,
   },
   providerAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: `${C.tint}20`,
-    alignItems: "center",
-    justifyContent: "center",
+    width: 48, height: 48, borderRadius: 24,
+    backgroundColor: `${TINT}20`,
+    alignItems: "center", justifyContent: "center",
   },
-  providerAvatarText: { fontSize: 18, fontWeight: "700", fontFamily: "Inter_700Bold", color: C.tint },
+  providerAvatarText: { fontSize: 18, fontWeight: "700", fontFamily: "Inter_700Bold", color: TINT },
   providerName: { fontSize: 15, fontWeight: "600", fontFamily: "Inter_600SemiBold", color: C.text },
   providerRating: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 3 },
   providerRatingText: { fontSize: 12, color: C.textSecondary, fontFamily: "Inter_400Regular" },
   msgBtn: {
     width: 40, height: 40, borderRadius: 20,
-    backgroundColor: `${C.tint}15`,
+    backgroundColor: `${TINT}15`,
     alignItems: "center", justifyContent: "center",
   },
   reviewSection: { marginBottom: 20 },
   reviewCard: {
-    backgroundColor: C.card,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: C.cardBorder,
-    padding: 12,
-    marginBottom: 8,
-    gap: 8,
+    backgroundColor: C.card, borderRadius: 12,
+    borderWidth: 1, borderColor: C.cardBorder,
+    padding: 12, marginBottom: 8, gap: 8,
   },
   reviewTop: { flexDirection: "row", alignItems: "center", gap: 10 },
   reviewAvatar: {
@@ -399,93 +587,91 @@ const styles = StyleSheet.create({
   reviewUser: { fontSize: 14, fontWeight: "600", fontFamily: "Inter_600SemiBold", color: C.text },
   reviewDate: { fontSize: 11, color: C.textTertiary, fontFamily: "Inter_400Regular" },
   reviewComment: { fontSize: 13, color: C.textSecondary, fontFamily: "Inter_400Regular", lineHeight: 20 },
+
+  // Booking form
   bookingForm: {
-    backgroundColor: C.card,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: C.cardBorder,
-    padding: 16,
-    gap: 12,
-    marginBottom: 16,
+    backgroundColor: C.card, borderRadius: 16,
+    borderWidth: 1, borderColor: C.cardBorder,
+    padding: 16, gap: 10, marginBottom: 16,
   },
-  dateRow: { flexDirection: "row", gap: 10 },
-  dateField: { flex: 1, gap: 4 },
-  dateLabel: { fontSize: 11, fontWeight: "600", fontFamily: "Inter_600SemiBold", color: C.textSecondary },
-  dateInput: {
-    backgroundColor: C.backgroundTertiary,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: C.border,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 14,
-    fontFamily: "Inter_400Regular",
-    color: C.text,
+  fieldLabel: {
+    fontSize: 13, fontWeight: "600", fontFamily: "Inter_600SemiBold",
+    color: C.textSecondary, marginBottom: 6,
   },
+
+  slotsLoading: { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 16 },
+  slotsLoadingText: { fontSize: 13, color: C.textSecondary, fontFamily: "Inter_400Regular" },
+
+  slotsGrid: { gap: 8, marginBottom: 6 },
+  slotBtn: {
+    flexDirection: "row", alignItems: "center", gap: 10,
+    backgroundColor: "#FFF3E9",
+    borderWidth: 1.5, borderColor: `${TINT}30`,
+    borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12,
+  },
+  slotBtnSelected: {
+    backgroundColor: TINT, borderColor: TINT,
+  },
+  slotBtnBooked: {
+    backgroundColor: "#F5F5F5", borderColor: "#E0E0E0",
+  },
+  slotText: { flex: 1, fontSize: 14, fontWeight: "600", fontFamily: "Inter_600SemiBold", color: TINT },
+  slotTextSel: { color: "#fff" },
+  slotTextBooked: { color: "#AEAEAE" },
+  bookedBadge: {
+    fontSize: 11, fontWeight: "700", fontFamily: "Inter_700Bold",
+    color: "#AEAEAE", backgroundColor: "#E8E8E8",
+    paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6,
+  },
+
   notesInput: {
     backgroundColor: C.backgroundTertiary,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: C.border,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 14,
-    fontFamily: "Inter_400Regular",
-    color: C.text,
-    minHeight: 70,
-    textAlignVertical: "top",
+    borderRadius: 10, borderWidth: 1, borderColor: C.border,
+    paddingHorizontal: 12, paddingVertical: 10,
+    fontSize: 14, fontFamily: "Inter_400Regular", color: C.text,
+    minHeight: 60, textAlignVertical: "top",
   },
-  totalRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingTop: 4 },
-  totalLabel: { fontSize: 13, color: C.textSecondary, fontFamily: "Inter_400Regular" },
-  totalAmount: { fontSize: 18, fontWeight: "700", fontFamily: "Inter_700Bold", color: C.tint },
+
+  summaryRow: {
+    flexDirection: "row", alignItems: "center", gap: 8,
+    backgroundColor: `${TINT}0F`, borderRadius: 10,
+    paddingHorizontal: 12, paddingVertical: 10,
+  },
+  summaryText: { flex: 1, fontSize: 13, fontWeight: "500", fontFamily: "Inter_500Medium", color: "#2C2C2C" },
+  summaryAmount: { fontSize: 16, fontWeight: "700", fontFamily: "Inter_700Bold", color: TINT },
+
   formActions: { flexDirection: "row", gap: 10 },
   cancelFormBtn: {
-    flex: 1,
-    paddingVertical: 13,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: C.border,
-    alignItems: "center",
+    flex: 1, paddingVertical: 13, borderRadius: 12,
+    borderWidth: 1.5, borderColor: C.border, alignItems: "center",
   },
   cancelFormText: { fontSize: 15, fontWeight: "600", fontFamily: "Inter_600SemiBold", color: C.text },
   confirmBookBtn: {
-    flex: 2,
-    backgroundColor: C.tint,
-    paddingVertical: 13,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
+    flex: 2, backgroundColor: TINT,
+    paddingVertical: 13, borderRadius: 12,
+    alignItems: "center", justifyContent: "center",
   },
+  confirmBookBtnDisabled: { backgroundColor: "#FFBA8A", opacity: 0.7 },
   confirmBookText: { color: "#fff", fontSize: 15, fontWeight: "700", fontFamily: "Inter_700Bold" },
+
   bottomBar: {
     backgroundColor: C.backgroundSecondary,
-    borderTopWidth: 1,
-    borderTopColor: C.border,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 20,
-    paddingTop: 14,
+    borderTopWidth: 1, borderTopColor: C.border,
+    flexDirection: "row", justifyContent: "space-between", alignItems: "center",
+    paddingHorizontal: 20, paddingTop: 14,
   },
   bottomPrice: { fontSize: 20, fontWeight: "700", fontFamily: "Inter_700Bold", color: C.text },
   bottomUnit: { fontSize: 12, color: C.textSecondary, fontFamily: "Inter_400Regular" },
   bookNowBtn: {
-    backgroundColor: C.tint,
-    borderRadius: 14,
-    paddingHorizontal: 24,
-    paddingVertical: 13,
-    flexDirection: "row",
-    gap: 8,
-    alignItems: "center",
+    backgroundColor: TINT, borderRadius: 14,
+    paddingHorizontal: 24, paddingVertical: 13,
+    flexDirection: "row", gap: 8, alignItems: "center",
   },
   bookNowText: { color: "#fff", fontSize: 15, fontWeight: "700", fontFamily: "Inter_700Bold" },
   errorText: { fontSize: 16, color: C.textSecondary, fontFamily: "Inter_400Regular" },
   backBtn: {
-    backgroundColor: C.tint,
-    borderRadius: 12,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    marginTop: 12,
+    backgroundColor: TINT, borderRadius: 12,
+    paddingHorizontal: 24, paddingVertical: 12, marginTop: 12,
   },
   backBtnText: { color: "#fff", fontSize: 15, fontWeight: "600", fontFamily: "Inter_600SemiBold" },
 });
