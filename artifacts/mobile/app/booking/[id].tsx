@@ -158,9 +158,26 @@ export default function BookingDetailScreen() {
 
         {/* Details */}
         <View style={styles.detailCard}>
-          <InfoRow icon="calendar-outline" label="Start Date" value={new Date(booking.startDate).toLocaleDateString("en-IN", { dateStyle: "long" })} />
-          <InfoRow icon="calendar" label="End Date" value={new Date(booking.endDate).toLocaleDateString("en-IN", { dateStyle: "long" })} />
-          <InfoRow icon="time-outline" label="Duration" value={`${booking.totalDays} day${booking.totalDays > 1 ? "s" : ""}`} />
+          {booking.bookingDate ? (
+            <InfoRow
+              icon="calendar-outline"
+              label="Booking Date"
+              value={new Date(booking.bookingDate).toLocaleDateString("en-IN", { dateStyle: "long" })}
+            />
+          ) : (
+            <>
+              <InfoRow icon="calendar-outline" label="Start Date" value={new Date(booking.startDate).toLocaleDateString("en-IN", { dateStyle: "long" })} />
+              <InfoRow icon="calendar" label="End Date" value={new Date(booking.endDate).toLocaleDateString("en-IN", { dateStyle: "long" })} />
+            </>
+          )}
+          {booking.timeSlot ? (
+            <>
+              <InfoRow icon="time-outline" label="Time Slot" value={booking.timeSlot} />
+              <InfoRow icon="hourglass-outline" label="Total Hours" value="2 hours" />
+            </>
+          ) : (
+            <InfoRow icon="time-outline" label="Duration" value={`${booking.totalDays} day${booking.totalDays > 1 ? "s" : ""}`} />
+          )}
           <InfoRow icon="cash-outline" label="Total Amount" value={`₹${booking.totalAmount.toLocaleString("en-IN")}`} highlight />
           <InfoRow icon="card-outline" label="Payment" value={booking.paymentStatus.charAt(0).toUpperCase() + booking.paymentStatus.slice(1)} />
           {isCustomer ? (

@@ -40,6 +40,8 @@ export interface Booking {
   status: BookingStatus;
   paymentStatus: PaymentStatus;
   notes: string | null;
+  bookingDate: string | null;
+  timeSlot: string | null;
   createdAt: string;
 }
 
