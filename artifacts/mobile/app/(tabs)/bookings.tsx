@@ -5,7 +5,6 @@ import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useEffect, useState } from "react";
 import {
-  ActivityIndicator,
   Platform,
   Pressable,
   RefreshControl,
@@ -17,6 +16,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { BookingStatusBadge } from "@/components/BookingStatusBadge";
+import { BookingCardSkeleton } from "@/components/SkeletonLoader";
 import Colors from "@/constants/colors";
 import { useAuth } from "@/context/AuthContext";
 import { useApi } from "@/hooks/useApi";
@@ -100,8 +100,10 @@ export default function BookingsScreen() {
         showsVerticalScrollIndicator={false}
       >
         {loading ? (
-          <View style={styles.centerBox}>
-            <ActivityIndicator color={C.tint} size="large" />
+          <View style={styles.list}>
+            <BookingCardSkeleton delay={0} />
+            <BookingCardSkeleton delay={110} />
+            <BookingCardSkeleton delay={220} />
           </View>
         ) : bookings.length === 0 ? (
           <View style={styles.centerBox}>

@@ -5,7 +5,6 @@ import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useEffect, useState } from "react";
 import {
-  ActivityIndicator,
   Platform,
   Pressable,
   RefreshControl,
@@ -17,6 +16,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { ListingCard } from "@/components/ListingCard";
+import { ListingCardSkeleton } from "@/components/SkeletonLoader";
 import { NotificationBell } from "@/components/NotificationBell";
 import { SideDrawer } from "@/components/SideDrawer";
 import Colors, { GRADIENT_ORANGE } from "@/constants/colors";
@@ -255,9 +255,11 @@ export default function HomeScreen() {
         {/* Listings */}
         <View style={styles.listingsWrap}>
           {loading ? (
-            <View style={styles.center}>
-              <ActivityIndicator color="#FF7A18" size="large" />
-            </View>
+            <>
+              <ListingCardSkeleton delay={0} />
+              <ListingCardSkeleton delay={120} />
+              <ListingCardSkeleton delay={240} />
+            </>
           ) : listings.length === 0 ? (
             <View style={styles.center}>
               <Ionicons name="search-outline" size={52} color="#AEAEAE" />
