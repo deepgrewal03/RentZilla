@@ -188,6 +188,30 @@ export async function runMigrations() {
   const alterStatements = [
     `ALTER TABLE bookings ADD COLUMN IF NOT EXISTS booking_date TEXT`,
     `ALTER TABLE bookings ADD COLUMN IF NOT EXISTS time_slot TEXT`,
+    `CREATE TABLE IF NOT EXISTS equipment_provider_details (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL UNIQUE,
+      equipment_name TEXT NOT NULL,
+      license_number TEXT,
+      make TEXT,
+      model TEXT,
+      year TEXT,
+      status TEXT NOT NULL DEFAULT 'pending',
+      created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+    )`,
+    `CREATE TABLE IF NOT EXISTS service_provider_details (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL UNIQUE,
+      full_name TEXT NOT NULL,
+      service_type TEXT NOT NULL,
+      area TEXT NOT NULL,
+      address TEXT NOT NULL,
+      aadhaar_number TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending',
+      created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+    )`,
   ];
 
   for (const stmt of alterStatements) {

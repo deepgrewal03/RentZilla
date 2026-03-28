@@ -71,18 +71,31 @@ router.post("/verify-otp", authMiddleware, async (req: Request, res: Response) =
   }
 });
 
-// POST /api/roles/upgrade — upgrade to provider (requires OTP verified within 10 min)
+function genId() { return Date.now().toString() + Math.random().toString(36).substr(2, 9); }
+function esc(v: string | undefined | null) { return v ? `'${v.replace(/'/g, "''")}'` : "NULL"; }
+
+// POST /api/roles/upgrade — upgrade to provider (requires OTP verified within 15 min)
 router.post("/upgrade", authMiddleware, async (req: Request, res: Response) => {
   try {
     const userId = (req as AR).userId;
-    const { targetRole, licenseNumber, vehicleType, vehicleMake, vehicleModel, vehicleYear, vehicleColor } = req.body;
+    const {
+      targetRole,
+      providerType,        // "cars" | "equipment" | "services"
+      subtype,             // e.g. "Sedan", "Tractor", "Plumber"
+      // Cars / Equipment
+      licenseNumber, vehicleType, vehicleMake, vehicleModel, vehicleYear, vehicleColor,
+      // Equipment
+      equipmentName,
+      // Services
+      fullName, area, address, aadhaarNumber,
+    } = req.body;
 
     if (!["provider", "customer"].includes(targetRole)) {
       res.status(400).json({ error: "targetRole must be 'provider' or 'customer'" });
       return;
     }
 
-    // Check OTP was verified recently (within 10 min)
+    // Check OTP was verified recently (within 15 min)
     const otpCheck = await db.execute(
       `SELECT * FROM otps WHERE user_id = '${userId}' AND purpose = 'role_upgrade' AND verified = TRUE 
        AND created_at > NOW() - INTERVAL '15 minutes' ORDER BY created_at DESC LIMIT 1`
@@ -97,42 +110,56 @@ router.post("/upgrade", authMiddleware, async (req: Request, res: Response) => {
     if (!users.length) { res.status(404).json({ error: "User not found" }); return; }
     const user = users[0];
 
-    let newRole: "customer" | "provider" | "both";
+    let newRole: "customer" | "provider" | "both" = "both";
     if (user.role === targetRole) {
-      res.json({ success: true, role: user.role, message: "Already has this role" });
-      return;
+      // already a provider, just update details below
+    } else {
+      await db.update(usersTable).set({ role: newRole as any }).where(eq(usersTable.id, userId));
     }
-    newRole = "both";
 
-    // Update user role
-    await db.update(usersTable).set({ role: newRole as any }).where(eq(usersTable.id, userId));
-
-    // If upgrading to provider, create/update driver profile
-    if (targetRole === "provider" && licenseNumber) {
-      await db.execute(
-        `INSERT INTO driver_profiles (user_id, license_number, vehicle_type, vehicle_make, vehicle_model, vehicle_year, vehicle_color, status)
-         VALUES ('${userId}', ${licenseNumber ? `'${licenseNumber}'` : 'NULL'}, ${vehicleType ? `'${vehicleType}'` : 'NULL'},
-                 ${vehicleMake ? `'${vehicleMake}'` : 'NULL'}, ${vehicleModel ? `'${vehicleModel}'` : 'NULL'},
-                 ${vehicleYear ? `'${vehicleYear}'` : 'NULL'}, ${vehicleColor ? `'${vehicleColor}'` : 'NULL'}, 'pending')
-         ON CONFLICT (user_id) DO UPDATE SET
-           license_number = EXCLUDED.license_number,
-           vehicle_type = EXCLUDED.vehicle_type,
-           vehicle_make = EXCLUDED.vehicle_make,
-           vehicle_model = EXCLUDED.vehicle_model,
-           vehicle_year = EXCLUDED.vehicle_year,
-           vehicle_color = EXCLUDED.vehicle_color,
-           updated_at = NOW()`
-      );
+    if (targetRole === "provider") {
+      if (providerType === "cars" || (!providerType && licenseNumber)) {
+        // Car driver profile
+        const vType = vehicleType || subtype || "Sedan";
+        await db.execute(
+          `INSERT INTO driver_profiles (user_id, license_number, vehicle_type, vehicle_make, vehicle_model, vehicle_year, vehicle_color, status)
+           VALUES ('${userId}', ${esc(licenseNumber)}, ${esc(vType)}, ${esc(vehicleMake)}, ${esc(vehicleModel)}, ${esc(vehicleYear)}, ${esc(vehicleColor)}, 'pending')
+           ON CONFLICT (user_id) DO UPDATE SET
+             license_number = EXCLUDED.license_number, vehicle_type = EXCLUDED.vehicle_type,
+             vehicle_make = EXCLUDED.vehicle_make, vehicle_model = EXCLUDED.vehicle_model,
+             vehicle_year = EXCLUDED.vehicle_year, vehicle_color = EXCLUDED.vehicle_color, updated_at = NOW()`
+        );
+      } else if (providerType === "equipment") {
+        const eqName = equipmentName || subtype || "";
+        await db.execute(
+          `INSERT INTO equipment_provider_details (id, user_id, equipment_name, license_number, make, model, year, status)
+           VALUES ('${genId()}', '${userId}', ${esc(eqName)}, ${esc(licenseNumber)}, ${esc(vehicleMake)}, ${esc(vehicleModel)}, ${esc(vehicleYear)}, 'pending')
+           ON CONFLICT (user_id) DO UPDATE SET
+             equipment_name = EXCLUDED.equipment_name, license_number = EXCLUDED.license_number,
+             make = EXCLUDED.make, model = EXCLUDED.model, year = EXCLUDED.year, updated_at = NOW()`
+        );
+      } else if (providerType === "services") {
+        const sType = subtype || "General";
+        if (!fullName || !area || !address || !aadhaarNumber) {
+          res.status(400).json({ error: "All service provider fields are required" });
+          return;
+        }
+        if (!/^\d{12}$/.test(aadhaarNumber.replace(/\s/g, ""))) {
+          res.status(400).json({ error: "Aadhaar number must be 12 digits" });
+          return;
+        }
+        await db.execute(
+          `INSERT INTO service_provider_details (id, user_id, full_name, service_type, area, address, aadhaar_number, status)
+           VALUES ('${genId()}', '${userId}', ${esc(fullName)}, ${esc(sType)}, ${esc(area)}, ${esc(address)}, ${esc(aadhaarNumber.replace(/\s/g,""))}, 'pending')
+           ON CONFLICT (user_id) DO UPDATE SET
+             full_name = EXCLUDED.full_name, service_type = EXCLUDED.service_type,
+             area = EXCLUDED.area, address = EXCLUDED.address, aadhaar_number = EXCLUDED.aadhaar_number, updated_at = NOW()`
+        );
+      }
     }
 
     const updatedUser = await db.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
-    const u = updatedUser[0];
-
-    res.json({
-      success: true,
-      role: u.role,
-      message: `Role upgraded to ${newRole}`,
-    });
+    res.json({ success: true, role: updatedUser[0].role, message: "Provider registration complete" });
   } catch (err) {
     req.log.error({ err }, "Role upgrade error");
     res.status(500).json({ error: "Internal server error" });
