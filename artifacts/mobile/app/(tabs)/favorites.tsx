@@ -16,7 +16,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { ListingCard } from "@/components/ListingCard";
-import { SkeletonLoader } from "@/components/SkeletonLoader";
+import { ListingCardSkeleton } from "@/components/SkeletonLoader";
 import Colors from "@/constants/colors";
 import { useFavorites } from "@/context/FavoritesContext";
 import { useLang } from "@/context/LanguageContext";
@@ -104,9 +104,9 @@ export default function FavoritesScreen() {
       >
         {loading ? (
           <View style={styles.list}>
-            <SkeletonLoader width="100%" height={220} borderRadius={16} />
-            <SkeletonLoader width="100%" height={220} borderRadius={16} />
-            <SkeletonLoader width="100%" height={220} borderRadius={16} />
+            <ListingCardSkeleton delay={0} />
+            <ListingCardSkeleton delay={120} />
+            <ListingCardSkeleton delay={240} />
           </View>
         ) : favorites.length === 0 ? (
           <View style={styles.centerBox}>
