@@ -1,11 +1,17 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
+import { Image } from "expo-image";
+import * as ImagePicker from "expo-image-picker";
 import { LinearGradient } from "expo-linear-gradient";
+import * as Location from "expo-location";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
+  Animated,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -22,6 +28,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useApi } from "@/hooks/useApi";
 
 const C = Colors.light;
+const ORANGE = "#FF7A18";
 
 interface MenuItemProps {
   icon: string;
@@ -39,8 +46,8 @@ function MenuItem({ icon, label, value, onPress, color = C.text, rightIcon = "ch
         <Ionicons name={icon as keyof typeof Ionicons.glyphMap} size={20} color={color} />
       </View>
       <Text style={[styles.menuLabel, { color }]} numberOfLines={1}>{label}</Text>
-      {value && <Text style={styles.menuValue}>{value}</Text>}
-      {onPress && <Ionicons name={rightIcon as keyof typeof Ionicons.glyphMap} size={18} color={C.textTertiary} />}
+      {value ? <Text style={styles.menuValue} numberOfLines={1}>{value}</Text> : null}
+      {onPress ? <Ionicons name={rightIcon as keyof typeof Ionicons.glyphMap} size={18} color={C.textTertiary} /> : null}
     </Pressable>
   );
 }
@@ -50,17 +57,38 @@ export default function ProfileScreen() {
   const { put } = useApi();
   const insets = useSafeAreaInsets();
   const isWeb = Platform.OS === "web";
-  const [editMode, setEditMode] = useState(false);
-  const [name, setName] = useState(user?.name || "");
-  const [location, setLocation] = useState(user?.location || "");
-  const [saving, setSaving] = useState(false);
+
+  const [editMode, setEditMode]   = useState(false);
+  const [name, setName]           = useState(user?.name || "");
+  const [saving, setSaving]       = useState(false);
+
+  const [photoLoading, setPhotoLoading] = useState(false);
+  const [showPhotoMenu, setShowPhotoMenu] = useState(false);
+
+  const [showLocationModal, setShowLocationModal] = useState(false);
+  const [manualLocation, setManualLocation]       = useState(user?.location || "");
+  const [gpsLoading, setGpsLoading]               = useState(false);
+  const [locationSaving, setLocationSaving]       = useState(false);
+
+  const avatarScale = useRef(new Animated.Value(1)).current;
 
   const topPad = isWeb ? 67 : insets.top;
+
+  function pulseAvatar() {
+    Animated.sequence([
+      Animated.spring(avatarScale, { toValue: 0.93, useNativeDriver: false, tension: 300, friction: 10 }),
+      Animated.spring(avatarScale, { toValue: 1,    useNativeDriver: false, tension: 300, friction: 12 }),
+    ]).start();
+  }
 
   async function saveProfile() {
     setSaving(true);
     try {
-      const updated = await put<{ id: string; name: string | null; location: string | null }>("/users/me", { name, location });
+      const updated = await put<{ id: string; name: string | null; location: string | null }>("/users/me", {
+        name,
+        location: user?.location,
+        profileImage: user?.profileImage,
+      });
       updateUser({ name: updated.name, location: updated.location });
       setEditMode(false);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -68,6 +96,134 @@ export default function ProfileScreen() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function pickPhotoFromGallery() {
+    setShowPhotoMenu(false);
+    try {
+      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!perm.granted) {
+        Alert.alert("Permission needed", "Please allow access to your photo library.");
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.6,
+        base64: true,
+      });
+      if (!result.canceled && result.assets[0]) {
+        await uploadPhoto(result.assets[0]);
+      }
+    } catch (e) {
+      Alert.alert("Error", "Could not open gallery.");
+    }
+  }
+
+  async function takePhoto() {
+    setShowPhotoMenu(false);
+    try {
+      const perm = await ImagePicker.requestCameraPermissionsAsync();
+      if (!perm.granted) {
+        Alert.alert("Permission needed", "Please allow camera access.");
+        return;
+      }
+      const result = await ImagePicker.launchCameraAsync({
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.6,
+        base64: true,
+      });
+      if (!result.canceled && result.assets[0]) {
+        await uploadPhoto(result.assets[0]);
+      }
+    } catch {
+      Alert.alert("Error", "Could not open camera.");
+    }
+  }
+
+  async function uploadPhoto(asset: ImagePicker.ImagePickerAsset) {
+    setPhotoLoading(true);
+    pulseAvatar();
+    try {
+      const profileImage = asset.base64
+        ? `data:image/jpeg;base64,${asset.base64}`
+        : asset.uri;
+      const updated = await put<{ profileImage: string | null }>("/users/me", {
+        name: user?.name,
+        location: user?.location,
+        profileImage,
+      });
+      updateUser({ profileImage: updated.profileImage });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch {
+      Alert.alert("Upload failed", "Could not save your photo. Please try again.");
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    } finally {
+      setPhotoLoading(false);
+    }
+  }
+
+  async function removePhoto() {
+    setShowPhotoMenu(false);
+    setPhotoLoading(true);
+    try {
+      await put("/users/me", { name: user?.name, location: user?.location, profileImage: null });
+      updateUser({ profileImage: null });
+      Haptics.selectionAsync();
+    } catch {
+      Alert.alert("Error", "Could not remove photo.");
+    } finally {
+      setPhotoLoading(false);
+    }
+  }
+
+  async function useGpsLocation() {
+    setGpsLoading(true);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert("Permission denied", "Enable location access in your device settings.");
+        setGpsLoading(false);
+        return;
+      }
+      const coords = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      const geocode = await Location.reverseGeocodeAsync({
+        latitude: coords.coords.latitude,
+        longitude: coords.coords.longitude,
+      });
+      if (geocode.length > 0) {
+        const g = geocode[0];
+        const parts = [g.street, g.district, g.city, g.region].filter(Boolean);
+        const addr = parts.length > 0 ? parts.join(", ") : (g.formattedAddress || "");
+        setManualLocation(addr);
+      }
+    } catch {
+      Alert.alert("Location error", "Could not fetch your location. Please enter it manually.");
+    } finally {
+      setGpsLoading(false);
+    }
+  }
+
+  async function saveLocation() {
+    if (!manualLocation.trim()) return;
+    setLocationSaving(true);
+    try {
+      const updated = await put<{ location: string | null }>("/users/me", {
+        name: user?.name,
+        location: manualLocation.trim(),
+        profileImage: user?.profileImage,
+      });
+      updateUser({ location: updated.location });
+      setShowLocationModal(false);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch {
+      Alert.alert("Error", "Could not save location.");
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    } finally {
+      setLocationSaving(false);
     }
   }
 
@@ -87,6 +243,8 @@ export default function ProfileScreen() {
 
   if (!user) return null;
 
+  const displayName = user.name || user.email || user.phone || "?";
+
   return (
     <View style={styles.root}>
       <StatusBar style="light" />
@@ -103,11 +261,32 @@ export default function ProfileScreen() {
       </LinearGradient>
 
       <ScrollView style={styles.scroll} contentInsetAdjustmentBehavior="automatic" showsVerticalScrollIndicator={false}>
-        {/* Avatar & Info */}
+
+        {/* ─── Avatar & Info ─── */}
         <View style={styles.profileCard}>
-          <View style={styles.avatarCircle}>
-            <Text style={styles.avatarLetter}>{(user.name || user.phone)[0].toUpperCase()}</Text>
-          </View>
+
+          {/* Avatar */}
+          <Pressable onPress={() => { Haptics.selectionAsync(); setShowPhotoMenu(true); }} style={styles.avatarWrap}>
+            <Animated.View style={[styles.avatarCircle, { transform: [{ scale: avatarScale }] }]}>
+              {photoLoading ? (
+                <ActivityIndicator color={ORANGE} size="large" />
+              ) : user.profileImage ? (
+                <Image
+                  source={{ uri: user.profileImage }}
+                  style={styles.avatarImage}
+                  contentFit="cover"
+                  transition={300}
+                />
+              ) : (
+                <Text style={styles.avatarLetter}>{displayName[0]?.toUpperCase() || "?"}</Text>
+              )}
+            </Animated.View>
+            <View style={styles.editPhotoTag}>
+              <Ionicons name="camera" size={11} color="#fff" />
+              <Text style={styles.editPhotoText}>Edit</Text>
+            </View>
+          </Pressable>
+
           {editMode ? (
             <View style={styles.editFields}>
               <TextInput
@@ -117,13 +296,6 @@ export default function ProfileScreen() {
                 placeholder="Your full name"
                 placeholderTextColor={C.textTertiary}
               />
-              <TextInput
-                style={styles.editInput}
-                value={location}
-                onChangeText={setLocation}
-                placeholder="e.g. Ludhiana, Punjab"
-                placeholderTextColor={C.textTertiary}
-              />
               <Pressable onPress={saveProfile} disabled={saving} style={styles.saveBtn}>
                 <Text style={styles.saveBtnText}>{saving ? "Saving..." : "Save Changes"}</Text>
               </Pressable>
@@ -131,13 +303,19 @@ export default function ProfileScreen() {
           ) : (
             <>
               <Text style={styles.userName}>{user.name || "Set your name"}</Text>
-              <Text style={styles.userPhone}>{user.phone}</Text>
+              <Text style={styles.userPhone}>{user.email || user.phone}</Text>
               {user.location ? (
-                <View style={styles.locationRow}>
-                  <Ionicons name="location-outline" size={14} color={C.textSecondary} />
+                <Pressable onPress={() => { setManualLocation(user.location || ""); setShowLocationModal(true); }} style={styles.locationRow}>
+                  <Ionicons name="location" size={14} color={ORANGE} />
                   <Text style={styles.locationText}>{user.location}</Text>
-                </View>
-              ) : null}
+                  <Ionicons name="pencil" size={11} color={C.textTertiary} />
+                </Pressable>
+              ) : (
+                <Pressable onPress={() => { setManualLocation(""); setShowLocationModal(true); }} style={styles.addLocationBtn}>
+                  <Ionicons name="location-outline" size={14} color={ORANGE} />
+                  <Text style={styles.addLocationText}>Add your location</Text>
+                </Pressable>
+              )}
               <View style={styles.roleBadge}>
                 <Ionicons name={user.role === "provider" ? "storefront-outline" : "search-outline"} size={13} color={C.tint} />
                 <Text style={styles.roleText}>{user.role === "provider" ? "Provider" : "Customer"}</Text>
@@ -170,30 +348,39 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        {/* Menu */}
+        {/* Activity */}
         <View style={styles.menuCard}>
           <Text style={styles.menuSection}>Activity</Text>
-          <MenuItem icon="calendar-outline" label="My Bookings" color={C.tint} onPress={() => router.push("/(tabs)/bookings")} />
-          <MenuItem icon="chatbubble-outline" label="Messages" color="#3B82F6" onPress={() => router.push("/(tabs)/messages")} />
+          <MenuItem icon="calendar-outline"  label="My Bookings" color={C.tint}    onPress={() => router.push("/(tabs)/bookings")} />
+          <MenuItem icon="heart-outline"     label="Favourites"  color="#FF3B5C"   onPress={() => router.push("/(tabs)/favorites")} />
+          <MenuItem icon="chatbubble-outline" label="Messages"   color="#3B82F6"   onPress={() => router.push("/(tabs)/messages")} />
           {user.role === "provider" && (
             <MenuItem icon="list-outline" label="My Listings" color="#22C55E" onPress={() => router.push("/(tabs)/dashboard")} />
           )}
         </View>
 
+        {/* Account */}
         <View style={styles.menuCard}>
           <Text style={styles.menuSection}>Account</Text>
           <MenuItem
-            icon="phone-portrait-outline"
-            label="Phone Number"
-            value={user.phone}
-            color={C.textSecondary}
+            icon="camera-outline"
+            label="Profile Photo"
+            value={user.profileImage ? "Set" : "Not set"}
+            color="#8B5CF6"
+            onPress={() => setShowPhotoMenu(true)}
           />
           <MenuItem
             icon="location-outline"
             label="Location"
             value={user.location || "Not set"}
+            color="#0EA5E9"
+            onPress={() => { setManualLocation(user.location || ""); setShowLocationModal(true); }}
+          />
+          <MenuItem
+            icon="phone-portrait-outline"
+            label="Phone Number"
+            value={user.phone}
             color={C.textSecondary}
-            onPress={() => setEditMode(true)}
           />
           <MenuItem
             icon="log-out-outline"
@@ -205,6 +392,151 @@ export default function ProfileScreen() {
 
         <View style={{ height: isWeb ? 34 : 100 }} />
       </ScrollView>
+
+      {/* ─── Photo Menu Modal ─── */}
+      <Modal
+        visible={showPhotoMenu}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowPhotoMenu(false)}
+      >
+        <Pressable style={styles.overlay} onPress={() => setShowPhotoMenu(false)}>
+          <View style={styles.sheet}>
+            <View style={styles.sheetHandle} />
+            <Text style={styles.sheetTitle}>Profile Photo</Text>
+            <Text style={styles.sheetSubtitle}>Choose how to update your photo</Text>
+
+            <Pressable onPress={pickPhotoFromGallery} style={styles.sheetBtn}>
+              <View style={[styles.sheetBtnIcon, { backgroundColor: "#EEF2FF" }]}>
+                <Ionicons name="images-outline" size={22} color="#6366F1" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.sheetBtnLabel}>Upload from Gallery</Text>
+                <Text style={styles.sheetBtnSub}>Choose an existing photo</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={C.textTertiary} />
+            </Pressable>
+
+            {!isWeb && (
+              <Pressable onPress={takePhoto} style={styles.sheetBtn}>
+                <View style={[styles.sheetBtnIcon, { backgroundColor: "#F0FDF4" }]}>
+                  <Ionicons name="camera-outline" size={22} color="#22C55E" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.sheetBtnLabel}>Take a Photo</Text>
+                  <Text style={styles.sheetBtnSub}>Use your camera</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color={C.textTertiary} />
+              </Pressable>
+            )}
+
+            {user.profileImage && (
+              <Pressable onPress={removePhoto} style={styles.sheetBtn}>
+                <View style={[styles.sheetBtnIcon, { backgroundColor: "#FEF2F2" }]}>
+                  <Ionicons name="trash-outline" size={22} color="#EF4444" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.sheetBtnLabel, { color: "#EF4444" }]}>Remove Photo</Text>
+                  <Text style={styles.sheetBtnSub}>Revert to initials</Text>
+                </View>
+              </Pressable>
+            )}
+
+            <Pressable onPress={() => setShowPhotoMenu(false)} style={[styles.sheetBtn, styles.sheetCancelBtn]}>
+              <Text style={styles.sheetCancelText}>Cancel</Text>
+            </Pressable>
+          </View>
+        </Pressable>
+      </Modal>
+
+      {/* ─── Location Modal ─── */}
+      <Modal
+        visible={showLocationModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowLocationModal(false)}
+      >
+        <Pressable style={styles.overlay} onPress={() => setShowLocationModal(false)}>
+          <Pressable style={styles.locationSheet} onPress={() => {}}>
+            <View style={styles.sheetHandle} />
+            <Text style={styles.sheetTitle}>Set Location</Text>
+            <Text style={styles.sheetSubtitle}>Used for service availability & recommendations</Text>
+
+            {/* GPS button */}
+            {!isWeb && (
+              <Pressable
+                onPress={useGpsLocation}
+                disabled={gpsLoading}
+                style={({ pressed }) => [styles.gpsBtn, pressed && { opacity: 0.8 }]}
+              >
+                <LinearGradient
+                  colors={["#0EA5E9", "#0284C7"]}
+                  start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                  style={styles.gpsBtnGrad}
+                >
+                  {gpsLoading ? (
+                    <ActivityIndicator color="#fff" size="small" />
+                  ) : (
+                    <Ionicons name="navigate" size={18} color="#fff" />
+                  )}
+                  <Text style={styles.gpsBtnText}>
+                    {gpsLoading ? "Detecting location..." : "Use My Current Location"}
+                  </Text>
+                </LinearGradient>
+              </Pressable>
+            )}
+
+            <View style={styles.orRow}>
+              <View style={styles.orLine} />
+              <Text style={styles.orText}>or enter manually</Text>
+              <View style={styles.orLine} />
+            </View>
+
+            <View style={styles.locationInputWrap}>
+              <Ionicons name="location-outline" size={20} color={ORANGE} style={{ marginLeft: 12 }} />
+              <TextInput
+                style={styles.locationInput}
+                value={manualLocation}
+                onChangeText={setManualLocation}
+                placeholder="e.g. Ludhiana, Punjab"
+                placeholderTextColor={C.textTertiary}
+                returnKeyType="done"
+                onSubmitEditing={saveLocation}
+              />
+              {manualLocation.length > 0 && (
+                <Pressable onPress={() => setManualLocation("")} hitSlop={8} style={{ marginRight: 12 }}>
+                  <Ionicons name="close-circle" size={18} color={C.textTertiary} />
+                </Pressable>
+              )}
+            </View>
+
+            <Pressable
+              onPress={saveLocation}
+              disabled={locationSaving || !manualLocation.trim()}
+              style={[styles.saveLocationBtn, (!manualLocation.trim() || locationSaving) && { opacity: 0.5 }]}
+            >
+              <LinearGradient
+                colors={["#FF7A18", "#FF9F43"]}
+                start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                style={styles.saveLocationGrad}
+              >
+                {locationSaving ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <Ionicons name="checkmark" size={18} color="#fff" />
+                )}
+                <Text style={styles.saveLocationText}>
+                  {locationSaving ? "Saving..." : "Save Location"}
+                </Text>
+              </LinearGradient>
+            </Pressable>
+
+            <Pressable onPress={() => setShowLocationModal(false)} style={styles.cancelLocationBtn}>
+              <Text style={styles.sheetCancelText}>Cancel</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -248,22 +580,44 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 3,
   },
+  avatarWrap: { position: "relative", marginBottom: 4 },
   avatarCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: `${C.tint}20`,
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    backgroundColor: `${ORANGE}20`,
     borderWidth: 3,
-    borderColor: `${C.tint}40`,
+    borderColor: `${ORANGE}40`,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 4,
+    overflow: "hidden",
   },
+  avatarImage: { width: 88, height: 88, borderRadius: 44 },
   avatarLetter: {
-    fontSize: 32,
+    fontSize: 34,
     fontWeight: "700",
     fontFamily: "Inter_700Bold",
-    color: C.tint,
+    color: ORANGE,
+  },
+  editPhotoTag: {
+    position: "absolute",
+    bottom: 0,
+    right: 0,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+    backgroundColor: ORANGE,
+    borderRadius: 10,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderWidth: 2,
+    borderColor: "#fff",
+  },
+  editPhotoText: {
+    color: "#fff",
+    fontSize: 9,
+    fontWeight: "700",
+    fontFamily: "Inter_700Bold",
   },
   userName: {
     fontSize: 22,
@@ -280,11 +634,32 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
+    backgroundColor: `${ORANGE}10`,
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
   },
   locationText: {
     fontSize: 13,
-    color: C.textSecondary,
-    fontFamily: "Inter_400Regular",
+    color: ORANGE,
+    fontFamily: "Inter_500Medium",
+  },
+  addLocationBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: `${ORANGE}10`,
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: `${ORANGE}30`,
+    borderStyle: "dashed",
+  },
+  addLocationText: {
+    fontSize: 13,
+    color: ORANGE,
+    fontFamily: "Inter_500Medium",
   },
   roleBadge: {
     flexDirection: "row",
@@ -302,22 +677,9 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_600SemiBold",
     color: C.tint,
   },
-  ratingRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    marginTop: 4,
-  },
-  ratingText: {
-    fontSize: 12,
-    color: C.textSecondary,
-    fontFamily: "Inter_400Regular",
-  },
-  editFields: {
-    width: "100%",
-    gap: 10,
-    marginTop: 8,
-  },
+  ratingRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4 },
+  ratingText: { fontSize: 12, color: C.textSecondary, fontFamily: "Inter_400Regular" },
+  editFields: { width: "100%", gap: 10, marginTop: 8 },
   editInput: {
     backgroundColor: C.backgroundTertiary,
     borderRadius: 12,
@@ -336,12 +698,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginTop: 4,
   },
-  saveBtnText: {
-    color: "#fff",
-    fontSize: 15,
-    fontWeight: "600",
-    fontFamily: "Inter_600SemiBold",
-  },
+  saveBtnText: { color: "#fff", fontSize: 15, fontWeight: "600", fontFamily: "Inter_600SemiBold" },
   statsRow: {
     marginHorizontal: 20,
     backgroundColor: C.card,
@@ -352,20 +709,9 @@ const styles = StyleSheet.create({
     paddingVertical: 20,
     marginBottom: 16,
   },
-  statItem: {
-    flex: 1,
-    alignItems: "center",
-    gap: 6,
-  },
-  statLabel: {
-    fontSize: 12,
-    color: C.textSecondary,
-    fontFamily: "Inter_400Regular",
-  },
-  statDivider: {
-    width: 1,
-    backgroundColor: C.border,
-  },
+  statItem: { flex: 1, alignItems: "center", gap: 6 },
+  statLabel: { fontSize: 12, color: C.textSecondary, fontFamily: "Inter_400Regular" },
+  statDivider: { width: 1, backgroundColor: C.border },
   menuCard: {
     marginHorizontal: 20,
     backgroundColor: C.card,
@@ -402,14 +748,115 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  menuLabel: {
+  menuLabel: { flex: 1, fontSize: 15, fontFamily: "Inter_500Medium" },
+  menuValue: { fontSize: 13, color: C.textSecondary, fontFamily: "Inter_400Regular", maxWidth: 120 },
+
+  overlay: {
     flex: 1,
-    fontSize: 15,
-    fontFamily: "Inter_500Medium",
+    backgroundColor: "rgba(0,0,0,0.45)",
+    justifyContent: "flex-end",
   },
-  menuValue: {
+  sheet: {
+    backgroundColor: "#fff",
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingHorizontal: 20,
+    paddingBottom: 36,
+    paddingTop: 12,
+    gap: 4,
+  },
+  locationSheet: {
+    backgroundColor: "#fff",
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingHorizontal: 20,
+    paddingBottom: 36,
+    paddingTop: 12,
+    gap: 14,
+  },
+  sheetHandle: {
+    width: 40, height: 4, borderRadius: 2,
+    backgroundColor: "#E0E0E0",
+    alignSelf: "center",
+    marginBottom: 12,
+  },
+  sheetTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    fontFamily: "Inter_700Bold",
+    color: C.text,
+    textAlign: "center",
+  },
+  sheetSubtitle: {
     fontSize: 13,
     color: C.textSecondary,
     fontFamily: "Inter_400Regular",
+    textAlign: "center",
+    marginBottom: 8,
   },
+  sheetBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 4,
+    borderTopWidth: 1,
+    borderTopColor: C.borderLight,
+  },
+  sheetBtnIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  sheetBtnLabel: { fontSize: 15, fontWeight: "600", fontFamily: "Inter_600SemiBold", color: C.text },
+  sheetBtnSub:   { fontSize: 12, color: C.textSecondary, fontFamily: "Inter_400Regular", marginTop: 1 },
+  sheetCancelBtn: { justifyContent: "center", marginTop: 4 },
+  sheetCancelText: {
+    textAlign: "center",
+    fontSize: 15,
+    color: C.textSecondary,
+    fontFamily: "Inter_500Medium",
+  },
+  gpsBtn: { borderRadius: 14, overflow: "hidden" },
+  gpsBtnGrad: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    justifyContent: "center",
+  },
+  gpsBtnText: { color: "#fff", fontSize: 15, fontWeight: "600", fontFamily: "Inter_600SemiBold" },
+  orRow: { flexDirection: "row", alignItems: "center", gap: 10 },
+  orLine: { flex: 1, height: 1, backgroundColor: C.borderLight },
+  orText:  { fontSize: 13, color: C.textTertiary, fontFamily: "Inter_400Regular" },
+  locationInputWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: C.backgroundTertiary,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: C.border,
+  },
+  locationInput: {
+    flex: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 13,
+    fontSize: 15,
+    fontFamily: "Inter_400Regular",
+    color: C.text,
+  },
+  saveLocationBtn: { borderRadius: 14, overflow: "hidden" },
+  saveLocationGrad: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    justifyContent: "center",
+  },
+  saveLocationText: { color: "#fff", fontSize: 15, fontWeight: "600", fontFamily: "Inter_600SemiBold" },
+  cancelLocationBtn: { alignItems: "center", paddingVertical: 8 },
 });

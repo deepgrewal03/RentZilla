@@ -20,6 +20,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StarRating } from "@/components/StarRating";
 import Colors from "@/constants/colors";
 import { useAuth } from "@/context/AuthContext";
+import { useFavorites } from "@/context/FavoritesContext";
 import { useApi } from "@/hooks/useApi";
 import { Listing, Review } from "@/types";
 
@@ -168,6 +169,7 @@ export default function ListingDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user } = useAuth();
   const { get, post } = useApi();
+  const { isFavorited, toggle: toggleFav } = useFavorites();
   const insets = useSafeAreaInsets();
   const isWeb = Platform.OS === "web";
 
@@ -334,6 +336,18 @@ export default function ListingDetailScreen() {
           <Pressable onPress={() => router.back()} style={[styles.backCircle, { top: (isWeb ? 67 : insets.top) + 12 }]}>
             <Ionicons name="arrow-back" size={20} color="#fff" />
           </Pressable>
+          {listing && (
+            <Pressable
+              onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); toggleFav(listing.id); }}
+              style={[styles.heartCircle, { top: (isWeb ? 67 : insets.top) + 12 }]}
+            >
+              <Ionicons
+                name={isFavorited(listing.id) ? "heart" : "heart-outline"}
+                size={20}
+                color={isFavorited(listing.id) ? "#FF3B5C" : "#fff"}
+              />
+            </Pressable>
+          )}
         </View>
 
         {/* Content */}
@@ -532,6 +546,12 @@ const styles = StyleSheet.create({
   thumbActive: { borderColor: TINT },
   backCircle: {
     position: "absolute", left: 16,
+    width: 38, height: 38, borderRadius: 19,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    alignItems: "center", justifyContent: "center",
+  },
+  heartCircle: {
+    position: "absolute", right: 16,
     width: 38, height: 38, borderRadius: 19,
     backgroundColor: "rgba(0,0,0,0.45)",
     alignItems: "center", justifyContent: "center",

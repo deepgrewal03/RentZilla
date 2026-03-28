@@ -6,6 +6,7 @@ import React, { useRef } from "react";
 import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
 
 import Colors from "@/constants/colors";
+import { useFavorites } from "@/context/FavoritesContext";
 import { Listing } from "@/types";
 
 const C = Colors.light;
@@ -40,13 +41,26 @@ export function ListingCard({ listing, style }: Props) {
   const accent = getCategoryAccent(listing.category);
   const hasImg = listing.images && listing.images.length > 0;
 
-  const scale = useRef(new Animated.Value(1)).current;
+  const { isFavorited, toggle } = useFavorites();
+  const faved = isFavorited(listing.id);
+
+  const scale    = useRef(new Animated.Value(1)).current;
+  const heartScale = useRef(new Animated.Value(1)).current;
 
   function onPressIn() {
     Animated.spring(scale, { toValue: 0.97, ...SPRING }).start();
   }
   function onPressOut() {
     Animated.spring(scale, { toValue: 1, ...SPRING }).start();
+  }
+
+  function handleFavorite() {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    Animated.sequence([
+      Animated.spring(heartScale, { toValue: 1.35, useNativeDriver: false, tension: 400, friction: 8 }),
+      Animated.spring(heartScale, { toValue: 1,    useNativeDriver: false, tension: 400, friction: 10 }),
+    ]).start();
+    toggle(listing.id);
   }
 
   return (
@@ -80,6 +94,19 @@ export function ListingCard({ listing, style }: Props) {
             <Text style={styles.unavailText}>Unavailable</Text>
           </View>
         )}
+
+        {/* Favorite heart button */}
+        <Pressable onPress={handleFavorite} hitSlop={10} style={styles.heartBtn}>
+          <Animated.View style={{ transform: [{ scale: heartScale }] }}>
+            <View style={[styles.heartBg, faved && styles.heartBgActive]}>
+              <Ionicons
+                name={faved ? "heart" : "heart-outline"}
+                size={18}
+                color={faved ? "#FF3B5C" : "#666"}
+              />
+            </View>
+          </Animated.View>
+        </Pressable>
 
         {/* Category label */}
         <View style={[styles.catLabel, { backgroundColor: `${accent.fg}DD` }]}>
@@ -140,11 +167,26 @@ const styles = StyleSheet.create({
   iconCircle: { width: 64, height: 64, borderRadius: 32, alignItems: "center", justifyContent: "center" },
 
   unavailBadge: {
-    position: "absolute", top: 10, right: 10,
+    position: "absolute", top: 10, left: 10,
     backgroundColor: "#EF4444", borderRadius: 8,
     paddingHorizontal: 8, paddingVertical: 3,
   },
   unavailText: { color: "#fff", fontSize: 10, fontWeight: "700", fontFamily: "Inter_700Bold" },
+
+  heartBtn: {
+    position: "absolute", top: 10, right: 10,
+    zIndex: 10,
+  },
+  heartBg: {
+    width: 34, height: 34, borderRadius: 17,
+    backgroundColor: "rgba(255,255,255,0.92)",
+    alignItems: "center", justifyContent: "center",
+    shadowColor: "#000", shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.12, shadowRadius: 4, elevation: 3,
+  },
+  heartBgActive: {
+    backgroundColor: "#FFF0F3",
+  },
 
   catLabel: {
     position: "absolute", bottom: 10, left: 10,

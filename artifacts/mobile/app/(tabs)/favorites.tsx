@@ -5,7 +5,6 @@ import { router, useFocusEffect } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useCallback, useState } from "react";
 import {
-  ActivityIndicator,
   Platform,
   Pressable,
   RefreshControl,
@@ -17,7 +16,9 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { ListingCard } from "@/components/ListingCard";
+import { SkeletonLoader } from "@/components/SkeletonLoader";
 import Colors from "@/constants/colors";
+import { useFavorites } from "@/context/FavoritesContext";
 import { useLang } from "@/context/LanguageContext";
 import { useApi } from "@/hooks/useApi";
 import { Listing } from "@/types";
@@ -30,14 +31,15 @@ interface FavoritedListing extends Listing {
 }
 
 export default function FavoritesScreen() {
-  const { get, post } = useApi();
-  const { t, language } = useLang();
-  const insets = useSafeAreaInsets();
-  const isWeb = Platform.OS === "web";
-  const isPa = language === "pa";
+  const { get }            = useApi();
+  const { refresh }        = useFavorites();
+  const { t, language }    = useLang();
+  const insets             = useSafeAreaInsets();
+  const isWeb              = Platform.OS === "web";
+  const isPa               = language === "pa";
 
   const [favorites, setFavorites] = useState<FavoritedListing[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading]     = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   const topPad = isWeb ? 67 : insets.top;
@@ -60,16 +62,13 @@ export default function FavoritesScreen() {
     }
   }
 
-  async function removeFavorite(listingId: string) {
-    Haptics.selectionAsync();
-    await post("/favorites", { listingId });
-    setFavorites((prev) => prev.filter((f) => f.id !== listingId));
+  async function handleRefresh() {
+    setRefreshing(true);
+    await Promise.all([fetchFavorites(), refresh()]);
   }
 
   const count = favorites.length;
-  const countLabel = isPa
-    ? `${count} ${count === 1 ? t.savedListings : t.savedListingsPlural}`
-    : `${count} ${count === 1 ? t.savedListings : t.savedListingsPlural}`;
+  const countLabel = `${count} ${count === 1 ? "saved item" : "saved items"}`;
 
   return (
     <View style={styles.root}>
@@ -80,36 +79,58 @@ export default function FavoritesScreen() {
         end={{ x: 1, y: 1 }}
         style={[styles.header, { paddingTop: topPad + 14 }]}
       >
-        <Text style={styles.headerTitle}>{t.favourites}</Text>
-        <Text style={styles.headerSub}>{countLabel}</Text>
+        <View style={styles.headerRow}>
+          <View>
+            <Text style={styles.headerTitle}>{t.favourites}</Text>
+            <Text style={styles.headerSub}>{countLabel}</Text>
+          </View>
+          <View style={styles.heartCircle}>
+            <Ionicons name="heart" size={22} color="#FF3B5C" />
+          </View>
+        </View>
       </LinearGradient>
 
       <ScrollView
         style={styles.scroll}
         contentInsetAdjustmentBehavior="automatic"
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchFavorites(); }} tintColor={C.tint} />}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={C.tint}
+          />
+        }
         showsVerticalScrollIndicator={false}
       >
         {loading ? (
-          <View style={styles.centerBox}><ActivityIndicator color={C.tint} size="large" /></View>
+          <View style={styles.list}>
+            <SkeletonLoader width="100%" height={220} borderRadius={16} />
+            <SkeletonLoader width="100%" height={220} borderRadius={16} />
+            <SkeletonLoader width="100%" height={220} borderRadius={16} />
+          </View>
         ) : favorites.length === 0 ? (
           <View style={styles.centerBox}>
-            <Ionicons name="heart-outline" size={56} color={C.textTertiary} />
+            <View style={styles.emptyIcon}>
+              <Ionicons name="heart-outline" size={48} color="#FF3B5C" />
+            </View>
             <Text style={styles.emptyTitle}>{t.noFavourites}</Text>
             <Text style={styles.emptyText}>{t.noFavouritesDesc}</Text>
-            <Pressable onPress={() => router.push("/(tabs)/search")} style={styles.browseBtn}>
+            <Pressable
+              onPress={() => {
+                Haptics.selectionAsync();
+                router.push("/(tabs)/search");
+              }}
+              style={({ pressed }) => [styles.browseBtn, pressed && { opacity: 0.85 }]}
+            >
+              <Ionicons name="search-outline" size={16} color="#fff" />
               <Text style={styles.browseBtnText}>{t.browseListings}</Text>
             </Pressable>
           </View>
         ) : (
           <View style={styles.list}>
+            <Text style={styles.listLabel}>Tap the heart on any card to remove it</Text>
             {favorites.map((fav) => (
-              <View key={fav.id} style={styles.favItem}>
-                <ListingCard listing={fav} style={styles.card} />
-                <Pressable onPress={() => removeFavorite(fav.id)} style={styles.removeBtn} hitSlop={8}>
-                  <Ionicons name="heart" size={20} color={C.error} />
-                </Pressable>
-              </View>
+              <ListingCard key={fav.id} listing={fav} />
             ))}
           </View>
         )}
@@ -127,31 +148,45 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
     borderBottomLeftRadius: 24,
     borderBottomRightRadius: 24,
-    gap: 4,
   },
+  headerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   headerTitle: { fontSize: 28, fontWeight: "700", fontFamily: "Inter_700Bold", color: "#fff" },
-  headerSub: { fontSize: 13, color: "rgba(255,255,255,0.85)", fontFamily: "Inter_400Regular" },
-  scroll: { flex: 1 },
-  centerBox: {
-    flex: 1, alignItems: "center", justifyContent: "center",
-    paddingTop: 80, paddingHorizontal: 40, gap: 12,
+  headerSub:   { fontSize: 13, color: "rgba(255,255,255,0.85)", fontFamily: "Inter_400Regular", marginTop: 2 },
+  heartCircle: {
+    width: 48, height: 48, borderRadius: 24,
+    backgroundColor: "rgba(255,255,255,0.2)",
+    alignItems: "center", justifyContent: "center",
   },
-  emptyTitle: { fontSize: 18, fontWeight: "600", fontFamily: "Inter_600SemiBold", color: C.text },
-  emptyText: { fontSize: 14, color: C.textSecondary, fontFamily: "Inter_400Regular", textAlign: "center", lineHeight: 20 },
+  scroll: { flex: 1 },
+  list: { padding: 20, gap: 14 },
+  listLabel: {
+    fontSize: 12,
+    color: C.textTertiary,
+    fontFamily: "Inter_400Regular",
+    textAlign: "center",
+    marginBottom: 4,
+  },
+  centerBox: {
+    alignItems: "center",
+    paddingTop: 80,
+    paddingHorizontal: 40,
+    gap: 14,
+  },
+  emptyIcon: {
+    width: 88, height: 88, borderRadius: 44,
+    backgroundColor: "#FFF0F3",
+    alignItems: "center", justifyContent: "center",
+  },
+  emptyTitle: { fontSize: 20, fontWeight: "700", fontFamily: "Inter_700Bold", color: C.text },
+  emptyText: {
+    fontSize: 14, color: C.textSecondary, fontFamily: "Inter_400Regular",
+    textAlign: "center", lineHeight: 20,
+  },
   browseBtn: {
-    backgroundColor: C.tint, borderRadius: 12,
-    paddingHorizontal: 24, paddingVertical: 12, marginTop: 8,
+    flexDirection: "row", alignItems: "center", gap: 8,
+    backgroundColor: C.tint, borderRadius: 14,
+    paddingHorizontal: 24, paddingVertical: 13,
+    marginTop: 4,
   },
   browseBtnText: { color: "#fff", fontSize: 15, fontWeight: "600", fontFamily: "Inter_600SemiBold" },
-  list: { padding: 20, gap: 14 },
-  favItem: { position: "relative" },
-  card: {},
-  removeBtn: {
-    position: "absolute", top: 10, right: 10,
-    width: 34, height: 34, borderRadius: 17,
-    backgroundColor: "rgba(255,255,255,0.9)",
-    alignItems: "center", justifyContent: "center",
-    shadowColor: "#000", shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1, shadowRadius: 4, elevation: 3,
-  },
 });
