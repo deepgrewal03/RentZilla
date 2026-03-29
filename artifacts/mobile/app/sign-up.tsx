@@ -3,9 +3,10 @@ import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Animated,
   FlatList,
   KeyboardAvoidingView,
   Modal,
@@ -27,6 +28,7 @@ import { useLang } from "@/context/LanguageContext";
 const C = Colors.light;
 const TINT = "#FF7A18";
 
+// ── Country list ─────────────────────────────────────────────────────────────
 const COUNTRIES = [
   { code: "+91",  flag: "🇮🇳", name: "India",           minDigits: 10, maxDigits: 10 },
   { code: "+1",   flag: "🇺🇸", name: "USA / Canada",    minDigits: 10, maxDigits: 10 },
@@ -48,13 +50,339 @@ const COUNTRIES = [
   { code: "+27",  flag: "🇿🇦", name: "South Africa",    minDigits: 9,  maxDigits: 9  },
 ];
 
-function formatDob(text: string): string {
-  const digits = text.replace(/\D/g, "").slice(0, 8);
-  if (digits.length <= 2) return digits;
-  if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
-  return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
+// ── Calendar constants ────────────────────────────────────────────────────────
+const MONTH_NAMES = [
+  "January","February","March","April","May","June",
+  "July","August","September","October","November","December",
+];
+const DAY_LABELS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+
+function getMaxDate(): Date {
+  const d = new Date();
+  d.setFullYear(d.getFullYear() - 18);
+  return d;
 }
 
+function formatDisplay(date: Date): string {
+  const d = date.getDate().toString().padStart(2, "0");
+  const m = (date.getMonth() + 1).toString().padStart(2, "0");
+  return `${d}/${m}/${date.getFullYear()}`;
+}
+
+function buildDayGrid(year: number, month: number): (number | null)[] {
+  const firstDay = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const grid: (number | null)[] = Array(firstDay).fill(null);
+  for (let i = 1; i <= daysInMonth; i++) grid.push(i);
+  while (grid.length % 7 !== 0) grid.push(null);
+  return grid;
+}
+
+// ── Date Picker Modal ─────────────────────────────────────────────────────────
+type CalView = "day" | "month" | "year";
+
+interface DatePickerProps {
+  value: Date | null;
+  onChange: (d: Date) => void;
+  onClose: () => void;
+}
+
+function DatePickerModal({ value, onChange, onClose }: DatePickerProps) {
+  const maxDate = getMaxDate();
+  const initDate = value || maxDate;
+
+  const [view, setView] = useState<CalView>("day");
+  const [month, setMonth] = useState(initDate.getMonth());
+  const [year, setYear] = useState(initDate.getFullYear());
+  const [selected, setSelected] = useState<Date | null>(value);
+
+  const fadeAnim = useRef(new Animated.Value(1)).current;
+
+  function animSwitch(cb: () => void) {
+    Animated.sequence([
+      Animated.timing(fadeAnim, { toValue: 0, duration: 90, useNativeDriver: false }),
+      Animated.timing(fadeAnim, { toValue: 1, duration: 130, useNativeDriver: false }),
+    ]).start();
+    cb();
+  }
+
+  function prevMonth() {
+    animSwitch(() => {
+      if (month === 0) { setMonth(11); setYear(y => y - 1); }
+      else setMonth(m => m - 1);
+    });
+    Haptics.selectionAsync();
+  }
+
+  function nextMonth() {
+    const nm = month === 11 ? 0 : month + 1;
+    const ny = month === 11 ? year + 1 : year;
+    if (new Date(ny, nm, 1) > maxDate) return;
+    animSwitch(() => { setMonth(nm); setYear(ny); });
+    Haptics.selectionAsync();
+  }
+
+  function canGoNext() {
+    const nm = month === 11 ? 0 : month + 1;
+    const ny = month === 11 ? year + 1 : year;
+    return new Date(ny, nm, 1) <= maxDate;
+  }
+
+  function isDayDisabled(day: number) {
+    const d = new Date(year, month, day);
+    return d > maxDate || d < new Date(1924, 0, 1);
+  }
+
+  function isSelectedDay(day: number) {
+    return !!selected &&
+      selected.getDate() === day &&
+      selected.getMonth() === month &&
+      selected.getFullYear() === year;
+  }
+
+  function pickDay(day: number) {
+    if (isDayDisabled(day)) return;
+    const d = new Date(year, month, day);
+    setSelected(d);
+    Haptics.selectionAsync();
+  }
+
+  function switchView(v: CalView) {
+    animSwitch(() => setView(v));
+    Haptics.selectionAsync();
+  }
+
+  function pickMonth(m: number) {
+    setMonth(m);
+    animSwitch(() => setView("day"));
+    Haptics.selectionAsync();
+  }
+
+  function pickYear(y: number) {
+    setYear(y);
+    animSwitch(() => setView("day"));
+    Haptics.selectionAsync();
+  }
+
+  function confirm() {
+    if (selected) { onChange(selected); onClose(); }
+  }
+
+  const yearList: number[] = [];
+  for (let y = maxDate.getFullYear(); y >= 1924; y--) yearList.push(y);
+
+  const grid = buildDayGrid(year, month);
+
+  return (
+    <Modal visible animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
+      <View style={cs.root}>
+
+        {/* ── Header ── */}
+        <View style={cs.header}>
+          <Text style={cs.headerTitle}>Date of Birth</Text>
+          <Pressable onPress={onClose} style={cs.closeBtn} hitSlop={10}>
+            <Ionicons name="close" size={22} color={C.text} />
+          </Pressable>
+        </View>
+
+        {/* ── Month / Year nav bar ── */}
+        <View style={cs.navBar}>
+          <Pressable onPress={prevMonth} style={cs.navArrow} hitSlop={12}>
+            <Ionicons name="chevron-back" size={22} color={TINT} />
+          </Pressable>
+
+          <View style={cs.navCenter}>
+            <Pressable onPress={() => switchView(view === "month" ? "day" : "month")} style={cs.navChip}>
+              <Text style={cs.navChipText}>{MONTH_NAMES[month]}</Text>
+              <Ionicons name={view === "month" ? "chevron-up" : "chevron-down"} size={13} color={TINT} />
+            </Pressable>
+            <Pressable onPress={() => switchView(view === "year" ? "day" : "year")} style={cs.navChip}>
+              <Text style={cs.navChipText}>{year}</Text>
+              <Ionicons name={view === "year" ? "chevron-up" : "chevron-down"} size={13} color={TINT} />
+            </Pressable>
+          </View>
+
+          <Pressable onPress={nextMonth} style={[cs.navArrow, !canGoNext() && { opacity: 0.25 }]} disabled={!canGoNext()} hitSlop={12}>
+            <Ionicons name="chevron-forward" size={22} color={TINT} />
+          </Pressable>
+        </View>
+
+        {/* ── Age restriction note ── */}
+        <View style={cs.ageBanner}>
+          <Ionicons name="information-circle-outline" size={14} color="#6B7280" />
+          <Text style={cs.ageNote}>Must be 18 or older · Showing dates up to {formatDisplay(maxDate)}</Text>
+        </View>
+
+        {/* ── Animated calendar body ── */}
+        <Animated.View style={[cs.body, { opacity: fadeAnim }]}>
+
+          {/* ── Day view ── */}
+          {view === "day" && (
+            <>
+              <View style={cs.weekRow}>
+                {DAY_LABELS.map(d => (
+                  <Text key={d} style={cs.weekLabel}>{d}</Text>
+                ))}
+              </View>
+              <View style={cs.dayGrid}>
+                {grid.map((day, i) => {
+                  const disabled = !day || isDayDisabled(day);
+                  const sel = !!day && isSelectedDay(day);
+                  return (
+                    <Pressable
+                      key={i}
+                      onPress={() => day && pickDay(day)}
+                      disabled={disabled}
+                      style={[cs.dayCell, sel && cs.dayCellSelected]}
+                    >
+                      <Text style={[
+                        cs.dayText,
+                        disabled && { color: "#D1D5DB" },
+                        sel && cs.dayTextSelected,
+                      ]}>
+                        {day ?? ""}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </>
+          )}
+
+          {/* ── Month view ── */}
+          {view === "month" && (
+            <View style={cs.monthGrid}>
+              {MONTH_NAMES.map((name, i) => (
+                <Pressable
+                  key={name}
+                  style={[cs.monthCell, i === month && cs.monthCellSelected]}
+                  onPress={() => pickMonth(i)}
+                >
+                  <Text style={[cs.monthText, i === month && cs.monthTextSelected]}>
+                    {name.slice(0, 3)}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          )}
+
+          {/* ── Year view ── */}
+          {view === "year" && (
+            <ScrollView
+              style={cs.yearScroll}
+              contentContainerStyle={cs.yearList}
+              showsVerticalScrollIndicator={false}
+            >
+              {yearList.map(y => (
+                <Pressable
+                  key={y}
+                  style={[cs.yearItem, y === year && cs.yearItemSelected]}
+                  onPress={() => pickYear(y)}
+                >
+                  <Text style={[cs.yearText, y === year && cs.yearTextSelected]}>{y}</Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+          )}
+        </Animated.View>
+
+        {/* ── Footer ── */}
+        <View style={cs.footer}>
+          {selected ? (
+            <View style={cs.selectedRow}>
+              <Ionicons name="calendar" size={16} color={TINT} />
+              <Text style={cs.selectedText}>{formatDisplay(selected)}</Text>
+            </View>
+          ) : (
+            <Text style={cs.noSelText}>No date selected yet</Text>
+          )}
+          <Pressable
+            onPress={confirm}
+            disabled={!selected}
+            style={[cs.confirmBtn, !selected && { opacity: 0.45 }]}
+          >
+            <Ionicons name="checkmark" size={18} color="#fff" />
+            <Text style={cs.confirmBtnText}>Confirm Date</Text>
+          </Pressable>
+        </View>
+
+      </View>
+    </Modal>
+  );
+}
+
+// Calendar styles
+const cs = StyleSheet.create({
+  root: { flex: 1, backgroundColor: "#fff" },
+  header: {
+    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+    paddingHorizontal: 20, paddingTop: 20, paddingBottom: 14,
+    borderBottomWidth: 1, borderBottomColor: "#F0F0F0",
+  },
+  headerTitle: { fontSize: 18, fontWeight: "700", fontFamily: "Inter_700Bold", color: C.text },
+  closeBtn: { padding: 4 },
+  navBar: {
+    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+    paddingHorizontal: 12, paddingVertical: 14,
+    borderBottomWidth: 1, borderBottomColor: "#F5F5F5",
+  },
+  navArrow: { padding: 8 },
+  navCenter: { flexDirection: "row", gap: 8, alignItems: "center" },
+  navChip: {
+    flexDirection: "row", alignItems: "center", gap: 4,
+    backgroundColor: "#FFF5EC", borderRadius: 20, paddingHorizontal: 14, paddingVertical: 7,
+    borderWidth: 1.5, borderColor: "#FFD5A8",
+  },
+  navChipText: { fontSize: 15, fontWeight: "700", fontFamily: "Inter_700Bold", color: TINT },
+  ageBanner: {
+    flexDirection: "row", alignItems: "center", gap: 5,
+    paddingHorizontal: 20, paddingVertical: 8,
+    backgroundColor: "#F9FAFB", borderBottomWidth: 1, borderBottomColor: "#F0F0F0",
+  },
+  ageNote: { fontSize: 11, color: "#6B7280", fontFamily: "Inter_400Regular" },
+  body: { flex: 1, paddingHorizontal: 16, paddingTop: 12 },
+  weekRow: { flexDirection: "row", marginBottom: 4 },
+  weekLabel: { flex: 1, textAlign: "center", fontSize: 11, fontWeight: "600", fontFamily: "Inter_600SemiBold", color: "#9CA3AF" },
+  dayGrid: { flexDirection: "row", flexWrap: "wrap" },
+  dayCell: {
+    width: "14.28%", aspectRatio: 1, alignItems: "center", justifyContent: "center",
+    borderRadius: 50,
+  },
+  dayCellSelected: { backgroundColor: TINT },
+  dayText: { fontSize: 14, fontFamily: "Inter_400Regular", color: C.text },
+  dayTextSelected: { color: "#fff", fontWeight: "700", fontFamily: "Inter_700Bold" },
+  monthGrid: {
+    flexDirection: "row", flexWrap: "wrap", gap: 10, paddingVertical: 12, paddingHorizontal: 4,
+  },
+  monthCell: {
+    width: "30%", paddingVertical: 14, alignItems: "center", justifyContent: "center",
+    borderRadius: 12, borderWidth: 1.5, borderColor: "#E5E7EB", backgroundColor: "#F9FAFB",
+  },
+  monthCellSelected: { backgroundColor: TINT, borderColor: TINT },
+  monthText: { fontSize: 15, fontWeight: "600", fontFamily: "Inter_600SemiBold", color: C.text },
+  monthTextSelected: { color: "#fff" },
+  yearScroll: { flex: 1 },
+  yearList: { paddingVertical: 8, paddingHorizontal: 60 },
+  yearItem: {
+    paddingVertical: 13, alignItems: "center", borderRadius: 10, marginVertical: 2,
+  },
+  yearItemSelected: { backgroundColor: TINT },
+  yearText: { fontSize: 16, fontFamily: "Inter_400Regular", color: C.text },
+  yearTextSelected: { color: "#fff", fontWeight: "700", fontFamily: "Inter_700Bold" },
+  footer: {
+    padding: 20, borderTopWidth: 1, borderTopColor: "#F0F0F0", gap: 14,
+  },
+  selectedRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6 },
+  selectedText: { fontSize: 16, fontWeight: "700", fontFamily: "Inter_700Bold", color: TINT },
+  noSelText: { textAlign: "center", fontSize: 14, color: "#9CA3AF", fontFamily: "Inter_400Regular" },
+  confirmBtn: {
+    backgroundColor: TINT, borderRadius: 14, paddingVertical: 15,
+    flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8,
+  },
+  confirmBtnText: { color: "#fff", fontSize: 16, fontWeight: "700", fontFamily: "Inter_700Bold" },
+});
+
+// ── Sign Up Screen ────────────────────────────────────────────────────────────
 function getAge(dob: string): number | null {
   const parts = dob.split("/");
   if (parts.length !== 3 || parts[2].length < 4) return null;
@@ -82,6 +410,8 @@ export default function SignUpScreen() {
   const [showCountryPicker, setShowCountryPicker] = useState(false);
   const [countrySearch, setCountrySearch] = useState("");
   const [dob, setDob] = useState("");
+  const [dobDate, setDobDate] = useState<Date | null>(null);
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [role, setRole] = useState<UserRole>("customer");
@@ -116,7 +446,7 @@ export default function SignUpScreen() {
     } else {
       const age = getAge(dob);
       if (age === null) {
-        e.dob = err("Enter a valid date (DD/MM/YYYY)", "ਸਹੀ ਮਿਤੀ ਦਾਖਲ ਕਰੋ (DD/MM/YYYY)");
+        e.dob = err("Enter a valid date", "ਸਹੀ ਮਿਤੀ ਦਾਖਲ ਕਰੋ");
       } else if (age < 18) {
         e.dob = err("You must be at least 18 years old to register", "ਰਜਿਸਟਰ ਕਰਨ ਲਈ ਤੁਹਾਡੀ ਉਮਰ ਘੱਟੋ ਘੱਟ 18 ਸਾਲ ਹੋਣੀ ਚਾਹੀਦੀ ਹੈ");
       }
@@ -142,7 +472,6 @@ export default function SignUpScreen() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       return;
     }
-
     setLoading(true);
     try {
       await register({
@@ -176,6 +505,19 @@ export default function SignUpScreen() {
     <View style={styles.root}>
       <StatusBar style="light" />
       <LinearGradient colors={["#FF7A18", "#FF9F43"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
+
+      {/* Date Picker Modal */}
+      {showDatePicker && (
+        <DatePickerModal
+          value={dobDate}
+          onChange={(d) => {
+            setDobDate(d);
+            setDob(formatDisplay(d));
+            setErrors(prev => ({ ...prev, dob: "" }));
+          }}
+          onClose={() => setShowDatePicker(false)}
+        />
+      )}
 
       {/* Country Picker Modal */}
       <Modal visible={showCountryPicker} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowCountryPicker(false)}>
@@ -315,24 +657,28 @@ export default function SignUpScreen() {
               {errors.mobile ? <Text style={styles.fieldError}>{errors.mobile}</Text> : null}
             </View>
 
-            {/* Date of Birth */}
+            {/* Date of Birth — calendar picker */}
             <View style={styles.fieldGroup}>
               <Text style={styles.fieldLabel}>Date of Birth *</Text>
-              <View style={[styles.iconInput, errors.dob && styles.inputError]}>
-                <Ionicons name="calendar-outline" size={17} color={C.textTertiary} />
-                <TextInput
-                  style={styles.iconInputText}
-                  value={dob}
-                  onChangeText={(v) => setDob(formatDob(v))}
-                  placeholder="DD/MM/YYYY"
-                  placeholderTextColor={C.textTertiary}
-                  keyboardType="numeric"
-                  maxLength={10}
-                />
-              </View>
+              <Pressable
+                onPress={() => { setShowDatePicker(true); Haptics.selectionAsync(); }}
+                style={[styles.iconInput, styles.dobPressable, errors.dob && styles.inputError]}
+              >
+                <Ionicons name="calendar-outline" size={17} color={dobDate ? TINT : C.textTertiary} />
+                <Text style={[styles.dobValueText, !dobDate && { color: C.textTertiary }]}>
+                  {dob || "Select date (DD/MM/YYYY)"}
+                </Text>
+                {dobDate ? (
+                  <View style={styles.dobAge}>
+                    <Text style={styles.dobAgeText}>{getAge(dob)} yrs</Text>
+                  </View>
+                ) : (
+                  <Ionicons name="chevron-down" size={15} color={C.textTertiary} />
+                )}
+              </Pressable>
               {errors.dob
-                ? <Text style={[styles.fieldError, errors.dob.includes("18") && styles.fieldErrorWarn]}>{errors.dob}</Text>
-                : <Text style={styles.fieldHint}>You must be 18 or older to register</Text>
+                ? <Text style={styles.fieldError}>{errors.dob}</Text>
+                : <Text style={styles.fieldHint}>Tap to open calendar · Must be 18 or older</Text>
               }
             </View>
 
@@ -476,8 +822,13 @@ const styles = StyleSheet.create({
   },
   iconInputText: { flex: 1, fontSize: 14, fontFamily: "Inter_400Regular", color: C.text, paddingVertical: 11 },
   fieldError: { fontSize: 11, color: C.error, fontFamily: "Inter_400Regular" },
-  fieldErrorWarn: { color: "#DC2626", fontWeight: "600" },
   fieldHint: { fontSize: 11, color: C.textTertiary, fontFamily: "Inter_400Regular" },
+
+  // DOB field
+  dobPressable: { paddingVertical: 12, cursor: "pointer" as any },
+  dobValueText: { flex: 1, fontSize: 14, fontFamily: "Inter_400Regular", color: C.text },
+  dobAge: { backgroundColor: "#FFF5EC", borderRadius: 10, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: "#FFD5A8" },
+  dobAgeText: { fontSize: 12, fontWeight: "700", fontFamily: "Inter_700Bold", color: TINT },
 
   // Country picker
   countryBtn: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 10, paddingVertical: 11 },
@@ -485,7 +836,6 @@ const styles = StyleSheet.create({
   countryCode: { fontSize: 13, fontWeight: "600", fontFamily: "Inter_600SemiBold", color: C.text },
   countryDivider: { width: 1, height: 24, backgroundColor: C.border },
 
-  // Picker modal
   pickerModal: { flex: 1, backgroundColor: "#fff" },
   pickerHeader: {
     flexDirection: "row", alignItems: "center", justifyContent: "space-between",
