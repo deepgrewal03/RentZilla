@@ -53,8 +53,17 @@ router.post("/register", async (req, res) => {
       return;
     }
 
-    const passwordHash = await bcrypt.hash(password, 10);
+    // Check duplicate phone (only when a real mobile number is supplied)
     const phone = mobile || `email-${Date.now()}`;
+    if (mobile) {
+      const existingPhone = await db.select().from(usersTable).where(eq(usersTable.phone, mobile)).limit(1);
+      if (existingPhone.length > 0) {
+        res.status(409).json({ error: "Mobile number already registered. Please sign in or use a different number." });
+        return;
+      }
+    }
+
+    const passwordHash = await bcrypt.hash(password, 10);
     const fullName = [firstName, lastName].filter(Boolean).join(" ");
 
     const newUser = {
@@ -75,9 +84,17 @@ router.post("/register", async (req, res) => {
     const token = generateToken(user.id);
 
     res.status(201).json({ user: buildUserResponse(user), token });
-  } catch (err) {
+  } catch (err: any) {
     req.log.error({ err }, "Register error");
-    res.status(500).json({ error: "Internal server error" });
+    // Surface DB constraint violations as user-friendly messages
+    const msg: string = err?.message || "";
+    if (msg.includes("users_phone_unique") || msg.includes("users_phone_key")) {
+      res.status(409).json({ error: "Mobile number already registered. Please sign in or use a different number." });
+    } else if (msg.includes("users_email_unique") || msg.includes("users_email_key")) {
+      res.status(409).json({ error: "Email already registered. Please sign in." });
+    } else {
+      res.status(500).json({ error: "Internal server error" });
+    }
   }
 });
 
