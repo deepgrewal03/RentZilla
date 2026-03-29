@@ -1,0 +1,275 @@
+# 🚀 RentZilla Admin Web App – Advanced Notification System Prompt
+
+## 🎯 Objective
+
+Enhance the **Push Notification screen** in the Admin Web App by adding:
+
+1. Automated notification scenarios
+2. User-type targeting (Cars, Equipment, Services, Customer)
+3. Toggle-based notification control
+4. Birthday notification feature
+5. WhatsApp notification system
+6. Smart AI-based notifications
+
+⚠️ IMPORTANT:
+
+* Do NOT break or change existing push notification functionality
+* Extend the current system cleanly
+
+---
+
+## 🧩 1. User Segmentation (Targeting System)
+
+Add ability to send notifications to specific user groups:
+
+### 👥 User Types:
+
+* Customers
+* Providers
+
+### 📂 Category-Based Segments:
+
+* Cars users
+* Equipment users
+* Services users
+
+👉 Allow combinations:
+
+* Example:
+
+  * Customers + Equipment users
+  * Providers + Services users
+
+---
+
+## 🔔 2. Notification Scenarios (Predefined + Custom)
+
+Create a system where admin can enable/disable automatic notifications.
+
+### 📋 Predefined Notification Types:
+
+#### 🛒 Booking Related
+
+* Booking Confirmed
+* Booking Cancelled
+* Booking Reminder (before start time)
+
+#### 💰 Payment
+
+* Payment Success
+* Payment Failed
+
+#### ⭐ Engagement
+
+* Review Reminder
+* Re-book suggestion
+
+#### 🎁 Promotions
+
+* Discount offers
+* Festival offers (Diwali, etc.)
+
+#### 👤 Account
+
+* New user welcome
+* Inactive user reminder
+
+---
+
+## ⚙️ Toggle System (VERY IMPORTANT)
+
+* Each notification type should have:
+
+  * ✅ Toggle ON/OFF
+* If ON → automatically triggered
+* If OFF → disabled
+
+---
+
+## 🎂 3. Birthday Notification Feature
+
+### Add:
+
+* “Send Birthday Notification” button
+
+### Functionality:
+
+* Detect users whose birthday = today
+* Send:
+
+  * Push notification
+  * Optional WhatsApp message
+
+### Example Message:
+
+"🎉 Happy Birthday! Enjoy special offers on RentZilla today!"
+
+---
+
+## 📲 4. WhatsApp Notification System (High Priority)
+
+### Integrate:
+
+* WhatsApp Business API (or mock structure)
+
+### Features:
+
+* Send notifications via WhatsApp
+* Select:
+
+  * Push / WhatsApp / Both
+
+### Use Cases:
+
+* Booking confirmation
+* Reminders
+* Promotions
+
+---
+
+## 🤖 5. Smart AI Notifications
+
+Create intelligent notification system based on user behavior:
+
+### Examples:
+
+#### 🔁 Re-engagement
+
+* If user inactive for 7 days → send reminder
+
+#### 🔍 Interest-Based
+
+* If user browses tractors → send tractor offers
+
+#### 🛒 Abandoned Booking
+
+* If user starts booking but doesn’t complete → reminder
+
+#### ⭐ High Intent Users
+
+* Frequent users → premium offers
+
+---
+
+## 🧠 AI Logic Requirements
+
+* Track user activity:
+
+  * Searches
+  * Bookings
+  * Categories viewed
+* Store basic analytics
+* Trigger notifications automatically
+
+---
+
+## 🖥️ Admin UI Changes
+
+### Add Sections in Push Notification Screen:
+
+#### 1. User Targeting Panel
+
+* Multi-select filters:
+
+  * Role (Customer/Provider)
+  * Category (Cars/Equipment/Services)
+
+---
+
+#### 2. Notification Type List
+
+* List with toggles:
+
+  * ON/OFF switches
+
+---
+
+#### 3. Automation Settings
+
+* Set timing:
+
+  * Immediate
+  * Scheduled
+  * Trigger-based
+
+---
+
+#### 4. Birthday Button
+
+* “Send Birthday Notifications”
+
+---
+
+#### 5. Channel Selection
+
+* Push
+* WhatsApp
+* Both
+
+---
+
+## 🗄️ Backend Requirements
+
+### Add Collections:
+
+#### notifications_config
+
+* type
+* enabled
+* target_group
+* channel
+
+#### user_activity
+
+* user_id
+* category_viewed
+* last_active
+* booking_status
+
+---
+
+## 🧪 Testing Requirements
+
+* Test each notification type
+* Test toggle ON/OFF
+* Test targeting accuracy
+* Test WhatsApp delivery
+* Test AI triggers
+
+---
+
+## ⚡ Performance Considerations
+
+* Use background jobs (cron or Firebase functions)
+* Avoid sending duplicate notifications
+* Optimize for large user base
+
+---
+
+## 📦 Final Deliverables
+
+* Enhanced admin notification screen
+* Fully working automation system
+* WhatsApp integration structure
+* Smart AI notification triggers
+* Clean and scalable code
+
+---
+
+## 🧠 Instructions to AI Agent
+
+* Extend existing system (do NOT break it)
+* Keep UI clean and simple
+* Use modular code
+* Ensure all automation works correctly
+
+---
+
+## 🎯 Final Goal
+
+A powerful notification system that:
+
+* Increases engagement
+* Automates communication
+* Targets users intelligently
+* Works seamlessly across Push + WhatsApp

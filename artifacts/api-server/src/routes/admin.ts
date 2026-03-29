@@ -363,7 +363,7 @@ router.patch("/documents/:id", adminMiddleware, async (req: Request, res: Respon
 // POST /api/admin/notifications/send
 router.post("/notifications/send", adminMiddleware, async (req: Request, res: Response) => {
   try {
-    const { title, message, targetRole = "all", targetUserId, type = "admin", imageUrl, deepLink } = req.body;
+    const { title, message, targetRole = "all", targetUserId, targetCategory, type = "admin", imageUrl, deepLink } = req.body;
     if (!title?.trim() || !message?.trim()) { res.status(400).json({ error: "Title and message required" }); return; }
     const r = req as AR;
     const notifId = genId();
@@ -378,6 +378,16 @@ router.post("/notifications/send", adminMiddleware, async (req: Request, res: Re
     let targets: { id: string }[] = [];
     if (targetUserId) {
       targets = [{ id: targetUserId }];
+    } else if (targetCategory) {
+      // Users who have bookings or listings in the given category
+      const catUsersR = await db.execute(sql`
+        SELECT DISTINCT u.id FROM users u
+        WHERE u.is_suspended = false AND (
+          EXISTS (SELECT 1 FROM bookings b JOIN listings l ON l.id = b.listing_id WHERE b.customer_id = u.id AND l.category = ${targetCategory})
+          OR EXISTS (SELECT 1 FROM listings lp WHERE lp.provider_id = u.id AND lp.category = ${targetCategory})
+        )
+      `).catch(() => null);
+      targets = toRows(catUsersR).map((r: any) => ({ id: r.id }));
     } else if (targetRole === "all") {
       targets = await db.select({ id: usersTable.id }).from(usersTable).where(eq(usersTable.isSuspended, false));
     } else {
@@ -417,6 +427,135 @@ router.post("/notifications/schedule", adminMiddleware, async (req: Request, res
     `);
     await logAction(r.userId, r.adminEmail, "SCHEDULE_NOTIFICATION", "notification", notifId, { title, targetRole, scheduledAt });
     res.json({ success: true, notifId, scheduledAt });
+  } catch { res.status(500).json({ error: "Internal server error" }); }
+});
+
+// ── Notification Automation Config ────────────────────────────────────────────
+interface NotifConfig { enabled: boolean; channel: "push" | "whatsapp" | "both"; }
+const notificationsConfig: Record<string, NotifConfig> = {
+  booking_confirmed: { enabled: true, channel: "push" },
+  booking_cancelled: { enabled: true, channel: "push" },
+  booking_reminder: { enabled: true, channel: "push" },
+  payment_success: { enabled: true, channel: "push" },
+  payment_failed: { enabled: true, channel: "push" },
+  review_reminder: { enabled: false, channel: "push" },
+  rebook_suggestion: { enabled: false, channel: "push" },
+  discount_offers: { enabled: false, channel: "push" },
+  festival_offers: { enabled: false, channel: "push" },
+  new_user_welcome: { enabled: true, channel: "push" },
+  inactive_reminder: { enabled: false, channel: "push" },
+};
+router.get("/notifications/config", adminMiddleware, (_req, res) => res.json(notificationsConfig));
+router.patch("/notifications/config", adminMiddleware, (req, res) => {
+  Object.assign(notificationsConfig, req.body);
+  res.json({ success: true, config: notificationsConfig });
+});
+
+// POST /api/admin/notifications/birthday
+router.post("/notifications/birthday", adminMiddleware, async (req: Request, res: Response) => {
+  try {
+    const { channel = "push" } = req.body;
+    const r = req as AR;
+    const today = new Date();
+    const mm = String(today.getMonth() + 1).padStart(2, "0");
+    const dd = String(today.getDate()).padStart(2, "0");
+    const birthdayUsersR = await db.execute(sql`
+      SELECT id, name, email, phone FROM users
+      WHERE dob IS NOT NULL AND EXTRACT(MONTH FROM dob::date) = ${parseInt(mm)} AND EXTRACT(DAY FROM dob::date) = ${parseInt(dd)}
+      AND is_suspended = false
+    `).catch(() => null);
+    const birthdayUsers = toRows(birthdayUsersR);
+    if (!birthdayUsers.length) { res.json({ success: true, sentCount: 0, todayCount: 0 }); return; }
+    const title = "🎉 Happy Birthday from RentZilla!";
+    const message = "It's your special day! Enjoy exclusive birthday discounts on your next rental. Book now and celebrate in style!";
+    const notifId = genId();
+    await db.execute(sql`
+      INSERT INTO admin_notifications (id, title, message, target_role, type, status, sent_count, created_by)
+      VALUES (${notifId}, ${title}, ${message}, 'all', 'promotion', 'sent', ${birthdayUsers.length}, ${r.userId})
+    `);
+    const chunks: any[][] = [];
+    for (let i = 0; i < birthdayUsers.length; i += 100) chunks.push(birthdayUsers.slice(i, i + 100));
+    for (const chunk of chunks) {
+      const vals = chunk.map((u: any) => `('${genId()}', '${u.id}', '${title}', '${message}', false, NOW())`).join(",");
+      await db.execute(sql.raw(`INSERT INTO notifications (id, user_id, title, message, is_read, created_at) VALUES ${vals}`)).catch(() => {});
+    }
+    await logAction(r.userId, r.adminEmail, "SEND_BIRTHDAY_NOTIFICATION", "notification", notifId, { sentCount: birthdayUsers.length, channel });
+    res.json({ success: true, sentCount: birthdayUsers.length, todayCount: birthdayUsers.length });
+  } catch { res.status(500).json({ error: "Internal server error" }); }
+});
+
+// GET /api/admin/notifications/birthday-count
+router.get("/notifications/birthday-count", adminMiddleware, async (_req: Request, res: Response) => {
+  try {
+    const today = new Date();
+    const mm = String(today.getMonth() + 1).padStart(2, "0");
+    const dd = String(today.getDate()).padStart(2, "0");
+    const r = await db.execute(sql`
+      SELECT COUNT(*) as c FROM users
+      WHERE dob IS NOT NULL AND EXTRACT(MONTH FROM dob::date) = ${parseInt(mm)} AND EXTRACT(DAY FROM dob::date) = ${parseInt(dd)}
+      AND is_suspended = false
+    `).catch(() => null);
+    res.json({ count: Number(toRows(r)[0]?.c ?? 0) });
+  } catch { res.status(500).json({ error: "Internal server error" }); }
+});
+
+// POST /api/admin/notifications/smart/:trigger
+router.post("/notifications/smart/:trigger", adminMiddleware, async (req: Request, res: Response) => {
+  try {
+    const { trigger } = req.params;
+    const r = req as AR;
+    let targets: any[] = [];
+    let title = "";
+    let message = "";
+    if (trigger === "inactive") {
+      const result = await db.execute(sql`
+        SELECT DISTINCT u.id, u.name FROM users u
+        WHERE u.is_suspended = false AND u.is_admin = false
+        AND NOT EXISTS (SELECT 1 FROM bookings b WHERE b.customer_id = u.id AND b.created_at > NOW() - INTERVAL '7 days')
+        LIMIT 500
+      `).catch(() => null);
+      targets = toRows(result);
+      title = "👋 We miss you on RentZilla!";
+      message = "It's been a while! Browse the latest cars, equipment and services available near you. Special deals await!";
+    } else if (trigger === "abandoned") {
+      const result = await db.execute(sql`
+        SELECT DISTINCT u.id, u.name FROM users u
+        JOIN bookings b ON b.customer_id = u.id
+        WHERE b.status IN ('pending', 'cancelled') AND u.is_suspended = false LIMIT 500
+      `).catch(() => null);
+      targets = toRows(result);
+      title = "🛒 Complete your booking on RentZilla!";
+      message = "You left a booking incomplete. Finish it now and get instant confirmation at the best rates!";
+    } else if (trigger === "highintent") {
+      const result = await db.execute(sql`
+        SELECT u.id, u.name FROM users u
+        JOIN bookings b ON b.customer_id = u.id
+        WHERE u.is_suspended = false
+        GROUP BY u.id, u.name HAVING COUNT(b.id) >= 3 LIMIT 500
+      `).catch(() => null);
+      targets = toRows(result);
+      title = "⭐ Exclusive offer for our loyal customers!";
+      message = "Thank you for being a frequent renter! Enjoy premium listings and priority support on your next booking.";
+    } else if (trigger === "newlisting") {
+      targets = await db.select({ id: usersTable.id, name: usersTable.name }).from(usersTable)
+        .where(sql`${usersTable.role} = 'customer' AND ${usersTable.isSuspended} = false`).limit(500);
+      title = "🆕 Fresh listings just added near you!";
+      message = "New cars, equipment and services have just been added in your area. Check them out now!";
+    }
+    if (!targets.length) { res.json({ success: true, sentCount: 0 }); return; }
+    const notifId = genId();
+    await db.execute(sql`
+      INSERT INTO admin_notifications (id, title, message, target_role, type, status, sent_count, created_by)
+      VALUES (${notifId}, ${title}, ${message}, 'all', 'admin', 'sent', ${targets.length}, ${r.userId})
+    `);
+    const chunks: any[][] = [];
+    for (let i = 0; i < targets.length; i += 100) chunks.push(targets.slice(i, i + 100));
+    for (const chunk of chunks) {
+      const vals = chunk.map((u: any) => `('${genId()}', '${u.id}', '${title.replace(/'/g, "''")}', '${message.replace(/'/g, "''")}', false, NOW())`).join(",");
+      await db.execute(sql.raw(`INSERT INTO notifications (id, user_id, title, message, is_read, created_at) VALUES ${vals}`)).catch(() => {});
+    }
+    await logAction(r.userId, r.adminEmail, "SMART_NOTIFICATION", "notification", notifId, { trigger, sentCount: targets.length });
+    res.json({ success: true, sentCount: targets.length });
   } catch { res.status(500).json({ error: "Internal server error" }); }
 });
 
