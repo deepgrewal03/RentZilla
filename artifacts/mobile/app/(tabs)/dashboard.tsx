@@ -4,7 +4,8 @@ import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { useFocusEffect } from "@react-navigation/native";
 import {
   ActivityIndicator,
   Alert,
@@ -117,7 +118,7 @@ export default function DashboardScreen() {
     }
   }, [inProviderMode, user]);
 
-  useEffect(() => { fetchData(); }, []);
+  useFocusEffect(useCallback(() => { fetchData(); }, []));
 
   async function fetchData() {
     try {

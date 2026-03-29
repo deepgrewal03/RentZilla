@@ -1,37 +1,37 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { db } from "@workspace/db";
-import { usersTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { usersTable, listingsTable } from "@workspace/db";
+import { eq, and } from "drizzle-orm";
 import { authMiddleware } from "./users.js";
 
 const router: IRouter = Router();
 type AR = Request & { userId: string };
 
-// Helper: generate 6-digit OTP
 function generateOtp() {
   return String(Math.floor(100000 + Math.random() * 900000));
 }
 
-// POST /api/roles/send-otp — generate and "send" OTP (returned in response for dev)
+function genId() { return Date.now().toString() + Math.random().toString(36).substr(2, 9); }
+function esc(v: string | undefined | null) { return v ? `'${v.replace(/'/g, "''")}'` : "NULL"; }
+
+// POST /api/roles/send-otp
 router.post("/send-otp", authMiddleware, async (req: Request, res: Response) => {
   try {
     const userId = (req as AR).userId;
     const purpose = req.body.purpose || "role_upgrade";
 
-    // Invalidate previous OTPs for this user+purpose
     await db.execute(
       `UPDATE otps SET verified = TRUE WHERE user_id = '${userId}' AND purpose = '${purpose}' AND verified = FALSE`
     );
 
     const code = generateOtp();
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 min
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
 
     await db.execute(
       `INSERT INTO otps (user_id, code, purpose, expires_at, verified)
        VALUES ('${userId}', '${code}', '${purpose}', '${expiresAt.toISOString()}', FALSE)`
     );
 
-    // In production, send via SMS. Here we return it in the response.
     res.json({ success: true, otp: code, expiresAt: expiresAt.toISOString(), message: "OTP sent (dev: returned in response)" });
   } catch (err) {
     req.log.error({ err }, "Send OTP error");
@@ -39,7 +39,7 @@ router.post("/send-otp", authMiddleware, async (req: Request, res: Response) => 
   }
 });
 
-// POST /api/roles/verify-otp — verify OTP
+// POST /api/roles/verify-otp
 router.post("/verify-otp", authMiddleware, async (req: Request, res: Response) => {
   try {
     const userId = (req as AR).userId;
@@ -62,7 +62,6 @@ router.post("/verify-otp", authMiddleware, async (req: Request, res: Response) =
       return;
     }
 
-    // Mark as verified
     await db.execute(`UPDATE otps SET verified = TRUE WHERE id = '${otp.id}'`);
     res.json({ success: true, verified: true });
   } catch (err) {
@@ -71,22 +70,16 @@ router.post("/verify-otp", authMiddleware, async (req: Request, res: Response) =
   }
 });
 
-function genId() { return Date.now().toString() + Math.random().toString(36).substr(2, 9); }
-function esc(v: string | undefined | null) { return v ? `'${v.replace(/'/g, "''")}'` : "NULL"; }
-
-// POST /api/roles/upgrade — upgrade to provider (requires OTP verified within 15 min)
+// POST /api/roles/upgrade — upgrade to provider + auto-create listing
 router.post("/upgrade", authMiddleware, async (req: Request, res: Response) => {
   try {
     const userId = (req as AR).userId;
     const {
       targetRole,
-      providerType,        // "cars" | "equipment" | "services"
-      subtype,             // e.g. "Sedan", "Tractor", "Plumber"
-      // Cars / Equipment
+      providerType,
+      subtype,
       licenseNumber, vehicleType, vehicleMake, vehicleModel, vehicleYear, vehicleColor,
-      // Equipment
       equipmentName,
-      // Services
       fullName, area, address, aadhaarNumber,
     } = req.body;
 
@@ -95,7 +88,7 @@ router.post("/upgrade", authMiddleware, async (req: Request, res: Response) => {
       return;
     }
 
-    // Check OTP was verified recently (within 15 min)
+    // Check OTP verified recently (within 15 min)
     const otpCheck = await db.execute(
       `SELECT * FROM otps WHERE user_id = '${userId}' AND purpose = 'role_upgrade' AND verified = TRUE 
        AND created_at > NOW() - INTERVAL '15 minutes' ORDER BY created_at DESC LIMIT 1`
@@ -110,16 +103,17 @@ router.post("/upgrade", authMiddleware, async (req: Request, res: Response) => {
     if (!users.length) { res.status(404).json({ error: "User not found" }); return; }
     const user = users[0];
 
-    let newRole: "customer" | "provider" | "both" = "both";
-    if (user.role === targetRole) {
-      // already a provider, just update details below
-    } else {
-      await db.update(usersTable).set({ role: newRole as any }).where(eq(usersTable.id, userId));
+    // Update role if needed
+    if (user.role !== targetRole) {
+      await db.update(usersTable).set({ role: "both" as any }).where(eq(usersTable.id, userId));
     }
 
+    let listingId: string | null = null;
+    let listingTitle = "";
+
     if (targetRole === "provider") {
+      // ── Cars ──────────────────────────────────────────────────────────────
       if (providerType === "cars" || (!providerType && licenseNumber)) {
-        // Car driver profile
         const vType = vehicleType || subtype || "Sedan";
         await db.execute(
           `INSERT INTO driver_profiles (user_id, license_number, vehicle_type, vehicle_make, vehicle_model, vehicle_year, vehicle_color, status)
@@ -129,7 +123,42 @@ router.post("/upgrade", authMiddleware, async (req: Request, res: Response) => {
              vehicle_make = EXCLUDED.vehicle_make, vehicle_model = EXCLUDED.vehicle_model,
              vehicle_year = EXCLUDED.vehicle_year, vehicle_color = EXCLUDED.vehicle_color, updated_at = NOW()`
         );
-      } else if (providerType === "equipment") {
+
+        // Auto-create listing — skip if one already exists for this provider+category
+        const existing = await db.select({ id: listingsTable.id })
+          .from(listingsTable)
+          .where(and(eq(listingsTable.providerId, userId), eq(listingsTable.category, "cars")))
+          .limit(1);
+
+        if (!existing.length) {
+          const parts = [vehicleYear, vehicleMake, vehicleModel].filter(Boolean);
+          listingTitle = parts.length > 0
+            ? `${parts.join(" ")} – ${vType} Rental`
+            : `${vType} Car for Hire`;
+
+          listingId = genId();
+          await db.insert(listingsTable).values({
+            id: listingId,
+            providerId: userId,
+            category: "cars",
+            subcategory: vType,
+            title: listingTitle,
+            description: `Well-maintained ${vType.toLowerCase()} available for hire in Punjab. Contact for schedule and availability.`,
+            price: 1500,
+            priceUnit: "per_day",
+            location: user.location || "Punjab, India",
+            images: [],
+            isAvailable: true,
+          });
+        } else {
+          listingId = existing[0].id;
+          const existingListing = await db.select().from(listingsTable).where(eq(listingsTable.id, listingId)).limit(1);
+          listingTitle = existingListing[0]?.title || "";
+        }
+      }
+
+      // ── Equipment ─────────────────────────────────────────────────────────
+      else if (providerType === "equipment") {
         const eqName = equipmentName || subtype || "";
         await db.execute(
           `INSERT INTO equipment_provider_details (id, user_id, equipment_name, license_number, make, model, year, status)
@@ -138,7 +167,39 @@ router.post("/upgrade", authMiddleware, async (req: Request, res: Response) => {
              equipment_name = EXCLUDED.equipment_name, license_number = EXCLUDED.license_number,
              make = EXCLUDED.make, model = EXCLUDED.model, year = EXCLUDED.year, updated_at = NOW()`
         );
-      } else if (providerType === "services") {
+
+        const existing = await db.select({ id: listingsTable.id })
+          .from(listingsTable)
+          .where(and(eq(listingsTable.providerId, userId), eq(listingsTable.category, "equipment")))
+          .limit(1);
+
+        if (!existing.length) {
+          const parts = [vehicleYear, vehicleMake, vehicleModel, eqName].filter(Boolean);
+          listingTitle = parts.length > 0 ? parts.join(" ") : `${eqName} for Rent`;
+
+          listingId = genId();
+          await db.insert(listingsTable).values({
+            id: listingId,
+            providerId: userId,
+            category: "equipment",
+            subcategory: eqName,
+            title: listingTitle,
+            description: `${eqName} available for rent in Punjab. Suitable for agricultural use. Contact for availability.`,
+            price: 1200,
+            priceUnit: "per_day",
+            location: user.location || "Punjab, India",
+            images: [],
+            isAvailable: true,
+          });
+        } else {
+          listingId = existing[0].id;
+          const existingListing = await db.select().from(listingsTable).where(eq(listingsTable.id, listingId)).limit(1);
+          listingTitle = existingListing[0]?.title || "";
+        }
+      }
+
+      // ── Services ──────────────────────────────────────────────────────────
+      else if (providerType === "services") {
         const sType = subtype || "General";
         if (!fullName || !area || !address || !aadhaarNumber) {
           res.status(400).json({ error: "All service provider fields are required" });
@@ -155,18 +216,52 @@ router.post("/upgrade", authMiddleware, async (req: Request, res: Response) => {
              full_name = EXCLUDED.full_name, service_type = EXCLUDED.service_type,
              area = EXCLUDED.area, address = EXCLUDED.address, aadhaar_number = EXCLUDED.aadhaar_number, updated_at = NOW()`
         );
+
+        const existing = await db.select({ id: listingsTable.id })
+          .from(listingsTable)
+          .where(and(eq(listingsTable.providerId, userId), eq(listingsTable.category, "services")))
+          .limit(1);
+
+        if (!existing.length) {
+          listingTitle = `${fullName} – ${sType} Service`;
+
+          listingId = genId();
+          await db.insert(listingsTable).values({
+            id: listingId,
+            providerId: userId,
+            category: "services",
+            subcategory: sType,
+            title: listingTitle,
+            description: `Professional ${sType.toLowerCase()} services in ${area}. Contact for rates and availability.`,
+            price: 500,
+            priceUnit: "per_hour",
+            location: area || user.location || "Punjab, India",
+            images: [],
+            isAvailable: true,
+          });
+        } else {
+          listingId = existing[0].id;
+          const existingListing = await db.select().from(listingsTable).where(eq(listingsTable.id, listingId)).limit(1);
+          listingTitle = existingListing[0]?.title || "";
+        }
       }
     }
 
     const updatedUser = await db.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
-    res.json({ success: true, role: updatedUser[0].role, message: "Provider registration complete" });
+    res.json({
+      success: true,
+      role: updatedUser[0].role,
+      listingId,
+      listingTitle,
+      message: "Provider registration complete",
+    });
   } catch (err) {
     req.log.error({ err }, "Role upgrade error");
     res.status(500).json({ error: "Internal server error" });
   }
 });
 
-// GET /api/roles/current — get current role + driver profile
+// GET /api/roles/current
 router.get("/current", authMiddleware, async (req: Request, res: Response) => {
   try {
     const userId = (req as AR).userId;

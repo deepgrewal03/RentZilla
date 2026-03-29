@@ -99,7 +99,7 @@ const ss = StyleSheet.create({
 });
 
 export default function BecomeProviderScreen() {
-  const { refreshUser } = useAuth();
+  const { refreshUser, setActiveMode } = useAuth();
   const { post } = useApi();
   const insets = useSafeAreaInsets();
   const isWeb = Platform.OS === "web";
@@ -140,6 +140,7 @@ export default function BecomeProviderScreen() {
   const [aadhaar, setAadhaar]       = useState("");
 
   const [submitting, setSubmitting] = useState(false);
+  const [createdListingTitle, setCreatedListingTitle] = useState("");
 
   function startTimer() {
     setOtpTimer(60);
@@ -216,8 +217,10 @@ export default function BecomeProviderScreen() {
       } else if (providerType === "services") {
         Object.assign(payload, { fullName, area, address, aadhaarNumber: aadhaar.replace(/\D/g, "") });
       }
-      await post("/roles/upgrade", payload);
+      const result = await post<{ listingTitle?: string }>("/roles/upgrade", payload);
+      if (result.listingTitle) setCreatedListingTitle(result.listingTitle);
       await refreshUser();
+      await setActiveMode("provider");
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setStep("success");
     } catch (e: any) {
@@ -509,17 +512,27 @@ export default function BecomeProviderScreen() {
             <View style={styles.successCircle}>
               <Ionicons name="checkmark-circle" size={88} color="#22C55E" />
             </View>
-            <Text style={styles.successTitle}>Application Submitted! 🎉</Text>
+            <Text style={styles.successTitle}>You're Live! 🎉</Text>
             <Text style={styles.stepSubtitle}>
               You're now registered as a <Text style={{ color: TINT, fontWeight: "700" }}>{subtype} {providerType === "services" ? "Provider" : providerType === "equipment" ? "Provider" : "Driver"}</Text>.{"\n"}
-              Your account has Provider access. We'll review your details within 24 hours.
+              We'll review your documents within 24 hours.
             </Text>
+
+            {!!createdListingTitle && (
+              <View style={styles.listingCreatedCard}>
+                <Ionicons name="storefront-outline" size={20} color={TINT} style={{ marginRight: 8 }} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.listingCreatedLabel}>Your first listing was created:</Text>
+                  <Text style={styles.listingCreatedTitle}>{createdListingTitle}</Text>
+                </View>
+              </View>
+            )}
 
             <View style={styles.nextStepCard}>
               <Text style={styles.nextStepTitle}>What's next?</Text>
               {[
-                "Switch to Provider Mode from the home screen",
-                "Add your first listing from the Dashboard",
+                "View and edit your listing on the Dashboard",
+                "Add photos to attract more customers",
                 "Set your availability and pricing",
                 "Start accepting bookings!",
               ].map((s, i) => (
@@ -530,9 +543,9 @@ export default function BecomeProviderScreen() {
               ))}
             </View>
 
-            <Pressable onPress={() => router.replace("/(tabs)")} style={styles.primaryBtn}>
-              <Ionicons name="home-outline" size={20} color="#fff" />
-              <Text style={styles.primaryBtnText}>Go to Home</Text>
+            <Pressable onPress={() => router.replace("/(tabs)/dashboard")} style={styles.primaryBtn}>
+              <Ionicons name="grid-outline" size={20} color="#fff" />
+              <Text style={styles.primaryBtnText}>Go to My Dashboard</Text>
             </Pressable>
           </View>
         )}
@@ -680,6 +693,13 @@ const styles = StyleSheet.create({
 
   successCircle: { alignSelf: "center", marginBottom: 8 },
   successTitle: { fontSize: 26, fontWeight: "700", fontFamily: "Inter_700Bold", color: C.text, textAlign: "center" },
+  listingCreatedCard: {
+    flexDirection: "row", alignItems: "center", backgroundColor: "#FFF5EC",
+    borderWidth: 1.5, borderColor: TINT, borderRadius: 12,
+    padding: 14, marginTop: 16, alignSelf: "stretch",
+  },
+  listingCreatedLabel: { fontSize: 11, color: "#888", fontFamily: "Inter_400Regular", marginBottom: 2 },
+  listingCreatedTitle: { fontSize: 14, fontWeight: "700", fontFamily: "Inter_700Bold", color: C.text },
   nextStepCard: {
     backgroundColor: "#fff", borderRadius: 16, padding: 20, gap: 14, width: "100%",
     shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2,
