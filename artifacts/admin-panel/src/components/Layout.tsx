@@ -69,7 +69,7 @@ interface ActivityItem {
 }
 
 // ── Bell Dropdown ─────────────────────────────────────────────────────────────
-function BellDropdown({ onClose }: { onClose: () => void }) {
+function BellDropdown({ readAt, onClose }: { readAt: number; onClose: () => void }) {
   const [, navigate] = useLocation();
   const { data, isLoading } = useQuery<{ items: ActivityItem[]; freshCount: number }>({
     queryKey: ["admin-activity-feed"],
@@ -89,11 +89,9 @@ function BellDropdown({ onClose }: { onClose: () => void }) {
         <div className="flex items-center gap-2">
           <Bell size={15} className="text-white" />
           <span className="text-sm font-bold text-white">Live Activity</span>
-          {(data?.freshCount ?? 0) > 0 && (
-            <span className="text-xs bg-white/25 text-white px-2 py-0.5 rounded-full font-semibold">
-              {data?.freshCount} new
-            </span>
-          )}
+          <span className="text-xs bg-white/25 text-white px-2 py-0.5 rounded-full font-semibold">
+            All read
+          </span>
         </div>
         <button onClick={onClose} className="text-white/70 hover:text-white transition-colors">
           <X size={15} />
@@ -116,14 +114,12 @@ function BellDropdown({ onClose }: { onClose: () => void }) {
           items.map(item => {
             const meta = TYPE_META[item.type] ?? TYPE_META["booking"];
             const Icon = meta.Icon;
-            const isNew = Date.now() - new Date(item.createdAt).getTime() < 15 * 60 * 1000;
             return (
               <div
                 key={item.id}
                 onClick={() => goTo(item.href)}
-                className={`flex items-start gap-3 px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors relative ${isNew ? "bg-orange-50/40" : ""}`}
+                className="flex items-start gap-3 px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors"
               >
-                {isNew && <span className="absolute top-3 right-3 w-2 h-2 bg-orange-500 rounded-full animate-pulse" />}
                 <div className={`w-9 h-9 rounded-xl ${meta.bg} flex items-center justify-center flex-shrink-0`}>
                   <Icon size={16} className={meta.iconColor} />
                 </div>
@@ -156,7 +152,14 @@ function BellDropdown({ onClose }: { onClose: () => void }) {
 // ── Live Bell Button ──────────────────────────────────────────────────────────
 function LiveBell() {
   const [open, setOpen] = useState(false);
-  const [lastOpened, setLastOpened] = useState<number>(Date.now());
+  // Start from 24h ago so items from today show as unread on first load
+  const [readAt, setReadAt] = useState<number>(() => {
+    try {
+      return Number(localStorage.getItem("rz_bell_read_at") || "0");
+    } catch {
+      return 0;
+    }
+  });
   const ref = useRef<HTMLDivElement>(null);
 
   const { data } = useQuery<{ items: ActivityItem[]; freshCount: number }>({
@@ -166,20 +169,23 @@ function LiveBell() {
     staleTime: 25_000,
   });
 
-  // Count items newer than lastOpened
-  const unreadCount = (data?.items ?? []).filter(
-    i => new Date(i.createdAt).getTime() > lastOpened
+  // Badge = items newer than readAt (cleared when bell is opened)
+  const badgeCount = (data?.items ?? []).filter(
+    i => new Date(i.createdAt).getTime() > readAt
   ).length;
 
-  // Also always show if fresh from server (last 15 min)
-  const badgeCount = Math.max(unreadCount, data?.freshCount ?? 0);
+  const markRead = useCallback(() => {
+    const now = Date.now();
+    setReadAt(now);
+    try { localStorage.setItem("rz_bell_read_at", String(now)); } catch {}
+  }, []);
 
   const handleOpen = useCallback(() => {
     setOpen(v => {
-      if (!v) setLastOpened(Date.now());
+      if (!v) markRead();   // mark all read the moment bell opens
       return !v;
     });
-  }, []);
+  }, [markRead]);
 
   // Click outside to close
   useEffect(() => {
@@ -216,7 +222,7 @@ function LiveBell() {
           <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-green-400 rounded-full" />
         )}
       </button>
-      {open && <BellDropdown onClose={() => setOpen(false)} />}
+      {open && <BellDropdown readAt={readAt} onClose={() => setOpen(false)} />}
     </div>
   );
 }
