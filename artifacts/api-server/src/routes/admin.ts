@@ -222,6 +222,29 @@ router.get("/listings", adminMiddleware, async (req: Request, res: Response) => 
   } catch { res.status(500).json({ error: "Internal server error" }); }
 });
 
+router.get("/listings/:id", adminMiddleware, async (req: Request, res: Response) => {
+  try {
+    const listings = await db.select().from(listingsTable).where(eq(listingsTable.id, req.params.id)).limit(1);
+    if (!listings.length) { res.status(404).json({ error: "Listing not found" }); return; }
+    const l = listings[0];
+    const [providers, bookingCountR, reviewCountR] = await Promise.all([
+      db.select({ name: usersTable.name, email: usersTable.email, phone: usersTable.phone, role: usersTable.role, createdAt: usersTable.createdAt }).from(usersTable).where(eq(usersTable.id, l.providerId)).limit(1),
+      db.select({ c: count() }).from(bookingsTable).where(eq(bookingsTable.listingId, l.id)),
+      db.execute(sql`SELECT COUNT(*) as c FROM reviews WHERE listing_id = ${l.id}`).catch(() => null),
+    ]);
+    const recentBookings = await db.select().from(bookingsTable).where(eq(bookingsTable.listingId, l.id)).orderBy(desc(bookingsTable.createdAt)).limit(5);
+    res.json({
+      listing: { ...l, createdAt: l.createdAt.toISOString() },
+      provider: providers[0] || null,
+      stats: {
+        totalBookings: Number(bookingCountR[0]?.c ?? 0),
+        totalReviews: Number(toRows(reviewCountR)[0]?.c ?? 0),
+      },
+      recentBookings: recentBookings.map(b => ({ id: b.id, status: b.status, totalAmount: b.totalAmount, startDate: b.startDate, endDate: b.endDate, createdAt: b.createdAt.toISOString() })),
+    });
+  } catch { res.status(500).json({ error: "Internal server error" }); }
+});
+
 router.patch("/listings/:id", adminMiddleware, async (req: Request, res: Response) => {
   try {
     const { isAvailable } = req.body;
@@ -258,6 +281,23 @@ router.get("/bookings", adminMiddleware, async (req: Request, res: Response) => 
       return { id: b.id, customerId: b.customerId, customerName: customer[0]?.name || "Unknown", customerEmail: customer[0]?.email, providerId: b.providerId, listingId: b.listingId, listingTitle: listing[0]?.title || "Unknown", listingCategory: listing[0]?.category, startDate: b.startDate, endDate: b.endDate, totalDays: b.totalDays, totalAmount: b.totalAmount, status: b.status, paymentStatus: b.paymentStatus, notes: b.notes, createdAt: b.createdAt.toISOString() };
     }));
     res.json({ bookings: enriched, total: Number(totalR[0]?.c ?? 0), page: parseInt(page), limit: parseInt(limit) });
+  } catch { res.status(500).json({ error: "Internal server error" }); }
+});
+
+router.get("/bookings/:id", adminMiddleware, async (req: Request, res: Response) => {
+  try {
+    const bookings = await db.select().from(bookingsTable).where(eq(bookingsTable.id, req.params.id)).limit(1);
+    if (!bookings.length) { res.status(404).json({ error: "Booking not found" }); return; }
+    const b = bookings[0];
+    const [customer, listing] = await Promise.all([
+      db.select({ name: usersTable.name, email: usersTable.email, phone: usersTable.phone, role: usersTable.role }).from(usersTable).where(eq(usersTable.id, b.customerId)).limit(1),
+      db.select({ title: listingsTable.title, category: listingsTable.category, price: listingsTable.price, priceUnit: listingsTable.priceUnit, location: listingsTable.location, images: listingsTable.images }).from(listingsTable).where(eq(listingsTable.id, b.listingId)).limit(1),
+    ]);
+    res.json({
+      booking: { ...b, createdAt: b.createdAt.toISOString() },
+      customer: customer[0] || null,
+      listing: listing[0] || null,
+    });
   } catch { res.status(500).json({ error: "Internal server error" }); }
 });
 
