@@ -23,6 +23,13 @@ const SUPER_ADMIN_EMAILS = [
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function genId() { return Date.now().toString() + Math.random().toString(36).slice(2, 9); }
 
+// db.execute() returns a QueryResult object (not a plain array) in drizzle-orm/node-postgres.
+// This helper safely extracts the rows array regardless of which shape is returned.
+function toRows<T = any>(result: any): T[] {
+  if (Array.isArray(result)) return result as T[];
+  return (result?.rows ?? []) as T[];
+}
+
 async function logAction(adminId: string, adminEmail: string, action: string, targetType?: string, targetId?: string, details?: any) {
   try {
     await db.execute(sql`
@@ -106,7 +113,8 @@ router.get("/dashboard", adminMiddleware, async (req: Request, res: Response) =>
       db.select({ c: count() }).from(reportsTable).where(eq(reportsTable.status, "pending")),
     ]);
 
-    const pendingDocs = await db.execute(sql`SELECT COUNT(*) as c FROM documents WHERE status = 'pending'`).catch(() => [{ c: 0 }]);
+    const pendingDocsR = await db.execute(sql`SELECT COUNT(*) as c FROM documents WHERE status = 'pending'`).catch(() => null);
+    const pendingDocs = toRows(pendingDocsR);
     const recentUsersR = await db.select().from(usersTable).orderBy(desc(usersTable.createdAt)).limit(5);
     const recentBookingsR = await db.select().from(bookingsTable).orderBy(desc(bookingsTable.createdAt)).limit(5);
 
@@ -127,7 +135,7 @@ router.get("/dashboard", adminMiddleware, async (req: Request, res: Response) =>
         completedBookings: Number(completedR[0]?.c ?? 0),
         cancelledBookings: Number(cancelledR[0]?.c ?? 0),
         totalRevenue: Number(revenueR[0]?.total ?? 0),
-        pendingDocs: Number((pendingDocs as any)[0]?.c ?? 0),
+        pendingDocs: Number(pendingDocs[0]?.c ?? 0),
         pendingReports: Number(reportsR[0]?.c ?? 0),
       },
       dailyEarnings,
@@ -293,9 +301,11 @@ router.get("/documents", adminMiddleware, async (req: Request, res: Response) =>
     const offset = (parseInt(page) - 1) * parseInt(limit);
     let where = sql`1=1`;
     if (status) where = sql`${where} AND d.status = ${status}`;
-    const docs = await db.execute(sql`SELECT d.*, u.name as user_name, u.email as user_email FROM documents d LEFT JOIN users u ON u.id = d.user_id WHERE ${where} ORDER BY d.created_at DESC LIMIT ${parseInt(limit)} OFFSET ${offset}`).catch(() => []);
-    const totalR = await db.execute(sql`SELECT COUNT(*) as c FROM documents`).catch(() => [{ c: 0 }]);
-    res.json({ documents: docs, total: Number((totalR as any)[0]?.c ?? 0), page: parseInt(page), limit: parseInt(limit) });
+    const docsR = await db.execute(sql`SELECT d.*, u.name as user_name, u.email as user_email FROM documents d LEFT JOIN users u ON u.id = d.user_id WHERE ${where} ORDER BY d.created_at DESC LIMIT ${parseInt(limit)} OFFSET ${offset}`).catch(() => null);
+    const docs = toRows(docsR);
+    const totalRaw = await db.execute(sql`SELECT COUNT(*) as c FROM documents`).catch(() => null);
+    const totalRows = toRows(totalRaw);
+    res.json({ documents: docs, total: Number(totalRows[0]?.c ?? 0), page: parseInt(page), limit: parseInt(limit) });
   } catch { res.status(500).json({ error: "Internal server error" }); }
 });
 
@@ -375,15 +385,17 @@ router.get("/notifications/history", adminMiddleware, async (req: Request, res: 
   try {
     const { page = "1", limit = "20" } = req.query as Record<string, string>;
     const offset = (parseInt(page) - 1) * parseInt(limit);
-    const notifs = await db.execute(sql`
+    const notifsR = await db.execute(sql`
       SELECT n.*, u.email as creator_email, u.name as creator_name
       FROM admin_notifications n
       LEFT JOIN users u ON u.id = n.created_by
       ORDER BY n.created_at DESC
       LIMIT ${parseInt(limit)} OFFSET ${offset}
     `);
-    const totalR = await db.execute(sql`SELECT COUNT(*) as c FROM admin_notifications`).catch(() => [{ c: 0 }]);
-    res.json({ notifications: notifs, total: Number((totalR as any)[0]?.c ?? 0) });
+    const notifs = toRows(notifsR);
+    const notifTotalR = await db.execute(sql`SELECT COUNT(*) as c FROM admin_notifications`).catch(() => null);
+    const notifTotal = toRows(notifTotalR);
+    res.json({ notifications: notifs, total: Number(notifTotal[0]?.c ?? 0) });
   } catch { res.status(500).json({ error: "Internal server error" }); }
 });
 
@@ -392,9 +404,11 @@ router.get("/logs", adminMiddleware, async (req: Request, res: Response) => {
   try {
     const { page = "1", limit = "50" } = req.query as Record<string, string>;
     const offset = (parseInt(page) - 1) * parseInt(limit);
-    const logs = await db.execute(sql`SELECT * FROM admin_logs ORDER BY created_at DESC LIMIT ${parseInt(limit)} OFFSET ${offset}`);
-    const totalR = await db.execute(sql`SELECT COUNT(*) as c FROM admin_logs`).catch(() => [{ c: 0 }]);
-    res.json({ logs, total: Number((totalR as any)[0]?.c ?? 0) });
+    const logsR = await db.execute(sql`SELECT * FROM admin_logs ORDER BY created_at DESC LIMIT ${parseInt(limit)} OFFSET ${offset}`);
+    const logs = toRows(logsR);
+    const logsTotalR = await db.execute(sql`SELECT COUNT(*) as c FROM admin_logs`).catch(() => null);
+    const logsTotal = toRows(logsTotalR);
+    res.json({ logs, total: Number(logsTotal[0]?.c ?? 0) });
   } catch { res.status(500).json({ error: "Internal server error" }); }
 });
 
