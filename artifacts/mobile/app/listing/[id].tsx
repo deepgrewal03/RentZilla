@@ -229,6 +229,18 @@ export default function ListingDetailScreen() {
 
   async function handleBook() {
     if (!listing) return;
+
+    // Restrict bookings to Punjab region
+    const loc = listing.location || "";
+    if (!loc.toLowerCase().includes("punjab")) {
+      Alert.alert(
+        "Region Restricted",
+        "Services are currently available only in Punjab region. This listing's location is outside our service area.",
+        [{ text: "OK" }]
+      );
+      return;
+    }
+
     if (!bookingDate) {
       Alert.alert("Missing Info", "Please select a date.");
       return;

@@ -35,7 +35,7 @@ function buildUserResponse(user: typeof usersTable.$inferSelect) {
 // POST /api/auth/register  — email + password sign-up
 router.post("/register", async (req, res) => {
   try {
-    const { firstName, lastName, email, mobile, password, role } = req.body;
+    const { firstName, lastName, email, mobile, countryCode, dob, password, role } = req.body;
 
     if (!email || !password) {
       res.status(400).json({ error: "Email and password are required" });
@@ -53,10 +53,14 @@ router.post("/register", async (req, res) => {
       return;
     }
 
+    // Build full international phone number (e.g. "+911234567890")
+    const normalizedPhone = mobile
+      ? `${(countryCode || "+91").replace(/\s/g, "")}${mobile.replace(/\D/g, "")}`
+      : `email-${Date.now()}`;
+
     // Check duplicate phone (only when a real mobile number is supplied)
-    const phone = mobile || `email-${Date.now()}`;
     if (mobile) {
-      const existingPhone = await db.select().from(usersTable).where(eq(usersTable.phone, mobile)).limit(1);
+      const existingPhone = await db.select().from(usersTable).where(eq(usersTable.phone, normalizedPhone)).limit(1);
       if (existingPhone.length > 0) {
         res.status(409).json({ error: "Mobile number already registered. Please sign in or use a different number." });
         return;
@@ -68,7 +72,7 @@ router.post("/register", async (req, res) => {
 
     const newUser = {
       id: generateId(),
-      phone,
+      phone: normalizedPhone,
       email: email.toLowerCase(),
       firstName: firstName || null,
       lastName: lastName || null,
@@ -77,7 +81,8 @@ router.post("/register", async (req, res) => {
       role: (role as "customer" | "provider") || "customer",
       location: null,
       profileImage: null,
-    };
+      dob: dob || null,
+    } as any;
 
     const inserted = await db.insert(usersTable).values(newUser).returning();
     const user = inserted[0];

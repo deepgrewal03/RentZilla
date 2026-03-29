@@ -186,6 +186,7 @@ export async function runMigrations() {
   }
 
   const alterStatements = [
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS dob TEXT`,
     `ALTER TABLE bookings ADD COLUMN IF NOT EXISTS booking_date TEXT`,
     `ALTER TABLE bookings ADD COLUMN IF NOT EXISTS time_slot TEXT`,
     `CREATE TABLE IF NOT EXISTS equipment_provider_details (

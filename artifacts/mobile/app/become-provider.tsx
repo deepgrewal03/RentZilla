@@ -109,11 +109,12 @@ export default function BecomeProviderScreen() {
   const [step, setStep]   = useState<Step>("intro");
 
   // OTP
-  const [sending, setSending]     = useState(false);
-  const [devOtp, setDevOtp]       = useState<string | null>(null);
-  const [otp, setOtp]             = useState("");
-  const [otpTimer, setOtpTimer]   = useState(0);
-  const [verifying, setVerifying] = useState(false);
+  const [sending, setSending]       = useState(false);
+  const [devOtp, setDevOtp]         = useState<string | null>(null);
+  const [otp, setOtp]               = useState("");
+  const [otpTimer, setOtpTimer]     = useState(0);
+  const [verifying, setVerifying]   = useState(false);
+  const [otpChannel, setOtpChannel] = useState<"sms" | "whatsapp">("sms");
   const timerRef = useRef<any>(null);
 
   // Role selection
@@ -285,6 +286,32 @@ export default function BecomeProviderScreen() {
             </View>
 
             <Text style={styles.noteText}>We'll send a verification code to confirm your identity.</Text>
+
+            {/* OTP Channel Selector */}
+            <View style={styles.channelCard}>
+              <Text style={styles.channelLabel}>Receive OTP via</Text>
+              <View style={styles.channelRow}>
+                <Pressable
+                  onPress={() => { setOtpChannel("sms"); Haptics.selectionAsync(); }}
+                  style={[styles.channelBtn, otpChannel === "sms" && styles.channelBtnActive]}
+                >
+                  <Ionicons name="chatbubble-outline" size={18} color={otpChannel === "sms" ? "#fff" : TINT} />
+                  <Text style={[styles.channelBtnText, otpChannel === "sms" && styles.channelBtnTextActive]}>SMS</Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => { setOtpChannel("whatsapp"); Haptics.selectionAsync(); }}
+                  style={[styles.channelBtn, otpChannel === "whatsapp" && styles.channelBtnActive]}
+                >
+                  <Ionicons name="logo-whatsapp" size={18} color={otpChannel === "whatsapp" ? "#fff" : "#25D366"} />
+                  <Text style={[styles.channelBtnText, otpChannel === "whatsapp" && styles.channelBtnTextActive]}>WhatsApp</Text>
+                </Pressable>
+              </View>
+              <Text style={styles.channelNote}>
+                {otpChannel === "whatsapp"
+                  ? "OTP will be sent via WhatsApp. If delivery fails, it auto-switches to SMS."
+                  : "OTP will be sent as an SMS to your registered mobile number."}
+              </Text>
+            </View>
 
             <Pressable onPress={sendOtp} disabled={sending} style={styles.primaryBtn}>
               {sending ? <ActivityIndicator color="#fff" /> : (
@@ -613,6 +640,20 @@ const styles = StyleSheet.create({
   benefitTitle: { fontSize: 15, fontWeight: "600", fontFamily: "Inter_600SemiBold", color: C.text },
   benefitDesc: { fontSize: 13, color: C.textSecondary, fontFamily: "Inter_400Regular", marginTop: 2 },
   noteText: { fontSize: 13, color: C.textSecondary, textAlign: "center", fontFamily: "Inter_400Regular" },
+  channelCard: {
+    backgroundColor: "#F9FAFB", borderRadius: 12, borderWidth: 1.5, borderColor: C.border,
+    padding: 14, gap: 10, alignSelf: "stretch",
+  },
+  channelLabel: { fontSize: 12, fontWeight: "600", fontFamily: "Inter_600SemiBold", color: C.text },
+  channelRow: { flexDirection: "row", gap: 10 },
+  channelBtn: {
+    flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7,
+    borderRadius: 10, paddingVertical: 10, borderWidth: 1.5, borderColor: C.border, backgroundColor: "#fff",
+  },
+  channelBtnActive: { backgroundColor: TINT, borderColor: TINT },
+  channelBtnText: { fontSize: 13, fontWeight: "600", fontFamily: "Inter_600SemiBold", color: C.text },
+  channelBtnTextActive: { color: "#fff" },
+  channelNote: { fontSize: 11, color: C.textTertiary, fontFamily: "Inter_400Regular", lineHeight: 16 },
 
   primaryBtn: {
     flexDirection: "row", alignItems: "center", justifyContent: "center",

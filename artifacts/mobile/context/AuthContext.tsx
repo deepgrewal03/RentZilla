@@ -39,6 +39,8 @@ export interface RegisterData {
   lastName: string;
   email: string;
   mobile: string;
+  countryCode?: string;
+  dob?: string;
   password: string;
   role: UserRole;
 }
