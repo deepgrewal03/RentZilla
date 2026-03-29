@@ -578,6 +578,112 @@ router.get("/notifications/history", adminMiddleware, async (req: Request, res: 
   } catch { res.status(500).json({ error: "Internal server error" }); }
 });
 
+// ── Activity Feed (live bell) ─────────────────────────────────────────────────
+router.get("/activity/feed", adminMiddleware, async (_req: Request, res: Response) => {
+  try {
+    // New bookings in last 24h
+    const bookingsR = await db.execute(sql`
+      SELECT b.id, b.status, b.total_amount, b.created_at,
+             u.name AS customer_name, l.title AS listing_title, l.category
+      FROM bookings b
+      LEFT JOIN users u ON u.id = b.customer_id
+      LEFT JOIN listings l ON l.id = b.listing_id
+      WHERE b.created_at > NOW() - INTERVAL '24 hours'
+      ORDER BY b.created_at DESC LIMIT 20
+    `).catch(() => null);
+
+    // New users in last 24h
+    const usersR = await db.execute(sql`
+      SELECT id, name, email, role, created_at
+      FROM users WHERE created_at > NOW() - INTERVAL '24 hours'
+      AND is_admin = false
+      ORDER BY created_at DESC LIMIT 10
+    `).catch(() => null);
+
+    // New reports in last 24h
+    const reportsR = await db.execute(sql`
+      SELECT r.id, r.reason, r.status, r.created_at,
+             u.name AS reporter_name
+      FROM reports r
+      LEFT JOIN users u ON u.id = r.reporter_id
+      WHERE r.created_at > NOW() - INTERVAL '24 hours'
+      ORDER BY r.created_at DESC LIMIT 10
+    `).catch(() => null);
+
+    // Pending document verifications
+    const docsR = await db.execute(sql`
+      SELECT dv.id, dv.doc_type, dv.status, dv.created_at,
+             u.name AS user_name
+      FROM document_verifications dv
+      LEFT JOIN users u ON u.id = dv.user_id
+      WHERE dv.status = 'pending'
+      ORDER BY dv.created_at DESC LIMIT 10
+    `).catch(() => null);
+
+    // Merge and sort by time
+    const items: any[] = [];
+
+    for (const b of toRows(bookingsR)) {
+      items.push({
+        id: `booking-${b.id}`,
+        type: "booking",
+        icon: "calendar",
+        title: `New booking from ${b.customer_name || "a customer"}`,
+        sub: `₹${Number(b.total_amount || 0).toLocaleString("en-IN")} · ${b.category || "listing"} · ${b.listing_title || ""}`,
+        status: b.status,
+        href: "/bookings",
+        createdAt: b.created_at,
+      });
+    }
+
+    for (const u of toRows(usersR)) {
+      items.push({
+        id: `user-${u.id}`,
+        type: "user",
+        icon: "user",
+        title: `${u.name || "New user"} signed up`,
+        sub: `${u.role} · ${u.email || ""}`,
+        href: "/users",
+        createdAt: u.created_at,
+      });
+    }
+
+    for (const r of toRows(reportsR)) {
+      items.push({
+        id: `report-${r.id}`,
+        type: "report",
+        icon: "alert",
+        title: `Safety report filed`,
+        sub: `By ${r.reporter_name || "user"} · ${r.reason || ""}`,
+        status: r.status,
+        href: "/reports",
+        createdAt: r.created_at,
+      });
+    }
+
+    for (const d of toRows(docsR)) {
+      items.push({
+        id: `doc-${d.id}`,
+        type: "document",
+        icon: "file",
+        title: `Document pending review`,
+        sub: `${d.user_name || "User"} · ${d.doc_type || "document"}`,
+        href: "/documents",
+        createdAt: d.created_at,
+      });
+    }
+
+    items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    const trimmed = items.slice(0, 25);
+
+    // Items in the last 15 minutes count as "fresh/new"
+    const fifteenMinsAgo = Date.now() - 15 * 60 * 1000;
+    const freshCount = trimmed.filter(i => new Date(i.createdAt).getTime() > fifteenMinsAgo).length;
+
+    res.json({ items: trimmed, totalCount: trimmed.length, freshCount });
+  } catch { res.status(500).json({ error: "Internal server error" }); }
+});
+
 // ── Admin Logs ────────────────────────────────────────────────────────────────
 router.get("/logs", adminMiddleware, async (req: Request, res: Response) => {
   try {
