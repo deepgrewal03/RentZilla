@@ -268,7 +268,7 @@ function NotificationHistory() {
             <Bell size={36} className="text-gray-300 mx-auto mb-3" />
             <p className="text-gray-400 text-sm">No notifications sent yet</p>
           </div>
-        ) : data.notifications.map((n: any) => (
+        ) : (data?.notifications || []).map((n: any) => (
           <div key={n.id} className="px-6 py-4 hover:bg-gray-50 transition-colors">
             <div className="flex items-start gap-3">
               <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 text-base ${

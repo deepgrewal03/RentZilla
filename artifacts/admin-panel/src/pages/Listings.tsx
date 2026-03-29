@@ -94,7 +94,7 @@ export default function Listings() {
                 <tr><td colSpan={7} className="text-center py-12 text-gray-400">
                   <RefreshCw size={20} className="animate-spin mx-auto mb-2" />Loading...
                 </td></tr>
-              ) : data?.listings.map(l => (
+              ) : (data?.listings || []).map(l => (
                 <tr key={l.id} className="border-t border-gray-50 hover:bg-gray-50 transition-colors">
                   <td className="px-5 py-4">
                     <div className="flex items-center gap-3">
@@ -146,7 +146,7 @@ export default function Listings() {
                   </td>
                 </tr>
               ))}
-              {!isLoading && !data?.listings.length && (
+              {!isLoading && !(data?.listings || []).length && (
                 <tr><td colSpan={7} className="text-center py-12 text-gray-400">No listings found</td></tr>
               )}
             </tbody>

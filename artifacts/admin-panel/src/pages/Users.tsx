@@ -178,7 +178,7 @@ export default function Users() {
                   <RefreshCw size={20} className="animate-spin mx-auto mb-2" />
                   Loading users...
                 </td></tr>
-              ) : data?.users.map(u => (
+              ) : (data?.users || []).map(u => (
                 <tr key={u.id} className="border-t border-gray-50 hover:bg-gray-50 transition-colors">
                   <td className="px-5 py-4">
                     <div className="flex items-center gap-2.5">
@@ -220,7 +220,7 @@ export default function Users() {
                   </td>
                 </tr>
               ))}
-              {!isLoading && !data?.users.length && (
+              {!isLoading && !(data?.users || []).length && (
                 <tr><td colSpan={7} className="text-center py-12 text-gray-400">No users found</td></tr>
               )}
             </tbody>

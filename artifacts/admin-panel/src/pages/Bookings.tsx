@@ -81,7 +81,7 @@ export default function Bookings() {
                 <tr><td colSpan={8} className="text-center py-12 text-gray-400">
                   <RefreshCw size={20} className="animate-spin mx-auto mb-2" />Loading...
                 </td></tr>
-              ) : data?.bookings.map(b => (
+              ) : (data?.bookings || []).map(b => (
                 <tr key={b.id} className="border-t border-gray-50 hover:bg-gray-50 transition-colors">
                   <td className="px-5 py-4">
                     <div className="text-sm font-mono font-bold text-gray-900">#{b.id.slice(-8)}</div>
@@ -128,7 +128,7 @@ export default function Bookings() {
                   </td>
                 </tr>
               ))}
-              {!isLoading && !data?.bookings.length && (
+              {!isLoading && !(data?.bookings || []).length && (
                 <tr><td colSpan={8} className="text-center py-12 text-gray-400">No bookings found</td></tr>
               )}
             </tbody>

@@ -76,14 +76,14 @@ export default function Reports() {
 
       {isLoading ? (
         <div className="flex justify-center py-12"><RefreshCw size={24} className="animate-spin text-orange-500" /></div>
-      ) : !data?.reports.length ? (
+      ) : !(data?.reports || []).length ? (
         <div className="bg-white rounded-2xl p-12 text-center border border-gray-100">
           <ShieldCheck size={40} className="text-green-400 mx-auto mb-3" />
           <p className="text-gray-500">No reports found</p>
         </div>
       ) : (
         <div className="space-y-3">
-          {data.reports.map(r => (
+          {(data?.reports || []).map(r => (
             <div key={r.id} className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
               <div className="flex items-start justify-between gap-3 mb-3">
                 <div>

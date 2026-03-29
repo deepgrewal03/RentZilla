@@ -89,7 +89,7 @@ export default function AdminLogs() {
           </div>
         ) : (
           <div className="divide-y divide-gray-50">
-            {data.logs.map((log: any) => (
+            {(data?.logs || []).map((log: any) => (
               <div key={log.id} className="flex items-start gap-4 px-5 py-4 hover:bg-gray-50 transition-colors">
                 {/* Action icon */}
                 <div className="w-9 h-9 rounded-xl bg-gray-100 flex items-center justify-center flex-shrink-0 text-base">
