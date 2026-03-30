@@ -185,8 +185,8 @@ const styles = StyleSheet.create({
   brand: { alignItems: "center", marginBottom: 32, gap: 10 },
   logoCircle: {
     width: 76, height: 76, borderRadius: 22,
-    backgroundColor: "rgba(255,255,255,0.22)",
-    borderWidth: 2, borderColor: "rgba(255,255,255,0.4)",
+    backgroundColor: "#7B61FF",
+    borderWidth: 2, borderColor: "#9F7AEA",
     alignItems: "center", justifyContent: "center",
   },
   logoLetters: {
@@ -198,7 +198,7 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: "800",
     fontFamily: "Inter_700Bold",
-    color: "#7B61FF",
+    color: "#FF7A18",
     letterSpacing: -1,
   },
   appName: { fontSize: 34, fontWeight: "700", fontFamily: "Inter_700Bold", color: "#fff", letterSpacing: -0.5 },
