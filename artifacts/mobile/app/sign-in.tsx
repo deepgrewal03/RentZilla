@@ -76,17 +76,12 @@ export default function SignInScreen() {
           {/* Brand */}
           <View style={styles.brand}>
             {/* Purple mirrored R Z logo */}
-            <LinearGradient
-              colors={["#7B61FF", "#9F7AEA"]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.logoCircle}
-            >
+            <View style={styles.logoCircle}>
               <View style={styles.logoLetters}>
                 <Text style={[styles.logoLetter, { transform: [{ scaleX: -1 }] }]}>R</Text>
                 <Text style={[styles.logoLetter, { transform: [{ scaleX: -1 }] }]}>Z</Text>
               </View>
-            </LinearGradient>
+            </View>
             <Text style={styles.appName}>{t.appName}</Text>
             <Text style={styles.tagline}>Your Own App</Text>
           </View>
@@ -190,12 +185,9 @@ const styles = StyleSheet.create({
   brand: { alignItems: "center", marginBottom: 32, gap: 10 },
   logoCircle: {
     width: 76, height: 76, borderRadius: 22,
+    backgroundColor: "rgba(255,255,255,0.22)",
+    borderWidth: 2, borderColor: "rgba(255,255,255,0.4)",
     alignItems: "center", justifyContent: "center",
-    shadowColor: "#7B61FF",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.45,
-    shadowRadius: 14,
-    elevation: 8,
   },
   logoLetters: {
     flexDirection: "row",
@@ -206,7 +198,7 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: "800",
     fontFamily: "Inter_700Bold",
-    color: "#fff",
+    color: "#7B61FF",
     letterSpacing: -1,
   },
   appName: { fontSize: 34, fontWeight: "700", fontFamily: "Inter_700Bold", color: "#fff", letterSpacing: -0.5 },
