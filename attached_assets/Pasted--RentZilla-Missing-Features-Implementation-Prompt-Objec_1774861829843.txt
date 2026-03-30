@@ -1,0 +1,349 @@
+# 🚀 RentZilla – Missing Features Implementation Prompt
+
+## 🎯 Objective
+
+Implement all remaining incomplete features in the RentZilla app and make them **fully functional, production-ready, and scalable**.
+
+⚠️ Important:
+
+* Do NOT break existing functionality
+* Extend current system cleanly
+* Maintain consistent UI/UX (orange theme, soft design)
+
+---
+
+# 🌐 1. Bilingual Support (English + Punjabi Gurmukhi)
+
+## Requirements:
+
+* Add language toggle (English ↔ Punjabi)
+* Store translations in JSON files
+
+### Implementation:
+
+* Create:
+
+  * `en.json`
+  * `pa.json` (Punjabi Gurmukhi)
+
+* Use localization system (Flutter Intl or similar)
+
+### UI:
+
+* Add toggle in:
+
+  * Profile screen OR top header
+
+### Font:
+
+* Integrate Punjabi font (Gurmukhi support)
+
+### Behavior:
+
+* Switching language updates entire UI instantly
+
+---
+
+# 🔔 2. Real Push Notifications (Device Level)
+
+## Current Issue:
+
+* Notifications only in-app (no real device alerts)
+
+---
+
+## Implementation:
+
+### Use:
+
+* Expo Push Notifications OR Firebase Cloud Messaging (FCM)
+
+---
+
+### Steps:
+
+1. Register device → generate push token
+2. Store token in database (user profile)
+3. Send notifications via backend
+
+---
+
+### Support:
+
+* Android (FCM)
+* iOS (APNS via Expo/FCM)
+
+---
+
+### Trigger Types:
+
+* Booking updates
+* Chat messages
+* Promotions
+
+---
+
+# 💬 3. Real-Time Chat System
+
+## Current Issue:
+
+* Uses polling (not real-time)
+
+---
+
+## Upgrade to:
+
+* WebSockets OR Firebase Firestore real-time listeners
+
+---
+
+## Features:
+
+* Instant message delivery
+* Auto-refresh chat
+* Typing indicator (optional)
+
+---
+
+## Restriction:
+
+* Chat only enabled:
+  👉 20 minutes before booking start time
+
+---
+
+## UI:
+
+* Smooth scrolling
+* Real-time updates
+
+---
+
+# 🔐 4. Forgot Password (Email OTP)
+
+## Current Issue:
+
+* OTP not being sent
+
+---
+
+## Implementation:
+
+### Use:
+
+* Firebase Auth OR NodeMailer (SMTP)
+
+---
+
+### Flow:
+
+1. Enter email
+2. Generate OTP (6-digit)
+3. Send email
+4. Verify OTP
+5. Reset password
+
+---
+
+### Security:
+
+* OTP expiry (5 min)
+* Prevent reuse
+
+---
+
+# 🔍 5. Advanced Search Filters
+
+## Add Filters:
+
+### 💰 Price Range
+
+* Slider (min → max)
+
+### 📍 Location Radius
+
+* Select radius (5km, 10km, 50km)
+
+### 📅 Availability
+
+* Date picker
+
+### ⭐ Rating
+
+* Filter (4★+, 3★+, etc.)
+
+---
+
+## UI:
+
+* Filter modal or sidebar
+* Apply & Reset buttons
+
+---
+
+# ✏️ 6. Edit Listing (Provider)
+
+## Add:
+
+* “Edit Listing” screen
+
+---
+
+## Editable Fields:
+
+* Title
+* Description
+* Price
+* Images
+* Availability
+
+---
+
+## Behavior:
+
+* Pre-fill existing data
+* Save updates to database
+* Reflect changes instantly
+
+---
+
+# 🚗 7. Ride/Trip History (Driver)
+
+## Add Screen:
+
+* “Trip History” for car providers
+
+---
+
+## Show:
+
+* Completed rides
+* Earnings per trip
+* Date/time
+* Customer info
+
+---
+
+## Summary:
+
+* Total earnings
+* Total trips
+
+---
+
+# 📄 8. Document Verification (Admin Panel)
+
+## Current Issue:
+
+* Submission exists but approval flow unclear
+
+---
+
+## Admin Panel Features:
+
+### 📋 Document Review Screen:
+
+* List all submitted documents
+
+---
+
+### Actions:
+
+* Approve
+* Reject
+
+---
+
+### If Reject:
+
+* Add reason (mandatory)
+
+---
+
+### Status:
+
+* Pending / Approved / Rejected
+
+---
+
+### Notify Provider:
+
+* Send notification on status change
+
+---
+
+# 🧠 General Requirements
+
+## Code Quality:
+
+* Modular architecture
+* Reusable components
+* Clean API handling
+
+---
+
+## Performance:
+
+* Optimize queries
+* Use indexing
+* Avoid unnecessary reloads
+
+---
+
+## UI/UX:
+
+* Maintain soft, clean design
+* Consistent spacing & colors
+* Smooth transitions
+
+---
+
+# 🧪 Testing (MANDATORY)
+
+Test all flows:
+
+### ✔ Language toggle
+
+### ✔ Push notifications (real device)
+
+### ✔ Chat real-time
+
+### ✔ OTP email flow
+
+### ✔ Filters working
+
+### ✔ Edit listing updates
+
+### ✔ Trip history accuracy
+
+### ✔ Admin approval system
+
+---
+
+# 📦 Final Deliverables
+
+* All missing features fully implemented
+* No broken flows
+* Clean UI + smooth UX
+* Production-ready system
+
+---
+
+# 🧠 Instructions to AI Agent
+
+* Implement feature by feature
+* Test each module before moving forward
+* Do not skip backend integration
+* Ensure everything is fully functional
+
+---
+
+# 🎯 Final Goal
+
+A **complete, production-ready RentZilla app** with:
+
+* Full bilingual support
+* Real-time features
+* Advanced search
+* Proper admin control
+* Seamless user experience

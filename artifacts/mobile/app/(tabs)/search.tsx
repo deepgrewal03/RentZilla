@@ -107,6 +107,7 @@ export default function SearchScreen() {
   const [activeTab, setActiveTab] = useState<FilterTab>("all");
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
+  const [minRating, setMinRating] = useState<number | null>(null);
   const [showFilters, setShowFilters] = useState(false);
 
   const inputRef = useRef<TextInput>(null);
@@ -122,7 +123,7 @@ export default function SearchScreen() {
   useEffect(() => {
     if (committedQuery) fetchResults(committedQuery);
     else setListings([]);
-  }, [committedQuery, activeTab, minPrice, maxPrice]);
+  }, [committedQuery, activeTab, minPrice, maxPrice, minRating]);
 
   async function loadRecentSearches() {
     try {
@@ -204,7 +205,10 @@ export default function SearchScreen() {
       if (activeTab !== "all") params.set("category", activeTab);
       if (minPrice) params.set("minPrice", minPrice);
       if (maxPrice) params.set("maxPrice", maxPrice);
-      const data = await get<Listing[]>(`/listings?${params.toString()}`);
+      let data = await get<Listing[]>(`/listings?${params.toString()}`);
+      if (minRating !== null) {
+        data = data.filter((l) => l.rating !== null && l.rating >= minRating!);
+      }
       setListings(data);
     } catch {
       setListings([]);
@@ -304,9 +308,10 @@ export default function SearchScreen() {
           </Pressable>
         </View>
 
-        {/* Price filters */}
+        {/* Filters panel */}
         {showFilters && (
           <View style={styles.filtersBox}>
+            {/* Price Range */}
             <View style={styles.priceRow}>
               <View style={styles.priceInput}>
                 <Text style={styles.priceLabel}>Min ₹</Text>
@@ -331,9 +336,31 @@ export default function SearchScreen() {
                   placeholderTextColor={C.textTertiary}
                 />
               </View>
-              <Pressable onPress={() => fetchResults(committedQuery)} style={styles.applyBtn}>
-                <Text style={styles.applyBtnText}>Apply</Text>
+              <Pressable
+                onPress={() => { setMinPrice(""); setMaxPrice(""); setMinRating(null); }}
+                style={styles.resetBtn}
+              >
+                <Text style={styles.resetBtnText}>Reset</Text>
               </Pressable>
+            </View>
+            {/* Rating Filter */}
+            <View style={styles.ratingFilterRow}>
+              <Text style={styles.ratingFilterLabel}>Min Rating</Text>
+              <View style={styles.ratingChips}>
+                {([null, 3, 4, 4.5] as (number | null)[]).map((r) => {
+                  const label = r === null ? "Any" : r === 4.5 ? "4.5★+" : `${r}★+`;
+                  const active = minRating === r;
+                  return (
+                    <Pressable
+                      key={String(r)}
+                      onPress={() => setMinRating(active ? null : r)}
+                      style={[styles.ratingChip, active && styles.ratingChipActive]}
+                    >
+                      <Text style={[styles.ratingChipText, active && styles.ratingChipTextActive]}>{label}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
             </View>
           </View>
         )}
@@ -668,6 +695,55 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "700",
     fontFamily: "Inter_700Bold",
+  },
+  resetBtn: {
+    backgroundColor: "rgba(255,255,255,0.2)",
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.4)",
+  },
+  resetBtnText: {
+    color: "#fff",
+    fontSize: 13,
+    fontWeight: "600",
+    fontFamily: "Inter_600SemiBold",
+  },
+  ratingFilterRow: {
+    marginTop: 10,
+    gap: 6,
+  },
+  ratingFilterLabel: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: "rgba(255,255,255,0.85)",
+    fontFamily: "Inter_600SemiBold",
+  },
+  ratingChips: {
+    flexDirection: "row",
+    gap: 8,
+    flexWrap: "wrap",
+  },
+  ratingChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    backgroundColor: "rgba(255,255,255,0.2)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.4)",
+  },
+  ratingChipActive: {
+    backgroundColor: "#fff",
+    borderColor: "#fff",
+  },
+  ratingChipText: {
+    color: "#fff",
+    fontSize: 13,
+    fontFamily: "Inter_600SemiBold",
+  },
+  ratingChipTextActive: {
+    color: ORANGE,
   },
 
   tabsScroll: { gap: 8 },

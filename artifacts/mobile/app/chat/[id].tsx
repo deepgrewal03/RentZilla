@@ -41,7 +41,7 @@ export default function ChatScreen() {
 
   useEffect(() => {
     loadChat();
-    const interval = setInterval(loadMessages, 5000);
+    const interval = setInterval(loadMessages, 2000);
     return () => clearInterval(interval);
   }, [id]);
 

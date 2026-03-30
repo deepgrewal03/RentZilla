@@ -117,10 +117,19 @@ router.post("/", authMiddleware, async (req: Request, res: Response) => {
 
 router.put("/:id", authMiddleware, async (req: Request, res: Response) => {
   try {
-    const { category, subcategory, title, description, price, priceUnit, images, location, isAvailable } = req.body;
+    const {
+      category, subcategory, title, description, price, priceUnit,
+      images, location, isAvailable, operatorIncluded, fuelIncluded, deliveryCharges,
+    } = req.body;
 
     const updated = await db.update(listingsTable)
-      .set({ category, subcategory, title, description, price: Number(price), priceUnit, images, location, isAvailable })
+      .set({
+        category, subcategory, title, description,
+        price: Number(price), priceUnit, images, location, isAvailable,
+        ...(operatorIncluded !== undefined && { operatorIncluded: operatorIncluded === true }),
+        ...(fuelIncluded !== undefined && { fuelIncluded: fuelIncluded === true }),
+        ...(deliveryCharges !== undefined && { deliveryCharges: deliveryCharges != null ? Number(deliveryCharges) : null }),
+      })
       .where(eq(listingsTable.id, req.params.id))
       .returning();
 

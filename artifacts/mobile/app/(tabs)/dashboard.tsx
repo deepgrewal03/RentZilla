@@ -101,6 +101,7 @@ export default function DashboardScreen() {
   const [recentBookings, setRecentBookings] = useState<RecentBooking[]>([]);
   const [listings, setListings] = useState<any[]>([]);
   const [reviews, setReviews] = useState<any[]>([]);
+  const [trips, setTrips] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [showDocsDrawer, setShowDocsDrawer] = useState(false);
@@ -124,17 +125,18 @@ export default function DashboardScreen() {
 
   async function fetchData() {
     try {
-      const [sum, recent, lists, revs] = await Promise.all([
+      const [sum, recent, lists, revs, tripsData] = await Promise.all([
         get<Summary>("/provider/summary"),
         get<RecentBooking[]>("/provider/recent-bookings"),
         get<any[]>(`/listings?providerId=${user?.id}`),
         get<any[]>(`/reviews?providerId=${user?.id}`),
+        get<any[]>("/rides/history").catch(() => []),
       ]);
       setSummary(sum);
       setRecentBookings(recent);
       setListings(lists);
-      // Sort reviews latest first
       setReviews([...revs].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+      setTrips(tripsData.filter((t: any) => t.status === "completed" && t.driver_id === user?.id));
     } catch {
       // best-effort
     } finally {
@@ -598,6 +600,12 @@ export default function DashboardScreen() {
                   >
                     <Ionicons name="eye-outline" size={17} color={ORANGE} />
                   </Pressable>
+                  <Pressable
+                    onPress={() => router.push({ pathname: "/edit-listing", params: { id: l.id } })}
+                    style={styles.iconBtn}
+                  >
+                    <Ionicons name="create-outline" size={17} color="#3B82F6" />
+                  </Pressable>
                   <Pressable onPress={() => deleteListing(l.id)} style={styles.iconBtn}>
                     <Ionicons name="trash-outline" size={17} color={C.error} />
                   </Pressable>
@@ -675,6 +683,82 @@ export default function DashboardScreen() {
             ))
           )}
         </View>
+
+        {/* ──────────── TRIP HISTORY ──────────── */}
+        {(trips.length > 0 || (!loading && summary && summary.rides.totalTrips > 0)) && (
+          <View style={styles.section}>
+            <View style={styles.sectionRow}>
+              <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>Trip History</Text>
+              <View style={[styles.countBadge, { backgroundColor: "#7C3AED18" }]}>
+                <Text style={[styles.countBadgeText, { color: "#7C3AED" }]}>{trips.length}</Text>
+              </View>
+            </View>
+
+            {/* Earnings summary card */}
+            {summary && (
+              <View style={[styles.ratingCard, { marginBottom: 12 }]}>
+                <View style={styles.ratingCardLeft}>
+                  <Text style={[styles.ratingBigNum, { color: "#059669" }]}>
+                    ₹{summary.earnings.rideEarnings?.toLocaleString("en-IN") ?? 0}
+                  </Text>
+                  <Text style={[styles.ratingCardCount, { marginTop: 4 }]}>Total Ride Earnings</Text>
+                </View>
+                <View style={{ alignItems: "flex-end", gap: 6 }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                    <Ionicons name="car-outline" size={18} color="#7C3AED" />
+                    <Text style={{ fontSize: 22, fontWeight: "700", fontFamily: "Inter_700Bold", color: "#7C3AED" }}>
+                      {summary.rides.totalTrips}
+                    </Text>
+                  </View>
+                  <Text style={styles.ratingCardCount}>Completed Trips</Text>
+                </View>
+              </View>
+            )}
+
+            {/* Trip cards */}
+            {trips.length === 0 ? (
+              <View style={styles.emptyCard}>
+                <Ionicons name="car-outline" size={40} color={C.textTertiary} />
+                <Text style={styles.emptyTitle}>No completed trips yet</Text>
+                <Text style={styles.emptyText}>Go online and accept rides to see your trip history here</Text>
+              </View>
+            ) : (
+              trips.slice(0, 10).map((trip: any) => (
+                <View key={trip.id} style={[styles.reviewCard, { marginBottom: 8 }]}>
+                  <View style={[styles.reviewAvatar, { backgroundColor: "#7C3AED20" }]}>
+                    <Ionicons name="car-outline" size={18} color="#7C3AED" />
+                  </View>
+                  <View style={{ flex: 1, gap: 3 }}>
+                    <View style={styles.reviewTopRow}>
+                      <Text style={styles.reviewUserName}>{trip.other_name || "Rider"}</Text>
+                      <Text style={[styles.reviewDate]}>
+                        {new Date(trip.completed_at || trip.requested_at).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
+                      </Text>
+                    </View>
+                    <Text style={{ fontSize: 12, color: C.textSecondary, fontFamily: "Inter_400Regular" }}>
+                      {trip.pickup_address ? `${trip.pickup_address.substring(0, 25)}… → ` : ""}
+                      {trip.drop_address?.substring(0, 25)}
+                    </Text>
+                    <View style={{ flexDirection: "row", gap: 8, marginTop: 2 }}>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 3 }}>
+                        <Ionicons name="navigate-outline" size={12} color={C.textTertiary} />
+                        <Text style={{ fontSize: 11, color: C.textTertiary, fontFamily: "Inter_400Regular" }}>
+                          {trip.distance_km ? `${Number(trip.distance_km).toFixed(1)} km` : "–"}
+                        </Text>
+                      </View>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 3 }}>
+                        <Ionicons name="cash-outline" size={12} color="#059669" />
+                        <Text style={{ fontSize: 12, fontWeight: "700", fontFamily: "Inter_700Bold", color: "#059669" }}>
+                          ₹{Number(trip.fare || 0).toLocaleString("en-IN")}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                </View>
+              ))
+            )}
+          </View>
+        )}
 
       </ScrollView>
 
@@ -773,6 +857,9 @@ const styles = StyleSheet.create({
   section: { paddingHorizontal: 16, marginTop: 20 },
   sectionHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 },
   sectionTitle: { fontSize: 17, fontWeight: "700", fontFamily: "Inter_700Bold", color: "#111827", marginBottom: 12 },
+  sectionRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 },
+  countBadge: { borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2 },
+  countBadgeText: { fontSize: 12, fontWeight: "700", fontFamily: "Inter_700Bold" },
   driverCard: { borderRadius: 18, overflow: "hidden", shadowColor: NAVY, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.25, shadowRadius: 10, elevation: 5 },
   driverGrad: { padding: 20 },
   driverRow: { flexDirection: "row", justifyContent: "space-around", alignItems: "center" },
