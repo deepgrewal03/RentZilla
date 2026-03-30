@@ -1,156 +1,345 @@
+/**
+ * RentZilla Premium Splash Animation
+ * Full 5-second cinematic brand intro before Sign In.
+ *
+ * Timeline:
+ *  0.0 – 0.8s  Initial mirrored "R Z" — fade-in + subtle scale-up
+ *  0.8 – 1.8s  180° Y-axis flip reveal — overshoot spring easing
+ *  1.8 – 2.3s  Pause — hold readable "R Z"
+ *  2.3 – 3.2s  Magnetic separation — R glides left, Z glides right,
+ *               "ent" and "illa" slide in from their respective sides
+ *  3.2 – 4.2s  Premium hold — full "RentZilla" logo
+ *  4.2 – 4.7s  Collapse — ent/illa slide back, R/Z return to center
+ *  4.7 – 5.0s  Hold "R Z" briefly, then fade to Sign In
+ */
+
+import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useRef } from "react";
 import {
-  Animated, Dimensions, StyleSheet, Text, View,
+  Animated,
+  Dimensions,
+  Easing,
+  StyleSheet,
+  Text,
+  View,
 } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
 
 const { width: SW, height: SH } = Dimensions.get("window");
-const FS = Math.min(Math.round(SW * 0.2), 90);
-const ND = false; // useNativeDriver must be false for web (rotateY/scale)
+const FS  = Math.min(Math.round(SW * 0.195), 86);
+const ND  = false; // useNativeDriver=false required on web (rotateY, left, scale)
+
+// ── Cubic bezier helpers ────────────────────────────────────────────────────
+const ease   = Easing.bezier(0.4,  0,    0.2, 1   );   // material ease-in-out
+const easeOut = Easing.bezier(0.16, 1,    0.3, 1   );   // snappy spring out
+// overshoot: goes slightly past 0° then settles — "luxury settle" feel
+const spring = Easing.bezier(0.175, 0.885, 0.32, 1.275);
+// magnetic release: fast start, smooth decelerate
+const magnet = Easing.bezier(0.22, 1, 0.36, 1);
 
 export default function SplashAnimation({ onDone }: { onDone: () => void }) {
   // ── Animated values ────────────────────────────────────────────────────────
-  const flip       = useRef(new Animated.Value(0)).current; // 0=mirrored → 1=normal
-  const rzOpacity  = useRef(new Animated.Value(1)).current; // "R  Z" layer
-  const fullOpacity = useRef(new Animated.Value(0)).current; // "RentZilla" layer
-  const fullScale  = useRef(new Animated.Value(0.86)).current;
-  const tagOpacity = useRef(new Animated.Value(0)).current;
-  const tagTransY  = useRef(new Animated.Value(12)).current;
-  const lineWidth  = useRef(new Animated.Value(0)).current;
-  const rippleOp   = useRef(new Animated.Value(0)).current;
-  const rippleScale = useRef(new Animated.Value(0.4)).current;
-  const screenOp   = useRef(new Animated.Value(1)).current;
-  const glowOp     = useRef(new Animated.Value(0)).current;
+  const initOp    = useRef(new Animated.Value(0)).current;    // initial fade-in
+  const initSc    = useRef(new Animated.Value(0.95)).current; // initial scale
+  const flip      = useRef(new Animated.Value(0)).current;    // 0 = mirrored, 1 = normal
+  const rSep      = useRef(new Animated.Value(0)).current;    // R glide: 0 → -26 → 0
+  const zSep      = useRef(new Animated.Value(0)).current;    // Z glide: 0 → +26 → 0
+  const rzOp      = useRef(new Animated.Value(1)).current;    // "R Z" layer opacity
+  const brandOp   = useRef(new Animated.Value(0)).current;    // "RentZilla" layer opacity
+  const brandSc   = useRef(new Animated.Value(0.93)).current; // "RentZilla" layer scale
+  const entOp     = useRef(new Animated.Value(0)).current;    // "ent" opacity
+  const entTx     = useRef(new Animated.Value(-13)).current;  // "ent" slide: -13 → 0
+  const illaOp    = useRef(new Animated.Value(0)).current;    // "illa" opacity
+  const illaTx    = useRef(new Animated.Value(13)).current;   // "illa" slide: 13 → 0
+  const tagOp     = useRef(new Animated.Value(0)).current;
+  const tagTy     = useRef(new Animated.Value(11)).current;
+  const lineW     = useRef(new Animated.Value(0)).current;
+  const dotOp     = useRef(new Animated.Value(0)).current;
+  const ripOp     = useRef(new Animated.Value(0)).current;
+  const ripSc     = useRef(new Animated.Value(0.35)).current;
+  const screenOp  = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     Animated.sequence([
-      // ── Phase 1 · Flip letters in (800ms) ────────────────────────────────
+
+      // ── 0.0s → 0.8s · Mirrored "R Z" fades + scales in ──────────────────
       Animated.parallel([
-        Animated.timing(flip,   { toValue: 1, duration: 800, useNativeDriver: ND }),
-        Animated.timing(glowOp, { toValue: 1, duration: 600, useNativeDriver: ND }),
+        Animated.timing(initOp, { toValue: 1, duration: 380, easing: ease, useNativeDriver: ND }),
+        Animated.timing(initSc, { toValue: 1, duration: 800, easing: easeOut, useNativeDriver: ND }),
       ]),
 
-      // ── Phase 2 · Hold "R  Z" (500ms) ────────────────────────────────────
+      // ── 0.8s → 1.8s · 180° premium flip with spring overshoot ────────────
+      Animated.timing(flip, {
+        toValue: 1,
+        duration: 1000,
+        easing: spring,
+        useNativeDriver: ND,
+      }),
+
+      // ── 1.8s → 2.3s · Pause — hold readable "R Z" ────────────────────────
       Animated.delay(500),
 
-      // ── Phase 3 · Expand to "RentZilla" + tagline (500ms) ────────────────
+      // ── 2.3s → 3.2s · Magnetic separation + brand build ──────────────────
       Animated.parallel([
-        // Cross-fade layers
-        Animated.timing(rzOpacity,   { toValue: 0, duration: 280, useNativeDriver: ND }),
-        Animated.timing(fullOpacity, { toValue: 1, duration: 400, useNativeDriver: ND }),
-        Animated.timing(fullScale,   { toValue: 1, duration: 480, useNativeDriver: ND }),
-        // Tagline slides up
-        Animated.timing(tagOpacity,  { toValue: 1, duration: 350, delay: 180, useNativeDriver: ND }),
-        Animated.timing(tagTransY,   { toValue: 0,  duration: 420, delay: 130, useNativeDriver: ND }),
+        // R glides left — magnetic release feel
+        Animated.timing(rSep, {
+          toValue: -26, duration: 880, easing: magnet, useNativeDriver: ND,
+        }),
+        // Z glides right — mirrored
+        Animated.timing(zSep, {
+          toValue: 26, duration: 880, easing: magnet, useNativeDriver: ND,
+        }),
+        // "R Z" layer fades out as letters spread
+        Animated.timing(rzOp, {
+          toValue: 0, duration: 320, useNativeDriver: ND,
+        }),
+        // "RentZilla" layer fades + scales in
+        Animated.timing(brandOp, {
+          toValue: 1, duration: 440, delay: 90, useNativeDriver: ND,
+        }),
+        Animated.timing(brandSc, {
+          toValue: 1, duration: 500, delay: 70, easing: easeOut, useNativeDriver: ND,
+        }),
+        // "ent" slides in from the left
+        Animated.timing(entOp, {
+          toValue: 1, duration: 360, delay: 150, useNativeDriver: ND,
+        }),
+        Animated.timing(entTx, {
+          toValue: 0, duration: 460, delay: 110, easing: easeOut, useNativeDriver: ND,
+        }),
+        // "illa" slides in from the right
+        Animated.timing(illaOp, {
+          toValue: 1, duration: 360, delay: 150, useNativeDriver: ND,
+        }),
+        Animated.timing(illaTx, {
+          toValue: 0, duration: 460, delay: 110, easing: easeOut, useNativeDriver: ND,
+        }),
         // Accent line expands
-        Animated.timing(lineWidth,   { toValue: 48, duration: 400, delay: 100, useNativeDriver: ND }),
+        Animated.timing(lineW, {
+          toValue: 46, duration: 400, delay: 220, easing: easeOut, useNativeDriver: ND,
+        }),
+        // Tagline slides up
+        Animated.timing(tagOp, {
+          toValue: 1, duration: 340, delay: 340, useNativeDriver: ND,
+        }),
+        Animated.timing(tagTy, {
+          toValue: 0, duration: 420, delay: 280, easing: easeOut, useNativeDriver: ND,
+        }),
+        // Progress dots
+        Animated.timing(dotOp, {
+          toValue: 1, duration: 280, delay: 420, useNativeDriver: ND,
+        }),
         // Ripple burst
         Animated.sequence([
-          Animated.timing(rippleOp,    { toValue: 0.5, duration: 80,  useNativeDriver: ND }),
+          Animated.timing(ripOp, { toValue: 0.5, duration: 70, useNativeDriver: ND }),
           Animated.parallel([
-            Animated.timing(rippleScale, { toValue: 2.8, duration: 620, useNativeDriver: ND }),
-            Animated.timing(rippleOp,    { toValue: 0,   duration: 620, useNativeDriver: ND }),
+            Animated.timing(ripSc, {
+              toValue: 2.8, duration: 700, easing: Easing.out(Easing.quad), useNativeDriver: ND,
+            }),
+            Animated.timing(ripOp, { toValue: 0, duration: 700, useNativeDriver: ND }),
           ]),
         ]),
       ]),
 
-      // ── Phase 4 · Hold "RentZilla" (1000ms) ──────────────────────────────
+      // ── 3.2s → 4.2s · Premium hold — full "RentZilla" ────────────────────
       Animated.delay(1000),
 
-      // ── Phase 5 · Collapse back to "R  Z" (450ms) ────────────────────────
+      // ── 4.2s → 4.7s · Collapse — reverse the separation ──────────────────
       Animated.parallel([
-        Animated.timing(fullOpacity, { toValue: 0,  duration: 280, useNativeDriver: ND }),
-        Animated.timing(fullScale,   { toValue: 0.86, duration: 420, useNativeDriver: ND }),
-        Animated.timing(rzOpacity,   { toValue: 1,  duration: 320, delay: 110, useNativeDriver: ND }),
-        Animated.timing(tagOpacity,  { toValue: 0,  duration: 220, useNativeDriver: ND }),
-        Animated.timing(tagTransY,   { toValue: 12, duration: 280, useNativeDriver: ND }),
-        Animated.timing(lineWidth,   { toValue: 0,  duration: 250, useNativeDriver: ND }),
+        // "ent" slides back to the left and fades
+        Animated.timing(entOp, { toValue: 0, duration: 240, useNativeDriver: ND }),
+        Animated.timing(entTx, { toValue: -13, duration: 380, easing: ease, useNativeDriver: ND }),
+        // "illa" slides back to the right and fades
+        Animated.timing(illaOp, { toValue: 0, duration: 240, useNativeDriver: ND }),
+        Animated.timing(illaTx, { toValue: 13, duration: 380, easing: ease, useNativeDriver: ND }),
+        // "RentZilla" layer fades out
+        Animated.timing(brandOp, { toValue: 0, duration: 360, useNativeDriver: ND }),
+        Animated.timing(brandSc, { toValue: 0.93, duration: 420, useNativeDriver: ND }),
+        // "R Z" layer fades back in
+        Animated.timing(rzOp, {
+          toValue: 1, duration: 330, delay: 130, useNativeDriver: ND,
+        }),
+        // R and Z glide back to center
+        Animated.timing(rSep, {
+          toValue: 0, duration: 460, delay: 60, easing: magnet, useNativeDriver: ND,
+        }),
+        Animated.timing(zSep, {
+          toValue: 0, duration: 460, delay: 60, easing: magnet, useNativeDriver: ND,
+        }),
+        // Tagline + accent line + dots fade out
+        Animated.timing(tagOp, { toValue: 0, duration: 220, useNativeDriver: ND }),
+        Animated.timing(tagTy, { toValue: 11, duration: 280, useNativeDriver: ND }),
+        Animated.timing(lineW, { toValue: 0, duration: 220, useNativeDriver: ND }),
+        Animated.timing(dotOp, { toValue: 0, duration: 220, useNativeDriver: ND }),
       ]),
 
-      // ── Phase 6 · Hold "R  Z" (500ms) ────────────────────────────────────
-      Animated.delay(500),
+      // ── 4.7s → 5.0s · Hold "R Z" then fade to Sign In ────────────────────
+      Animated.delay(150),
+      Animated.timing(screenOp, {
+        toValue: 0,
+        duration: 300,
+        easing: ease,
+        useNativeDriver: ND,
+      }),
 
-      // ── Phase 7 · Premium fade-to-app (750ms) ────────────────────────────
-      Animated.parallel([
-        Animated.timing(screenOp, { toValue: 0, duration: 750, useNativeDriver: ND }),
-        Animated.timing(glowOp,   { toValue: 0, duration: 500, useNativeDriver: ND }),
-      ]),
     ]).start(() => onDone());
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Letter flip interpolations: start reversed (180deg), rotate to normal (0deg)
-  const rRotateY = flip.interpolate({ inputRange: [0, 1], outputRange: ["180deg", "0deg"] });
-  const zRotateY = flip.interpolate({ inputRange: [0, 1], outputRange: ["-180deg", "0deg"] });
+  // 3D flip interpolation — spring easing makes it feel like it "settles"
+  const rRotateY = flip.interpolate({
+    inputRange:  [0, 1],
+    outputRange: ["180deg", "0deg"],
+  });
+  const zRotateY = flip.interpolate({
+    inputRange:  [0, 1],
+    outputRange: ["-180deg", "0deg"],
+  });
+
+  // Vertical center for the logo block
+  const logoTopOffset = SH * 0.5 - FS * 0.6;
 
   return (
     <Animated.View style={[StyleSheet.absoluteFillObject, styles.root, { opacity: screenOp }]}>
-      {/* ── Background gradient ── */}
+
+      {/* ── Premium dark background ─────────────────────────────────────── */}
       <LinearGradient
-        colors={["#060D1A", "#0F1F3D", "#08111F"]}
-        start={{ x: 0.3, y: 0 }}
-        end={{ x: 0.7, y: 1 }}
+        colors={["#0F172A", "#1E293B", "#0F172A"]}
+        start={{ x: 0.4, y: 0 }}
+        end={{ x: 0.6, y: 1 }}
         style={StyleSheet.absoluteFillObject}
       />
 
-      {/* ── Ambient glow behind logo ── */}
-      <Animated.View style={[styles.ambientGlow, { opacity: glowOp }]} />
-
-      {/* ── Ripple ring burst ── */}
+      {/* ── Soft ambient glow behind letters ───────────────────────────── */}
       <Animated.View
-        style={[styles.rippleRing, { opacity: rippleOp, transform: [{ scale: rippleScale }] }]}
+        style={[
+          styles.ambientGlow,
+          { top: SH * 0.5 - SW * 0.44, opacity: initOp },
+        ]}
       />
 
-      {/* ── Logo area ── */}
-      <View style={styles.centerBlock}>
+      {/* ── Ripple burst ring ───────────────────────────────────────────── */}
+      <Animated.View
+        style={[
+          styles.rippleRing,
+          {
+            top: SH * 0.5 - SW * 0.265,
+            opacity: ripOp,
+            transform: [{ scale: ripSc }],
+          },
+        ]}
+      />
 
-        {/* Stacked logo layers */}
-        <View style={[styles.logoBox]}>
+      {/* ── Logo block — stacked layers, fades/scales together initially ── */}
+      <Animated.View
+        style={[
+          styles.logoBlock,
+          { top: logoTopOffset, opacity: initOp, transform: [{ scale: initSc }] },
+        ]}
+      >
+        {/* ─ Layer 1 · "R  Z" with 3-D flip + separation glide ─ */}
+        <Animated.View style={[StyleSheet.absoluteFill, styles.layerCenter, { opacity: rzOp }]}>
+          <View style={styles.rzRow}>
+            {/* R — flips in, then glides left */}
+            <Animated.View
+              style={{
+                transform: [
+                  { perspective: 1100 },
+                  { rotateY: rRotateY },
+                  { translateX: rSep },
+                ],
+              }}
+            >
+              <Text style={styles.letter}>R</Text>
+            </Animated.View>
 
-          {/* Layer 1 · "R  Z" with 3-D flip */}
-          <Animated.View style={[StyleSheet.absoluteFill, styles.layerCenter, { opacity: rzOpacity }]}>
-            <View style={styles.rzRow}>
-              <Animated.View style={{ transform: [{ perspective: 900 }, { rotateY: rRotateY }] }}>
-                <Text style={styles.letter}>R</Text>
-              </Animated.View>
-              <View style={styles.rzGap} />
-              <Animated.View style={{ transform: [{ perspective: 900 }, { rotateY: zRotateY }] }}>
-                <Text style={styles.letter}>Z</Text>
-              </Animated.View>
-            </View>
-          </Animated.View>
+            {/* Fixed gap between R and Z */}
+            <View style={styles.rzGap} />
 
-          {/* Layer 2 · "RentZilla" full brand */}
-          <Animated.View
-            style={[
-              StyleSheet.absoluteFill,
-              styles.layerCenter,
-              { opacity: fullOpacity, transform: [{ scale: fullScale }] },
-            ]}
-          >
-            <Text style={styles.brandRow} numberOfLines={1}>
-              <Text style={styles.brandOrange}>Rent</Text>
-              <Text style={styles.brandGold}>Zilla</Text>
-            </Text>
-          </Animated.View>
-        </View>
+            {/* Z — flips in, then glides right */}
+            <Animated.View
+              style={{
+                transform: [
+                  { perspective: 1100 },
+                  { rotateY: zRotateY },
+                  { translateX: zSep },
+                ],
+              }}
+            >
+              <Text style={[styles.letter, styles.gold]}>Z</Text>
+            </Animated.View>
+          </View>
+        </Animated.View>
 
-        {/* ── Animated accent line ── */}
-        <Animated.View style={[styles.accentLine, { width: lineWidth }]} />
-
-        {/* ── Tagline ── */}
-        <Animated.Text
-          style={[styles.tagline, { opacity: tagOpacity, transform: [{ translateY: tagTransY }] }]}
+        {/* ─ Layer 2 · "RentZilla" — scales + fades in; ent/illa slide in ─ */}
+        <Animated.View
+          style={[
+            StyleSheet.absoluteFill,
+            styles.layerCenter,
+            { opacity: brandOp, transform: [{ scale: brandSc }] },
+          ]}
         >
-          Punjab's #1 Rental Marketplace
-        </Animated.Text>
-      </View>
+          <View style={styles.rzRow}>
+            {/* R — static anchor */}
+            <Text style={styles.letter}>R</Text>
 
-      {/* ── Bottom progress dots ── */}
-      <Animated.View style={[styles.dotRow, { opacity: tagOpacity }]}>
+            {/* "ent" — slides in from the left */}
+            <Animated.View
+              style={{
+                opacity: entOp,
+                transform: [{ translateX: entTx }],
+              }}
+            >
+              <Text style={styles.letter}>ent</Text>
+            </Animated.View>
+
+            {/* Z — static anchor */}
+            <Text style={[styles.letter, styles.gold]}>Z</Text>
+
+            {/* "illa" — slides in from the right */}
+            <Animated.View
+              style={{
+                opacity: illaOp,
+                transform: [{ translateX: illaTx }],
+              }}
+            >
+              <Text style={[styles.letter, styles.gold]}>illa</Text>
+            </Animated.View>
+          </View>
+        </Animated.View>
+      </Animated.View>
+
+      {/* ── Accent line ─────────────────────────────────────────────────── */}
+      <Animated.View
+        style={[
+          styles.accentLine,
+          {
+            top: logoTopOffset + FS * 1.14 + 20,
+            width: lineW,
+            opacity: tagOp,
+          },
+        ]}
+      />
+
+      {/* ── Tagline ─────────────────────────────────────────────────────── */}
+      <Animated.Text
+        style={[
+          styles.tagline,
+          {
+            top: logoTopOffset + FS * 1.14 + 38,
+            opacity: tagOp,
+            transform: [{ translateY: tagTy }],
+          },
+        ]}
+      >
+        Punjab's #1 Rental Marketplace
+      </Animated.Text>
+
+      {/* ── Progress indicator dots ─────────────────────────────────────── */}
+      <Animated.View style={[styles.dotRow, { opacity: dotOp }]}>
         <View style={styles.dot} />
         <View style={[styles.dot, styles.dotActive]} />
         <View style={styles.dot} />
       </Animated.View>
+
     </Animated.View>
   );
 }
@@ -158,34 +347,28 @@ export default function SplashAnimation({ onDone }: { onDone: () => void }) {
 const styles = StyleSheet.create({
   root: {
     zIndex: 9999,
-    alignItems: "center",
-    justifyContent: "center",
   },
   ambientGlow: {
     position: "absolute",
-    width: SW * 0.9,
-    height: SW * 0.9,
-    borderRadius: SW * 0.45,
-    backgroundColor: "rgba(255, 122, 24, 0.07)",
+    width: SW * 0.88,
+    height: SW * 0.88,
+    borderRadius: SW * 0.44,
+    backgroundColor: "rgba(255, 122, 24, 0.06)",
     alignSelf: "center",
-    top: SH * 0.5 - SW * 0.45,
   },
   rippleRing: {
     position: "absolute",
-    width: SW * 0.55,
-    height: SW * 0.55,
-    borderRadius: SW * 0.275,
+    width: SW * 0.53,
+    height: SW * 0.53,
+    borderRadius: SW * 0.265,
     borderWidth: 1.5,
-    borderColor: "rgba(255, 159, 67, 0.55)",
+    borderColor: "rgba(255, 159, 67, 0.5)",
     alignSelf: "center",
   },
-  centerBlock: {
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  logoBox: {
-    width: SW * 0.88,
-    height: FS + 24,
+  logoBlock: {
+    position: "absolute",
+    width: SW,
+    height: FS * 1.3,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -197,52 +380,48 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
   },
-  rzGap: { width: 32 },
+  rzGap: { width: 34 },
   letter: {
     fontSize: FS,
     fontWeight: "800",
+    fontFamily: "Inter_700Bold",
     color: "#FF7A18",
-    fontFamily: "Inter_700Bold",
     includeFontPadding: false,
-    letterSpacing: -1,
+    letterSpacing: -0.5,
   },
-  brandRow: {
-    fontSize: FS,
-    fontWeight: "800",
-    fontFamily: "Inter_700Bold",
-    includeFontPadding: false,
-    letterSpacing: -1,
+  gold: {
+    color: "#FF9F43",
   },
-  brandOrange: { color: "#FF7A18" },
-  brandGold: { color: "#FF9F43" },
   accentLine: {
+    position: "absolute",
     height: 3,
     borderRadius: 2,
     backgroundColor: "#FF7A18",
-    marginTop: 22,
-    marginBottom: 0,
+    alignSelf: "center",
   },
   tagline: {
+    position: "absolute",
+    width: SW,
+    textAlign: "center",
     fontSize: 11,
-    color: "rgba(255,255,255,0.45)",
+    color: "rgba(255, 255, 255, 0.42)",
     fontFamily: "Inter_400Regular",
     letterSpacing: 3,
     textTransform: "uppercase",
-    textAlign: "center",
-    marginTop: 14,
   },
   dotRow: {
     position: "absolute",
-    bottom: 52,
+    bottom: 54,
     flexDirection: "row",
     gap: 8,
     alignItems: "center",
+    alignSelf: "center",
   },
   dot: {
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: "rgba(255,255,255,0.2)",
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
   },
   dotActive: {
     width: 22,

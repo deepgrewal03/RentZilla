@@ -1,0 +1,170 @@
+Ultra-Smooth RentZilla Splash Animation Prompt (Before Sign In)
+
+Create a premium startup-style splash screen animation for the RentZilla mobile app that plays immediately on app launch before the Sign In screen loads.
+
+The animation must feel luxury, smooth, cinematic, and highly polished, similar to Uber, Airbnb, Stripe, and modern SaaS startup apps.
+
+The full splash animation should last exactly 5 seconds, then automatically navigate to the Sign In screen with a soft fade transition.
+
+Splash Screen Requirements
+Trigger instantly on app launch
+Full-screen splash overlay
+No loading spinner unless app data is still loading
+No user interaction
+Automatically move to Sign In after animation
+Must be optimized for 60 FPS smoothness
+Must work identically on Android + iOS
+Keep memory/light GPU usage optimized
+Use hardware-accelerated transforms
+No frame drops during flip animation
+Visual Style
+Background: premium dark gradient (#0F172A → #1E293B) or clean white
+Typography: bold geometric sans-serif
+Slight logo glow or soft shadow
+Center aligned both vertically and horizontally
+Spacious letter spacing
+Luxury marketplace branding feel
+Exact Animation Timeline (5 Seconds)
+0.0s → 0.8s | Initial Mirrored State
+
+Display only:
+
+R Z
+State:
+Both letters start horizontally mirrored
+R facing backward
+Z facing backward
+Keep letters very close together
+Center aligned
+Slight opacity fade-in from 0 → 100%
+
+Motion:
+
+soft scale from 0.95 → 1
+gentle fade-in
+no sudden pop
+0.8s → 1.8s | 180° Premium Flip Reveal
+
+Animate both letters using:
+
+3D Y-axis rotation
+180° smooth flip
+duration: 1 second
+hardware transform
+smooth cubic bezier easing
+slight overshoot at end
+subtle spring settle
+
+The final visible result:
+
+R Z
+
+(normal readable)
+
+The flip must feel:
+
+fluid
+cinematic
+luxury motion branding
+no robotic rotation
+1.8s → 2.3s | Pause
+
+Keep readable R Z centered.
+
+Pause for:
+
+0.5 sec
+
+No movement.
+
+2.3s → 3.2s | Smooth Magnetic Separation + Brand Build
+
+This is the most important premium motion section.
+
+Letter Motion
+R glides 20–30px left
+Z glides 20–30px right
+movement must feel like magnetic release
+smooth momentum-based easing
+slight deceleration at end
+no linear movement
+Simultaneous Text Reveal
+
+During the exact same motion:
+
+“ent” softly slides in from left with opacity fade
+joins R naturally
+“illa” softly slides in from right with opacity fade
+joins Z naturally
+
+The word should feel like it is assembling itself elegantly.
+
+Final visible logo:
+
+RentZilla
+
+This must be:
+
+perfectly centered
+smooth letter spacing
+no snapping
+fluid typography merge
+3.2s → 4.2s | Premium Hold
+
+Hold full logo:
+
+RentZilla
+
+for:
+
+1 second
+
+Optional:
+
+subtle glow pulse
+tiny floating stabilization motion
+4.2s → 4.7s | Collapse Back
+
+Now reverse elegantly:
+
+“ent” fades out while sliding back slightly
+“illa” fades out while sliding back slightly
+R and Z glide back to center
+use same easing curve as separation
+maintain smoothness symmetry
+
+Final visible:
+
+R Z
+4.7s → 5.0s | Transition to Sign In
+
+Hold R Z for 0.3 sec
+
+Then:
+
+apply smooth opacity fade
+Sign In screen fades in underneath
+no hard screen cut
+preserve premium startup feel
+Transition Requirement
+
+The Sign In page should appear as a natural continuation of the splash motion, not a separate abrupt screen.
+
+Best transition:
+
+splash fades to 0%
+Sign In fades from 0 → 100%
+duration: 300ms
+ease-in-out
+Motion Keywords
+
+Use:
+
+spring easing
+cubic bezier
+cinematic branding motion
+magnetic separation
+premium typography reveal
+60 FPS fluidity
+startup luxury animation
+modern marketplace fee
