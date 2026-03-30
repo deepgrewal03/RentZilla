@@ -185,8 +185,8 @@ const styles = StyleSheet.create({
   brand: { alignItems: "center", marginBottom: 32, gap: 10 },
   logoCircle: {
     width: 76, height: 76, borderRadius: 22,
-    backgroundColor: "#7B61FF",
-    borderWidth: 2, borderColor: "#9F7AEA",
+    backgroundColor: "#C4B5FD",
+    borderWidth: 2, borderColor: "#A78BFA",
     alignItems: "center", justifyContent: "center",
   },
   logoLetters: {
