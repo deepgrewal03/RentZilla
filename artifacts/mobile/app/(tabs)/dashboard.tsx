@@ -21,6 +21,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import Colors from "@/constants/colors";
+import { StarRating } from "@/components/StarRating";
 import { useAuth } from "@/context/AuthContext";
 import { useApi } from "@/hooks/useApi";
 import { DocumentsDrawer } from "@/components/DocumentsDrawer";
@@ -99,6 +100,7 @@ export default function DashboardScreen() {
   const [summary, setSummary] = useState<Summary | null>(null);
   const [recentBookings, setRecentBookings] = useState<RecentBooking[]>([]);
   const [listings, setListings] = useState<any[]>([]);
+  const [reviews, setReviews] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [showDocsDrawer, setShowDocsDrawer] = useState(false);
@@ -122,14 +124,17 @@ export default function DashboardScreen() {
 
   async function fetchData() {
     try {
-      const [sum, recent, lists] = await Promise.all([
+      const [sum, recent, lists, revs] = await Promise.all([
         get<Summary>("/provider/summary"),
         get<RecentBooking[]>("/provider/recent-bookings"),
         get<any[]>(`/listings?providerId=${user?.id}`),
+        get<any[]>(`/reviews?providerId=${user?.id}`),
       ]);
       setSummary(sum);
       setRecentBookings(recent);
       setListings(lists);
+      // Sort reviews latest first
+      setReviews([...revs].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
     } catch {
       // best-effort
     } finally {
@@ -366,19 +371,66 @@ export default function DashboardScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Quick Actions</Text>
           <View style={styles.actionsRow}>
-            {[
-              { icon: "add-circle-outline", label: "Add Listing", color: ORANGE, onPress: () => router.push("/add-listing") },
-              { icon: "car-outline",        label: "Go Online",   color: "#059669", onPress: () => router.push("/(tabs)/cars") },
-              { icon: "chatbubbles-outline",label: "Messages",    color: "#2563EB", onPress: () => router.push("/(modals)/messages") },
-              { icon: "star-outline",       label: "Reviews",     color: "#7C3AED", onPress: () => Alert.alert("Reviews", "Coming soon!") },
-            ].map((a, i) => (
-              <Pressable key={i} onPress={a.onPress} style={styles.actionCard}>
-                <View style={[styles.actionIconBox, { backgroundColor: `${a.color}18` }]}>
-                  <Ionicons name={a.icon as any} size={22} color={a.color} />
-                </View>
-                <Text style={styles.actionLabel}>{a.label}</Text>
-              </Pressable>
-            ))}
+            {/* Add Listing */}
+            <Pressable onPress={() => router.push("/add-listing")} style={styles.actionCard}>
+              <View style={[styles.actionIconBox, { backgroundColor: `${ORANGE}18` }]}>
+                <Ionicons name="add-circle-outline" size={22} color={ORANGE} />
+              </View>
+              <Text style={styles.actionLabel}>Add Listing</Text>
+            </Pressable>
+
+            {/* Go Online — disabled if no listings */}
+            {(() => {
+              const canGoOnline = !loading && listings.length > 0;
+              return (
+                <Pressable
+                  onPress={() => {
+                    if (!canGoOnline) {
+                      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+                      Alert.alert("No Listings", "Add at least one listing to go online and accept rides.");
+                      return;
+                    }
+                    router.push("/(tabs)/cars");
+                  }}
+                  style={[styles.actionCard, !canGoOnline && styles.actionCardDisabled]}
+                >
+                  <View style={[styles.actionIconBox, { backgroundColor: canGoOnline ? "#05996918" : "#9CA3AF18" }]}>
+                    <Ionicons name="car-outline" size={22} color={canGoOnline ? "#059669" : "#9CA3AF"} />
+                  </View>
+                  <Text style={[styles.actionLabel, !canGoOnline && { color: "#9CA3AF" }]}>Go Online</Text>
+                  {!canGoOnline && !loading && (
+                    <Text style={styles.actionDisabledHint}>No listings</Text>
+                  )}
+                </Pressable>
+              );
+            })()}
+
+            {/* Messages */}
+            <Pressable onPress={() => router.push("/(tabs)/messages")} style={styles.actionCard}>
+              <View style={[styles.actionIconBox, { backgroundColor: "#2563EB18" }]}>
+                <Ionicons name="chatbubbles-outline" size={22} color="#2563EB" />
+              </View>
+              <Text style={styles.actionLabel}>Messages</Text>
+            </Pressable>
+
+            {/* Reviews count badge */}
+            <Pressable
+              onPress={() => {
+                Haptics.selectionAsync();
+                // Scroll to reviews section handled by user seeing it below
+              }}
+              style={styles.actionCard}
+            >
+              <View style={[styles.actionIconBox, { backgroundColor: "#7C3AED18", position: "relative" }]}>
+                <Ionicons name="star-outline" size={22} color="#7C3AED" />
+                {reviews.length > 0 && (
+                  <View style={styles.reviewsBadge}>
+                    <Text style={styles.reviewsBadgeText}>{reviews.length}</Text>
+                  </View>
+                )}
+              </View>
+              <Text style={styles.actionLabel}>Reviews</Text>
+            </Pressable>
           </View>
         </View>
 
@@ -554,6 +606,76 @@ export default function DashboardScreen() {
             ))
           )}
         </View>
+        {/* ──────────── MY REVIEWS ──────────── */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>My Reviews</Text>
+
+          {/* Rating summary card */}
+          {!loading && reviews.length > 0 && (() => {
+            const avg = reviews.reduce((s, r) => s + r.rating, 0) / reviews.length;
+            return (
+              <View style={styles.ratingCard}>
+                <View style={styles.ratingCardLeft}>
+                  <Text style={styles.ratingBigNum}>{avg.toFixed(1)}</Text>
+                  <StarRating rating={Math.round(avg)} size={20} />
+                  <Text style={styles.ratingCardCount}>{reviews.length} review{reviews.length !== 1 ? "s" : ""}</Text>
+                </View>
+                <View style={styles.ratingBarWrap}>
+                  {[5, 4, 3, 2, 1].map((star) => {
+                    const count = reviews.filter((r) => r.rating === star).length;
+                    const pct = reviews.length > 0 ? count / reviews.length : 0;
+                    return (
+                      <View key={star} style={styles.ratingBarRow}>
+                        <Text style={styles.ratingBarLabel}>{star}</Text>
+                        <Ionicons name="star" size={10} color={GOLD} />
+                        <View style={styles.ratingBarTrack}>
+                          <View style={[styles.ratingBarFill, { width: `${Math.round(pct * 100)}%` as any }]} />
+                        </View>
+                        <Text style={styles.ratingBarCount}>{count}</Text>
+                      </View>
+                    );
+                  })}
+                </View>
+              </View>
+            );
+          })()}
+
+          {/* Review cards */}
+          {loading ? (
+            [0, 1].map((i) => (
+              <View key={i} style={[styles.reviewCard, { marginBottom: 8 }]}>
+                <SkeletonRect w={36} h={36} r={18} />
+                <View style={{ flex: 1, gap: 6, marginLeft: 10 }}>
+                  <SkeletonRect w="50%" h={13} r={6} />
+                  <SkeletonRect w="80%" h={11} r={5} />
+                </View>
+              </View>
+            ))
+          ) : reviews.length === 0 ? (
+            <View style={styles.emptyCard}>
+              <Ionicons name="star-outline" size={44} color={C.textTertiary} />
+              <Text style={styles.emptyTitle}>No reviews yet</Text>
+              <Text style={styles.emptyText}>Completed bookings will generate customer reviews here</Text>
+            </View>
+          ) : (
+            reviews.slice(0, 10).map((r) => (
+              <View key={r.id} style={[styles.reviewCard, { marginBottom: 8 }]}>
+                <View style={styles.reviewAvatar}>
+                  <Text style={styles.reviewAvatarText}>{(r.userName || "C")[0].toUpperCase()}</Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <View style={styles.reviewTopRow}>
+                    <Text style={styles.reviewUserName}>{r.userName || "Customer"}</Text>
+                    <Text style={styles.reviewDate}>{new Date(r.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "2-digit" })}</Text>
+                  </View>
+                  <StarRating rating={r.rating} size={13} />
+                  {r.comment ? <Text style={styles.reviewComment} numberOfLines={3}>{r.comment}</Text> : null}
+                </View>
+              </View>
+            ))
+          )}
+        </View>
+
       </ScrollView>
 
       <DocumentsDrawer visible={showDocsDrawer} onClose={() => setShowDocsDrawer(false)} />
@@ -662,12 +784,21 @@ const styles = StyleSheet.create({
   // Quick actions
   actionsRow: { flexDirection: "row", gap: 10 },
   actionCard: {
-    flex: 1, alignItems: "center", gap: 8, padding: 14,
+    flex: 1, alignItems: "center", gap: 6, padding: 12,
     backgroundColor: "#fff", borderRadius: 16,
     shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2,
   },
+  actionCardDisabled: { backgroundColor: "#F9FAFB", opacity: 0.75 },
   actionIconBox: { width: 44, height: 44, borderRadius: 14, alignItems: "center", justifyContent: "center" },
   actionLabel: { fontSize: 11, fontFamily: "Inter_600SemiBold", color: "#374151", textAlign: "center" },
+  actionDisabledHint: { fontSize: 9, color: "#9CA3AF", fontFamily: "Inter_400Regular", textAlign: "center" },
+  reviewsBadge: {
+    position: "absolute", top: -4, right: -4,
+    backgroundColor: "#7C3AED", borderRadius: 8,
+    minWidth: 16, height: 16, alignItems: "center", justifyContent: "center",
+    paddingHorizontal: 3,
+  },
+  reviewsBadgeText: { fontSize: 9, fontWeight: "700", color: "#fff", fontFamily: "Inter_700Bold" },
 
   // Urgent badge
   urgentBadge: { backgroundColor: "#FEF2F2", borderRadius: 12, paddingHorizontal: 8, paddingVertical: 3 },
@@ -739,4 +870,38 @@ const styles = StyleSheet.create({
   emptyText: { fontSize: 13, color: "#6B7280", fontFamily: "Inter_400Regular", textAlign: "center" },
   createBtn: { backgroundColor: ORANGE, borderRadius: 12, paddingHorizontal: 24, paddingVertical: 11, marginTop: 8 },
   createBtnText: { color: "#fff", fontSize: 14, fontWeight: "600", fontFamily: "Inter_600SemiBold" },
+
+  // Rating summary card
+  ratingCard: {
+    backgroundColor: "#fff", borderRadius: 16, padding: 18,
+    flexDirection: "row", alignItems: "center", gap: 16,
+    marginBottom: 14,
+    shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 6, elevation: 2,
+  },
+  ratingCardLeft: { alignItems: "center", gap: 4, minWidth: 68 },
+  ratingBigNum: { fontSize: 44, fontWeight: "700", fontFamily: "Inter_700Bold", color: ORANGE, lineHeight: 52 },
+  ratingCardCount: { fontSize: 11, color: "#6B7280", fontFamily: "Inter_400Regular", textAlign: "center" },
+  ratingBarWrap: { flex: 1, gap: 5 },
+  ratingBarRow: { flexDirection: "row", alignItems: "center", gap: 5 },
+  ratingBarLabel: { fontSize: 11, color: "#374151", fontFamily: "Inter_600SemiBold", width: 9, textAlign: "right" },
+  ratingBarTrack: { flex: 1, height: 6, borderRadius: 3, backgroundColor: "#F3F4F6", overflow: "hidden" },
+  ratingBarFill: { height: 6, borderRadius: 3, backgroundColor: GOLD },
+  ratingBarCount: { fontSize: 11, color: "#9CA3AF", fontFamily: "Inter_400Regular", width: 16, textAlign: "right" },
+
+  // Review cards
+  reviewCard: {
+    backgroundColor: "#fff", borderRadius: 14, padding: 12,
+    flexDirection: "row", gap: 10, alignItems: "flex-start",
+    shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 3, elevation: 1,
+  },
+  reviewAvatar: {
+    width: 38, height: 38, borderRadius: 19,
+    backgroundColor: `${ORANGE}18`,
+    alignItems: "center", justifyContent: "center", flexShrink: 0,
+  },
+  reviewAvatarText: { fontSize: 15, fontWeight: "700", fontFamily: "Inter_700Bold", color: ORANGE },
+  reviewTopRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 3 },
+  reviewUserName: { fontSize: 13, fontWeight: "600", fontFamily: "Inter_600SemiBold", color: "#111827" },
+  reviewDate: { fontSize: 11, color: "#9CA3AF", fontFamily: "Inter_400Regular" },
+  reviewComment: { fontSize: 13, color: "#6B7280", fontFamily: "Inter_400Regular", lineHeight: 19, marginTop: 5 },
 });
