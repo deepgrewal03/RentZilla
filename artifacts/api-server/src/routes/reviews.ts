@@ -12,10 +12,11 @@ function generateId(): string {
 
 router.get("/", async (req: Request, res: Response) => {
   try {
-    const { listingId, providerId } = req.query;
+    const { listingId, providerId, bookingId } = req.query;
     const conditions = [];
-    if (listingId) conditions.push(eq(reviewsTable.listingId, listingId as string));
+    if (listingId)  conditions.push(eq(reviewsTable.listingId,  listingId  as string));
     if (providerId) conditions.push(eq(reviewsTable.providerId, providerId as string));
+    if (bookingId)  conditions.push(eq(reviewsTable.bookingId,  bookingId  as string));
 
     const reviews = conditions.length > 0
       ? await db.select().from(reviewsTable).where(and(...conditions))
@@ -47,6 +48,19 @@ router.post("/", authMiddleware, async (req: Request, res: Response) => {
   try {
     const userId = (req as Request & { userId: string }).userId;
     const { providerId, listingId, bookingId, rating, comment } = req.body;
+
+    // Prevent duplicate review for the same booking
+    if (bookingId) {
+      const existing = await db
+        .select()
+        .from(reviewsTable)
+        .where(and(eq(reviewsTable.bookingId, bookingId), eq(reviewsTable.userId, userId)))
+        .limit(1);
+      if (existing.length > 0) {
+        res.status(409).json({ error: "You have already reviewed this booking." });
+        return;
+      }
+    }
 
     const review = {
       id: generateId(),

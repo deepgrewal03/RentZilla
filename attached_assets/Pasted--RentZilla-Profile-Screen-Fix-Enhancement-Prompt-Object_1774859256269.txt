@@ -1,0 +1,173 @@
+# 🚀 RentZilla Profile Screen Fix & Enhancement Prompt
+
+## 🎯 Objective
+
+Update and fix the **Profile Screen** UI and functionality with the following changes:
+
+1. Remove unnecessary sections
+2. Fix profile image issue
+3. Make Reviews fully functional
+
+---
+
+## ❌ 1. Remove Unwanted Options
+
+From the Profile screen, remove:
+
+* “My Bookings” (from Activity section)
+* “Messages / Chats”
+* “Bookings / Chats / Reviews” summary row (top stats section)
+
+👉 Ensure:
+
+* UI remains clean after removal
+* Spacing is adjusted properly (no empty gaps)
+
+---
+
+## ⭐ 2. Reviews System (Make Fully Functional)
+
+### Goal:
+
+Allow **customers to give reviews to providers after booking completion**
+
+---
+
+### 🔄 Review Flow:
+
+1. After booking is marked **“Completed”**
+
+2. Show button:
+   👉 “Leave Review”
+
+3. User can:
+
+   * Give rating (1–5 stars)
+   * Write comment
+   * Submit review
+
+---
+
+### 🗄️ Backend Requirements:
+
+Store review data:
+
+* user_id
+* provider_id
+* booking_id
+* rating
+* comment
+* created_at
+
+---
+
+### 📊 Display:
+
+* Show average rating on provider listings
+* Show total reviews count
+* Prevent duplicate reviews for same booking
+
+---
+
+### ⚠️ Validation:
+
+* Only allow review after completed booking
+* One review per booking
+
+---
+
+## 🖼️ 3. Profile Picture Fix (IMPORTANT BUG)
+
+### Issue:
+
+Profile image does NOT appear after user selects it
+
+---
+
+### Fix Required:
+
+#### 📤 Upload Flow:
+
+* User selects image from gallery/camera
+* Upload image to storage:
+
+  * Firebase Storage (preferred)
+
+---
+
+#### 🔗 Save URL:
+
+* Store image URL in user profile:
+
+  ```
+  users.profile_image
+  ```
+
+---
+
+#### 📥 Display:
+
+* Fetch and display image on Profile screen
+* Use fallback avatar if no image
+
+---
+
+### 🔄 Real-Time Update:
+
+* After upload → instantly update UI
+* No refresh required
+
+---
+
+### ⚠️ Edge Cases:
+
+* Handle slow internet
+* Show loading indicator while uploading
+* Handle upload failure gracefully
+
+---
+
+## 🎨 UI Improvements
+
+* Keep orange gradient header
+* Center profile image cleanly
+* Add subtle shadow to profile card
+* Improve spacing after removing sections
+
+---
+
+## 🧪 Testing (MANDATORY)
+
+### Test:
+
+* Profile image upload + display
+* Review submission flow
+* Review appears in listings
+* No crashes after removing sections
+
+---
+
+## 📦 Final Output Required
+
+* Clean Profile screen (no unwanted sections)
+* Working profile image upload & display
+* Fully functional review system
+
+---
+
+## 🧠 Instructions to AI Agent
+
+* Do NOT break existing working features
+* Keep UI consistent with app theme
+* Write clean and modular code
+* Ensure smooth UX
+
+---
+
+## 🎯 Final Goal
+
+A clean and functional Profile screen where:
+
+* Only relevant info is shown
+* Profile image works perfectly
+* Reviews system drives user trust

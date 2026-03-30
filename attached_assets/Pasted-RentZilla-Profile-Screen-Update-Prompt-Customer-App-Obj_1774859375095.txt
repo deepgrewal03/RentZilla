@@ -1,0 +1,111 @@
+RentZilla Profile Screen Update Prompt (Customer App)
+🎯 Objective
+
+Update the Profile Screen UI and functionality with the following changes:
+
+Remove unnecessary sections
+Fix and enable Reviews system
+Fix profile picture upload/display issue
+
+⚠️ Important:
+
+Do NOT break existing navigation or layout
+Maintain current orange theme UI
+❌ 1. Remove Unwanted Sections
+Remove completely from Profile Screen:
+“My Bookings” (from Activity section)
+“Messages”
+“Chats”
+“Bookings” (top stats section if present)
+
+👉 Ensure:
+
+No empty space left behind
+UI adjusts cleanly after removal
+⭐ 2. Reviews System (Fully Functional)
+🎯 Goal:
+
+Allow customers to give reviews after completing a booking
+
+🧩 Features to Implement:
+✅ Add Review Flow
+After booking status = completed
+Show button:
+👉 “Leave Review”
+📝 Review Form:
+Rating (1–5 stars ⭐)
+Comment input
+Submit button
+📊 Display Reviews:
+Show:
+Average rating
+Total reviews
+Display in:
+Provider profile
+Listing details
+🔒 Rules:
+Only customers who completed booking can review
+One review per booking
+Prevent duplicate reviews
+🗄️ Backend:
+Store in reviews collection
+user_id
+provider_id
+booking_id
+rating
+comment
+timestamp
+🖼️ 3. Profile Picture Fix (IMPORTANT)
+❌ Current Issue:
+Profile image not appearing after selection
+✅ Fix Requirements:
+Upload Flow:
+User selects image
+Upload to:
+👉 Firebase Storage (or backend storage)
+Save URL:
+Store image URL in:
+👉 user profile database
+Display:
+Fetch and display image in:
+Profile screen
+Header/avatar
+Fallback:
+If no image:
+Show default avatar with initial
+Update:
+When user updates image:
+Replace old image
+Refresh UI instantly
+🎨 UI Improvements (Keep Soft Look)
+Keep card layout clean
+Maintain spacing and alignment
+Smooth avatar animation on update
+Rounded profile image (circle)
+🧪 Testing (MANDATORY)
+Test Profile Image:
+Upload image → appears instantly
+Reload app → still visible
+Test Reviews:
+Complete booking → review option appears
+Submit review → stored correctly
+Display rating correctly
+Test UI:
+No broken layout after removing sections
+📦 Final Deliverables
+Clean Profile Screen (no unwanted sections)
+Fully working Reviews system
+Fully functional profile picture upload/display
+Smooth UI experience
+🧠 Instructions to AI Agent
+Fix bugs properly (not temporary hacks)
+Use clean backend integration
+Keep UI consistent with app theme
+Ensure real-time updates where needed
+🎯 Final Goal
+
+A clean, working Profile screen where:
+
+Only relevant info is shown
+Reviews system works perfectly
+Profile picture updates instantly and reliably

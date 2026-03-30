@@ -148,9 +148,26 @@ export default function ProfileScreen() {
     setPhotoLoading(true);
     pulseAvatar();
     try {
-      const profileImage = asset.base64
-        ? `data:image/jpeg;base64,${asset.base64}`
-        : asset.uri;
+      let profileImage: string;
+
+      if (asset.base64) {
+        // Native: base64 data provided directly
+        profileImage = `data:image/jpeg;base64,${asset.base64}`;
+      } else if (asset.uri && asset.uri.startsWith("blob:")) {
+        // Web: blob URL — convert to base64 data URI
+        const response = await fetch(asset.uri);
+        const blob = await response.blob();
+        profileImage = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        });
+      } else {
+        // Fallback: use URI as-is
+        profileImage = asset.uri;
+      }
+
       const updated = await put<{ profileImage: string | null }>("/users/me", {
         name: user?.name,
         location: user?.location,
@@ -330,30 +347,10 @@ export default function ProfileScreen() {
           )}
         </View>
 
-        {/* Quick Stats */}
-        <View style={styles.statsRow}>
-          <View style={styles.statItem}>
-            <Ionicons name="calendar-outline" size={22} color={C.tint} />
-            <Text style={styles.statLabel}>Bookings</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statItem}>
-            <Ionicons name="chatbubble-outline" size={22} color={C.tint} />
-            <Text style={styles.statLabel}>Chats</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statItem}>
-            <Ionicons name="star-outline" size={22} color={C.tint} />
-            <Text style={styles.statLabel}>Reviews</Text>
-          </View>
-        </View>
-
         {/* Activity */}
         <View style={styles.menuCard}>
           <Text style={styles.menuSection}>Activity</Text>
-          <MenuItem icon="calendar-outline"  label="My Bookings" color={C.tint}    onPress={() => router.push("/(tabs)/bookings")} />
-          <MenuItem icon="heart-outline"     label="Favourites"  color="#FF3B5C"   onPress={() => router.push("/(tabs)/favorites")} />
-          <MenuItem icon="chatbubble-outline" label="Messages"   color="#3B82F6"   onPress={() => router.push("/(tabs)/messages")} />
+          <MenuItem icon="heart-outline" label="Favourites" color="#FF3B5C" onPress={() => router.push("/(tabs)/favorites")} />
           {user.role === "provider" && (
             <MenuItem icon="list-outline" label="My Listings" color="#22C55E" onPress={() => router.push("/(tabs)/dashboard")} />
           )}
@@ -699,19 +696,6 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   saveBtnText: { color: "#fff", fontSize: 15, fontWeight: "600", fontFamily: "Inter_600SemiBold" },
-  statsRow: {
-    marginHorizontal: 20,
-    backgroundColor: C.card,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: C.cardBorder,
-    flexDirection: "row",
-    paddingVertical: 20,
-    marginBottom: 16,
-  },
-  statItem: { flex: 1, alignItems: "center", gap: 6 },
-  statLabel: { fontSize: 12, color: C.textSecondary, fontFamily: "Inter_400Regular" },
-  statDivider: { width: 1, backgroundColor: C.border },
   menuCard: {
     marginHorizontal: 20,
     backgroundColor: C.card,

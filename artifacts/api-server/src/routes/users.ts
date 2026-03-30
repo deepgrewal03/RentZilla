@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { db } from "@workspace/db";
-import { usersTable } from "@workspace/db";
+import { usersTable, reviewsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 
 const router: IRouter = Router();
@@ -28,6 +28,16 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction):
   next();
 }
 
+async function getUserRating(userId: string): Promise<{ rating: number | null; reviewCount: number }> {
+  const reviews = await db
+    .select()
+    .from(reviewsTable)
+    .where(eq(reviewsTable.providerId, userId));
+  if (reviews.length === 0) return { rating: null, reviewCount: 0 };
+  const avg = reviews.reduce((s, r) => s + r.rating, 0) / reviews.length;
+  return { rating: Math.round(avg * 10) / 10, reviewCount: reviews.length };
+}
+
 router.get("/me", authMiddleware, async (req: Request, res: Response) => {
   try {
     const userId = (req as Request & { userId: string }).userId;
@@ -37,6 +47,7 @@ router.get("/me", authMiddleware, async (req: Request, res: Response) => {
       return;
     }
     const user = users[0];
+    const { rating, reviewCount } = await getUserRating(userId);
     res.json({
       id: user.id,
       phone: user.phone,
@@ -48,8 +59,8 @@ router.get("/me", authMiddleware, async (req: Request, res: Response) => {
       roles: user.role === "both" ? ["customer", "provider"] : [user.role],
       location: user.location,
       profileImage: user.profileImage,
-      rating: null,
-      reviewCount: 0,
+      rating,
+      reviewCount,
       createdAt: user.createdAt.toISOString(),
     });
   } catch (err) {
@@ -75,6 +86,7 @@ router.put("/me", authMiddleware, async (req: Request, res: Response) => {
     }
 
     const user = updated[0];
+    const { rating, reviewCount } = await getUserRating(userId);
     res.json({
       id: user.id,
       phone: user.phone,
@@ -82,8 +94,8 @@ router.put("/me", authMiddleware, async (req: Request, res: Response) => {
       role: user.role,
       location: user.location,
       profileImage: user.profileImage,
-      rating: null,
-      reviewCount: 0,
+      rating,
+      reviewCount,
       createdAt: user.createdAt.toISOString(),
     });
   } catch (err) {

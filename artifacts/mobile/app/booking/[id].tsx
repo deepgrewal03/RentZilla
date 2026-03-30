@@ -37,6 +37,7 @@ export default function BookingDetailScreen() {
   const [booking, setBooking] = useState<Booking | null>(null);
   const [loading, setLoading] = useState(true);
   const [showReview, setShowReview] = useState(false);
+  const [hasReview, setHasReview] = useState(false);
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -51,6 +52,15 @@ export default function BookingDetailScreen() {
     try {
       const data = await get<Booking>(`/bookings/${id}`);
       setBooking(data);
+      // Check if the current user already reviewed this booking
+      if (data.status === "completed") {
+        try {
+          const reviews = await get<{ bookingId: string }[]>(`/reviews?bookingId=${id}`);
+          setHasReview(reviews.length > 0);
+        } catch {
+          setHasReview(false);
+        }
+      }
     } catch {
       // ignore
     } finally {
@@ -100,8 +110,12 @@ export default function BookingDetailScreen() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       Alert.alert("Review Submitted", "Thank you for your feedback!");
       setShowReview(false);
-    } catch {
-      Alert.alert("Error", "Could not submit review.");
+      setHasReview(true);
+    } catch (e: any) {
+      const msg = e?.message?.includes("409") || e?.message?.includes("already")
+        ? "You have already reviewed this booking."
+        : "Could not submit review. Please try again.";
+      Alert.alert("Error", msg);
     } finally {
       setSubmitting(false);
     }
@@ -222,10 +236,17 @@ export default function BookingDetailScreen() {
             </Pressable>
           )}
           {isCustomer && booking.status === "completed" && !showReview && (
-            <Pressable onPress={() => setShowReview(true)} style={styles.reviewBtn}>
-              <Ionicons name="star-outline" size={18} color={C.tint} />
-              <Text style={styles.reviewBtnText}>Leave a Review</Text>
-            </Pressable>
+            hasReview ? (
+              <View style={styles.reviewedBadge}>
+                <Ionicons name="checkmark-circle" size={18} color="#22C55E" />
+                <Text style={styles.reviewedBadgeText}>Review Submitted</Text>
+              </View>
+            ) : (
+              <Pressable onPress={() => { Haptics.selectionAsync(); setShowReview(true); }} style={styles.reviewBtn}>
+                <Ionicons name="star-outline" size={18} color={C.tint} />
+                <Text style={styles.reviewBtnText}>Leave a Review</Text>
+              </Pressable>
+            )
           )}
           {(booking.status === "pending" || booking.status === "confirmed") && (
             <Pressable onPress={cancelBooking} style={styles.cancelBtn}>
@@ -367,6 +388,18 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   reviewBtnText: { color: C.tint, fontSize: 15, fontWeight: "600", fontFamily: "Inter_600SemiBold" },
+  reviewedBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    borderRadius: 14,
+    paddingVertical: 13,
+    backgroundColor: "#F0FDF4",
+    borderWidth: 1.5,
+    borderColor: "#22C55E40",
+  },
+  reviewedBadgeText: { color: "#22C55E", fontSize: 15, fontWeight: "600", fontFamily: "Inter_600SemiBold" },
   cancelBtn: {
     borderWidth: 1.5,
     borderColor: C.error,
