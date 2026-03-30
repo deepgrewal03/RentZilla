@@ -114,6 +114,22 @@ router.get("/summary", authMiddleware, async (req: Request, res: Response) => {
   }
 });
 
+// Quick check: does this provider have any car listings?
+router.get("/has-cars", authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as AR).userId;
+    const result = await db.execute(`
+      SELECT COUNT(*) as count
+      FROM listings
+      WHERE provider_id = '${userId}' AND category = 'cars'
+    `);
+    const count = Number((result.rows as any[])[0]?.count ?? 0);
+    res.json({ hasCars: count > 0, count });
+  } catch {
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 // Recent bookings for provider (last 10)
 router.get("/recent-bookings", authMiddleware, async (req: Request, res: Response) => {
   try {
