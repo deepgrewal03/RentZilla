@@ -1,0 +1,169 @@
+Prompt: Add Earth Movers Category to Equipment Sliding List
+
+Update the RentZilla app equipment module to include a new Earth Movers category in the horizontal sliding equipment list/carousel.
+
+This must be fully functional across frontend, backend, APIs, filters, provider listing, booking flow, and affected screens.
+
+1) Add New Equipment Category
+
+In the Equipment sliding list, add a new category:
+
+Earth Movers
+
+Use a strong construction-style icon/image.
+
+Inside this category, add these initial items:
+
+JCB
+Excavator
+
+Keep it scalable so more machines can be added later:
+
+Bulldozer
+Loader
+Backhoe
+Roller
+Crane
+Dump Truck
+2) Equipment Card UI
+
+When user taps Earth Movers, open a dedicated listing page showing:
+
+machine image
+machine name
+provider name
+hourly / daily / weekly price
+operator included (yes/no)
+fuel included (yes/no)
+availability status
+location
+delivery charges
+booking CTA button
+
+Use the same premium card layout as other equipment sections.
+
+3) Fully Functional API Dependencies
+
+Create complete backend API dependencies.
+
+New APIs Required
+Get Earth Movers Categories
+
+GET /equipment/earth-movers
+
+Returns:
+
+JCB
+Excavator
+other future heavy machines
+Get Machine Listings
+
+GET /equipment/earth-movers/listings
+
+Filters:
+
+type (JCB / Excavator)
+location
+availability
+operator required
+price range
+hourly/daily
+provider rating
+Machine Details
+
+GET /equipment/earth-movers/{id}
+
+Returns:
+
+full specs
+capacity
+working hours
+fuel type
+attachments
+provider details
+machine images
+reviews
+live availability calendar
+Book Machine
+
+POST /equipment/earth-movers/book
+
+Booking fields:
+
+start date
+end date
+booking hours
+operator required
+delivery site
+project address
+notes
+payment method
+4) Update All Affected Screens
+
+Apply this category to all connected app screens.
+
+Affected Screens
+Home screen equipment slider
+Equipment category screen
+Search results
+Provider dashboard
+Provider add-listing form
+Booking details screen
+Checkout page
+Order history
+My bookings
+Favorites / saved items
+Search suggestions
+Admin panel category management
+push notifications
+analytics dashboard
+5) Provider Side Listing Form
+
+In provider panel, allow providers to list:
+
+JCB
+Excavator
+Earth moving machines
+Required Fields
+machine type
+brand
+model
+year
+hourly price
+daily price
+operator included
+location radius
+delivery available
+fuel included
+machine images
+machine documents
+insurance
+safety certificate
+6) Smart Search + Filters
+
+Add searchable keywords:
+
+JCB near me
+Excavator hire
+earth mover rental
+digging machine
+construction equipment
+
+Add filters:
+
+machine type
+bucket size
+operator included
+site distance
+fuel included
+project duration
+urgent availability
+7) UX Requirements
+smooth horizontal sliding list
+lazy load images
+fast listing fetch
+no UI lag
+maintain current color theme
+construction-friendly premium visuals
+mobile optimized
+scalable for future heavy equipment

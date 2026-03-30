@@ -35,6 +35,9 @@ async function enrichListing(listing: typeof listingsTable.$inferSelect) {
     rating: avgRating ? Math.round(avgRating * 10) / 10 : null,
     reviewCount: reviews.length,
     isAvailable: listing.isAvailable,
+    operatorIncluded: listing.operatorIncluded ?? false,
+    fuelIncluded: listing.fuelIncluded ?? false,
+    deliveryCharges: listing.deliveryCharges ?? null,
     createdAt: listing.createdAt.toISOString(),
   };
 }
@@ -83,7 +86,8 @@ router.get("/:id", async (req: Request, res: Response) => {
 router.post("/", authMiddleware, async (req: Request, res: Response) => {
   try {
     const userId = (req as Request & { userId: string }).userId;
-    const { category, subcategory, title, description, price, priceUnit, images, location, isAvailable } = req.body;
+    const { category, subcategory, title, description, price, priceUnit, images, location, isAvailable,
+            operatorIncluded, fuelIncluded, deliveryCharges } = req.body;
 
     const listing = {
       id: generateId(),
@@ -97,6 +101,9 @@ router.post("/", authMiddleware, async (req: Request, res: Response) => {
       images: images || [],
       location,
       isAvailable: isAvailable !== false,
+      operatorIncluded: operatorIncluded === true,
+      fuelIncluded: fuelIncluded === true,
+      deliveryCharges: deliveryCharges != null ? Number(deliveryCharges) : null,
     };
 
     const inserted = await db.insert(listingsTable).values(listing).returning();

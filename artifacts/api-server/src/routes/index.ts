@@ -17,6 +17,7 @@ import documentsRouter from "./documents.js";
 import searchRouter from "./search.js";
 import adminRouter from "./admin.js";
 import mapsRouter from "./maps.js";
+import earthMoversRouter from "./earth-movers.js";
 
 const router: IRouter = Router();
 
@@ -38,5 +39,6 @@ router.use("/documents", documentsRouter);
 router.use("/search", searchRouter);
 router.use("/admin", adminRouter);
 router.use("/maps", mapsRouter);
+router.use("/equipment/earth-movers", earthMoversRouter);
 
 export default router;

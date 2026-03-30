@@ -32,9 +32,16 @@ const CATEGORIES: { id: Category; label: string }[] = [
 
 const SUBCATEGORIES: Record<Category, string[]> = {
   cars: ["Sedan", "SUV", "Truck", "Van", "Tempo"],
-  equipment: ["Tractor", "Harvester", "Rotavator", "Sprayer", "Plough", "Cultivator"],
+  equipment: [
+    "Tractor", "Harvester", "Rotavator", "Sprayer", "Plough", "Cultivator",
+    "JCB", "Excavator", "Bulldozer", "Loader", "Backhoe", "Roller", "Crane", "Dump Truck",
+  ],
   services: ["Plumber", "Electrician", "Beauty", "Carpenter", "Painter", "AC Repair"],
 };
+
+const EARTH_MOVER_TYPES = new Set([
+  "JCB", "Excavator", "Bulldozer", "Loader", "Backhoe", "Roller", "Crane", "Dump Truck",
+]);
 
 const PRICE_UNITS: { id: PriceUnit; label: string }[] = [
   { id: "per_day", label: "Per Day" },
@@ -59,7 +66,12 @@ export default function AddListingScreen() {
   const [priceUnit, setPriceUnit] = useState<PriceUnit>("per_day");
   const [location, setLocation] = useState("");
   const [imageUrl, setImageUrl] = useState("");
+  const [operatorIncluded, setOperatorIncluded] = useState(false);
+  const [fuelIncluded, setFuelIncluded] = useState(false);
+  const [deliveryCharges, setDeliveryCharges] = useState("");
   const [saving, setSaving] = useState(false);
+
+  const isEarthMover = category === "equipment" && EARTH_MOVER_TYPES.has(subcategory);
 
   const topPad = isWeb ? 67 : insets.top;
 
@@ -80,6 +92,11 @@ export default function AddListingScreen() {
         location,
         images: imageUrl ? [imageUrl] : [],
         isAvailable: true,
+        ...(isEarthMover && {
+          operatorIncluded,
+          fuelIncluded,
+          deliveryCharges: deliveryCharges ? Number(deliveryCharges) : null,
+        }),
       });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       router.back();
@@ -223,6 +240,59 @@ export default function AddListingScreen() {
             />
           </View>
 
+          {/* Earth Mover specific options */}
+          {isEarthMover && (
+            <View style={styles.section}>
+              <View style={styles.earthMoverBanner}>
+                <Ionicons name="construct" size={15} color="#BF360C" />
+                <Text style={styles.earthMoverBannerText}>Earth Mover Options</Text>
+              </View>
+
+              <View style={styles.toggleRow}>
+                <Pressable
+                  onPress={() => { Haptics.selectionAsync(); setOperatorIncluded((v) => !v); }}
+                  style={[styles.toggleBtn, operatorIncluded && styles.toggleBtnOn]}
+                >
+                  <Ionicons
+                    name={operatorIncluded ? "person" : "person-outline"}
+                    size={16}
+                    color={operatorIncluded ? "#fff" : C.textSecondary}
+                  />
+                  <Text style={[styles.toggleText, operatorIncluded && styles.toggleTextOn]}>
+                    Operator Included
+                  </Text>
+                </Pressable>
+
+                <Pressable
+                  onPress={() => { Haptics.selectionAsync(); setFuelIncluded((v) => !v); }}
+                  style={[styles.toggleBtn, fuelIncluded && styles.toggleBtnOn]}
+                >
+                  <Ionicons
+                    name={fuelIncluded ? "flame" : "flame-outline"}
+                    size={16}
+                    color={fuelIncluded ? "#fff" : C.textSecondary}
+                  />
+                  <Text style={[styles.toggleText, fuelIncluded && styles.toggleTextOn]}>
+                    Fuel Included
+                  </Text>
+                </Pressable>
+              </View>
+
+              <Text style={[styles.fieldLabel, { marginTop: 14 }]}>Delivery Charges (₹, optional)</Text>
+              <View style={styles.priceInputWrap}>
+                <Text style={styles.rupee}>₹</Text>
+                <TextInput
+                  style={styles.priceInput}
+                  value={deliveryCharges}
+                  onChangeText={setDeliveryCharges}
+                  placeholder="0"
+                  placeholderTextColor={C.textTertiary}
+                  keyboardType="numeric"
+                />
+              </View>
+            </View>
+          )}
+
           {/* Image URL */}
           <View style={styles.section}>
             <Text style={styles.fieldLabel}>Image URL (optional)</Text>
@@ -349,4 +419,35 @@ const styles = StyleSheet.create({
   unitBtnActive: { backgroundColor: C.tint, borderColor: C.tint },
   unitText: { fontSize: 12, fontWeight: "600", fontFamily: "Inter_600SemiBold", color: C.text },
   unitTextActive: { color: "#fff" },
+  earthMoverBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+    backgroundColor: "#FBE9E7",
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: "#FFCCBC",
+  },
+  earthMoverBannerText: {
+    fontSize: 13, fontWeight: "700", fontFamily: "Inter_700Bold", color: "#BF360C",
+  },
+  toggleRow: { flexDirection: "row", gap: 10 },
+  toggleBtn: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: C.border,
+    backgroundColor: C.backgroundSecondary,
+  },
+  toggleBtnOn: { backgroundColor: "#BF360C", borderColor: "#BF360C" },
+  toggleText: { fontSize: 12, fontWeight: "600", fontFamily: "Inter_600SemiBold", color: C.text, flex: 1 },
+  toggleTextOn: { color: "#fff" },
 });

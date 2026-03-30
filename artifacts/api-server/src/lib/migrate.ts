@@ -219,5 +219,14 @@ export async function runMigrations() {
     await db.execute(sql.raw(stmt));
   }
 
+  const listingAlters = [
+    `ALTER TABLE listings ADD COLUMN IF NOT EXISTS operator_included BOOLEAN DEFAULT FALSE`,
+    `ALTER TABLE listings ADD COLUMN IF NOT EXISTS fuel_included BOOLEAN DEFAULT FALSE`,
+    `ALTER TABLE listings ADD COLUMN IF NOT EXISTS delivery_charges NUMERIC(10,2)`,
+  ];
+  for (const stmt of listingAlters) {
+    await db.execute(sql.raw(stmt));
+  }
+
   logger.info("Database migrations complete.");
 }

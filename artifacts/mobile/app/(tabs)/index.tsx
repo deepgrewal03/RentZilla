@@ -190,12 +190,15 @@ export default function HomeScreen() {
         </View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
           {[
-            { label: "Tractor",   labelPa: "ਟਰੈਕਟਰ",    icon: "cog-outline",      color: "#33691E", bg: "#F1F8E9" },
-            { label: "Harvester", labelPa: "ਹਾਰਵੈਸਟਰ",  icon: "settings-outline", color: "#558B2F", bg: "#DCEDC8" },
-            { label: "Rotavator", labelPa: "ਰੋਟਾਵੇਟਰ",  icon: "sync-outline",     color: "#00695C", bg: "#E0F2F1" },
-            { label: "Sprayer",   labelPa: "ਸਪ੍ਰੇਅਰ",   icon: "leaf-outline",     color: "#1B5E20", bg: "#E8F5E9" },
-            { label: "Plough",    labelPa: "ਹਲ",         icon: "git-branch-outline",color: "#4E342E", bg: "#EFEBE9" },
-            { label: "Cultivator",labelPa: "ਕਲਟੀਵੇਟਰ",  icon: "grid-outline",     color: "#37474F", bg: "#ECEFF1" },
+            { label: "Tractor",     labelPa: "ਟਰੈਕਟਰ",     icon: "cog-outline",        color: "#33691E", bg: "#F1F8E9" },
+            { label: "Harvester",   labelPa: "ਹਾਰਵੈਸਟਰ",   icon: "settings-outline",   color: "#558B2F", bg: "#DCEDC8" },
+            { label: "Rotavator",   labelPa: "ਰੋਟਾਵੇਟਰ",   icon: "sync-outline",       color: "#00695C", bg: "#E0F2F1" },
+            { label: "Sprayer",     labelPa: "ਸਪ੍ਰੇਅਰ",    icon: "leaf-outline",       color: "#1B5E20", bg: "#E8F5E9" },
+            { label: "Plough",      labelPa: "ਹਲ",          icon: "git-branch-outline", color: "#4E342E", bg: "#EFEBE9" },
+            { label: "Cultivator",  labelPa: "ਕਲਟੀਵੇਟਰ",   icon: "grid-outline",       color: "#37474F", bg: "#ECEFF1" },
+            { label: "Earth Mover", labelPa: "ਅਰਥ ਮੂਵਰ",   icon: "construct-outline",  color: "#BF360C", bg: "#FBE9E7" },
+            { label: "JCB",         labelPa: "ਜੇਸੀਬੀ",      icon: "construct-outline",  color: "#E65100", bg: "#FFF3E0" },
+            { label: "Excavator",   labelPa: "ਖੁਦਾਈ ਮਸ਼ੀਨ", icon: "build-outline",      color: "#4E342E", bg: "#EFEBE9" },
           ].map((item) => {
             const active = selectedCategory === "equipment" && selectedSubcat === item.label;
             return (

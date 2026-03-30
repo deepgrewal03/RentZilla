@@ -21,7 +21,10 @@ const SERVICE_KEYWORDS = ["plumber", "electrician", "mechanic", "beauty", "parlo
 const VEHICLE_KEYWORDS = ["car", "swift", "honda", "toyota", "hyundai", "suzuki",
   "tata", "mahindra", "maruti", "innova", "fortuner", "ertiga", "i20", "verna",
   "truck", "van", "tractor", "harvester", "rotavator", "sprayer", "suv", "sedan",
-  "bus", "tempo", "jeep", "pickup", "auto", "bike"];
+  "bus", "tempo", "jeep", "pickup", "auto", "bike",
+  "jcb", "excavator", "bulldozer", "loader", "backhoe", "roller", "crane",
+  "dump truck", "earth mover", "earth movers", "digging machine", "digger",
+  "construction equipment", "heavy machine", "backhoe loader"];
 
 function detectIntent(q: string): "vehicles" | "services" | "location" | "general" {
   const lower = q.toLowerCase();

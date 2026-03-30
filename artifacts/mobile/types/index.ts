@@ -21,6 +21,9 @@ export interface Listing {
   rating: number | null;
   reviewCount: number;
   isAvailable: boolean;
+  operatorIncluded: boolean | null;
+  fuelIncluded: boolean | null;
+  deliveryCharges: number | null;
   createdAt: string;
 }
 

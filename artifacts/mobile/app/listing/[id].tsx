@@ -398,6 +398,59 @@ export default function ListingDetailScreen() {
             </View>
           )}
 
+          {/* Earth Mover specs — shown for heavy construction subcategories */}
+          {listing.category === "equipment" && (
+            listing.operatorIncluded !== null ||
+            listing.fuelIncluded !== null ||
+            listing.deliveryCharges !== null
+          ) && (
+            <View style={styles.specsSection}>
+              <View style={styles.specsBanner}>
+                <Ionicons name="construct" size={14} color="#BF360C" />
+                <Text style={styles.specsBannerText}>Machine Details</Text>
+              </View>
+              <View style={styles.specsGrid}>
+                <View style={[styles.specBadge, { backgroundColor: listing.operatorIncluded ? "#E8F5E9" : "#FFF3E0" }]}>
+                  <Ionicons
+                    name={listing.operatorIncluded ? "person" : "person-outline"}
+                    size={16}
+                    color={listing.operatorIncluded ? "#2E7D32" : "#E65100"}
+                  />
+                  <Text style={[styles.specLabel, { color: listing.operatorIncluded ? "#2E7D32" : "#E65100" }]}>
+                    Operator
+                  </Text>
+                  <Text style={[styles.specValue, { color: listing.operatorIncluded ? "#2E7D32" : "#E65100" }]}>
+                    {listing.operatorIncluded ? "Included" : "Not included"}
+                  </Text>
+                </View>
+
+                <View style={[styles.specBadge, { backgroundColor: listing.fuelIncluded ? "#E8F5E9" : "#FFF3E0" }]}>
+                  <Ionicons
+                    name={listing.fuelIncluded ? "flame" : "flame-outline"}
+                    size={16}
+                    color={listing.fuelIncluded ? "#2E7D32" : "#E65100"}
+                  />
+                  <Text style={[styles.specLabel, { color: listing.fuelIncluded ? "#2E7D32" : "#E65100" }]}>
+                    Fuel
+                  </Text>
+                  <Text style={[styles.specValue, { color: listing.fuelIncluded ? "#2E7D32" : "#E65100" }]}>
+                    {listing.fuelIncluded ? "Included" : "Not included"}
+                  </Text>
+                </View>
+
+                {listing.deliveryCharges !== null && (
+                  <View style={[styles.specBadge, { backgroundColor: "#E3F2FD" }]}>
+                    <Ionicons name="car-outline" size={16} color="#1565C0" />
+                    <Text style={[styles.specLabel, { color: "#1565C0" }]}>Delivery</Text>
+                    <Text style={[styles.specValue, { color: "#1565C0" }]}>
+                      ₹{listing.deliveryCharges.toLocaleString("en-IN")}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            </View>
+          )}
+
           <View style={styles.providerCard}>
             <View style={styles.providerAvatar}>
               <Text style={styles.providerAvatarText}>{(listing.providerName || "P")[0].toUpperCase()}</Text>
@@ -583,6 +636,22 @@ const styles = StyleSheet.create({
   descSection: { marginBottom: 20 },
   sectionTitle: { fontSize: 17, fontWeight: "700", fontFamily: "Inter_700Bold", color: C.text, marginBottom: 10 },
   description: { fontSize: 14, color: C.textSecondary, fontFamily: "Inter_400Regular", lineHeight: 22 },
+  specsSection: { marginBottom: 20 },
+  specsBanner: {
+    flexDirection: "row", alignItems: "center", gap: 7,
+    backgroundColor: "#FBE9E7", borderRadius: 10,
+    paddingHorizontal: 12, paddingVertical: 8,
+    marginBottom: 12, borderWidth: 1, borderColor: "#FFCCBC",
+  },
+  specsBannerText: { fontSize: 13, fontWeight: "700", fontFamily: "Inter_700Bold", color: "#BF360C" },
+  specsGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+  specBadge: {
+    flexDirection: "row", alignItems: "center", gap: 6,
+    borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10,
+    minWidth: "30%",
+  },
+  specLabel: { fontSize: 10, fontWeight: "600", fontFamily: "Inter_600SemiBold", lineHeight: 14 },
+  specValue: { fontSize: 12, fontWeight: "700", fontFamily: "Inter_700Bold" },
   providerCard: {
     flexDirection: "row", alignItems: "center",
     backgroundColor: C.card, borderRadius: 16,

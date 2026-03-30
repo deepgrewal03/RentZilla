@@ -17,6 +17,9 @@ export const listingsTable = pgTable("listings", {
   images: jsonb("images").$type<string[]>().default([]),
   location: text("location").notNull(),
   isAvailable: boolean("is_available").notNull().default(true),
+  operatorIncluded: boolean("operator_included").default(false),
+  fuelIncluded: boolean("fuel_included").default(false),
+  deliveryCharges: real("delivery_charges"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
