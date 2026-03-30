@@ -1,0 +1,110 @@
+Final Prompt — RentZilla Splash Logo Animation Before Sign In
+
+Create a premium splash screen logo animation for the RentZilla mobile app.
+
+This animation must play immediately when the app starts, before the Sign In / Login page appears.
+
+The splash screen should feel like a modern startup marketplace app intro, similar to Uber, Airbnb, and other premium mobile apps.
+
+Splash Screen Behavior
+When user opens the app, show this animated splash screen first
+Splash duration: 5 seconds
+After animation completes, automatically navigate to the Sign In screen
+No user interaction required
+Transition to Sign In page should be smooth fade or slide
+Avoid sudden screen jumps
+Ensure animation works smoothly on both Android and iPhone
+Optimize for fast app launch performance
+Scene Setup
+Background: dark gradient or clean white
+Logo centered vertically and horizontally
+Use bold, clean, modern sans-serif font
+Premium marketplace / rental app branding style
+High quality smooth motion
+Animation Flow
+1) Opening State
+
+Show only:
+
+R Z
+Both letters should start mirrored / reversed
+R flipped backward
+Z flipped backward
+Positioned side by side in center
+Minimal clean startup feel
+2) Logo Flip Reveal
+
+Animate both letters using:
+
+180° Y-axis flip
+smooth cinematic rotation
+ease-in-out motion
+slight bounce when flip completes
+
+The result becomes:
+
+R Z
+
+(normal readable)
+
+Pause for 0.5 seconds
+
+3) Expand Into Full Brand
+
+Now animate:
+
+R slides slightly left
+Z slides slightly right
+
+At same time:
+
+“ent” slides in beside R
+“illa” slides in beside Z
+
+Final logo:
+
+RentZilla
+
+Animation style:
+
+smooth fade + slide
+polished premium motion
+elegant easing
+natural letter merge
+
+Hold for 1 second
+
+4) Collapse Back
+
+After hold:
+
+fade out “ent”
+fade out “illa”
+bring R and Z back to center
+
+Final visible:
+
+R Z
+5) Screen Transition
+
+After final frame:
+
+keep R Z visible for 0.5 sec
+smoothly fade into Sign In page
+Sign In page should appear naturally as next screen
+maintain same premium feel
+Animation Feel
+
+Inspired by:
+
+Uber splash intro
+Airbnb logo animation
+premium startup branding
+
+Focus on:
+
+elegance
+clean typography
+smooth motion
+premium app feel
+excellent first impression
