@@ -83,7 +83,7 @@ export default function SignInScreen() {
               </View>
             </View>
             <Text style={styles.appName}>{t.appName}</Text>
-            <Text style={styles.tagline}>Your Own App</Text>
+            <Text style={styles.tagline}>{t.appTagline}</Text>
           </View>
 
           {/* Card */}
