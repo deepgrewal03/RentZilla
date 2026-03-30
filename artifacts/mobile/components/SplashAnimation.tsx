@@ -1,16 +1,15 @@
 /**
  * RentZilla Premium Splash Animation
- * Full 5-second cinematic brand intro before Sign In.
+ * ~4.5-second cinematic brand intro before Sign In.
  *
  * Timeline:
  *  0.0 – 0.8s  Initial mirrored "R Z" — fade-in + subtle scale-up
  *  0.8 – 1.8s  180° Y-axis flip reveal — overshoot spring easing
  *  1.8 – 2.3s  Pause — hold readable "R Z"
  *  2.3 – 3.2s  Magnetic separation — R glides left, Z glides right,
- *               "ent" and "illa" slide in from their respective sides
- *  3.2 – 4.2s  Premium hold — full "RentZilla" logo
- *  4.2 – 4.7s  Collapse — ent/illa slide back, R/Z return to center
- *  4.7 – 5.0s  Hold "R Z" briefly, then fade to Sign In
+ *               "ent" and "illa" slide in; tagline fades up
+ *  3.2 – 4.2s  Premium hold — full "RentZilla" + tagline
+ *  4.2 – 4.6s  Smooth fade to Sign In
  */
 
 import { LinearGradient } from "expo-linear-gradient";
@@ -140,43 +139,13 @@ export default function SplashAnimation({ onDone }: { onDone: () => void }) {
         ]),
       ]),
 
-      // ── 3.2s → 4.2s · Premium hold — full "RentZilla" ────────────────────
+      // ── 3.2s → 4.2s · Premium hold — full "RentZilla" + tagline ────────────
       Animated.delay(1000),
 
-      // ── 4.2s → 4.7s · Collapse — reverse the separation ──────────────────
-      Animated.parallel([
-        // "ent" slides back to the left and fades
-        Animated.timing(entOp, { toValue: 0, duration: 240, useNativeDriver: ND }),
-        Animated.timing(entTx, { toValue: -13, duration: 380, easing: ease, useNativeDriver: ND }),
-        // "illa" slides back to the right and fades
-        Animated.timing(illaOp, { toValue: 0, duration: 240, useNativeDriver: ND }),
-        Animated.timing(illaTx, { toValue: 13, duration: 380, easing: ease, useNativeDriver: ND }),
-        // "RentZilla" layer fades out
-        Animated.timing(brandOp, { toValue: 0, duration: 360, useNativeDriver: ND }),
-        Animated.timing(brandSc, { toValue: 0.93, duration: 420, useNativeDriver: ND }),
-        // "R Z" layer fades back in
-        Animated.timing(rzOp, {
-          toValue: 1, duration: 330, delay: 130, useNativeDriver: ND,
-        }),
-        // R and Z glide back to center
-        Animated.timing(rSep, {
-          toValue: 0, duration: 460, delay: 60, easing: magnet, useNativeDriver: ND,
-        }),
-        Animated.timing(zSep, {
-          toValue: 0, duration: 460, delay: 60, easing: magnet, useNativeDriver: ND,
-        }),
-        // Tagline + accent line + dots fade out
-        Animated.timing(tagOp, { toValue: 0, duration: 220, useNativeDriver: ND }),
-        Animated.timing(tagTy, { toValue: 11, duration: 280, useNativeDriver: ND }),
-        Animated.timing(lineW, { toValue: 0, duration: 220, useNativeDriver: ND }),
-        Animated.timing(dotOp, { toValue: 0, duration: 220, useNativeDriver: ND }),
-      ]),
-
-      // ── 4.7s → 5.0s · Hold "R Z" then fade to Sign In ────────────────────
-      Animated.delay(150),
+      // ── 4.2s → 4.6s · Smooth fade to Sign In ────────────────────────────
       Animated.timing(screenOp, {
         toValue: 0,
-        duration: 300,
+        duration: 400,
         easing: ease,
         useNativeDriver: ND,
       }),
@@ -330,7 +299,7 @@ export default function SplashAnimation({ onDone }: { onDone: () => void }) {
           },
         ]}
       >
-        Punjab's #1 Rental Marketplace
+        Rent Anything. Anytime. Anywhere.
       </Animated.Text>
 
       {/* ── Progress indicator dots ─────────────────────────────────────── */}
@@ -403,11 +372,10 @@ const styles = StyleSheet.create({
     position: "absolute",
     width: SW,
     textAlign: "center",
-    fontSize: 11,
-    color: "rgba(255, 255, 255, 0.42)",
+    fontSize: 13.5,
+    color: "rgba(255, 255, 255, 0.48)",
     fontFamily: "Inter_400Regular",
-    letterSpacing: 3,
-    textTransform: "uppercase",
+    letterSpacing: 1.6,
   },
   dotRow: {
     position: "absolute",
