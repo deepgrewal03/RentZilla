@@ -70,6 +70,10 @@ export default function HomeScreen() {
       const params: string[] = [];
       if (selectedCategory !== "all") params.push(`category=${selectedCategory}`);
       if (selectedSubcat)             params.push(`subcategory=${encodeURIComponent(selectedSubcat)}`);
+      // Exclude provider's own listings from customer feed
+      if (user?.id && (user.role === "provider" || user.role === "both")) {
+        params.push(`excludeProviderId=${encodeURIComponent(user.id)}`);
+      }
       if (params.length)              path += "?" + params.join("&");
       setListings(await get<Listing[]>(path));
     } catch { }
@@ -286,7 +290,11 @@ export default function HomeScreen() {
             </View>
           ) : (
             listings.map((listing) => (
-              <ListingCard key={listing.id} listing={listing} />
+              <ListingCard
+                key={listing.id}
+                listing={listing}
+                isCustomer={!inProviderMode && user?.role !== "provider"}
+              />
             ))
           )}
         </View>

@@ -20,6 +20,7 @@ import { ListingCardSkeleton } from "@/components/SkeletonLoader";
 import Colors from "@/constants/colors";
 import { useFavorites } from "@/context/FavoritesContext";
 import { useLang } from "@/context/LanguageContext";
+import { useAuth } from "@/context/AuthContext";
 import { useApi } from "@/hooks/useApi";
 import { Listing } from "@/types";
 
@@ -34,6 +35,7 @@ export default function FavoritesScreen() {
   const { get }            = useApi();
   const { refresh }        = useFavorites();
   const { t, language }    = useLang();
+  const { user, activeMode } = useAuth();
   const insets             = useSafeAreaInsets();
   const isWeb              = Platform.OS === "web";
   const isPa               = language === "pa";
@@ -130,7 +132,11 @@ export default function FavoritesScreen() {
           <View style={styles.list}>
             <Text style={styles.listLabel}>Tap the heart on any card to remove it</Text>
             {favorites.map((fav) => (
-              <ListingCard key={fav.id} listing={fav} />
+              <ListingCard
+                  key={fav.id}
+                  listing={fav}
+                  isCustomer={user?.role === "customer" || (user?.role === "both" && activeMode === "customer")}
+                />
             ))}
           </View>
         )}

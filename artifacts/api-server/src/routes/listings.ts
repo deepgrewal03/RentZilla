@@ -1,7 +1,7 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { db } from "@workspace/db";
 import { listingsTable, usersTable, reviewsTable } from "@workspace/db";
-import { eq, and, gte, lte, like, sql } from "drizzle-orm";
+import { eq, ne, and, gte, lte, like, sql } from "drizzle-orm";
 import { authMiddleware } from "./users.js";
 
 const router: IRouter = Router();
@@ -44,7 +44,7 @@ async function enrichListing(listing: typeof listingsTable.$inferSelect) {
 
 router.get("/", async (req: Request, res: Response) => {
   try {
-    const { category, subcategory, search, minPrice, maxPrice, providerId } = req.query;
+    const { category, subcategory, search, minPrice, maxPrice, providerId, excludeProviderId } = req.query;
 
     let query = db.select().from(listingsTable);
     const conditions = [];
@@ -55,6 +55,8 @@ router.get("/", async (req: Request, res: Response) => {
     if (minPrice) conditions.push(gte(listingsTable.price, Number(minPrice)));
     if (maxPrice) conditions.push(lte(listingsTable.price, Number(maxPrice)));
     if (search) conditions.push(like(listingsTable.title, `%${search}%`));
+    // Exclude provider's own listings from customer feed
+    if (excludeProviderId) conditions.push(ne(listingsTable.providerId, excludeProviderId as string));
 
     const listings = conditions.length > 0
       ? await db.select().from(listingsTable).where(and(...conditions))

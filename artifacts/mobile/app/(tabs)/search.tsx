@@ -21,6 +21,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ListingCard } from "@/components/ListingCard";
 import Colors from "@/constants/colors";
 import { useApi } from "@/hooks/useApi";
+import { useAuth } from "@/context/AuthContext";
 import { Listing } from "@/types";
 
 const C = Colors.light;
@@ -92,6 +93,7 @@ const FILTER_TABS: { id: FilterTab; label: string }[] = [
 
 export default function SearchScreen() {
   const { get } = useApi();
+  const { user, activeMode } = useAuth();
   const insets = useSafeAreaInsets();
   const { q: initialQ } = useLocalSearchParams<{ q?: string }>();
   const isWeb = Platform.OS === "web";
@@ -205,6 +207,9 @@ export default function SearchScreen() {
       if (activeTab !== "all") params.set("category", activeTab);
       if (minPrice) params.set("minPrice", minPrice);
       if (maxPrice) params.set("maxPrice", maxPrice);
+      if (user?.id && (user.role === "provider" || user.role === "both")) {
+        params.set("excludeProviderId", user.id);
+      }
       let data = await get<Listing[]>(`/listings?${params.toString()}`);
       if (minRating !== null) {
         data = data.filter((l) => l.rating !== null && l.rating >= minRating!);
@@ -560,7 +565,14 @@ export default function SearchScreen() {
               </View>
             ) : (
               <View style={styles.list}>
-                {listings.map(l => <ListingCard key={l.id} listing={l} style={styles.card} />)}
+                {listings.map(l => (
+                  <ListingCard
+                    key={l.id}
+                    listing={l}
+                    style={styles.card}
+                    isCustomer={user?.role === "customer" || (user?.role === "both" && activeMode === "customer")}
+                  />
+                ))}
               </View>
             )}
           </>

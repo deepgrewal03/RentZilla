@@ -1,6 +1,7 @@
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
+import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { useRef } from "react";
 import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
@@ -32,11 +33,15 @@ function formatPrice(price: number, unit: string) {
   return `₹${price.toLocaleString("en-IN")}${unit === "per_hour" ? "/hr" : "/day"}`;
 }
 
-interface Props { listing: Listing; style?: object; }
+interface Props {
+  listing: Listing;
+  style?: object;
+  isCustomer?: boolean;
+}
 
 const SPRING = { useNativeDriver: false, tension: 340, friction: 12 };
 
-export function ListingCard({ listing, style }: Props) {
+export function ListingCard({ listing, style, isCustomer }: Props) {
   const icon   = getCategoryIcon(listing.category, listing.subcategory);
   const accent = getCategoryAccent(listing.category);
   const hasImg = listing.images && listing.images.length > 0;
@@ -44,8 +49,9 @@ export function ListingCard({ listing, style }: Props) {
   const { isFavorited, toggle } = useFavorites();
   const faved = isFavorited(listing.id);
 
-  const scale    = useRef(new Animated.Value(1)).current;
+  const scale      = useRef(new Animated.Value(1)).current;
   const heartScale = useRef(new Animated.Value(1)).current;
+  const bookScale  = useRef(new Animated.Value(1)).current;
 
   function onPressIn() {
     Animated.spring(scale, { toValue: 0.97, ...SPRING }).start();
@@ -63,86 +69,116 @@ export function ListingCard({ listing, style }: Props) {
     toggle(listing.id);
   }
 
+  function handleBookNow() {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    Animated.sequence([
+      Animated.spring(bookScale, { toValue: 0.94, useNativeDriver: false, tension: 400, friction: 8 }),
+      Animated.spring(bookScale, { toValue: 1,    useNativeDriver: false, tension: 400, friction: 10 }),
+    ]).start(() => {
+      router.push({ pathname: "/listing/[id]", params: { id: listing.id } });
+    });
+  }
+
+  const showBookBtn = isCustomer && listing.isAvailable;
+
   return (
     <Animated.View style={[styles.card, style, { transform: [{ scale }] }]}>
-    <Pressable
-      onPress={() => {
-        Haptics.selectionAsync();
-        router.push({ pathname: "/listing/[id]", params: { id: listing.id } });
-      }}
-      onPressIn={onPressIn}
-      onPressOut={onPressOut}
-    >
-      {/* Image */}
-      <View style={styles.imgWrap}>
-        {hasImg ? (
-          <Image source={{ uri: listing.images[0] }} style={styles.img} contentFit="cover" />
-        ) : (
-          <View style={[styles.img, styles.imgPlaceholder, { backgroundColor: accent.bg }]}>
-            <View style={[styles.iconCircle, { backgroundColor: `${accent.fg}18` }]}>
-              {icon.lib === "ion"
-                ? <Ionicons name={icon.name as any} size={28} color={accent.fg} />
-                : <MaterialCommunityIcons name={icon.name as any} size={28} color={accent.fg} />
-              }
-            </View>
-          </View>
-        )}
-
-        {/* Unavailable overlay */}
-        {!listing.isAvailable && (
-          <View style={styles.unavailBadge}>
-            <Text style={styles.unavailText}>Unavailable</Text>
-          </View>
-        )}
-
-        {/* Favorite heart button */}
-        <Pressable onPress={handleFavorite} hitSlop={10} style={styles.heartBtn}>
-          <Animated.View style={{ transform: [{ scale: heartScale }] }}>
-            <View style={[styles.heartBg, faved && styles.heartBgActive]}>
-              <Ionicons
-                name={faved ? "heart" : "heart-outline"}
-                size={18}
-                color={faved ? "#FF3B5C" : "#666"}
-              />
-            </View>
-          </Animated.View>
-        </Pressable>
-
-        {/* Category label */}
-        <View style={[styles.catLabel, { backgroundColor: `${accent.fg}DD` }]}>
-          <Text style={styles.catLabelText}>{listing.subcategory || listing.category}</Text>
-        </View>
-      </View>
-
-      {/* Info */}
-      <View style={styles.info}>
-        <Text style={styles.title} numberOfLines={1}>{listing.title}</Text>
-
-        <View style={styles.metaRow}>
-          <Ionicons name="location-outline" size={12} color={C.textTertiary} />
-          <Text style={styles.location} numberOfLines={1}>{listing.location}</Text>
-        </View>
-
-        <View style={styles.footer}>
-          <View style={styles.ratingRow}>
-            {listing.rating != null ? (
-              <>
-                <Ionicons name="star" size={13} color="#FFA000" />
-                <Text style={styles.rating}>{listing.rating.toFixed(1)}</Text>
-                <Text style={styles.ratingCount}>({listing.reviewCount})</Text>
-              </>
-            ) : (
-              <View style={styles.newBadge}>
-                <Text style={styles.newBadgeText}>NEW</Text>
+      <Pressable
+        onPress={() => {
+          Haptics.selectionAsync();
+          router.push({ pathname: "/listing/[id]", params: { id: listing.id } });
+        }}
+        onPressIn={onPressIn}
+        onPressOut={onPressOut}
+      >
+        {/* Image */}
+        <View style={styles.imgWrap}>
+          {hasImg ? (
+            <Image source={{ uri: listing.images[0] }} style={styles.img} contentFit="cover" />
+          ) : (
+            <View style={[styles.img, styles.imgPlaceholder, { backgroundColor: accent.bg }]}>
+              <View style={[styles.iconCircle, { backgroundColor: `${accent.fg}18` }]}>
+                {icon.lib === "ion"
+                  ? <Ionicons name={icon.name as any} size={28} color={accent.fg} />
+                  : <MaterialCommunityIcons name={icon.name as any} size={28} color={accent.fg} />
+                }
               </View>
-            )}
+            </View>
+          )}
+
+          {/* Unavailable overlay */}
+          {!listing.isAvailable && (
+            <View style={styles.unavailBadge}>
+              <Text style={styles.unavailText}>Unavailable</Text>
+            </View>
+          )}
+
+          {/* Favorite heart button */}
+          <Pressable onPress={handleFavorite} hitSlop={10} style={styles.heartBtn}>
+            <Animated.View style={{ transform: [{ scale: heartScale }] }}>
+              <View style={[styles.heartBg, faved && styles.heartBgActive]}>
+                <Ionicons
+                  name={faved ? "heart" : "heart-outline"}
+                  size={18}
+                  color={faved ? "#FF3B5C" : "#666"}
+                />
+              </View>
+            </Animated.View>
+          </Pressable>
+
+          {/* Category label */}
+          <View style={[styles.catLabel, { backgroundColor: `${accent.fg}DD` }]}>
+            <Text style={styles.catLabelText}>{listing.subcategory || listing.category}</Text>
           </View>
-          <Text style={styles.price}>{formatPrice(listing.price, listing.priceUnit)}</Text>
         </View>
 
-        <Text style={styles.providerText} numberOfLines={1}>by {listing.providerName || "Provider"}</Text>
-      </View>
-    </Pressable>
+        {/* Info */}
+        <View style={[styles.info, showBookBtn && styles.infoWithBtn]}>
+          <Text style={styles.title} numberOfLines={1}>{listing.title}</Text>
+
+          <View style={styles.metaRow}>
+            <Ionicons name="location-outline" size={12} color={C.textTertiary} />
+            <Text style={styles.location} numberOfLines={1}>{listing.location}</Text>
+          </View>
+
+          <View style={styles.footer}>
+            <View style={styles.ratingRow}>
+              {listing.rating != null ? (
+                <>
+                  <Ionicons name="star" size={13} color="#FFA000" />
+                  <Text style={styles.rating}>{listing.rating.toFixed(1)}</Text>
+                  <Text style={styles.ratingCount}>({listing.reviewCount})</Text>
+                </>
+              ) : (
+                <View style={styles.newBadge}>
+                  <Text style={styles.newBadgeText}>NEW</Text>
+                </View>
+              )}
+            </View>
+            <Text style={styles.price}>{formatPrice(listing.price, listing.priceUnit)}</Text>
+          </View>
+
+          <Text style={styles.providerText} numberOfLines={1}>by {listing.providerName || "Provider"}</Text>
+        </View>
+      </Pressable>
+
+      {/* Book Now CTA — customers only, available listings only */}
+      {showBookBtn && (
+        <Animated.View style={[styles.bookBtnWrap, { transform: [{ scale: bookScale }] }]}>
+          <Pressable onPress={handleBookNow} style={styles.bookBtnPress}>
+            <LinearGradient
+              colors={["#FF7A18", "#FF9F43"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.bookBtn}
+            >
+              <Ionicons name="calendar-outline" size={15} color="#fff" />
+              <Text style={styles.bookBtnText}>Book Now</Text>
+              <Ionicons name="arrow-forward" size={14} color="rgba(255,255,255,0.8)" />
+            </LinearGradient>
+          </Pressable>
+        </Animated.View>
+      )}
     </Animated.View>
   );
 }
@@ -195,6 +231,7 @@ const styles = StyleSheet.create({
   catLabelText: { color: "#fff", fontSize: 10, fontWeight: "600", fontFamily: "Inter_600SemiBold", textTransform: "capitalize" },
 
   info: { padding: 14, gap: 5 },
+  infoWithBtn: { paddingBottom: 10 },
   title: { fontSize: 15, fontWeight: "700", fontFamily: "Inter_700Bold", color: "#2C2C2C" },
 
   metaRow: { flexDirection: "row", alignItems: "center", gap: 3 },
@@ -210,4 +247,21 @@ const styles = StyleSheet.create({
   newBadgeText: { fontSize: 10, fontWeight: "700", fontFamily: "Inter_700Bold", color: "#2E7D32", letterSpacing: 0.5 },
 
   providerText: { fontSize: 11, color: "#AEAEAE", fontFamily: "Inter_400Regular" },
+
+  bookBtnWrap: { paddingHorizontal: 14, paddingBottom: 14 },
+  bookBtnPress: { borderRadius: 12, overflow: "hidden" },
+  bookBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 7,
+    paddingVertical: 11,
+    borderRadius: 12,
+  },
+  bookBtnText: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "700",
+    fontFamily: "Inter_700Bold",
+  },
 });

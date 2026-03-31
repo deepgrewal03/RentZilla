@@ -1,0 +1,133 @@
+Prompt: Clean Listing Cards + Booking Logic Update
+
+Update the RentZilla listing cards screen for the customer side UI and booking flow.
+
+Apply the following changes to this screen and all similar listing screens.
+
+1) Remove Unnecessary Fields from Listing Cards
+
+From every listing card on this screen, remove these two lines completely:
+
+Operator not included
+Fuel not included
+
+These fields should not be shown in the listing preview cards anymore.
+
+Reason
+
+The card should stay:
+
+cleaner
+less crowded
+easier to scan
+more premium looking
+
+If required, these details can remain inside the listing details page only, not on the preview card.
+
+2) Add Book Button on Every Listing (Customer Only)
+
+Add a visible “Book Now” button on each and every listing card.
+
+Button Rules
+Show this button only when logged in user is a customer
+Do NOT show Book button for providers
+Use full-width or bottom aligned CTA
+Premium rounded button style
+Same color theme as app branding
+Smooth tap feedback animation
+Button Action
+
+When customer taps Book Now:
+
+open booking details page
+fetch selected listing details
+allow date/time selection
+quantity / duration
+payment flow
+confirm booking
+3) Allow Unlimited Repeat Booking
+
+A customer should be able to book the same listing multiple times without restriction.
+
+Logic
+no one-time booking limitation
+same customer can place repeated bookings
+same listing can be booked:
+same day (different slots)
+different dates
+future multiple schedules
+booking history should save each booking as separate order
+
+This is important for:
+
+recurring rentals
+daily equipment needs
+repeated ride/service usage
+4) Provider Listings Visibility Restriction
+
+If a provider logs in using customer mode/account, they must NOT see their own listings in the customer listing feed.
+
+Required Logic
+
+Exclude all listings where:
+
+listing.providerId == loggedInUser.providerId
+
+This should apply to:
+
+home feed
+search results
+category listings
+recommended listings
+nearby listings
+favorites suggestions
+Reason
+
+This avoids:
+
+self-booking
+duplicate provider views
+listing misuse
+customer confusion
+5) API / Backend Dependency Update
+
+Update listing API response logic:
+
+Customer Listings API
+
+GET /listings/customer-feed
+
+Add Backend Filters
+exclude logged-in provider’s own listings
+include booking availability flag
+include repeat booking support
+include CTA visibility flag
+
+Example response:
+
+canBook: true
+isOwnListing: false
+6) Affected Screens
+
+Apply to all listing-based screens:
+
+Home recommendations
+Equipment listings
+Earth movers
+Cars / ride sharing
+Services
+Search results
+Favorites
+Recently viewed
+Nearby listings
+7) UI Feel
+
+Keep cards:
+
+clean
+less text-heavy
+easy to scan
+strong CTA focused
+mobile friendly
+smooth scroll performance
+premium marketplace style
