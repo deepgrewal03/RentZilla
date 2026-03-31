@@ -221,19 +221,26 @@ function getServiceTypesForListing(
     return ["Wedding Photography", "Portrait Session", "Event Coverage", "Product Shoot", "Video Production", "Editing & Delivery"];
   }
 
-  // ── Catering / Food ─────────────────────────────────────────────
-  if (/cater|food|cook|chef|langar|meal|kitchen/.test(text)) {
+  // ── Plumbing (must come before catering — "kitchen" appears in plumbing titles) ──
+  if (/plumb|plumber|pipe|drain|water.?tank|pump|sanit|bathroom.repair|kitchen.repair|tap.repair|leakage/.test(text)) {
+    return [
+      "Pipe Repair & Leak Fix",
+      "Bathroom Fitting & Installation",
+      "Kitchen Sink & Tap Repair",
+      "Drain & Sewer Cleaning",
+      "Water Tank Service",
+      "Emergency Plumbing Call",
+    ];
+  }
+
+  // ── Catering / Food ("kitchen" removed — too generic, matched plumber listings) ──
+  if (/cater|food|cook|chef|langar|meal|dhaba|tiffin/.test(text)) {
     return ["Wedding Catering", "Birthday Party", "Corporate Event", "Langar / Dawat", "Home Delivery", "Chef on Hire"];
   }
 
   // ── Electrical ──────────────────────────────────────────────────
   if (/electric|wiring|panel|switchboard/.test(text)) {
     return ["Electrical Wiring", "Panel & Board Repair", "Light & Fan Install", "AC Wiring", "Fault Diagnosis", "Safety Inspection"];
-  }
-
-  // ── Plumbing ────────────────────────────────────────────────────
-  if (/plumb|pipe|drain|water.?tank|pump|sanit/.test(text)) {
-    return ["Pipe Repair & Fitting", "Water Tank Cleaning", "Bathroom Fitting", "Drain Cleaning", "Pump Installation", "Leak Detection"];
   }
 
   // ── Cleaning ────────────────────────────────────────────────────
