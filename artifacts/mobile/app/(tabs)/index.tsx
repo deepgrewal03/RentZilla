@@ -299,7 +299,7 @@ export default function HomeScreen() {
           )}
         </View>
 
-        <View style={{ height: isWeb ? 34 : 100 }} />
+        <View style={{ height: (isWeb ? 80 : 100) + insets.bottom }} />
       </ScrollView>
       </Animated.View>
 
