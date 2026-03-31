@@ -112,6 +112,53 @@ router.post("/admin/rules", adminMiddleware, async (req: Request, res: Response)
   }
 });
 
+// ── GET /pricing/rides — public: per-vehicle pricing for the Cars tab ─────────
+// Returns base fare + per-km rate for each vehicle type (Bike/Auto/Car/SUV/Van)
+// from pricing_rules (category='cars'). Falls back to defaults if no rule set.
+const RIDE_FALLBACKS: Record<string, { baseFare: number; perKm: number }> = {
+  Bike: { baseFare: 30, perKm: 6 },
+  Auto: { baseFare: 40, perKm: 8 },
+  Car:  { baseFare: 50, perKm: 12 },
+  SUV:  { baseFare: 70, perKm: 16 },
+  Van:  { baseFare: 90, perKm: 20 },
+};
+
+router.get("/rides", async (req: Request, res: Response) => {
+  try {
+    const rows = toRows(await db.execute(sql`
+      SELECT subcategory, base_fee, km_rate, platform_fee, commission_percent
+      FROM pricing_rules
+      WHERE category = 'cars'
+    `));
+
+    // Build a map from DB rows, keyed by subcategory (vehicle type)
+    const pricing: Record<string, { baseFare: number; perKm: number; platformFee: number; commissionPercent: number }> = {};
+    for (const r of rows) {
+      pricing[r.subcategory] = {
+        baseFare: Number(r.base_fee) || RIDE_FALLBACKS[r.subcategory]?.baseFare || 50,
+        perKm: Number(r.km_rate) || RIDE_FALLBACKS[r.subcategory]?.perKm || 12,
+        platformFee: Number(r.platform_fee) || 0,
+        commissionPercent: Number(r.commission_percent) || 10,
+      };
+    }
+
+    // Fill in any missing vehicle types with fallbacks
+    for (const [type, fallback] of Object.entries(RIDE_FALLBACKS)) {
+      if (!pricing[type]) {
+        pricing[type] = { ...fallback, platformFee: 0, commissionPercent: 10 };
+      }
+    }
+
+    res.json(pricing);
+  } catch (e: any) {
+    // On error, always return the fallback pricing so the app still works
+    const fallback = Object.fromEntries(
+      Object.entries(RIDE_FALLBACKS).map(([k, v]) => [k, { ...v, platformFee: 0, commissionPercent: 10 }])
+    );
+    res.json(fallback);
+  }
+});
+
 // ── GET /pricing/calculate — public price calculator ─────────────────────────
 router.get("/calculate", async (req: Request, res: Response) => {
   try {

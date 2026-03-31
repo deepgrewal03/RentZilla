@@ -49,13 +49,23 @@ interface RideRequest {
   distance_km?: number; fare?: number;
 }
 
+// Visual metadata only — pricing (baseFare/perKm) is fetched from the server
 const VEHICLE_TYPES = [
-  { id: "Bike",  icon: "🏍️", label: "Bike",  tagline: "Fastest",     perKm: 6,  baseFare: 30, color: "#06B6D4" },
-  { id: "Auto",  icon: "🛺", label: "Auto",  tagline: "Affordable",  perKm: 8,  baseFare: 40, color: "#10B981" },
-  { id: "Car",   icon: "🚗", label: "Car",   tagline: "Comfortable", perKm: 12, baseFare: 50, color: ORANGE },
-  { id: "SUV",   icon: "🚙", label: "SUV",   tagline: "Spacious",    perKm: 16, baseFare: 70, color: PURPLE },
-  { id: "Van",   icon: "🚐", label: "Van",   tagline: "Group",       perKm: 20, baseFare: 90, color: "#EC4899" },
+  { id: "Bike",  icon: "🏍️", label: "Bike",  tagline: "Fastest",     color: "#06B6D4" },
+  { id: "Auto",  icon: "🛺", label: "Auto",  tagline: "Affordable",  color: "#10B981" },
+  { id: "Car",   icon: "🚗", label: "Car",   tagline: "Comfortable", color: ORANGE },
+  { id: "SUV",   icon: "🚙", label: "SUV",   tagline: "Spacious",    color: PURPLE },
+  { id: "Van",   icon: "🚐", label: "Van",   tagline: "Group",       color: "#EC4899" },
 ];
+
+// Default fallback pricing used before API response arrives
+const DEFAULT_PRICING: Record<string, { baseFare: number; perKm: number }> = {
+  Bike: { baseFare: 30, perKm: 6 },
+  Auto: { baseFare: 40, perKm: 8 },
+  Car:  { baseFare: 50, perKm: 12 },
+  SUV:  { baseFare: 70, perKm: 16 },
+  Van:  { baseFare: 90, perKm: 20 },
+};
 
 function fmt(n?: number | null, d = 1) { return n != null ? n.toFixed(d) : "—"; }
 function pad(n: number) { return String(n).padStart(2, "0"); }
@@ -100,14 +110,15 @@ function RideSteps({ status }: { status: string }) {
 
 // ─── VEHICLE CARD ─────────────────────────────────────────────────────────────
 function VehicleCard({
-  v, selected, estimate, onPress, distanceKm,
+  v, selected, estimate, onPress, distanceKm, pricing,
 }: {
   v: typeof VEHICLE_TYPES[0]; selected: boolean;
   estimate: RideEstimate | null;
   onPress: () => void; distanceKm?: number;
+  pricing: { baseFare: number; perKm: number };
 }) {
   const fare = distanceKm != null
-    ? Math.max(v.baseFare, Math.round(v.baseFare + distanceKm * v.perKm))
+    ? Math.max(pricing.baseFare, Math.round(pricing.baseFare + distanceKm * pricing.perKm))
     : null;
   const eta = estimate ? estimate.durationMin + (v.id === "Bike" ? -3 : v.id === "Auto" ? -1 : v.id === "SUV" ? 2 : v.id === "Van" ? 4 : 0) : null;
 
@@ -203,6 +214,9 @@ export default function CarsScreen() {
   const [scheduledTime, setScheduledTime] = useState<ScheduledTime | null>(null);
   const [sheetExpanded, setSheetExpanded] = useState(false);
 
+  // ── Dynamic pricing from admin ──
+  const [ridePricing, setRidePricing] = useState<Record<string, { baseFare: number; perKm: number }>>(DEFAULT_PRICING);
+
   // ── Modals ──
   const [pickupModalOpen,  setPickupModalOpen]  = useState(false);
   const [dropModalOpen,    setDropModalOpen]    = useState(false);
@@ -254,20 +268,32 @@ export default function CarsScreen() {
     })();
   }, []);
 
+  // ── Fetch live pricing from admin rules ──────────────────────────────────────
+  useEffect(() => {
+    (async () => {
+      try {
+        const data = await get<Record<string, { baseFare: number; perKm: number }>>("/pricing/rides");
+        if (data && typeof data === "object") {
+          setRidePricing(prev => ({ ...prev, ...data }));
+        }
+      } catch {}
+    })();
+  }, []);
+
   // ── Update estimate when vehicle type changes (if we have a map route) ──
   useEffect(() => {
     if (!estimate || !drop) return;
-    const selectedV = VEHICLE_TYPES.find(v => v.id === vehicleType) ?? VEHICLE_TYPES[2];
-    const fare = Math.max(selectedV.baseFare, Math.round(selectedV.baseFare + estimate.distanceKm * selectedV.perKm));
+    const p = ridePricing[vehicleType] ?? DEFAULT_PRICING[vehicleType] ?? { baseFare: 50, perKm: 12 };
+    const fare = Math.max(p.baseFare, Math.round(p.baseFare + estimate.distanceKm * p.perKm));
     setEstimate(prev => prev ? { ...prev, fare } : null);
-  }, [vehicleType]);
+  }, [vehicleType, ridePricing]);
 
   const handleRouteCalculated = useCallback((distanceKm: number, durationMin: number) => {
-    const selectedV = VEHICLE_TYPES.find(v => v.id === vehicleType) ?? VEHICLE_TYPES[2];
-    const fare = Math.max(selectedV.baseFare, Math.round(selectedV.baseFare + distanceKm * selectedV.perKm));
+    const p = ridePricing[vehicleType] ?? DEFAULT_PRICING[vehicleType] ?? { baseFare: 50, perKm: 12 };
+    const fare = Math.max(p.baseFare, Math.round(p.baseFare + distanceKm * p.perKm));
     setEstimate({ distanceKm, durationMin, fare });
     setSheetExpanded(true);
-  }, [vehicleType]);
+  }, [vehicleType, ridePricing]);
 
   // ── Poll rider active ride ──
   useEffect(() => {
@@ -602,6 +628,7 @@ export default function CarsScreen() {
                         estimate={estimate}
                         distanceKm={estimate?.distanceKm}
                         onPress={() => setVehicleType(v.id)}
+                        pricing={ridePricing[v.id] ?? DEFAULT_PRICING[v.id] ?? { baseFare: 50, perKm: 12 }}
                       />
                     ))}
                   </ScrollView>

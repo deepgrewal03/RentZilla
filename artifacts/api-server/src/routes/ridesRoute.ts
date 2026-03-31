@@ -1,11 +1,20 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { db } from "@workspace/db";
 import { usersTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { authMiddleware } from "./users.js";
 
 const router: IRouter = Router();
 type AR = Request & { userId: string };
+
+// Hardcoded fallbacks used when no pricing rule exists in DB
+const FALLBACK_BASE: Record<string, number> = { Car: 50, SUV: 70, Auto: 40, Bike: 30, Van: 90 };
+const FALLBACK_PER_KM: Record<string, number> = { Car: 12, SUV: 16, Auto: 8, Bike: 6, Van: 20 };
+
+function toRows<T = any>(result: any): T[] {
+  if (Array.isArray(result)) return result as T[];
+  return (result?.rows ?? []) as T[];
+}
 
 // ── Haversine distance in km ──
 function haversine(lat1: number, lng1: number, lat2: number, lng2: number): number {
@@ -16,11 +25,27 @@ function haversine(lat1: number, lng1: number, lat2: number, lng2: number): numb
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-function estimateFare(distanceKm: number, vehicleType: string = "Car"): number {
-  const BASE_FARE = 40;
-  const PER_KM: Record<string, number> = { Car: 12, SUV: 16, Auto: 8, Bike: 6, Van: 20 };
-  const perKm = PER_KM[vehicleType] ?? 12;
-  return Math.max(BASE_FARE, Math.round(BASE_FARE + distanceKm * perKm));
+// ── DB-driven fare estimate (reads from pricing_rules) ────────────────────────
+async function estimateFare(distanceKm: number, vehicleType: string = "Car"): Promise<number> {
+  try {
+    const rows = toRows(await db.execute(sql`
+      SELECT base_fee, km_rate, platform_fee
+      FROM pricing_rules
+      WHERE category = 'cars' AND subcategory = ${vehicleType}
+      LIMIT 1
+    `));
+    if (rows.length > 0) {
+      const r = rows[0];
+      const baseFare = Number(r.base_fee) || FALLBACK_BASE[vehicleType] || 50;
+      const perKm    = Number(r.km_rate)  || FALLBACK_PER_KM[vehicleType] || 12;
+      const platform = Number(r.platform_fee) || 0;
+      return Math.max(baseFare, Math.round(baseFare + distanceKm * perKm + platform));
+    }
+  } catch {}
+  // Fallback to hardcoded values if DB lookup fails
+  const base  = FALLBACK_BASE[vehicleType] ?? 50;
+  const perKm = FALLBACK_PER_KM[vehicleType] ?? 12;
+  return Math.max(base, Math.round(base + distanceKm * perKm));
 }
 
 // ─────────────────────────────────────────────
@@ -169,7 +194,7 @@ router.post("/request", authMiddleware, async (req: Request, res: Response) => {
 
     const distanceKm = haversine(pickupLat, pickupLng, dropLat, dropLng);
     const durationMin = Math.round((distanceKm / 30) * 60); // avg 30 km/h
-    const fare = estimateFare(distanceKm, vehicleType);
+    const fare = await estimateFare(distanceKm, vehicleType);
 
     const scheduledAtSql = scheduledAt ? `'${new Date(scheduledAt).toISOString()}'` : "NULL";
 
@@ -251,7 +276,7 @@ router.post("/estimate", authMiddleware, async (req: Request, res: Response) => 
     }
     const distanceKm = haversine(pickupLat, pickupLng, dropLat, dropLng);
     const durationMin = Math.round((distanceKm / 30) * 60);
-    const fare = estimateFare(distanceKm, vehicleType);
+    const fare = await estimateFare(distanceKm, vehicleType);
     res.json({ distanceKm: +distanceKm.toFixed(2), durationMin, fare, vehicleType });
   } catch (err) {
     res.status(500).json({ error: "Internal server error" });

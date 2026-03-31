@@ -82,6 +82,18 @@ export default function NewBookingScreen() {
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
+  // ── Dynamic pricing from admin rules ────────────────────────────────────────
+  interface PricingResult {
+    found: boolean;
+    customer_price: number;
+    provider_payout: number;
+    app_commission: number;
+    commission_percent: number;
+    security_deposit: number;
+  }
+  const [pricingResult, setPricingResult] = useState<PricingResult | null>(null);
+  const [pricingLoading, setPricingLoading] = useState(false);
+
   const confirmScale = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
@@ -96,11 +108,36 @@ export default function NewBookingScreen() {
     try {
       const data = await get<Listing>(`/listings/${id}`);
       setListing(data);
-      const svcData = await get<{ serviceTypes: string[] }>(`/listings/${id}/service-types`);
+
+      // Fetch service types + admin pricing in parallel
+      const [svcData] = await Promise.all([
+        get<{ serviceTypes: string[] }>(`/listings/${id}/service-types`),
+        fetchPricing(data), // fetch pricing right after we know category/subcategory
+      ]);
       setServiceTypes(svcData.serviceTypes || []);
     } catch {
     } finally {
       setListingLoading(false);
+    }
+  }
+
+  async function fetchPricing(l: Listing) {
+    if (!l.category || !l.subcategory) return;
+    setPricingLoading(true);
+    try {
+      const params = new URLSearchParams({
+        category: l.category,
+        subcategory: l.subcategory,
+        hours: "1",
+        days: "1",
+        distance_km: "0",
+      });
+      const result = await get<PricingResult>(`/pricing/calculate?${params.toString()}`);
+      setPricingResult(result);
+    } catch {
+      // silent — fallback to listing.price
+    } finally {
+      setPricingLoading(false);
     }
   }
 
@@ -196,9 +233,13 @@ export default function NewBookingScreen() {
 
   const accent = getCategoryAccent(listing.category);
   const hasImg = listing.images && listing.images.length > 0;
+
+  // Use admin-calculated price if found; fall back to listing.price
+  const adminPrice  = pricingResult?.found ? pricingResult.customer_price : null;
+  const displayPrice = adminPrice ?? listing.price;
   const priceLabel = listing.priceUnit === "per_hour"
-    ? `₹${listing.price.toLocaleString("en-IN")}/hr × 1 hour`
-    : `₹${listing.price.toLocaleString("en-IN")}/day × 1 day`;
+    ? `₹${displayPrice.toLocaleString("en-IN")}/hr × 1 hour`
+    : `₹${displayPrice.toLocaleString("en-IN")}/day × 1 day`;
 
   return (
     <View style={styles.root}>
@@ -388,14 +429,49 @@ export default function NewBookingScreen() {
 
         {/* ── Price Summary ── */}
         <View style={styles.summaryCard}>
-          <Text style={styles.summaryTitle}>Price Summary</Text>
+          <View style={styles.summaryHeader}>
+            <Text style={styles.summaryTitle}>Price Summary</Text>
+            {pricingResult?.found && (
+              <View style={styles.adminPriceBadge}>
+                <Text style={styles.adminPriceBadgeText}>Admin Rates</Text>
+              </View>
+            )}
+          </View>
+
           <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>{listing.title}</Text>
+            <Text style={styles.summaryLabel}>{listing.subcategory || listing.title}</Text>
             <Text style={styles.summaryValue}>{priceLabel}</Text>
           </View>
+
+          {/* Admin breakdown — show commission and deposit if available */}
+          {pricingResult?.found && (
+            <>
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryLabel}>Platform commission ({pricingResult.commission_percent}%)</Text>
+                <Text style={[styles.summaryValue, { color: "#AEAEAE" }]}>
+                  ₹{pricingResult.app_commission.toLocaleString("en-IN")}
+                </Text>
+              </View>
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryLabel}>Provider payout</Text>
+                <Text style={[styles.summaryValue, { color: "#22C55E" }]}>
+                  ₹{pricingResult.provider_payout.toLocaleString("en-IN")}
+                </Text>
+              </View>
+              {pricingResult.security_deposit > 0 && (
+                <View style={styles.summaryRow}>
+                  <Text style={styles.summaryLabel}>Security deposit (refundable)</Text>
+                  <Text style={styles.summaryValue}>
+                    ₹{pricingResult.security_deposit.toLocaleString("en-IN")}
+                  </Text>
+                </View>
+              )}
+            </>
+          )}
+
           {selectedService && (
             <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Service</Text>
+              <Text style={styles.summaryLabel}>Service type</Text>
               <Text style={styles.summaryValue}>{selectedService}</Text>
             </View>
           )}
@@ -413,13 +489,23 @@ export default function NewBookingScreen() {
               <Text style={styles.summaryValue}>{selectedSlot}</Text>
             </View>
           )}
+
           <View style={styles.summaryDivider} />
           <View style={styles.summaryTotal}>
             <Text style={styles.summaryTotalLabel}>Total Amount</Text>
-            <Text style={styles.summaryTotalValue}>
-              ₹{listing.price.toLocaleString("en-IN")}
-            </Text>
+            {pricingLoading ? (
+              <ActivityIndicator size="small" color={ORANGE} />
+            ) : (
+              <Text style={styles.summaryTotalValue}>
+                ₹{displayPrice.toLocaleString("en-IN")}
+              </Text>
+            )}
           </View>
+          {!pricingResult?.found && (
+            <Text style={[styles.summaryNote, { color: "#AEAEAE" }]}>
+              Price from provider listing
+            </Text>
+          )}
           <Text style={styles.summaryNote}>Payment will be collected after confirmation</Text>
         </View>
 
@@ -669,7 +755,10 @@ const styles = StyleSheet.create({
     elevation: 2,
     gap: 10,
   },
+  summaryHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 2 },
   summaryTitle: { fontSize: 15, fontWeight: "700", fontFamily: "Inter_700Bold", color: "#2C2C2C" },
+  adminPriceBadge: { backgroundColor: "#FFF3E9", borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2, borderWidth: 1, borderColor: `${ORANGE}40` },
+  adminPriceBadgeText: { fontSize: 10, fontWeight: "700", fontFamily: "Inter_700Bold", color: ORANGE },
   summaryRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", gap: 10 },
   summaryLabel: { fontSize: 13, color: "#7A7A7A", fontFamily: "Inter_400Regular", flex: 1 },
   summaryValue: { fontSize: 13, fontWeight: "500", fontFamily: "Inter_500Medium", color: "#2C2C2C", textAlign: "right", flex: 1.5 },
