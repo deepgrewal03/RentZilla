@@ -1,0 +1,208 @@
+Fix the profile photo edit functionality in my RentZilla app (React Native Expo production build / published mode).
+
+Currently after publishing, when user taps the profile photo, it does NOT show options to:
+
+* Open Camera
+* Open Gallery
+
+Also after selecting a new image, the profile picture should update immediately without requiring app refresh.
+
+Additionally, compress the image before uploading to reduce app load, bandwidth usage, and database/storage cost.
+
+---
+
+# 🎯 REQUIRED FIXES
+
+## 1) ON PROFILE PHOTO TAP
+
+When user taps profile image or edit icon:
+
+Open bottom action sheet / modal with options:
+
+* 📷 Take Photo
+* 🖼 Choose from Gallery
+* ❌ Cancel
+
+Must work in:
+
+* Expo Go
+* APK build
+* Production build
+* iOS & Android
+
+---
+
+## 2) CAMERA + GALLERY PERMISSIONS
+
+Use:
+
+* expo-image-picker
+* expo-camera
+
+Before opening:
+
+* request camera permission
+* request media library permission
+
+If denied:
+Show message:
+“Please allow camera and photo access in settings”
+
+Ensure it works in production (not only dev mode).
+
+---
+
+## 3) IMAGE PICKER + COMPRESSION (VERY IMPORTANT)
+
+After selecting image:
+
+### Processing steps:
+
+* Crop to square (1:1 ratio)
+* Resize image (max width: 800px or 1024px)
+* Compress image to reduce size
+
+### Compression rules:
+
+* Quality: 0.6 – 0.8
+* Max file size: under 200KB (ideal)
+* Format: JPEG or WebP
+
+### Example config:
+
+```js id="img-cmpr"
+quality: 0.7,
+allowsEditing: true,
+aspect: [1, 1],
+base64: false
+```
+
+Use:
+
+* expo-image-manipulator (recommended)
+
+---
+
+## 4) IMAGE PREVIEW BEFORE UPLOAD
+
+* Show selected image instantly in UI
+* Add loading overlay while uploading
+* Disable multiple uploads
+
+---
+
+## 5) UPLOAD TO STORAGE
+
+Upload compressed image to:
+
+* Supabase Storage / Firebase / AWS S3
+
+Ensure:
+
+* fast upload
+* unique filename
+* overwrite old profile image if needed
+
+---
+
+## 6) INSTANT UI UPDATE (CRITICAL)
+
+After successful upload:
+
+Immediately update:
+
+* profile screen avatar
+* header avatar
+* drawer avatar
+* all user references
+
+Without:
+
+* refresh
+* logout/login
+
+Use:
+
+* global state update (Context / Redux / Zustand)
+* refetch user profile
+
+---
+
+## 7) CACHE BUSTING (VERY IMPORTANT)
+
+Prevent old image cache issue:
+
+```js id="cache-fix"
+imageUrl + "?t=" + Date.now()
+```
+
+Ensures new image shows instantly everywhere.
+
+---
+
+# ⚙️ BACKEND API
+
+## PATCH /user/profile-photo
+
+Input:
+
+* compressed image file
+
+Response:
+
+* updated image URL
+* updated_at
+
+Save in:
+
+* users table
+* provider profile (if exists)
+
+---
+
+# 🔄 STATE FLOW
+
+1. User selects image
+2. Compress image
+3. Show preview
+4. Upload to server
+5. Save URL in database
+6. Update global user state
+7. Update UI everywhere
+8. Close modal
+9. Show success message
+
+---
+
+# 🎨 UX IMPROVEMENTS
+
+* Add spinner while uploading
+* Smooth fade animation on image change
+* Add edit (pencil) icon overlay
+* Show placeholder if no image
+* Prevent double taps
+
+---
+
+# 🔒 ERROR HANDLING
+
+If upload fails:
+
+* keep old image
+* show retry message
+* do not break UI
+
+---
+
+# ✅ FINAL RESULT
+
+After publishing:
+
+* Clicking profile photo opens camera + gallery options
+* Permissions work properly in production
+* Image is compressed before upload
+* Upload is fast and lightweight
+* New image appears instantly everywhere
+* No refresh required
+
+Ensure smooth, fast, and production-ready behavior.

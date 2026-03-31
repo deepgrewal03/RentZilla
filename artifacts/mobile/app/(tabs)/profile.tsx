@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
+import * as ImageManipulator from "expo-image-manipulator";
 import * as ImagePicker from "expo-image-picker";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Location from "expo-location";
@@ -64,6 +65,8 @@ export default function ProfileScreen() {
 
   const [photoLoading, setPhotoLoading] = useState(false);
   const [showPhotoMenu, setShowPhotoMenu] = useState(false);
+  const [previewUri, setPreviewUri] = useState<string | null>(null);
+  const uploadingRef = useRef(false);
 
   const [showLocationModal, setShowLocationModal] = useState(false);
   const [manualLocation, setManualLocation]       = useState(user?.location || "");
@@ -99,73 +102,67 @@ export default function ProfileScreen() {
     }
   }
 
-  async function pickPhotoFromGallery() {
-    setShowPhotoMenu(false);
+  // ── Compress an image URI to JPEG ≤200KB ─────────────────────────────────
+  async function compressImage(uri: string): Promise<string> {
     try {
-      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (!perm.granted) {
-        Alert.alert("Permission needed", "Please allow access to your photo library.");
-        return;
+      // Try the new builder-style API (expo-image-manipulator v13+/SDK 51+)
+      if ((ImageManipulator as any).manipulate) {
+        const ctx = (ImageManipulator as any).manipulate(uri);
+        ctx.resize({ width: 800 });
+        const img = await ctx.renderAsync();
+        const result = await img.saveAsync({
+          compress: 0.72,
+          format: (ImageManipulator as any).SaveFormat?.JPEG ?? "jpeg",
+          base64: true,
+        });
+        if (result.base64) return `data:image/jpeg;base64,${result.base64}`;
+        return result.uri;
       }
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.6,
-        base64: true,
-      });
-      if (!result.canceled && result.assets[0]) {
-        await uploadPhoto(result.assets[0]);
-      }
-    } catch (e) {
-      Alert.alert("Error", "Could not open gallery.");
-    }
-  }
-
-  async function takePhoto() {
-    setShowPhotoMenu(false);
-    try {
-      const perm = await ImagePicker.requestCameraPermissionsAsync();
-      if (!perm.granted) {
-        Alert.alert("Permission needed", "Please allow camera access.");
-        return;
-      }
-      const result = await ImagePicker.launchCameraAsync({
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.6,
-        base64: true,
-      });
-      if (!result.canceled && result.assets[0]) {
-        await uploadPhoto(result.assets[0]);
-      }
+      // Fall back to the old API (manipulateAsync)
+      const result = await (ImageManipulator as any).manipulateAsync(
+        uri,
+        [{ resize: { width: 800 } }],
+        { compress: 0.72, format: "jpeg", base64: true }
+      );
+      if (result.base64) return `data:image/jpeg;base64,${result.base64}`;
+      return result.uri;
     } catch {
-      Alert.alert("Error", "Could not open camera.");
+      // If manipulator fails, fall back to raw URI
+      return uri;
     }
   }
 
+  // ── Shared upload function (after picker/camera) ──────────────────────────
   async function uploadPhoto(asset: ImagePicker.ImagePickerAsset) {
+    if (uploadingRef.current) return;
+    uploadingRef.current = true;
+
+    // 1) Show preview instantly (raw URI so user sees it immediately)
+    setPreviewUri(asset.uri);
+    setShowPhotoMenu(false);
     setPhotoLoading(true);
     pulseAvatar();
+
     try {
       let profileImage: string;
 
-      if (asset.base64) {
-        // Native: base64 data provided directly
-        profileImage = `data:image/jpeg;base64,${asset.base64}`;
-      } else if (asset.uri && asset.uri.startsWith("blob:")) {
+      if (Platform.OS === "web") {
         // Web: blob URL — convert to base64 data URI
-        const response = await fetch(asset.uri);
-        const blob = await response.blob();
-        profileImage = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onloadend = () => resolve(reader.result as string);
-          reader.onerror = reject;
-          reader.readAsDataURL(blob);
-        });
+        if (asset.uri && asset.uri.startsWith("blob:")) {
+          const response = await fetch(asset.uri);
+          const blob = await response.blob();
+          profileImage = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+          });
+        } else {
+          profileImage = asset.uri;
+        }
       } else {
-        // Fallback: use URI as-is
-        profileImage = asset.uri;
+        // Native: compress with ImageManipulator
+        profileImage = await compressImage(asset.uri);
       }
 
       const updated = await put<{ profileImage: string | null }>("/users/me", {
@@ -173,19 +170,81 @@ export default function ProfileScreen() {
         location: user?.location,
         profileImage,
       });
+
+      // Update global user state with the server-confirmed URL
       updateUser({ profileImage: updated.profileImage });
+      setPreviewUri(null); // clear preview — show the confirmed image
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch {
+      setPreviewUri(null); // revert to old image on error
       Alert.alert("Upload failed", "Could not save your photo. Please try again.");
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     } finally {
       setPhotoLoading(false);
+      uploadingRef.current = false;
     }
+  }
+
+  async function pickPhotoFromGallery() {
+    setShowPhotoMenu(false);
+    // Small delay so modal closes before permission dialog appears
+    setTimeout(async () => {
+      try {
+        const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (!perm.granted) {
+          Alert.alert(
+            "Permission Required",
+            "Please allow photo library access in your device Settings → RentZilla → Photos.",
+            [{ text: "OK" }]
+          );
+          return;
+        }
+        const result = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ImagePicker.MediaTypeOptions.Images,
+          allowsEditing: true,
+          aspect: [1, 1],
+          quality: 0.85, // kept high here — we compress in uploadPhoto
+        });
+        if (!result.canceled && result.assets[0]) {
+          await uploadPhoto(result.assets[0]);
+        }
+      } catch {
+        Alert.alert("Error", "Could not open photo library. Please try again.");
+      }
+    }, 200);
+  }
+
+  async function takePhoto() {
+    setShowPhotoMenu(false);
+    setTimeout(async () => {
+      try {
+        const perm = await ImagePicker.requestCameraPermissionsAsync();
+        if (!perm.granted) {
+          Alert.alert(
+            "Permission Required",
+            "Please allow camera access in your device Settings → RentZilla → Camera.",
+            [{ text: "OK" }]
+          );
+          return;
+        }
+        const result = await ImagePicker.launchCameraAsync({
+          allowsEditing: true,
+          aspect: [1, 1],
+          quality: 0.85,
+        });
+        if (!result.canceled && result.assets[0]) {
+          await uploadPhoto(result.assets[0]);
+        }
+      } catch {
+        Alert.alert("Error", "Could not open camera. Please try again.");
+      }
+    }, 200);
   }
 
   async function removePhoto() {
     setShowPhotoMenu(false);
     setPhotoLoading(true);
+    setPreviewUri(null);
     try {
       await put("/users/me", { name: user?.name, location: user?.location, profileImage: null });
       updateUser({ profileImage: null });
@@ -283,25 +342,38 @@ export default function ProfileScreen() {
         <View style={styles.profileCard}>
 
           {/* Avatar */}
-          <Pressable onPress={() => { Haptics.selectionAsync(); setShowPhotoMenu(true); }} style={styles.avatarWrap}>
+          <Pressable
+            onPress={() => { if (!photoLoading) { Haptics.selectionAsync(); setShowPhotoMenu(true); } }}
+            style={styles.avatarWrap}
+            disabled={photoLoading}
+          >
             <Animated.View style={[styles.avatarCircle, { transform: [{ scale: avatarScale }] }]}>
-              {photoLoading ? (
-                <ActivityIndicator color={ORANGE} size="large" />
-              ) : user.profileImage ? (
+              {/* Show preview instantly, then confirmed image, then fallback */}
+              {previewUri || user.profileImage ? (
                 <Image
-                  source={{ uri: user.profileImage }}
+                  source={{ uri: (previewUri ?? user.profileImage) as string }}
                   style={styles.avatarImage}
                   contentFit="cover"
-                  transition={300}
+                  transition={250}
+                  cachePolicy="memory"
                 />
               ) : (
                 <Text style={styles.avatarLetter}>{displayName[0]?.toUpperCase() || "?"}</Text>
               )}
+              {/* Upload loading overlay */}
+              {photoLoading && (
+                <View style={styles.avatarLoadingOverlay}>
+                  <ActivityIndicator color="#fff" size="small" />
+                  <Text style={styles.avatarLoadingText}>Uploading...</Text>
+                </View>
+              )}
             </Animated.View>
-            <View style={styles.editPhotoTag}>
-              <Ionicons name="camera" size={11} color="#fff" />
-              <Text style={styles.editPhotoText}>Edit</Text>
-            </View>
+            {!photoLoading && (
+              <View style={styles.editPhotoTag}>
+                <Ionicons name="camera" size={11} color="#fff" />
+                <Text style={styles.editPhotoText}>Edit</Text>
+              </View>
+            )}
           </Pressable>
 
           {editMode ? (
@@ -394,25 +466,15 @@ export default function ProfileScreen() {
       <Modal
         visible={showPhotoMenu}
         transparent
-        animationType="fade"
+        animationType="slide"
         onRequestClose={() => setShowPhotoMenu(false)}
+        statusBarTranslucent
       >
         <Pressable style={styles.overlay} onPress={() => setShowPhotoMenu(false)}>
-          <View style={styles.sheet}>
+          <Pressable style={styles.sheet} onPress={() => {}}>
             <View style={styles.sheetHandle} />
             <Text style={styles.sheetTitle}>Profile Photo</Text>
             <Text style={styles.sheetSubtitle}>Choose how to update your photo</Text>
-
-            <Pressable onPress={pickPhotoFromGallery} style={styles.sheetBtn}>
-              <View style={[styles.sheetBtnIcon, { backgroundColor: "#EEF2FF" }]}>
-                <Ionicons name="images-outline" size={22} color="#6366F1" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.sheetBtnLabel}>Upload from Gallery</Text>
-                <Text style={styles.sheetBtnSub}>Choose an existing photo</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color={C.textTertiary} />
-            </Pressable>
 
             {!isWeb && (
               <Pressable onPress={takePhoto} style={styles.sheetBtn}>
@@ -420,14 +482,25 @@ export default function ProfileScreen() {
                   <Ionicons name="camera-outline" size={22} color="#22C55E" />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.sheetBtnLabel}>Take a Photo</Text>
-                  <Text style={styles.sheetBtnSub}>Use your camera</Text>
+                  <Text style={styles.sheetBtnLabel}>📷  Take a Photo</Text>
+                  <Text style={styles.sheetBtnSub}>Use your device camera</Text>
                 </View>
                 <Ionicons name="chevron-forward" size={18} color={C.textTertiary} />
               </Pressable>
             )}
 
-            {user.profileImage && (
+            <Pressable onPress={pickPhotoFromGallery} style={styles.sheetBtn}>
+              <View style={[styles.sheetBtnIcon, { backgroundColor: "#EEF2FF" }]}>
+                <Ionicons name="images-outline" size={22} color="#6366F1" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.sheetBtnLabel}>🖼  Choose from Gallery</Text>
+                <Text style={styles.sheetBtnSub}>Pick an existing photo</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={C.textTertiary} />
+            </Pressable>
+
+            {(user.profileImage || previewUri) && (
               <Pressable onPress={removePhoto} style={styles.sheetBtn}>
                 <View style={[styles.sheetBtnIcon, { backgroundColor: "#FEF2F2" }]}>
                   <Ionicons name="trash-outline" size={22} color="#EF4444" />
@@ -440,9 +513,9 @@ export default function ProfileScreen() {
             )}
 
             <Pressable onPress={() => setShowPhotoMenu(false)} style={[styles.sheetBtn, styles.sheetCancelBtn]}>
-              <Text style={styles.sheetCancelText}>Cancel</Text>
+              <Text style={styles.sheetCancelText}>❌  Cancel</Text>
             </Pressable>
-          </View>
+          </Pressable>
         </Pressable>
       </Modal>
 
@@ -595,6 +668,20 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     fontFamily: "Inter_700Bold",
     color: ORANGE,
+  },
+  avatarLoadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.55)",
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 44,
+    gap: 4,
+  },
+  avatarLoadingText: {
+    color: "#fff",
+    fontSize: 9,
+    fontWeight: "700",
+    fontFamily: "Inter_700Bold",
   },
   editPhotoTag: {
     position: "absolute",
