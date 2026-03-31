@@ -45,6 +45,7 @@ export interface Booking {
   notes: string | null;
   bookingDate: string | null;
   timeSlot: string | null;
+  serviceType: string | null;
   createdAt: string;
 }
 

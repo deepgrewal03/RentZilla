@@ -75,7 +75,7 @@ export function ListingCard({ listing, style, isCustomer }: Props) {
       Animated.spring(bookScale, { toValue: 0.94, useNativeDriver: false, tension: 400, friction: 8 }),
       Animated.spring(bookScale, { toValue: 1,    useNativeDriver: false, tension: 400, friction: 10 }),
     ]).start(() => {
-      router.push({ pathname: "/listing/[id]", params: { id: listing.id } });
+      router.push({ pathname: "/new-booking/[id]", params: { id: listing.id } });
     });
   }
 

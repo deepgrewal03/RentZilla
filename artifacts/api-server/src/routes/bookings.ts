@@ -11,11 +11,16 @@ function generateId(): string {
 }
 
 const TIME_SLOTS = [
-  "08:00 AM – 10:00 AM",
-  "10:00 AM – 12:00 PM",
-  "12:00 PM – 02:00 PM",
-  "02:00 PM – 04:00 PM",
-  "04:00 PM – 06:00 PM",
+  "08:00 AM – 09:00 AM",
+  "09:00 AM – 10:00 AM",
+  "10:00 AM – 11:00 AM",
+  "11:00 AM – 12:00 PM",
+  "12:00 PM – 01:00 PM",
+  "01:00 PM – 02:00 PM",
+  "02:00 PM – 03:00 PM",
+  "03:00 PM – 04:00 PM",
+  "04:00 PM – 05:00 PM",
+  "05:00 PM – 06:00 PM",
 ];
 
 async function enrichBooking(booking: typeof bookingsTable.$inferSelect) {
@@ -40,6 +45,7 @@ async function enrichBooking(booking: typeof bookingsTable.$inferSelect) {
     notes: booking.notes,
     bookingDate: booking.bookingDate,
     timeSlot: booking.timeSlot,
+    serviceType: (booking as any).serviceType || null,
     createdAt: booking.createdAt.toISOString(),
   };
 }
@@ -102,7 +108,7 @@ router.get("/availability", async (req: Request, res: Response) => {
 router.post("/", authMiddleware, async (req: Request, res: Response) => {
   try {
     const userId = (req as Request & { userId: string }).userId;
-    const { listingId, startDate, endDate, notes, bookingDate, timeSlot } = req.body;
+    const { listingId, startDate, endDate, notes, bookingDate, timeSlot, serviceType } = req.body;
 
     const listings = await db.select().from(listingsTable).where(eq(listingsTable.id, listingId)).limit(1);
     if (listings.length === 0) {
@@ -157,7 +163,8 @@ router.post("/", authMiddleware, async (req: Request, res: Response) => {
         notes: notes || null,
         bookingDate,
         timeSlot,
-      };
+        serviceType: serviceType || null,
+      } as any;
 
       const inserted = await db.insert(bookingsTable).values(booking).returning();
       const enriched = await enrichBooking(inserted[0]);
@@ -183,7 +190,8 @@ router.post("/", authMiddleware, async (req: Request, res: Response) => {
         notes: notes || null,
         bookingDate: bookingDate || null,
         timeSlot: timeSlot || null,
-      };
+        serviceType: serviceType || null,
+      } as any;
 
       const inserted = await db.insert(bookingsTable).values(booking).returning();
       const enriched = await enrichBooking(inserted[0]);

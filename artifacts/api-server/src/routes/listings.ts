@@ -158,4 +158,72 @@ router.delete("/:id", authMiddleware, async (req: Request, res: Response) => {
   }
 });
 
+const SERVICE_TYPES_MAP: Record<string, string[]> = {
+  equipment: [
+    "Rental Only",
+    "With Operator",
+    "Delivery Required",
+    "Urgent Same Day",
+    "Multi-Day Project",
+    "Inspection / Demo",
+  ],
+  earth_movers: [
+    "Rental Only",
+    "With Operator",
+    "Delivery Required",
+    "Urgent Same Day",
+    "Multi-Day Project",
+    "Inspection / Demo",
+  ],
+  cars: [
+    "One-Way Ride",
+    "Return Ride",
+    "Shared Ride",
+    "Private Ride",
+    "Airport Transfer",
+    "Daily Commute",
+  ],
+  rides: [
+    "One-Way Ride",
+    "Return Ride",
+    "Shared Ride",
+    "Private Ride",
+    "Airport Transfer",
+    "Daily Commute",
+  ],
+  services: [
+    "Basic Service",
+    "Premium Service",
+    "Emergency Service",
+    "Same Day",
+    "Scheduled Visit",
+    "Consultation",
+  ],
+};
+
+const DEFAULT_SERVICE_TYPES = [
+  "Standard Booking",
+  "Priority Booking",
+  "Scheduled Service",
+  "On-Demand",
+  "Package Deal",
+  "Custom Arrangement",
+];
+
+router.get("/:id/service-types", async (req: Request, res: Response) => {
+  try {
+    const listings = await db.select().from(listingsTable).where(eq(listingsTable.id, req.params.id)).limit(1);
+    if (listings.length === 0) {
+      res.status(404).json({ error: "Listing not found" });
+      return;
+    }
+    const category = listings[0].category;
+    const types = SERVICE_TYPES_MAP[category] || DEFAULT_SERVICE_TYPES;
+    res.json({ category, serviceTypes: types });
+  } catch (err) {
+    req.log.error({ err }, "Get service types error");
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 export default router;

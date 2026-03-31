@@ -19,6 +19,7 @@ export const bookingsTable = pgTable("bookings", {
   notes: text("notes"),
   bookingDate: text("booking_date"),
   timeSlot: text("time_slot"),
+  serviceType: text("service_type"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

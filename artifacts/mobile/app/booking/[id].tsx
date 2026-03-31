@@ -187,7 +187,7 @@ export default function BookingDetailScreen() {
           {booking.timeSlot ? (
             <>
               <InfoRow icon="time-outline" label="Time Slot" value={booking.timeSlot} />
-              <InfoRow icon="hourglass-outline" label="Total Hours" value="2 hours" />
+              <InfoRow icon="hourglass-outline" label="Duration" value="1 hour" />
             </>
           ) : (
             <InfoRow icon="time-outline" label="Duration" value={`${booking.totalDays} day${booking.totalDays > 1 ? "s" : ""}`} />
@@ -199,6 +199,7 @@ export default function BookingDetailScreen() {
           ) : (
             <InfoRow icon="person-outline" label="Customer" value={`${booking.customerName || "Customer"} · ${booking.customerPhone}`} />
           )}
+          {booking.serviceType && <InfoRow icon="options-outline" label="Service Type" value={booking.serviceType} />}
           {booking.notes && <InfoRow icon="document-text-outline" label="Notes" value={booking.notes} />}
         </View>
 

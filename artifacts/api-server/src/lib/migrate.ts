@@ -219,6 +219,13 @@ export async function runMigrations() {
     await db.execute(sql.raw(stmt));
   }
 
+  const bookingAlters2 = [
+    `ALTER TABLE bookings ADD COLUMN IF NOT EXISTS service_type TEXT`,
+  ];
+  for (const stmt of bookingAlters2) {
+    await db.execute(sql.raw(stmt));
+  }
+
   const listingAlters = [
     `ALTER TABLE listings ADD COLUMN IF NOT EXISTS operator_included BOOLEAN DEFAULT FALSE`,
     `ALTER TABLE listings ADD COLUMN IF NOT EXISTS fuel_included BOOLEAN DEFAULT FALSE`,

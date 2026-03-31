@@ -1,0 +1,338 @@
+Prompt: Clean Listing Cards + Booking Logic Update
+
+Update the RentZilla listing cards screen for the customer side UI and booking flow.
+
+Apply the following changes to this screen and all similar listing screens.
+
+1) Remove Unnecessary Fields from Listing Cards
+
+From every listing card on this screen, remove these two lines completely:
+
+Operator not included
+Fuel not included
+
+These fields should not be shown in the listing preview cards anymore.
+
+Reason
+
+The card should stay:
+
+cleaner
+less crowded
+easier to scan
+more premium looking
+
+If required, these details can remain inside the listing details page only, not on the preview card.
+
+2) Add Book Button on Every Listing (Customer Only)
+
+Add a visible “Book Now” button on each and every listing card.
+
+Button Rules
+Show this button only when logged in user is a customer
+Do NOT show Book button for providers
+Use full-width or bottom aligned CTA
+Premium rounded button style
+Same color theme as app branding
+Smooth tap feedback animation
+Button Action
+
+When customer taps Book Now:
+
+open booking details page
+fetch selected listing details
+allow date/time selection
+quantity / duration
+payment flow
+confirm booking
+3) Allow Unlimited Repeat Booking
+
+A customer should be able to book the same listing multiple times without restriction.
+
+Logic
+no one-time booking limitation
+same customer can place repeated bookings
+same listing can be booked:
+same day (different slots)
+different dates
+future multiple schedules
+booking history should save each booking as separate order
+
+This is important for:
+
+recurring rentals
+daily equipment needs
+repeated ride/service usage
+4) Provider Listings Visibility Restriction
+
+If a provider logs in using customer mode/account, they must NOT see their own listings in the customer listing feed.
+
+Required Logic
+
+Exclude all listings where:
+
+listing.providerId == loggedInUser.providerId
+
+This should apply to:
+
+home feed
+search results
+category listings
+recommended listings
+nearby listings
+favorites suggestions
+Reason
+
+This avoids:
+
+self-booking
+duplicate provider views
+listing misuse
+customer confusion
+5) API / Backend Dependency Update
+
+Update listing API response logic:
+
+Customer Listings API
+
+GET /listings/customer-feed
+
+Add Backend Filters
+exclude logged-in provider’s own listings
+include booking availability flag
+include repeat booking support
+include CTA visibility flag
+
+Example response:
+
+canBook: true
+isOwnListing: false
+6) Affected Screens
+
+Apply to all listing-based screens:
+
+Home recommendations
+Equipment listings
+Earth movers
+Cars / ride sharing
+Services
+Search results
+Favorites
+Recently viewed
+Nearby listings
+7) UI Feel
+
+Keep cards:
+
+clean
+less text-heavy
+easy to scan
+strong CTA focused
+mobile friendly
+smooth scroll performance
+premium marketplace style
+
+This will make your listing screen much more conversion-focused and customer-friendly.
+
+now make book button on every listings fully functional with previous settings to select date and time zone. change time zone 1 hour starting from 8 am to 6 pm. make a dropdown list for every listing for what kind of service is needed. like for every service or equipment list 6 types of services need. . make it fully functional with database and apis
+
+Here’s a production-ready full-stack prompt to make the Book button fully functional on every listing with time slots, service-type dropdown, database schema, and APIs.
+
+Prompt: Make “Book Now” Fully Functional for All Listings
+
+Upgrade the RentZilla booking system so the Book Now button works on every listing card across all customer-facing modules.
+
+This must be fully functional with frontend UI, backend APIs, database tables, slot validation, and provider availability logic.
+
+Apply this to:
+
+services
+equipment
+earth movers
+ride sharing
+tools
+machines
+all future listing types
+1) Book Button Action Flow
+
+When customer taps Book Now on any listing:
+
+Open a Booking Bottom Sheet / Full Booking Screen with:
+
+selected listing preview
+provider name
+selected category
+booking date picker
+time slot dropdown
+service type dropdown
+notes field
+price summary
+confirm booking button
+
+Use smooth modal animation and premium UX.
+
+2) Time Slot Dropdown (1 Hour Slots)
+
+Replace old timing system with fixed 1-hour booking slots.
+
+Slot Range
+
+Generate slots from:
+
+8:00 AM → 6:00 PM
+
+Available options:
+
+8:00 AM – 9:00 AM
+9:00 AM – 10:00 AM
+10:00 AM – 11:00 AM
+11:00 AM – 12:00 PM
+12:00 PM – 1:00 PM
+1:00 PM – 2:00 PM
+2:00 PM – 3:00 PM
+3:00 PM – 4:00 PM
+4:00 PM – 5:00 PM
+5:00 PM – 6:00 PM
+Functional Rules
+disable already booked slots
+real-time provider availability check
+prevent double booking
+allow repeat bookings on different slots
+auto convert based on customer timezone if global access enabled
+3) Service Type Dropdown for Every Listing
+
+Add a mandatory dropdown field on every listing booking form:
+
+Field Label
+Select Required Service Type
+
+Each listing must support 6 configurable service types.
+
+Example for Equipment
+
+For equipment / machines:
+
+Rental only
+With operator
+Delivery required
+Urgent same day
+Multi-day project
+Inspection/demo
+Example for Services
+
+For service listings:
+
+Basic service
+Premium service
+Emergency service
+Same day
+Scheduled visit
+Consultation
+Example for Ride Sharing
+One-way ride
+Return ride
+Shared ride
+Private ride
+Airport transfer
+Daily commute
+Dynamic Rule
+
+The 6 dropdown options must change based on listing category.
+
+This should be fetched dynamically from backend.
+
+4) Backend API Dependencies
+Get Booking Slots
+
+GET /booking/slots/{listingId}?date=YYYY-MM-DD
+
+Returns:
+
+all 1-hour slots
+booked status
+remaining capacity
+provider working hours
+Get Service Types
+
+GET /listing/{listingId}/service-types
+
+Returns 6 category-specific service options.
+
+Create Booking
+
+POST /booking/create
+
+Payload
+{
+  "listingId": "123",
+  "customerId": "456",
+  "bookingDate": "2026-04-01",
+  "timeSlot": "10:00-11:00",
+  "serviceType": "With operator",
+  "notes": "Need urgent work",
+  "timezone": "Pacific/Auckland"
+}
+Booking Validation API
+
+Validate:
+
+slot availability
+provider availability
+duplicate slot prevention
+pricing rules
+max daily capacity
+blackout dates
+5) Database Schema
+
+Create new booking tables.
+
+Bookings Table
+booking_id
+listing_id
+customer_id
+provider_id
+booking_date
+start_time
+end_time
+service_type
+timezone
+notes
+status
+created_at
+Service Types Table
+id
+category_id
+service_name
+is_active
+display_order
+
+Supports dynamic 6-option dropdowns.
+
+Availability Slots Table
+slot_id
+provider_id
+listing_id
+slot_date
+start_time
+end_time
+is_booked
+max_capacity
+6) Provider Side Integration
+
+Provider dashboard must support:
+
+view booked slots
+block slots manually
+add custom unavailable dates
+edit service types
+change working hours
+set slot capacity
+approve/reject bookings if needed
+7) UI Requirements
+fast dropdown open
+mobile friendly picker
+disabled slot visuals
+smooth booking confirmation animation
+clean bottom sheet
+modern marketplace booking UX
+keep same app colors
