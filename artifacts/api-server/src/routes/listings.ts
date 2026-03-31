@@ -205,6 +205,18 @@ function getServiceTypesForListing(
     return ["Backup Power Supply", "Event Power", "Construction Site Power", "Farm Irrigation", "Long-Term Rental", "Emergency Power"];
   }
 
+  // ── Carpentry / Woodwork (must come before cars — "car" is in "carpenter") ──
+  if (/carpenter|carpentry|woodwork|furniture|cabinet|joiner|timber|wood.?work/.test(text)) {
+    return [
+      "Furniture Making & Repair",
+      "Door & Window Fitting",
+      "Cabinet & Wardrobe Work",
+      "Wooden Flooring",
+      "Roof & Framework",
+      "Custom Woodwork",
+    ];
+  }
+
   // ── Transport / Cars ────────────────────────────────────────────
   if (/truck|tempo|loader/.test(text)) {
     return ["Goods Transport", "House Shifting", "Factory Delivery", "Agricultural Transport", "Airport Cargo", "Long-Distance Haul"];
