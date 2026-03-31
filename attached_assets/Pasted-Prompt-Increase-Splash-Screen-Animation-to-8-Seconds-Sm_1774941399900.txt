@@ -1,0 +1,119 @@
+Prompt: Increase Splash Screen Animation to 8 Seconds + Smooth R/Z Entry Motion
+
+Update the RentZilla app splash screen animation.
+
+Required Changes
+Increase total splash animation duration from 5 seconds to 8 seconds
+Make the full motion extra smooth, cinematic, and premium
+Add a new opening animation:
+R enters from the top
+Z enters from the bottom
+After both letters meet in center, continue with the existing full RentZilla logo build animation
+Keep final screen at full RentZilla logo + tagline
+Then smoothly navigate to Sign In screen
+New Splash Animation Timeline (8 Seconds)
+0.0s → 1.5s | Premium Entry Motion
+
+At app launch:
+
+background fades in softly
+logo area stays centered
+R drops smoothly from top to center
+Z rises smoothly from bottom to center
+both should stop side by side in perfect alignment
+
+Final result:
+
+R Z
+Motion Feel
+
+Use:
+
+soft spring easing
+cinematic glide
+smooth momentum
+no sudden bounce
+gentle deceleration near center
+
+The motion should feel like both letters are magnetically pulled into position.
+
+1.5s → 2.5s | 180° Flip Reveal
+
+Once both letters meet:
+
+apply smooth 180° Y-axis flip
+mirrored letters become readable
+slight premium settle at end
+
+Pause for:
+
+0.5 sec
+2.5s → 4.2s | Expand Into Full Brand
+
+Now animate:
+
+R glides slightly left
+Z glides slightly right
+“ent” slides in beside R
+“illa” slides in beside Z
+
+Form:
+
+RentZilla
+
+Use:
+
+soft fade
+luxury slide
+perfect easing sync
+elegant typography merge
+4.2s → 6.5s | Hold Full Logo + Tagline
+
+Keep final branding visible:
+
+RentZilla
+Rent Anything. Anytime. Anywhere.
+Tagline Motion
+fade in softly from below
+slight upward motion
+smaller font
+centered
+premium spacing
+
+Hold this for 2.3 seconds
+
+6.5s → 8.0s | Smooth Navigation
+
+After hold:
+
+fade splash screen out slowly
+Sign In page fades in underneath
+no abrupt cut
+preserve same premium motion feel
+
+Transition duration:
+
+1.5 sec smooth fade
+Design Feel
+
+The full intro should feel like:
+
+premium startup app
+cinematic marketplace brand
+polished first impression
+smooth launch experience
+trust-building animation
+
+Inspired by:
+
+Uber
+Airbnb
+Stripe
+Tesla app intros
+Performance Requirements
+must stay 60 FPS
+use transform animations
+smooth on Android + iPhone
+optimize GPU transitions
+avoid frame lag
+preload Sign In screen during last 2 sec

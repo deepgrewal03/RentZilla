@@ -1,15 +1,13 @@
 /**
- * RentZilla Premium Splash Animation
- * ~4.5-second cinematic brand intro before Sign In.
+ * RentZilla Premium Splash Animation — 8 seconds cinematic
  *
  * Timeline:
- *  0.0 – 0.8s  Initial mirrored "R Z" — fade-in + subtle scale-up
- *  0.8 – 1.8s  180° Y-axis flip reveal — overshoot spring easing
- *  1.8 – 2.3s  Pause — hold readable "R Z"
- *  2.3 – 3.2s  Magnetic separation — R glides left, Z glides right,
- *               "ent" and "illa" slide in; tagline fades up
- *  3.2 – 4.2s  Premium hold — full "RentZilla" + tagline
- *  4.2 – 4.6s  Smooth fade to Sign In
+ *  0.0 – 1.5s  Background fades in; R drops from top, Z rises from bottom → meet center (mirrored)
+ *  1.5 – 2.5s  180° Y-axis flip reveal — spring easing with luxury settle
+ *  2.5 – 3.0s  Hold — readable "R Z" centered
+ *  3.0 – 4.7s  Magnetic expand → "ent"/"illa" slide in, full "RentZilla" + tagline
+ *  4.7 – 7.0s  Premium hold — full brand visible
+ *  7.0 – 8.5s  Smooth fade out → Sign In screen beneath
  */
 
 import { LinearGradient } from "expo-linear-gradient";
@@ -25,135 +23,150 @@ import {
 
 const { width: SW, height: SH } = Dimensions.get("window");
 const FS  = Math.min(Math.round(SW * 0.195), 86);
-const ND  = false; // useNativeDriver=false required on web (rotateY, left, scale)
+const ND  = false; // useNativeDriver=false required on web (rotateY, translateY, scale)
 
-// ── Cubic bezier helpers ────────────────────────────────────────────────────
-const ease   = Easing.bezier(0.4,  0,    0.2, 1   );   // material ease-in-out
-const easeOut = Easing.bezier(0.16, 1,    0.3, 1   );   // snappy spring out
-// overshoot: goes slightly past 0° then settles — "luxury settle" feel
-const spring = Easing.bezier(0.175, 0.885, 0.32, 1.275);
-// magnetic release: fast start, smooth decelerate
-const magnet = Easing.bezier(0.22, 1, 0.36, 1);
+// ── Easing curves ───────────────────────────────────────────────────────────
+const ease     = Easing.bezier(0.4,   0,     0.2,  1);     // material standard
+const easeOut  = Easing.bezier(0.16,  1,     0.3,  1);     // snappy settle
+const spring   = Easing.bezier(0.175, 0.885, 0.32, 1.275); // spring overshoot
+const magnet   = Easing.bezier(0.22,  1,     0.36, 1);     // fast start, smooth stop
+// Cinematic glide — smooth momentum, gentle deceleration at rest
+const cinematic = Easing.bezier(0.25, 0.46, 0.45, 0.94);
 
 export default function SplashAnimation({ onDone }: { onDone: () => void }) {
-  // ── Animated values ────────────────────────────────────────────────────────
-  const initOp    = useRef(new Animated.Value(0)).current;    // initial fade-in
-  const initSc    = useRef(new Animated.Value(0.95)).current; // initial scale
-  const flip      = useRef(new Animated.Value(0)).current;    // 0 = mirrored, 1 = normal
-  const rSep      = useRef(new Animated.Value(0)).current;    // R glide: 0 → -26 → 0
-  const zSep      = useRef(new Animated.Value(0)).current;    // Z glide: 0 → +26 → 0
-  const rzOp      = useRef(new Animated.Value(1)).current;    // "R Z" layer opacity
-  const brandOp   = useRef(new Animated.Value(0)).current;    // "RentZilla" layer opacity
-  const brandSc   = useRef(new Animated.Value(0.93)).current; // "RentZilla" layer scale
-  const entOp     = useRef(new Animated.Value(0)).current;    // "ent" opacity
-  const entTx     = useRef(new Animated.Value(-13)).current;  // "ent" slide: -13 → 0
-  const illaOp    = useRef(new Animated.Value(0)).current;    // "illa" opacity
-  const illaTx    = useRef(new Animated.Value(13)).current;   // "illa" slide: 13 → 0
-  const tagOp     = useRef(new Animated.Value(0)).current;
-  const tagTy     = useRef(new Animated.Value(11)).current;
-  const lineW     = useRef(new Animated.Value(0)).current;
-  const dotOp     = useRef(new Animated.Value(0)).current;
-  const ripOp     = useRef(new Animated.Value(0)).current;
-  const ripSc     = useRef(new Animated.Value(0.35)).current;
-  const screenOp  = useRef(new Animated.Value(1)).current;
+  // ── Animated values ──────────────────────────────────────────────────────
+  const bgOp    = useRef(new Animated.Value(0)).current;          // bg fade-in
+  const rEntryY = useRef(new Animated.Value(-SH * 0.5)).current;  // R from top
+  const zEntryY = useRef(new Animated.Value(SH * 0.5)).current;   // Z from bottom
+  const rEntryO = useRef(new Animated.Value(0)).current;          // R opacity entry
+  const zEntryO = useRef(new Animated.Value(0)).current;          // Z opacity entry
+  const flip    = useRef(new Animated.Value(0)).current;          // 0=mirrored → 1=normal
+  const rSep    = useRef(new Animated.Value(0)).current;          // R glide left
+  const zSep    = useRef(new Animated.Value(0)).current;          // Z glide right
+  const rzOp    = useRef(new Animated.Value(1)).current;          // "R Z" layer opacity
+  const brandOp = useRef(new Animated.Value(0)).current;          // "RentZilla" opacity
+  const brandSc = useRef(new Animated.Value(0.93)).current;       // "RentZilla" scale
+  const entOp   = useRef(new Animated.Value(0)).current;          // "ent" opacity
+  const entTx   = useRef(new Animated.Value(-13)).current;        // "ent" slide
+  const illaOp  = useRef(new Animated.Value(0)).current;          // "illa" opacity
+  const illaTx  = useRef(new Animated.Value(13)).current;         // "illa" slide
+  const tagOp   = useRef(new Animated.Value(0)).current;          // tagline opacity
+  const tagTy   = useRef(new Animated.Value(11)).current;         // tagline slide
+  const lineW   = useRef(new Animated.Value(0)).current;          // accent line width
+  const dotOp   = useRef(new Animated.Value(0)).current;          // dots opacity
+  const ripOp   = useRef(new Animated.Value(0)).current;          // ripple opacity
+  const ripSc   = useRef(new Animated.Value(0.35)).current;       // ripple scale
+  const screenOp = useRef(new Animated.Value(1)).current;         // full screen fade-out
 
   useEffect(() => {
     Animated.sequence([
 
-      // ── 0.0s → 0.8s · Mirrored "R Z" fades + scales in ──────────────────
+      // ── 0.0s → 1.5s · R drops from top, Z rises from bottom ─────────────
       Animated.parallel([
-        Animated.timing(initOp, { toValue: 1, duration: 380, easing: ease, useNativeDriver: ND }),
-        Animated.timing(initSc, { toValue: 1, duration: 800, easing: easeOut, useNativeDriver: ND }),
+        // Background softly fades in
+        Animated.timing(bgOp, {
+          toValue: 1, duration: 600, easing: ease, useNativeDriver: ND,
+        }),
+        // R opacity — fade in as it enters frame
+        Animated.timing(rEntryO, {
+          toValue: 1, duration: 500, easing: ease, useNativeDriver: ND,
+        }),
+        // Z opacity — fade in as it enters frame
+        Animated.timing(zEntryO, {
+          toValue: 1, duration: 500, easing: ease, useNativeDriver: ND,
+        }),
+        // R cinematic glide from top to center
+        Animated.timing(rEntryY, {
+          toValue: 0, duration: 1400, easing: cinematic, useNativeDriver: ND,
+        }),
+        // Z cinematic glide from bottom to center
+        Animated.timing(zEntryY, {
+          toValue: 0, duration: 1400, easing: cinematic, useNativeDriver: ND,
+        }),
       ]),
 
-      // ── 0.8s → 1.8s · 180° premium flip with spring overshoot ────────────
+      // ── 1.5s → 2.5s · 180° flip reveal with luxury spring settle ─────────
       Animated.timing(flip, {
-        toValue: 1,
-        duration: 1000,
-        easing: spring,
-        useNativeDriver: ND,
+        toValue: 1, duration: 1000, easing: spring, useNativeDriver: ND,
       }),
 
-      // ── 1.8s → 2.3s · Pause — hold readable "R Z" ────────────────────────
+      // ── 2.5s → 3.0s · Hold — readable "R Z" centered ─────────────────────
       Animated.delay(500),
 
-      // ── 2.3s → 3.2s · Magnetic separation + brand build ──────────────────
+      // ── 3.0s → 4.7s · Magnetic expansion + full brand build ─────────────
       Animated.parallel([
-        // R glides left — magnetic release feel
+        // R glides left — magnetic release
         Animated.timing(rSep, {
-          toValue: -26, duration: 880, easing: magnet, useNativeDriver: ND,
+          toValue: -26, duration: 1000, easing: magnet, useNativeDriver: ND,
         }),
-        // Z glides right — mirrored
+        // Z glides right — mirrored magnetic
         Animated.timing(zSep, {
-          toValue: 26, duration: 880, easing: magnet, useNativeDriver: ND,
+          toValue: 26, duration: 1000, easing: magnet, useNativeDriver: ND,
         }),
-        // "R Z" layer fades out as letters spread
+        // "R Z" layer fades out
         Animated.timing(rzOp, {
-          toValue: 0, duration: 320, useNativeDriver: ND,
+          toValue: 0, duration: 380, useNativeDriver: ND,
         }),
         // "RentZilla" layer fades + scales in
         Animated.timing(brandOp, {
-          toValue: 1, duration: 440, delay: 90, useNativeDriver: ND,
+          toValue: 1, duration: 500, delay: 100, useNativeDriver: ND,
         }),
         Animated.timing(brandSc, {
-          toValue: 1, duration: 500, delay: 70, easing: easeOut, useNativeDriver: ND,
+          toValue: 1, duration: 560, delay: 80, easing: easeOut, useNativeDriver: ND,
         }),
-        // "ent" slides in from the left
+        // "ent" luxury slide in from left
         Animated.timing(entOp, {
-          toValue: 1, duration: 360, delay: 150, useNativeDriver: ND,
+          toValue: 1, duration: 400, delay: 180, useNativeDriver: ND,
         }),
         Animated.timing(entTx, {
-          toValue: 0, duration: 460, delay: 110, easing: easeOut, useNativeDriver: ND,
+          toValue: 0, duration: 520, delay: 130, easing: easeOut, useNativeDriver: ND,
         }),
-        // "illa" slides in from the right
+        // "illa" luxury slide in from right
         Animated.timing(illaOp, {
-          toValue: 1, duration: 360, delay: 150, useNativeDriver: ND,
+          toValue: 1, duration: 400, delay: 180, useNativeDriver: ND,
         }),
         Animated.timing(illaTx, {
-          toValue: 0, duration: 460, delay: 110, easing: easeOut, useNativeDriver: ND,
+          toValue: 0, duration: 520, delay: 130, easing: easeOut, useNativeDriver: ND,
         }),
         // Accent line expands
         Animated.timing(lineW, {
-          toValue: 46, duration: 400, delay: 220, easing: easeOut, useNativeDriver: ND,
+          toValue: 46, duration: 450, delay: 260, easing: easeOut, useNativeDriver: ND,
         }),
-        // Tagline slides up
+        // Tagline slides up softly
         Animated.timing(tagOp, {
-          toValue: 1, duration: 340, delay: 340, useNativeDriver: ND,
+          toValue: 1, duration: 400, delay: 380, useNativeDriver: ND,
         }),
         Animated.timing(tagTy, {
-          toValue: 0, duration: 420, delay: 280, easing: easeOut, useNativeDriver: ND,
+          toValue: 0, duration: 480, delay: 320, easing: easeOut, useNativeDriver: ND,
         }),
         // Progress dots
         Animated.timing(dotOp, {
-          toValue: 1, duration: 280, delay: 420, useNativeDriver: ND,
+          toValue: 1, duration: 320, delay: 480, useNativeDriver: ND,
         }),
         // Ripple burst
         Animated.sequence([
           Animated.timing(ripOp, { toValue: 0.5, duration: 70, useNativeDriver: ND }),
           Animated.parallel([
             Animated.timing(ripSc, {
-              toValue: 2.8, duration: 700, easing: Easing.out(Easing.quad), useNativeDriver: ND,
+              toValue: 2.8, duration: 800, easing: Easing.out(Easing.quad), useNativeDriver: ND,
             }),
-            Animated.timing(ripOp, { toValue: 0, duration: 700, useNativeDriver: ND }),
+            Animated.timing(ripOp, { toValue: 0, duration: 800, useNativeDriver: ND }),
           ]),
         ]),
       ]),
 
-      // ── 3.2s → 4.2s · Premium hold — full "RentZilla" + tagline ────────────
-      Animated.delay(1000),
+      // ── 4.7s → 7.0s · Premium hold — full brand visible ─────────────────
+      Animated.delay(2300),
 
-      // ── 4.2s → 4.6s · Smooth fade to Sign In ────────────────────────────
+      // ── 7.0s → 8.5s · Smooth 1.5s fade out → Sign In ────────────────────
       Animated.timing(screenOp, {
-        toValue: 0,
-        duration: 400,
-        easing: ease,
-        useNativeDriver: ND,
+        toValue: 0, duration: 1500, easing: ease, useNativeDriver: ND,
       }),
 
     ]).start(() => onDone());
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // 3D flip interpolation — spring easing makes it feel like it "settles"
+  // 3D flip: mirrored (180°) → normal (0°) with spring overshoot
   const rRotateY = flip.interpolate({
     inputRange:  [0, 1],
     outputRange: ["180deg", "0deg"],
@@ -163,29 +176,30 @@ export default function SplashAnimation({ onDone }: { onDone: () => void }) {
     outputRange: ["-180deg", "0deg"],
   });
 
-  // Vertical center for the logo block
   const logoTopOffset = SH * 0.5 - FS * 0.6;
 
   return (
     <Animated.View style={[StyleSheet.absoluteFillObject, styles.root, { opacity: screenOp }]}>
 
-      {/* ── Premium dark background ─────────────────────────────────────── */}
-      <LinearGradient
-        colors={["#0F172A", "#1E293B", "#0F172A"]}
-        start={{ x: 0.4, y: 0 }}
-        end={{ x: 0.6, y: 1 }}
-        style={StyleSheet.absoluteFillObject}
-      />
+      {/* ── Background — fades in softly ──────────────────────────────────── */}
+      <Animated.View style={[StyleSheet.absoluteFillObject, { opacity: bgOp }]}>
+        <LinearGradient
+          colors={["#0F172A", "#1E293B", "#0F172A"]}
+          start={{ x: 0.4, y: 0 }}
+          end={{ x: 0.6, y: 1 }}
+          style={StyleSheet.absoluteFillObject}
+        />
+      </Animated.View>
 
-      {/* ── Soft ambient glow behind letters ───────────────────────────── */}
+      {/* ── Soft ambient glow ─────────────────────────────────────────────── */}
       <Animated.View
         style={[
           styles.ambientGlow,
-          { top: SH * 0.5 - SW * 0.44, opacity: initOp },
+          { top: SH * 0.5 - SW * 0.44, opacity: bgOp },
         ]}
       />
 
-      {/* ── Ripple burst ring ───────────────────────────────────────────── */}
+      {/* ── Ripple burst ring ─────────────────────────────────────────────── */}
       <Animated.View
         style={[
           styles.rippleRing,
@@ -197,20 +211,19 @@ export default function SplashAnimation({ onDone }: { onDone: () => void }) {
         ]}
       />
 
-      {/* ── Logo block — stacked layers, fades/scales together initially ── */}
-      <Animated.View
-        style={[
-          styles.logoBlock,
-          { top: logoTopOffset, opacity: initOp, transform: [{ scale: initSc }] },
-        ]}
-      >
-        {/* ─ Layer 1 · "R  Z" with 3-D flip + separation glide ─ */}
+      {/* ── Logo block ────────────────────────────────────────────────────── */}
+      <View style={[styles.logoBlock, { top: logoTopOffset }]}>
+
+        {/* Layer 1 · "R Z" — enters from top/bottom, flips, glides apart */}
         <Animated.View style={[StyleSheet.absoluteFill, styles.layerCenter, { opacity: rzOp }]}>
           <View style={styles.rzRow}>
-            {/* R — flips in, then glides left */}
+
+            {/* R: drops from top → flips → glides left */}
             <Animated.View
               style={{
+                opacity: rEntryO,
                 transform: [
+                  { translateY: rEntryY },
                   { perspective: 1100 },
                   { rotateY: rRotateY },
                   { translateX: rSep },
@@ -220,13 +233,14 @@ export default function SplashAnimation({ onDone }: { onDone: () => void }) {
               <Text style={styles.letter}>R</Text>
             </Animated.View>
 
-            {/* Fixed gap between R and Z */}
             <View style={styles.rzGap} />
 
-            {/* Z — flips in, then glides right */}
+            {/* Z: rises from bottom → flips → glides right */}
             <Animated.View
               style={{
+                opacity: zEntryO,
                 transform: [
+                  { translateY: zEntryY },
                   { perspective: 1100 },
                   { rotateY: zRotateY },
                   { translateX: zSep },
@@ -235,10 +249,11 @@ export default function SplashAnimation({ onDone }: { onDone: () => void }) {
             >
               <Text style={[styles.letter, styles.gold]}>Z</Text>
             </Animated.View>
+
           </View>
         </Animated.View>
 
-        {/* ─ Layer 2 · "RentZilla" — scales + fades in; ent/illa slide in ─ */}
+        {/* Layer 2 · "RentZilla" — scales + fades in; ent/illa slide in */}
         <Animated.View
           style={[
             StyleSheet.absoluteFill,
@@ -247,36 +262,20 @@ export default function SplashAnimation({ onDone }: { onDone: () => void }) {
           ]}
         >
           <View style={styles.rzRow}>
-            {/* R — static anchor */}
             <Text style={styles.letter}>R</Text>
-
-            {/* "ent" — slides in from the left */}
-            <Animated.View
-              style={{
-                opacity: entOp,
-                transform: [{ translateX: entTx }],
-              }}
-            >
+            <Animated.View style={{ opacity: entOp, transform: [{ translateX: entTx }] }}>
               <Text style={styles.letter}>ent</Text>
             </Animated.View>
-
-            {/* Z — static anchor */}
             <Text style={[styles.letter, styles.gold]}>Z</Text>
-
-            {/* "illa" — slides in from the right */}
-            <Animated.View
-              style={{
-                opacity: illaOp,
-                transform: [{ translateX: illaTx }],
-              }}
-            >
+            <Animated.View style={{ opacity: illaOp, transform: [{ translateX: illaTx }] }}>
               <Text style={[styles.letter, styles.gold]}>illa</Text>
             </Animated.View>
           </View>
         </Animated.View>
-      </Animated.View>
 
-      {/* ── Accent line ─────────────────────────────────────────────────── */}
+      </View>
+
+      {/* ── Accent line ───────────────────────────────────────────────────── */}
       <Animated.View
         style={[
           styles.accentLine,
@@ -288,7 +287,7 @@ export default function SplashAnimation({ onDone }: { onDone: () => void }) {
         ]}
       />
 
-      {/* ── Tagline ─────────────────────────────────────────────────────── */}
+      {/* ── Tagline ───────────────────────────────────────────────────────── */}
       <Animated.Text
         style={[
           styles.tagline,
@@ -302,7 +301,7 @@ export default function SplashAnimation({ onDone }: { onDone: () => void }) {
         Rent Anything. Anytime. Anywhere.
       </Animated.Text>
 
-      {/* ── Progress indicator dots ─────────────────────────────────────── */}
+      {/* ── Progress dots ─────────────────────────────────────────────────── */}
       <Animated.View style={[styles.dotRow, { opacity: dotOp }]}>
         <View style={styles.dot} />
         <View style={[styles.dot, styles.dotActive]} />
@@ -316,6 +315,7 @@ export default function SplashAnimation({ onDone }: { onDone: () => void }) {
 const styles = StyleSheet.create({
   root: {
     zIndex: 9999,
+    overflow: "hidden",
   },
   ambientGlow: {
     position: "absolute",
@@ -340,14 +340,17 @@ const styles = StyleSheet.create({
     height: FS * 1.3,
     alignItems: "center",
     justifyContent: "center",
+    overflow: "visible",
   },
   layerCenter: {
     alignItems: "center",
     justifyContent: "center",
+    overflow: "visible",
   },
   rzRow: {
     flexDirection: "row",
     alignItems: "center",
+    overflow: "visible",
   },
   rzGap: { width: 34 },
   letter: {
