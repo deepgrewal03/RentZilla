@@ -381,27 +381,34 @@ export default function DashboardScreen() {
               <Text style={styles.actionLabel}>Add Listing</Text>
             </Pressable>
 
-            {/* Go Online — disabled if no listings */}
+            {/* Go Online — only enabled if provider has at least one car listing */}
             {(() => {
-              const canGoOnline = !loading && listings.length > 0;
+              const hasCarListing = !loading && listings.some((l: any) => l.category === "cars");
               return (
                 <Pressable
                   onPress={() => {
-                    if (!canGoOnline) {
+                    if (!hasCarListing) {
                       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-                      Alert.alert("No Listings", "Add at least one listing to go online and accept rides.");
+                      Alert.alert(
+                        "No Car Listed",
+                        "You need to add at least one car listing before you can go online and accept rides.",
+                        [
+                          { text: "Cancel", style: "cancel" },
+                          { text: "Add Car", onPress: () => router.push("/add-listing") },
+                        ]
+                      );
                       return;
                     }
                     router.push("/(tabs)/cars");
                   }}
-                  style={[styles.actionCard, !canGoOnline && styles.actionCardDisabled]}
+                  style={[styles.actionCard, !hasCarListing && styles.actionCardDisabled]}
                 >
-                  <View style={[styles.actionIconBox, { backgroundColor: canGoOnline ? "#05996918" : "#9CA3AF18" }]}>
-                    <Ionicons name="car-outline" size={22} color={canGoOnline ? "#059669" : "#9CA3AF"} />
+                  <View style={[styles.actionIconBox, { backgroundColor: hasCarListing ? "#05996918" : "#9CA3AF18" }]}>
+                    <Ionicons name="car-outline" size={22} color={hasCarListing ? "#059669" : "#9CA3AF"} />
                   </View>
-                  <Text style={[styles.actionLabel, !canGoOnline && { color: "#9CA3AF" }]}>Go Online</Text>
-                  {!canGoOnline && !loading && (
-                    <Text style={styles.actionDisabledHint}>No listings</Text>
+                  <Text style={[styles.actionLabel, !hasCarListing && { color: "#9CA3AF" }]}>Go Online</Text>
+                  {!hasCarListing && !loading && (
+                    <Text style={styles.actionDisabledHint}>No car listed</Text>
                   )}
                 </Pressable>
               );
