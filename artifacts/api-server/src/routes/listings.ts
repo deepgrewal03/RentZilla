@@ -158,57 +158,145 @@ router.delete("/:id", authMiddleware, async (req: Request, res: Response) => {
   }
 });
 
-const SERVICE_TYPES_MAP: Record<string, string[]> = {
-  equipment: [
-    "Rental Only",
-    "With Operator",
-    "Delivery Required",
-    "Urgent Same Day",
-    "Multi-Day Project",
-    "Inspection / Demo",
-  ],
-  earth_movers: [
-    "Rental Only",
-    "With Operator",
-    "Delivery Required",
-    "Urgent Same Day",
-    "Multi-Day Project",
-    "Inspection / Demo",
-  ],
-  cars: [
-    "One-Way Ride",
-    "Return Ride",
-    "Shared Ride",
-    "Private Ride",
-    "Airport Transfer",
-    "Daily Commute",
-  ],
-  rides: [
-    "One-Way Ride",
-    "Return Ride",
-    "Shared Ride",
-    "Private Ride",
-    "Airport Transfer",
-    "Daily Commute",
-  ],
-  services: [
-    "Basic Service",
-    "Premium Service",
-    "Emergency Service",
-    "Same Day",
-    "Scheduled Visit",
-    "Consultation",
-  ],
-};
+function getServiceTypesForListing(
+  title: string,
+  category: string,
+  subcategory: string | null,
+  description: string | null
+): string[] {
+  const text = `${title} ${subcategory ?? ""} ${description ?? ""}`.toLowerCase();
 
-const DEFAULT_SERVICE_TYPES = [
-  "Standard Booking",
-  "Priority Booking",
-  "Scheduled Service",
-  "On-Demand",
-  "Package Deal",
-  "Custom Arrangement",
-];
+  // ── Beauty & Salon ──────────────────────────────────────────────
+  if (/beauty|salon|parlour|parlor|spa|mehendi|henna/.test(text)) {
+    return ["Professional Hair Styling", "Facial & Skin Treatment", "Waxing Services", "Nail Care & Art", "Bridal Makeup", "Beauty Consultation"];
+  }
+  if (/hair/.test(text)) {
+    return ["Professional Hair Styling", "Hair Coloring & Highlights", "Keratin / Smoothening", "Haircut & Trim", "Hair Treatment", "Bridal Hair Styling"];
+  }
+  if (/nail/.test(text)) {
+    return ["Nail Art & Extensions", "Manicure", "Pedicure", "Gel Nails", "Nail Removal", "Nail Design Session"];
+  }
+  if (/facial|skin|bleach/.test(text)) {
+    return ["Basic Facial", "Deep Cleansing Facial", "Anti-Ageing Treatment", "De-Tan & Brightening", "Hydra Facial", "Skin Consultation"];
+  }
+  if (/makeup|bridal/.test(text)) {
+    return ["Bridal Makeup", "Party Makeup", "Engagement Look", "Airbrush Makeup", "Natural Day Look", "Makeup Trial"];
+  }
+  if (/massage|spa/.test(text)) {
+    return ["Full Body Massage", "Head & Neck Massage", "Foot Massage", "Deep Tissue Massage", "Aromatherapy", "Couple Massage"];
+  }
+
+  // ── Agriculture / Farm Equipment ────────────────────────────────
+  if (/tractor/.test(text)) {
+    return ["Ploughing Service", "Sowing & Seeding", "Crop Harvesting", "Land Levelling", "Rotavation", "Multi-Day Farm Work"];
+  }
+  if (/combine|harvester|thresher/.test(text)) {
+    return ["Wheat Harvesting", "Rice Harvesting", "Crop Cutting", "Threshing & Bundling", "Field Clearance", "Multi-Crop Harvest"];
+  }
+
+  // ── Heavy Machinery ─────────────────────────────────────────────
+  if (/jcb|excavat|backhoe|bulldozer/.test(text)) {
+    return ["Excavation Work", "Foundation Digging", "Land Clearing", "Trench Digging", "Loading & Transport", "Demolition Assist"];
+  }
+  if (/crane/.test(text)) {
+    return ["Heavy Lifting", "Construction Crane", "Material Loading", "Event Setup Lift", "Industrial Use", "Bridge / Tower Work"];
+  }
+  if (/generator|genset/.test(text)) {
+    return ["Backup Power Supply", "Event Power", "Construction Site Power", "Farm Irrigation", "Long-Term Rental", "Emergency Power"];
+  }
+
+  // ── Transport / Cars ────────────────────────────────────────────
+  if (/truck|tempo|loader/.test(text)) {
+    return ["Goods Transport", "House Shifting", "Factory Delivery", "Agricultural Transport", "Airport Cargo", "Long-Distance Haul"];
+  }
+  if (/bus|minibus/.test(text)) {
+    return ["School / College Trip", "Wedding Convoy", "Corporate Transport", "Pilgrimage Tour", "Daily Commute", "Airport Shuttle"];
+  }
+  if (category === "cars" || /\bcar\b|vehicle|taxi|cab|suv|sedan/.test(text)) {
+    return ["One-Way Trip", "Return Trip", "Airport Transfer", "Wedding / Event Hire", "City Tour", "Daily Commute"];
+  }
+
+  // ── Photography / Videography ───────────────────────────────────
+  if (/photo|video|camera|shoot|film|studio/.test(text)) {
+    return ["Wedding Photography", "Portrait Session", "Event Coverage", "Product Shoot", "Video Production", "Editing & Delivery"];
+  }
+
+  // ── Catering / Food ─────────────────────────────────────────────
+  if (/cater|food|cook|chef|langar|meal|kitchen/.test(text)) {
+    return ["Wedding Catering", "Birthday Party", "Corporate Event", "Langar / Dawat", "Home Delivery", "Chef on Hire"];
+  }
+
+  // ── Electrical ──────────────────────────────────────────────────
+  if (/electric|wiring|panel|switchboard/.test(text)) {
+    return ["Electrical Wiring", "Panel & Board Repair", "Light & Fan Install", "AC Wiring", "Fault Diagnosis", "Safety Inspection"];
+  }
+
+  // ── Plumbing ────────────────────────────────────────────────────
+  if (/plumb|pipe|drain|water.?tank|pump|sanit/.test(text)) {
+    return ["Pipe Repair & Fitting", "Water Tank Cleaning", "Bathroom Fitting", "Drain Cleaning", "Pump Installation", "Leak Detection"];
+  }
+
+  // ── Cleaning ────────────────────────────────────────────────────
+  if (/clean|sweep|sanitiz|housekeep/.test(text)) {
+    return ["Home Deep Clean", "Office Cleaning", "Carpet & Sofa Clean", "Kitchen & Bathroom", "Post-Construction Clean", "Regular Maintenance"];
+  }
+
+  // ── Construction / Labour ───────────────────────────────────────
+  if (/construct|mason|plaster|cement|brick|flooring|tile|labour|labor/.test(text)) {
+    return ["Foundation Work", "Brickwork & Masonry", "Plastering", "Flooring / Tiling", "Renovation", "Inspection & Estimate"];
+  }
+
+  // ── Painting ────────────────────────────────────────────────────
+  if (/paint/.test(text)) {
+    return ["Interior Painting", "Exterior Painting", "Wall Texture / Design", "Wood Polish & Paint", "Waterproofing", "Touch-Up & Repair"];
+  }
+
+  // ── AC / HVAC ───────────────────────────────────────────────────
+  if (/\bac\b|air.condition|hvac|cooling|refriger/.test(text)) {
+    return ["AC Installation", "AC Service & Gas Fill", "Deep Cleaning", "AC Repair", "Split AC Fitting", "Central AC Maintenance"];
+  }
+
+  // ── Welding / Fabrication ───────────────────────────────────────
+  if (/weld|fabricat|iron|steel/.test(text)) {
+    return ["Gate & Grill Welding", "Structural Welding", "Pipe Welding", "Sheet Metal Work", "Repair & Restoration", "Custom Fabrication"];
+  }
+
+  // ── Events / Decoration ─────────────────────────────────────────
+  if (/event|decor|wedding|birthday|party|tent|stage|light/.test(text)) {
+    return ["Wedding Decoration", "Birthday Setup", "Stage & Lighting", "Tent & Marquee", "Floral Arrangement", "Full Event Management"];
+  }
+
+  // ── Security ────────────────────────────────────────────────────
+  if (/security|guard|cctv|surveillance/.test(text)) {
+    return ["Event Security", "Property Guard", "CCTV Installation", "Night Patrol", "VIP Protection", "Warehouse Security"];
+  }
+
+  // ── Pest Control ────────────────────────────────────────────────
+  if (/pest|termite|mosquito|cockroach|rat|fumig/.test(text)) {
+    return ["General Pest Control", "Termite Treatment", "Mosquito Control", "Rodent Control", "Fumigation", "Annual AMC Plan"];
+  }
+
+  // ── Tailoring ───────────────────────────────────────────────────
+  if (/tailor|stitch|sew|alter|suit|salwar|dress/.test(text)) {
+    return ["Regular Stitching", "Bridal Dress", "Alteration & Repair", "Kids Clothes", "Ethnic Wear", "Express 24hr Delivery"];
+  }
+
+  // ── Tuition / Education ─────────────────────────────────────────
+  if (/tuition|teach|coaching|class|education|maths|science|english/.test(text)) {
+    return ["Home Tuition", "Group Coaching", "Online Session", "Exam Preparation", "Holiday Class", "Subject Consultation"];
+  }
+
+  // ── Category-level fallbacks ────────────────────────────────────
+  if (category === "equipment") {
+    return ["Rental Only", "With Operator", "Delivery Required", "Urgent Same Day", "Multi-Day Project", "Inspection / Demo"];
+  }
+  if (category === "services") {
+    return ["Basic Service", "Premium Service", "Emergency Service", "Same Day Service", "Scheduled Visit", "Expert Consultation"];
+  }
+
+  // ── Default ─────────────────────────────────────────────────────
+  return ["Standard Booking", "Priority Booking", "Express / Same Day", "Scheduled Service", "Package Deal", "Custom Arrangement"];
+}
 
 router.get("/:id/service-types", async (req: Request, res: Response) => {
   try {
@@ -217,9 +305,9 @@ router.get("/:id/service-types", async (req: Request, res: Response) => {
       res.status(404).json({ error: "Listing not found" });
       return;
     }
-    const category = listings[0].category;
-    const types = SERVICE_TYPES_MAP[category] || DEFAULT_SERVICE_TYPES;
-    res.json({ category, serviceTypes: types });
+    const { category, subcategory, title, description } = listings[0];
+    const serviceTypes = getServiceTypesForListing(title, category, subcategory, description);
+    res.json({ category, serviceTypes });
   } catch (err) {
     req.log.error({ err }, "Get service types error");
     res.status(500).json({ error: "Internal server error" });
