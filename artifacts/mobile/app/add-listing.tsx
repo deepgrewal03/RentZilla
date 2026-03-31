@@ -69,6 +69,7 @@ export default function AddListingScreen() {
   const [operatorIncluded, setOperatorIncluded] = useState(false);
   const [fuelIncluded, setFuelIncluded] = useState(false);
   const [deliveryCharges, setDeliveryCharges] = useState("");
+  const [expectedPrice, setExpectedPrice] = useState("");
   const [saving, setSaving] = useState(false);
 
   const isEarthMover = category === "equipment" && EARTH_MOVER_TYPES.has(subcategory);
@@ -82,7 +83,7 @@ export default function AddListingScreen() {
     }
     setSaving(true);
     try {
-      await post("/listings", {
+      const newListing: any = await post("/listings", {
         category,
         subcategory: subcategory || undefined,
         title: title.trim(),
@@ -98,6 +99,19 @@ export default function AddListingScreen() {
           deliveryCharges: deliveryCharges ? Number(deliveryCharges) : null,
         }),
       });
+
+      // Save provider expected price reference (non-car categories only)
+      if (category !== "cars" && expectedPrice && Number(expectedPrice) > 0) {
+        try {
+          await post("/provider/price-reference", {
+            category,
+            subcategory: subcategory || title.trim(),
+            listing_id: newListing?.id ?? null,
+            provider_price: Number(expectedPrice),
+          });
+        } catch { /* non-blocking — don't fail listing creation if this fails */ }
+      }
+
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       router.back();
     } catch {
@@ -216,6 +230,36 @@ export default function AddListingScreen() {
               </View>
             </View>
           </View>
+
+          {/* Expected Price — admin reference only, never shown to customers */}
+          {category !== "cars" && (
+            <View style={styles.section}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 6 }}>
+                <Text style={styles.fieldLabel}>Your Expected Rate (₹)</Text>
+                <View style={{
+                  backgroundColor: "#FFF3E0", borderRadius: 8, paddingHorizontal: 7, paddingVertical: 2,
+                }}>
+                  <Text style={{ fontSize: 9, fontWeight: "700", color: "#E65100", fontFamily: "Inter_700Bold" }}>
+                    ADMIN ONLY
+                  </Text>
+                </View>
+              </View>
+              <View style={styles.priceInputWrap}>
+                <Text style={styles.rupee}>₹</Text>
+                <TextInput
+                  style={styles.priceInput}
+                  value={expectedPrice}
+                  onChangeText={setExpectedPrice}
+                  placeholder={category === "equipment" ? "Your daily/hourly rate, e.g. 1200" : "Your service rate, e.g. 350"}
+                  placeholderTextColor={C.textTertiary}
+                  keyboardType="numeric"
+                />
+              </View>
+              <Text style={{ fontSize: 11, color: C.textTertiary, marginTop: 6, lineHeight: 15 }}>
+                This price is for admin reference only. Customers will see the admin-controlled final price.
+              </Text>
+            </View>
+          )}
 
           {/* Location */}
           <View style={styles.section}>

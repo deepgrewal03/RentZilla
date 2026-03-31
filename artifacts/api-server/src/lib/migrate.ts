@@ -261,5 +261,20 @@ export async function runMigrations() {
     await db.execute(sql.raw(stmt));
   }
 
+  await db.execute(sql.raw(`
+    CREATE TABLE IF NOT EXISTS provider_price_reference (
+      id TEXT PRIMARY KEY,
+      provider_id TEXT NOT NULL,
+      provider_name TEXT NOT NULL DEFAULT '',
+      listing_id TEXT,
+      category TEXT NOT NULL,
+      subcategory TEXT NOT NULL DEFAULT '',
+      provider_price NUMERIC(10,2) NOT NULL DEFAULT 0,
+      admin_price_snapshot NUMERIC(10,2) NOT NULL DEFAULT 0,
+      difference_percent NUMERIC(8,2) NOT NULL DEFAULT 0,
+      created_at TIMESTAMP NOT NULL DEFAULT NOW()
+    )
+  `));
+
   logger.info("Database migrations complete.");
 }

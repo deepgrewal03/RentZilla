@@ -697,6 +697,65 @@ router.get("/logs", adminMiddleware, async (req: Request, res: Response) => {
   } catch { res.status(500).json({ error: "Internal server error" }); }
 });
 
+// ── Provider Price Reference ───────────────────────────────────────────────────
+router.get("/provider-prices", adminMiddleware, async (req: Request, res: Response) => {
+  try {
+    const { category, subcategory, sort = "date_desc", search = "" } = req.query as any;
+
+    let orderBy = "ppr.created_at DESC";
+    if (sort === "price_asc")  orderBy = "ppr.provider_price ASC";
+    if (sort === "price_desc") orderBy = "ppr.provider_price DESC";
+    if (sort === "diff_asc")   orderBy = "ABS(ppr.difference_percent) ASC";
+    if (sort === "diff_desc")  orderBy = "ABS(ppr.difference_percent) DESC";
+    if (sort === "date_asc")   orderBy = "ppr.created_at ASC";
+
+    const categoryFilter = category && category !== "all" ? `AND ppr.category = '${category}'` : "";
+    const subcategoryFilter = subcategory && subcategory !== "all" ? `AND ppr.subcategory = '${subcategory}'` : "";
+    const searchFilter = search
+      ? `AND (ppr.provider_name ILIKE '%${search}%' OR ppr.subcategory ILIKE '%${search}%')`
+      : "";
+
+    const rows = toRows(await db.execute(sql.raw(`
+      SELECT
+        ppr.*,
+        pr.commission_percent
+      FROM provider_price_reference ppr
+      LEFT JOIN pricing_rules pr ON pr.category = ppr.category AND pr.subcategory = ppr.subcategory
+      WHERE 1=1 ${categoryFilter} ${subcategoryFilter} ${searchFilter}
+      ORDER BY ${orderBy}
+      LIMIT 200
+    `)));
+
+    res.json(rows);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+router.get("/provider-price-insights", adminMiddleware, async (_req: Request, res: Response) => {
+  try {
+    const rows = toRows(await db.execute(sql`
+      SELECT
+        category,
+        subcategory,
+        COUNT(*) as count,
+        ROUND(AVG(provider_price)::numeric, 2) as avg_price,
+        MAX(provider_price) as max_price,
+        MIN(provider_price) as min_price,
+        ROUND(AVG(admin_price_snapshot)::numeric, 2) as avg_admin_price,
+        ROUND(AVG(difference_percent)::numeric, 2) as avg_diff_pct
+      FROM provider_price_reference
+      WHERE provider_price > 0
+      GROUP BY category, subcategory
+      ORDER BY category, subcategory
+    `));
+
+    res.json(rows);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ── Platform Settings ─────────────────────────────────────────────────────────
 const platformSettings = { baseFare: 50, perKmRate: 12, surgeMultiplier: 1.0, commissionPercent: 15, instantBookingEnabled: true, scheduledRidesEnabled: true, carsEnabled: true, equipmentEnabled: true, servicesEnabled: true };
 router.get("/settings", adminMiddleware, (_req, res) => res.json(platformSettings));

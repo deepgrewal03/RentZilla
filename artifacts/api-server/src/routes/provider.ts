@@ -1,5 +1,6 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { db } from "@workspace/db";
+import { sql } from "drizzle-orm";
 import { authMiddleware } from "./users.js";
 
 const router: IRouter = Router();
@@ -149,6 +150,57 @@ router.get("/recent-bookings", authMiddleware, async (req: Request, res: Respons
     res.json(result.rows);
   } catch (err) {
     res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ── POST /provider/price-reference — save provider's expected price ────────────
+router.post("/price-reference", authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as AR).userId;
+    const { category, subcategory, listing_id, provider_price } = req.body;
+
+    if (!category || !subcategory || provider_price === undefined) {
+      res.status(400).json({ error: "category, subcategory, and provider_price are required" }); return;
+    }
+    if (Number(provider_price) < 0) {
+      res.status(400).json({ error: "Price cannot be negative" }); return;
+    }
+
+    // Get provider name
+    const userRows: any[] = (await db.execute(sql`SELECT name FROM users WHERE id = ${userId}`)).rows as any[];
+    const providerName = userRows[0]?.name ?? "Unknown";
+
+    // Fetch admin price snapshot if it exists
+    const priceRows: any[] = (await db.execute(sql`
+      SELECT platform_fee, commission_percent, base_fee, hourly_rate, daily_rate
+      FROM pricing_rules WHERE category = ${category} AND subcategory = ${subcategory}
+    `)).rows as any[];
+    const pr = priceRows[0];
+    let adminPriceSnapshot = 0;
+    if (pr) {
+      if (category === "equipment") {
+        adminPriceSnapshot = Number(pr.daily_rate) + Number(pr.delivery_fee ?? 0) + Number(pr.fuel_fee ?? 0) + Number(pr.operator_fee ?? 0) + Number(pr.platform_fee);
+      } else {
+        adminPriceSnapshot = Number(pr.base_fee) + Number(pr.hourly_rate) + Number(pr.platform_fee);
+      }
+    }
+
+    const pPrice = Number(provider_price);
+    const diffPct = adminPriceSnapshot > 0
+      ? Math.round(((pPrice - adminPriceSnapshot) / adminPriceSnapshot) * 10000) / 100
+      : 0;
+
+    const id = Date.now().toString() + Math.random().toString(36).slice(2, 7);
+    await db.execute(sql`
+      INSERT INTO provider_price_reference
+        (id, provider_id, provider_name, listing_id, category, subcategory, provider_price, admin_price_snapshot, difference_percent, created_at)
+      VALUES
+        (${id}, ${userId}, ${providerName}, ${listing_id ?? null}, ${category}, ${subcategory}, ${pPrice}, ${adminPriceSnapshot}, ${diffPct}, NOW())
+    `);
+
+    res.json({ success: true, id, difference_percent: diffPct });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
   }
 });
 

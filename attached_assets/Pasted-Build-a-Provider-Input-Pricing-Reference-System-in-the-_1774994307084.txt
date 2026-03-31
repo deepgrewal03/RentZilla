@@ -1,0 +1,213 @@
+Build a **Provider Input Pricing Reference System** in the RentZilla app.
+
+The provider should be able to enter their own expected/service price while registering or creating a listing for any **service, profession, or equipment**, but this provider-entered price must **NOT be shown to customers**.
+
+Customers should always see the **admin-controlled final price** from the Pricing & Commission module.
+
+The provider price is only for:
+
+* Admin reference
+* Market comparison
+* Negotiation insights
+* Internal reporting
+* Future pricing optimization
+
+---
+
+# 🎯 PROVIDER SIDE LOGIC
+
+## 📍 WHERE TO ADD
+
+During provider registration and listing creation flow for:
+
+* Services
+* Professions
+* Equipment
+
+Add field:
+
+## 💵 Your Expected Price
+
+Placeholder:
+
+* Enter your expected service price
+* Enter your daily/hourly equipment rate
+
+Examples:
+
+* Plumber = ₹300
+* Electrician = ₹500
+* JCB = ₹1200/day
+
+---
+
+## ⚠️ IMPORTANT RULE
+
+This provider-entered price:
+
+✅ Save in database
+❌ Do NOT show in customer app
+❌ Do NOT affect customer-facing price directly
+
+Customer will ONLY see:
+
+### Admin final price
+
+from Pricing & Commission rules.
+
+---
+
+# 📱 ADMIN DRAWER MENU UPDATE
+
+In admin drawer sidebar, add new menu item:
+
+## 💵 Provider Prices
+
+### 📍 Placement
+
+Place it above:
+
+* Settings
+
+Final section:
+
+* Activity Log
+* Pricing & Commission
+* 💵 Provider Prices
+* Settings
+
+Use same drawer style:
+
+* dark navy theme
+* orange active highlight
+* money/list icon
+* smooth touch feedback
+
+---
+
+# 📊 PROVIDER PRICES SCREEN
+
+Create new admin screen:
+
+## 💵 ProviderPricesScreen
+
+Show records in searchable list/table format.
+
+### Each record should show:
+
+* Provider Name
+* Category
+* Service / Equipment Type
+* Provider Input Price
+* Admin Final Price
+* Difference %
+* Date Added
+* Status
+
+---
+
+# 📋 LIST EXAMPLE
+
+Example row:
+
+* 👤 Gurpreet Singh
+* 🛠 Plumbing
+* 💵 Provider Price = ₹350
+* 💰 Admin Price = ₹299
+* 📉 Difference = -14.5%
+
+---
+
+# 🔍 FILTERS
+
+Add top filters:
+
+* Category
+* Subcategory
+* Date
+* High to low price
+* Low to high
+* Difference %
+
+---
+
+# ⚙️ DATABASE STRUCTURE
+
+Create table:
+
+## provider_price_reference
+
+* id
+* provider_id
+* provider_name
+* category
+* subcategory
+* provider_price
+* admin_price_snapshot
+* difference_percent
+* created_at
+
+---
+
+# 🔌 APIs REQUIRED
+
+## POST /provider/price-reference
+
+Save provider input price
+
+---
+
+## GET /admin/provider-prices
+
+Get all provider price records
+
+---
+
+## GET /admin/provider-price-insights
+
+Return:
+
+* average provider price
+* highest
+* lowest
+* difference from admin price
+
+---
+
+# 📈 SMART INSIGHTS (VERY USEFUL)
+
+Inside admin screen show:
+
+* Avg plumber asking price
+* Avg electrician market rate
+* Avg JCB daily demand price
+* Category-wise provider price trends
+
+This helps admin adjust real pricing smartly.
+
+---
+
+# 🔒 RULES
+
+* Never expose provider price in customer app
+* Customer only sees admin final price
+* Save historical provider price changes
+* Keep admin snapshots for reporting
+* Support future AI pricing engine
+
+---
+
+# ✅ FINAL RESULT
+
+* Provider enters own expected price
+* Customer never sees it
+* Admin controls public pricing
+* Admin can review all provider expected prices from:
+
+## 💵 Provider Prices
+
+menu in drawer
+
+* Helps improve pricing strategy using real market provider data
+
+Fully scalable and production-ready.
