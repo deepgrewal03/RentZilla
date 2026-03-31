@@ -16,6 +16,7 @@ import safetyRouter from "./safety.js";
 import documentsRouter from "./documents.js";
 import searchRouter from "./search.js";
 import adminRouter from "./admin.js";
+import pricingRouter from "./pricing.js";
 import mapsRouter from "./maps.js";
 import earthMoversRouter from "./earth-movers.js";
 
@@ -38,6 +39,7 @@ router.use("/safety", safetyRouter);
 router.use("/documents", documentsRouter);
 router.use("/search", searchRouter);
 router.use("/admin", adminRouter);
+router.use("/pricing", pricingRouter);
 router.use("/maps", mapsRouter);
 router.use("/equipment/earth-movers", earthMoversRouter);
 

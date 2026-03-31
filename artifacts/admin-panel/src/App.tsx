@@ -13,6 +13,7 @@ import Reports from "@/pages/Reports";
 import Settings from "@/pages/Settings";
 import Notifications from "@/pages/Notifications";
 import AdminLogs from "@/pages/AdminLogs";
+import Pricing from "@/pages/Pricing";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -34,6 +35,7 @@ function ProtectedRoutes() {
         <Route path="/reports" component={Reports} />
         <Route path="/notifications" component={Notifications} />
         <Route path="/logs" component={AdminLogs} />
+        <Route path="/pricing" component={Pricing} />
         <Route path="/settings" component={Settings} />
         <Route component={NotFound} />
       </Switch>

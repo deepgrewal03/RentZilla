@@ -1,0 +1,220 @@
+Build a full Admin Pricing & Commission Control module in the Rentzilla admin app with category-wise formulas, dropdown controls, and dynamic pricing management for all services, professions, and equipment.
+
+---
+
+# 🎯 MAIN GOAL
+
+Admin should be able to control:
+
+* Customer pricing
+* Provider payout
+* App commission
+* Platform fees
+* Urgent charges
+* Distance charges
+* Hourly pricing
+* Equipment daily/hourly pricing
+
+Everything must be editable from Admin App without changing code.
+
+---
+
+# 📱 ADMIN APP LOCATION
+
+Add this module inside the **left 3-line menu (drawer menu)** in admin app.
+
+Menu item:
+
+### 💰 Pricing & Commission Control
+
+---
+
+# 🧩 CATEGORY DROPDOWN SYSTEM (IMPORTANT)
+
+## 1. Main Category Dropdown
+
+* Equipment
+* Services
+* Professions
+
+(❌ Remove Cars completely — handled separately in settings)
+
+---
+
+## 2. Subcategory Dropdown (Dynamic)
+
+After selecting category, load actual list from database.
+
+### Example:
+
+#### If **Services / Professions** selected:
+
+* Plumbing
+* Electrician
+* Carpenter
+* AC Repair
+* Cleaning
+* Painting
+
+#### If **Equipment** selected:
+
+* JCB
+* Tractor
+* DJ Setup
+* Crane
+* Harvester
+
+---
+
+# 💰 DIFFERENT PRICING FORMULAS BY CATEGORY
+
+## 🛠 SERVICES / PROFESSIONS FORMULA
+
+```text
+Customer Price = Base Visit Fee + Labor Charge + Material Fee + Distance Fee + Urgency Fee + Platform Fee
+```
+
+### Admin controls:
+
+* Base visit fee
+* Labor charge
+* Hourly rate
+* Distance per km
+* Urgency fee
+* Platform fee
+* Commission %
+
+---
+
+## 🏗 EQUIPMENT FORMULA
+
+```text
+Customer Price = Rental Rate (hour/day) + Delivery Fee + Fuel Fee + Operator Fee + Platform Fee
+```
+
+### Admin controls:
+
+* Hourly rate
+* Daily rate
+* Delivery charge
+* Fuel charge
+* Operator fee
+* Security deposit
+* Commission %
+
+---
+
+# ⚙️ BACKEND DATABASE STRUCTURE
+
+Create table:
+
+## pricing_rules
+
+* id
+* category (equipment / services / professions)
+* subcategory
+* base_fee
+* hourly_rate
+* daily_rate
+* distance_fee
+* km_rate
+* operator_fee
+* fuel_fee
+* urgency_fee
+* platform_fee
+* commission_percent
+* updated_by_admin
+* updated_at
+
+---
+
+# 🔌 APIs REQUIRED
+
+## GET /admin/pricing-rules
+
+Return all pricing rules
+
+---
+
+## POST /admin/pricing-rules
+
+Create or update rules
+
+---
+
+## GET /pricing/calculate
+
+### Input:
+
+* category
+* subcategory
+* duration
+* distance
+* urgency
+
+### Output:
+
+* customer_price
+* provider_payout
+* app_commission
+
+---
+
+# 📊 LIVE PRICE PREVIEW (VERY IMPORTANT)
+
+Inside admin panel show live preview:
+
+Example:
+
+Customer Price = ₹499
+Provider Gets = ₹430
+App Commission = ₹69
+
+* Update instantly when admin changes any value
+* Real-time calculation logic
+
+---
+
+# 🎨 UI REQUIREMENTS
+
+* Drawer menu entry
+* Category dropdown
+* Subcategory dropdown
+* Searchable dropdown lists
+* Sliders / input fields for pricing
+* Commission percentage input
+* Save / Update button
+* Live preview card
+* Clean mobile-friendly layout
+
+---
+
+# 🔒 RULES
+
+* Separate pricing formula per category
+* No hardcoding in frontend
+* Changes reflect instantly in customer app
+* Prevent negative pricing or invalid inputs
+* Commission auto-calculated
+
+---
+
+# ✅ FINAL RESULT
+
+Admin can fully control pricing from one panel:
+
+* Services
+
+* Professions
+
+* Equipment
+
+* Cars completely excluded from this module
+
+* Each category has separate formula and commission settings
+
+* Fully dynamic, scalable, and production-ready system
+
+---
+
+Ensure clean UI, fast performance, and real-time pricing updates.

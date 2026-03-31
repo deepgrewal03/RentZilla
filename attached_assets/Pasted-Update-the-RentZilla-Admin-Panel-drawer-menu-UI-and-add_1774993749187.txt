@@ -1,0 +1,229 @@
+Update the RentZilla Admin Panel drawer menu UI and add a new menu item called **“Pricing & Commission”** in the left sidebar menu shown in the admin app.
+
+---
+
+# 📍 DRAWER MENU POSITION (IMPORTANT)
+
+In the current admin drawer list:
+
+* Users
+* Listings
+* Bookings
+* Documents
+* Reports
+* Notifications
+* Activity Log
+* Settings
+
+👉 Insert the new menu item:
+
+## 💰 Pricing & Commission
+
+### ✅ Exact placement:
+
+Place it **between Activity Log and Settings**
+
+Final order should be:
+
+* Users
+* Listings
+* Bookings
+* Documents
+* Reports
+* Notifications
+* Activity Log
+* 💰 Pricing & Commission
+* Settings
+
+---
+
+# 🎨 UI DESIGN REQUIREMENTS
+
+Match the exact existing drawer style from admin panel screenshot:
+
+* Same icon + text alignment
+* Same dark navy drawer background
+* Same spacing and font style
+* Use a **money / percentage / calculator icon**
+* Same hover / active orange highlight as Settings
+* Smooth press animation
+* Ripple/touch feedback
+
+When selected:
+
+* Highlight with orange background like Settings
+* Add right arrow icon
+
+---
+
+# 📱 SCREEN NAVIGATION
+
+On click of **Pricing & Commission**
+→ Navigate to new screen:
+
+## 💰 PricingControlScreen
+
+This screen should open inside admin app.
+
+---
+
+# ⚙️ PRICING CONTROL SCREEN MODULE
+
+Build full Admin Pricing & Commission Control module with category-wise formulas, dropdown controls, and dynamic pricing management for:
+
+* Services
+* Professions
+* Equipment
+
+(❌ Cars excluded because already handled in settings)
+
+---
+
+# 🧩 CATEGORY DROPDOWN SYSTEM
+
+## Main Category Dropdown
+
+* Equipment
+* Services
+* Professions
+
+---
+
+## Dynamic Subcategory Dropdown
+
+Load actual list from database.
+
+### Example:
+
+### Services / Professions
+
+* Plumbing
+* Electrician
+* Carpenter
+* AC Repair
+* Cleaning
+* Painting
+
+### Equipment
+
+* JCB
+* Tractor
+* DJ Setup
+* Crane
+* Harvester
+
+---
+
+# 💰 PRICING FORMULAS
+
+## 🛠 Services / Professions
+
+Customer Price = Base Visit Fee + Labor Charge + Material Fee + Distance Fee + Urgency Fee + Platform Fee
+
+### Controls
+
+* Base visit fee
+* Labor charge
+* Hourly rate
+* Distance per km
+* Urgency fee
+* Platform fee
+* Commission %
+
+---
+
+## 🏗 Equipment
+
+Customer Price = Rental Rate (hour/day) + Delivery Fee + Fuel Fee + Operator Fee + Platform Fee
+
+### Controls
+
+* Hourly rate
+* Daily rate
+* Delivery charge
+* Fuel charge
+* Operator fee
+* Security deposit
+* Commission %
+
+---
+
+# ⚙️ DATABASE TABLE
+
+## pricing_rules
+
+* id
+* category
+* subcategory
+* base_fee
+* hourly_rate
+* daily_rate
+* distance_fee
+* km_rate
+* operator_fee
+* fuel_fee
+* urgency_fee
+* platform_fee
+* commission_percent
+* updated_by_admin
+* updated_at
+
+---
+
+# 🔌 APIs
+
+## GET /admin/pricing-rules
+
+Get all pricing rules
+
+## POST /admin/pricing-rules
+
+Create / update pricing
+
+## GET /pricing/calculate
+
+Return:
+
+* customer_price
+* provider_payout
+* app_commission
+
+---
+
+# 📊 LIVE PRICE PREVIEW
+
+Show real-time preview card:
+
+* Customer Price = ₹499
+* Provider Gets = ₹430
+* App Commission = ₹69
+
+Update instantly on every input change.
+
+---
+
+# 🔒 RULES
+
+* No hardcoding
+* Real-time update in customer app
+* Separate formula per category
+* Prevent invalid negative pricing
+* Fully scalable
+
+---
+
+# ✅ FINAL RESULT
+
+Admin drawer now includes:
+
+## 💰 Pricing & Commission
+
+with same premium UI as existing menu.
+
+Clicking it opens a fully functional pricing control module for:
+
+* Services
+* Professions
+* Equipment
+
+Fully production-ready and synced with database + APIs.

@@ -7,7 +7,7 @@ import {
   LayoutDashboard, Users, Package, CalendarDays, FileCheck,
   AlertTriangle, Settings, LogOut, Menu, X, Bell, ChevronRight,
   Shield, Activity, Calendar, UserPlus, FileText, Flag,
-  CheckCheck, ExternalLink,
+  CheckCheck, ExternalLink, BadgePercent,
 } from "lucide-react";
 
 const NAV = [
@@ -19,6 +19,7 @@ const NAV = [
   { path: "/reports", label: "Reports", icon: AlertTriangle },
   { path: "/notifications", label: "Notifications", icon: Bell },
   { path: "/logs", label: "Activity Log", icon: Activity },
+  { path: "/pricing", label: "Pricing & Commission", icon: BadgePercent },
   { path: "/settings", label: "Settings", icon: Settings },
 ];
 

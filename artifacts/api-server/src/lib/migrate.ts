@@ -235,5 +235,31 @@ export async function runMigrations() {
     await db.execute(sql.raw(stmt));
   }
 
+  const pricingAlters = [
+    `CREATE TABLE IF NOT EXISTS pricing_rules (
+      id TEXT PRIMARY KEY,
+      category TEXT NOT NULL,
+      subcategory TEXT NOT NULL,
+      base_fee NUMERIC(10,2) NOT NULL DEFAULT 0,
+      hourly_rate NUMERIC(10,2) NOT NULL DEFAULT 0,
+      daily_rate NUMERIC(10,2) NOT NULL DEFAULT 0,
+      km_rate NUMERIC(10,2) NOT NULL DEFAULT 0,
+      operator_fee NUMERIC(10,2) NOT NULL DEFAULT 0,
+      fuel_fee NUMERIC(10,2) NOT NULL DEFAULT 0,
+      material_fee NUMERIC(10,2) NOT NULL DEFAULT 0,
+      urgency_fee NUMERIC(10,2) NOT NULL DEFAULT 0,
+      delivery_fee NUMERIC(10,2) NOT NULL DEFAULT 0,
+      platform_fee NUMERIC(10,2) NOT NULL DEFAULT 0,
+      commission_percent NUMERIC(5,2) NOT NULL DEFAULT 10,
+      security_deposit NUMERIC(10,2) NOT NULL DEFAULT 0,
+      updated_by TEXT,
+      updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+      UNIQUE(category, subcategory)
+    )`,
+  ];
+  for (const stmt of pricingAlters) {
+    await db.execute(sql.raw(stmt));
+  }
+
   logger.info("Database migrations complete.");
 }
