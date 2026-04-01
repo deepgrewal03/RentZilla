@@ -68,6 +68,19 @@ const DEFAULT_PRICING: Record<string, { baseFare: number; perKm: number }> = {
   Van:  { baseFare: 90, perKm: 20 },
 };
 
+// ── Straight-line distance for instant estimate (Directions API updates later) ──
+function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLng / 2) ** 2;
+  return +(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)) * 1.35).toFixed(2); // ×1.35 road factor
+}
+
 const STATUS_LABEL: Record<string, string> = {
   requested: "Finding Driver",
   scheduled: "Scheduled",
@@ -869,7 +882,16 @@ export default function CarsScreen() {
               setPickup({ lat, lng, address });
             } else {
               setDrop({ lat, lng, address });
-              setEstimate(null);
+              // Instant Haversine estimate so prices show immediately
+              if (pickup) {
+                const km = haversineKm(pickup.lat, pickup.lng, lat, lng);
+                const durationMin = Math.round(km * 60 / 38);
+                const p = ridePricing[vehicleType] ?? DEFAULT_PRICING[vehicleType] ?? { baseFare: 50, perKm: 12 };
+                setEstimate({ distanceKm: km, durationMin, fare: Math.max(p.baseFare, Math.round(p.baseFare + km * p.perKm)) });
+              } else {
+                setEstimate(null);
+              }
+              setSheetExpanded(true);
             }
           }}
         />
@@ -1314,7 +1336,12 @@ export default function CarsScreen() {
         onSelect={(loc: LocationResult) => {
           const d: Coords = { lat: loc.lat, lng: loc.lng, address: loc.address };
           setDrop(d);
-          setEstimate(null);
+          // Instant Haversine estimate so prices show immediately
+          const km = haversineKm(pickup.lat, pickup.lng, loc.lat, loc.lng);
+          const durationMin = Math.round(km * 60 / 38);
+          const p = ridePricing[vehicleType] ?? DEFAULT_PRICING[vehicleType] ?? { baseFare: 50, perKm: 12 };
+          setEstimate({ distanceKm: km, durationMin, fare: Math.max(p.baseFare, Math.round(p.baseFare + km * p.perKm)) });
+          setSheetExpanded(true);
           mapRef.current?.setDrop(loc.lat, loc.lng, loc.address);
         }}
         title="Choose Destination"
