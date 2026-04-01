@@ -23,6 +23,14 @@ const SUPER_ADMIN_EMAILS = [
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function genId() { return Date.now().toString() + Math.random().toString(36).slice(2, 9); }
 
+function noCache(res: Response) {
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+  res.setHeader("Pragma", "no-cache");
+  res.setHeader("Expires", "0");
+  res.removeHeader("ETag");
+  res.removeHeader("Last-Modified");
+}
+
 // db.execute() returns a QueryResult object (not a plain array) in drizzle-orm/node-postgres.
 // This helper safely extracts the rows array regardless of which shape is returned.
 function toRows<T = any>(result: any): T[] {
@@ -699,6 +707,7 @@ router.get("/logs", adminMiddleware, async (req: Request, res: Response) => {
 
 // ── Provider Price Reference ───────────────────────────────────────────────────
 router.get("/provider-prices", adminMiddleware, async (req: Request, res: Response) => {
+  noCache(res);
   try {
     const { category, subcategory, sort = "date_desc", search = "" } = req.query as any;
 
@@ -733,6 +742,7 @@ router.get("/provider-prices", adminMiddleware, async (req: Request, res: Respon
 });
 
 router.get("/provider-price-insights", adminMiddleware, async (_req: Request, res: Response) => {
+  noCache(res);
   try {
     const rows = toRows(await db.execute(sql`
       SELECT

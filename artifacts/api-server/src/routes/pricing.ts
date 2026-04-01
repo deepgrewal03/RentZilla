@@ -41,6 +41,7 @@ async function adminMiddleware(req: Request, res: Response, next: NextFunction):
 
 // ── GET /pricing/admin/rules — get all pricing rules ──────────────────────────
 router.get("/admin/rules", adminMiddleware, async (req: Request, res: Response) => {
+  noCache(res);
   try {
     const rows = toRows(await db.execute(sql`
       SELECT * FROM pricing_rules ORDER BY category, subcategory
@@ -112,6 +113,15 @@ router.post("/admin/rules", adminMiddleware, async (req: Request, res: Response)
   }
 });
 
+// ── Shared helper: disable all caching on pricing responses ──────────────────
+function noCache(res: Response) {
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+  res.setHeader("Pragma", "no-cache");
+  res.setHeader("Expires", "0");
+  res.removeHeader("ETag");
+  res.removeHeader("Last-Modified");
+}
+
 // ── GET /pricing/rides — public: per-vehicle pricing for the Cars tab ─────────
 // Returns base fare + per-km rate for each vehicle type (Bike/Auto/Car/SUV/Van)
 // from pricing_rules (category='cars'). Falls back to defaults if no rule set.
@@ -124,6 +134,7 @@ const RIDE_FALLBACKS: Record<string, { baseFare: number; perKm: number }> = {
 };
 
 router.get("/rides", async (req: Request, res: Response) => {
+  noCache(res);
   try {
     const rows = toRows(await db.execute(sql`
       SELECT subcategory, base_fee, km_rate, platform_fee, commission_percent
@@ -161,6 +172,7 @@ router.get("/rides", async (req: Request, res: Response) => {
 
 // ── GET /pricing/calculate — public price calculator ─────────────────────────
 router.get("/calculate", async (req: Request, res: Response) => {
+  noCache(res);
   try {
     const { category, subcategory, hours = "1", days = "1", distance_km = "0" } = req.query as any;
 

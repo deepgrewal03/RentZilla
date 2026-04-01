@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useFocusEffect } from "expo-router";
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   ActivityIndicator, Animated, Alert, Platform, Modal,
@@ -634,15 +635,17 @@ export default function CarsScreen() {
     })();
   }, []);
 
-  // ── Fetch live pricing from admin rules ──
-  useEffect(() => {
-    (async () => {
-      try {
-        const data = await get<Record<string, { baseFare: number; perKm: number }>>("/pricing/rides");
-        if (data && typeof data === "object") setRidePricing(prev => ({ ...prev, ...data }));
-      } catch {}
-    })();
+  // ── Fetch live pricing from admin rules — re-runs every time tab is focused ──
+  const fetchPricing = useCallback(async () => {
+    try {
+      const data = await get<Record<string, { baseFare: number; perKm: number }>>("/pricing/rides");
+      if (data && typeof data === "object") setRidePricing(prev => ({ ...prev, ...data }));
+    } catch {}
   }, []);
+
+  useFocusEffect(useCallback(() => {
+    fetchPricing();
+  }, [fetchPricing]));
 
   // ── Update estimate when vehicle changes ──
   useEffect(() => {
