@@ -1,9 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Animated,
   Platform,
@@ -68,8 +68,13 @@ export default function BookingsScreen() {
 
   useEffect(() => {
     Animated.timing(fadeAnim, { toValue: 1, duration: 300, useNativeDriver: false }).start();
-    fetchBookings();
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchBookings();
+    }, [user?.role])
+  );
 
   async function fetchBookings() {
     try {

@@ -134,8 +134,9 @@ function BlockedUsersModal({ visible, onClose, api }: { visible: boolean; onClos
     } catch { Alert.alert("Error", "Could not unblock user"); }
   }
 
+  if (!visible) return null;
   return (
-    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
+    <Modal visible animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
       <View style={ss.modalRoot}>
         <View style={ss.modalHeader}>
           <Pressable onPress={onClose} style={ss.modalBack}>
@@ -206,8 +207,9 @@ function ReportUserModal({ visible, onClose, api }: { visible: boolean; onClose:
     } finally { setSubmitting(false); }
   }
 
+  if (!visible) return null;
   return (
-    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
+    <Modal visible animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
       <View style={ss.modalRoot}>
         <View style={ss.modalHeader}>
           <Pressable onPress={onClose} style={ss.modalBack}>
@@ -293,8 +295,9 @@ function ReportIssueModal({ visible, onClose, api }: { visible: boolean; onClose
     } finally { setSubmitting(false); }
   }
 
+  if (!visible) return null;
   return (
-    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
+    <Modal visible animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
       <View style={ss.modalRoot}>
         <View style={ss.modalHeader}>
           <Pressable onPress={onClose} style={ss.modalBack}>
@@ -874,28 +877,30 @@ export default function SettingsTab() {
       <ReportIssueModal visible={showReportIssueModal} onClose={() => setShowReportIssueModal(false)} api={api} />
 
       {/* FAQ Modal */}
-      <Modal visible={showFAQModal} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowFAQModal(false)}>
-        <View style={ss.modalRoot}>
-          <View style={ss.modalHeader}>
-            <Pressable onPress={() => setShowFAQModal(false)} style={ss.modalBack}>
-              <Ionicons name="close" size={22} color={C.text} />
-            </Pressable>
-            <Text style={ss.modalTitle}>FAQ</Text>
-            <View style={{ width: 36 }} />
+      {showFAQModal && (
+        <Modal visible animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowFAQModal(false)}>
+          <View style={ss.modalRoot}>
+            <View style={ss.modalHeader}>
+              <Pressable onPress={() => setShowFAQModal(false)} style={ss.modalBack}>
+                <Ionicons name="close" size={22} color={C.text} />
+              </Pressable>
+              <Text style={ss.modalTitle}>FAQ</Text>
+              <View style={{ width: 36 }} />
+            </View>
+            <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16 }}>
+              <Text style={[ss.formNote, { marginBottom: 12 }]}>Common questions about RentZilla</Text>
+              <Card>
+                {faqs.map((faq, i) => (
+                  <View key={faq.id}>
+                    <FAQItem faq={faq} />
+                    {i < faqs.length - 1 && <Divider />}
+                  </View>
+                ))}
+              </Card>
+            </ScrollView>
           </View>
-          <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16 }}>
-            <Text style={[ss.formNote, { marginBottom: 12 }]}>Common questions about RentZilla</Text>
-            <Card>
-              {faqs.map((faq, i) => (
-                <View key={faq.id}>
-                  <FAQItem faq={faq} />
-                  {i < faqs.length - 1 && <Divider />}
-                </View>
-              ))}
-            </Card>
-          </ScrollView>
-        </View>
-      </Modal>
+        </Modal>
+      )}
     </View>
   );
 }
