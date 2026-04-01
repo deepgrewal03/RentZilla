@@ -1,0 +1,194 @@
+Prompt: Make Driver “Start Trip” Open Live Map Navigation to Destination
+
+Update the RentZilla Driver → Cars tab → Active Ride card.
+
+When driver taps the Start Trip button, it should immediately open the trip map screen and start live navigation to the destination.
+
+This must be fully functional with:
+
+driver live location
+route navigation
+destination guidance
+trip status updates
+real-time tracking for customer
+backend ride state sync
+1) Start Trip Button Action
+
+Current issue:
+
+button only visible
+no trip navigation flow
+Required Fix
+
+On tap of:
+
+Start Trip
+
+perform this exact sequence:
+
+Step 1
+
+Update ride status:
+
+assigned → trip_started
+Step 2
+
+Open full-screen trip map view
+
+Map must instantly show:
+
+driver live location marker
+pickup completed state
+route polyline
+destination marker
+ETA
+total trip distance
+turn-by-turn navigation
+live moving marker
+Step 3
+
+Automatically begin navigation from:
+
+driver current live location → customer destination
+
+No second tap required.
+
+Navigation should start instantly.
+
+2) Live Navigation Screen UI
+
+Trip map screen should show:
+
+Top Panel
+customer/rider name
+fare
+ETA
+trip timer
+ride status = Ongoing
+Map Area
+live route
+traffic-aware shortest route
+current driver marker
+destination pin
+road path polyline
+rerouting if driver changes road
+Bottom Controls
+call rider
+trip details
+cancel trip
+complete trip button
+emergency support
+3) Live Driver Location Tracking
+
+As soon as trip starts:
+
+start foreground location updates
+send driver coordinates every 2–5 sec
+update backend
+update customer live tracking map
+update ETA in real time
+keep running in background
+4) Customer Side Live Tracking
+
+Customer app should instantly see:
+
+driver trip started
+moving live car
+current ETA
+route to destination
+distance remaining
+driver heading direction
+
+This should sync in real time.
+
+5) APIs Required
+Start Trip API
+
+POST /rides/{rideId}/start-trip
+
+Action
+update trip status
+save trip start timestamp
+enable navigation session
+start live location stream
+Driver Location Update
+
+POST /rides/{rideId}/driver-location
+
+Payload:
+
+latitude
+longitude
+heading
+speed
+ETA
+Customer Live Trip Fetch
+
+GET /rides/{rideId}/live-status
+
+Returns:
+
+driver location
+route
+ETA
+status
+trip distance
+6) Database Updates
+
+Update ride table:
+
+trip_started_at
+current_lat
+current_lng
+live_eta
+navigation_status
+route_polyline
+distance_remaining
+
+Status values:
+
+assigned
+trip_started
+ongoing
+completed
+cancelled
+7) Auto Navigation Behavior
+
+If app uses:
+
+Google Maps
+Mapbox
+Apple Maps
+
+launch embedded navigation instantly.
+
+Use:
+
+current GPS → destination GPS
+
+Must support:
+
+reroute on wrong turns
+traffic changes
+dynamic ETA refresh
+voice guidance ready
+dark mode map
+8) Complete Trip Flow
+
+When driver reaches destination:
+
+show Complete Trip button
+calculate final fare
+mark trip completed
+stop live location updates
+move trip to history
+open payment confirmation if COD
+9) UX Requirements
+no delay after tapping Start Trip
+smooth screen transition
+map opens instantly
+no blank white screen
+preserve active ride data
+handle background permissions
+keep battery optimized
+smooth live marker movement

@@ -14,6 +14,7 @@ import { useApi } from "@/hooks/useApi";
 import { LocationSearchModal, type LocationResult } from "@/components/rides/LocationSearchModal";
 import { SchedulePickerModal, type ScheduledTime } from "@/components/rides/SchedulePickerModal";
 import LeafletMapView, { type MapRef } from "@/components/rides/LeafletMapView";
+import TripNavigationModal, { type TripRide } from "@/components/rides/TripNavigationModal";
 
 const C = Colors.light;
 const { width: SW, height: SH } = Dimensions.get("window");
@@ -551,7 +552,7 @@ function ActiveRidesModal({ visible, rides, history, onClose, onCancelRide }: {
 // ─── MAIN SCREEN ─────────────────────────────────────────────────────────────
 export default function CarsScreen() {
   const insets = useSafeAreaInsets();
-  const { user, activeMode } = useAuth();
+  const { user, activeMode, token } = useAuth();
   const { get, post, patch } = useApi();
 
   const isProvider     = (user?.role === "provider" || user?.role === "both") && activeMode === "provider";
@@ -598,6 +599,7 @@ export default function CarsScreen() {
   const [driverActiveRide, setDriverActiveRide] = useState<ActiveRide | null>(null);
   const [driverLoading,    setDriverLoading]    = useState(false);
   const [selectedRequest,  setSelectedRequest]  = useState<RideRequest | null>(null);
+  const [showTripNav,      setShowTripNav]      = useState(false);
 
   const pollRef      = useRef<ReturnType<typeof setInterval> | null>(null);
   const mapRef       = useRef<MapRef>(null);
@@ -848,8 +850,13 @@ export default function CarsScreen() {
 
   const handleStartRide = async () => {
     if (!driverActiveRide) return;
-    await patch(`/rides/${driverActiveRide.id}/start`, {});
-    setDriverActiveRide({ ...driverActiveRide, status: "ongoing" });
+    try {
+      await patch(`/rides/${driverActiveRide.id}/start`, {});
+      setDriverActiveRide({ ...driverActiveRide, status: "ongoing" });
+      setShowTripNav(true);
+    } catch (e: any) {
+      Alert.alert("Error", e?.message ?? "Could not start trip");
+    }
   };
 
   const handleEndRide = async () => {
@@ -1146,10 +1153,22 @@ export default function CarsScreen() {
             </TouchableOpacity>
           )}
           {driverActiveRide.status === "ongoing" && (
-            <TouchableOpacity style={[styles.primaryBtn, { backgroundColor: RED }]} onPress={handleEndRide}>
-              <Feather name="flag" size={16} color="#fff" />
-              <Text style={styles.primaryBtnText}>End Trip</Text>
-            </TouchableOpacity>
+            <View style={{ gap: 10 }}>
+              <TouchableOpacity
+                style={[styles.primaryBtn, { backgroundColor: ORANGE }]}
+                onPress={() => setShowTripNav(true)}
+              >
+                <Feather name="navigation" size={16} color="#fff" />
+                <Text style={styles.primaryBtnText}>Resume Navigation</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.primaryBtn, { backgroundColor: RED }]}
+                onPress={handleEndRide}
+              >
+                <Feather name="flag" size={16} color="#fff" />
+                <Text style={styles.primaryBtnText}>End Trip</Text>
+              </TouchableOpacity>
+            </View>
           )}
         </View>
       )}
@@ -1388,6 +1407,19 @@ export default function CarsScreen() {
           </View>
         </View>
       )}
+
+      {/* Trip Navigation (full-screen, appears when driver starts a trip) */}
+      <TripNavigationModal
+        visible={showTripNav}
+        ride={driverActiveRide as TripRide | null}
+        apiBase={`https://${process.env.EXPO_PUBLIC_DOMAIN ?? ""}`}
+        token={token ?? ""}
+        onComplete={() => {
+          setShowTripNav(false);
+          setDriverActiveRide(null);
+        }}
+        onClose={() => setShowTripNav(false)}
+      />
     </View>
   );
 }

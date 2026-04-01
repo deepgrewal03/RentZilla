@@ -142,13 +142,81 @@ router.patch("/:id/start", authMiddleware, async (req: Request, res: Response) =
     const userId = (req as AR).userId;
     const { id } = req.params;
     const result = await db.execute(
-      `UPDATE rides SET status = 'ongoing', started_at = NOW()
+      `UPDATE rides SET status = 'ongoing', started_at = NOW(),
+         trip_started_at = NOW(), navigation_status = 'navigating'
        WHERE id = '${id}' AND driver_id = '${userId}' AND status = 'accepted'
        RETURNING *`
     );
     const rows = result.rows as any[];
     if (!rows.length) { res.status(404).json({ error: "Ride not found or not accepted" }); return; }
     res.json(rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// DRIVER: Ride-specific location update (during active trip)
+router.post("/:id/driver-location", authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as AR).userId;
+    const { id } = req.params;
+    const { lat, lng, heading = 0, speed = 0, eta } = req.body;
+    if (!lat || !lng) { res.status(400).json({ error: "lat and lng required" }); return; }
+
+    // Update ride record with current driver position
+    await db.execute(
+      `UPDATE rides SET driver_current_lat = ${lat}, driver_current_lng = ${lng},
+         live_eta = ${eta ?? "live_eta"}
+       WHERE id = '${id}' AND driver_id = '${userId}' AND status = 'ongoing'`
+    );
+
+    // Also update the global driver_locations table so customer polling works
+    await db.execute(
+      `INSERT INTO driver_locations (driver_id, lat, lng, heading, speed, updated_at)
+       VALUES ('${userId}', ${lat}, ${lng}, ${heading}, ${speed}, NOW())
+       ON CONFLICT (driver_id) DO UPDATE
+         SET lat = ${lat}, lng = ${lng}, heading = ${heading}, speed = ${speed}, updated_at = NOW()`
+    );
+
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// CUSTOMER: Live trip status for a specific ride
+router.get("/:id/live-status", authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const result = await db.execute(
+      `SELECT r.status, r.driver_current_lat, r.driver_current_lng, r.live_eta,
+              r.navigation_status, r.trip_started_at, r.fare, r.distance_km,
+              dl.lat as dl_lat, dl.lng as dl_lng, dl.heading, dl.speed,
+              u.name as driver_name, u.phone as driver_phone
+       FROM rides r
+       LEFT JOIN users u ON u.id = r.driver_id
+       LEFT JOIN driver_locations dl ON dl.driver_id = r.driver_id
+       WHERE r.id = '${id}'
+       LIMIT 1`
+    );
+    const row = (result.rows as any[])[0];
+    if (!row) { res.status(404).json({ error: "Ride not found" }); return; }
+
+    const driverLat = row.driver_current_lat ?? row.dl_lat ?? null;
+    const driverLng = row.driver_current_lng ?? row.dl_lng ?? null;
+
+    res.json({
+      status: row.status,
+      driver_lat: driverLat ? Number(driverLat) : null,
+      driver_lng: driverLng ? Number(driverLng) : null,
+      heading: row.heading ? Number(row.heading) : null,
+      speed: row.speed ? Number(row.speed) : null,
+      live_eta: row.live_eta ?? null,
+      navigation_status: row.navigation_status ?? "idle",
+      trip_started_at: row.trip_started_at ?? null,
+      driver_name: row.driver_name ?? null,
+      driver_phone: row.driver_phone ?? null,
+    });
   } catch (err) {
     res.status(500).json({ error: "Internal server error" });
   }

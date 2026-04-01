@@ -300,8 +300,30 @@ export async function runMigrations() {
     `ALTER TABLE rides ADD COLUMN IF NOT EXISTS cancellation_reason TEXT`,
     `ALTER TABLE rides ADD COLUMN IF NOT EXISTS canceled_at TIMESTAMP`,
     `ALTER TABLE rides ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT true`,
+    `ALTER TABLE rides ADD COLUMN IF NOT EXISTS trip_started_at TIMESTAMP`,
+    `ALTER TABLE rides ADD COLUMN IF NOT EXISTS navigation_status TEXT NOT NULL DEFAULT 'idle'`,
+    `ALTER TABLE rides ADD COLUMN IF NOT EXISTS driver_current_lat NUMERIC(10,6)`,
+    `ALTER TABLE rides ADD COLUMN IF NOT EXISTS driver_current_lng NUMERIC(10,6)`,
+    `ALTER TABLE rides ADD COLUMN IF NOT EXISTS live_eta INTEGER`,
   ];
   for (const stmt of ridesAlters) {
+    await db.execute(sql.raw(stmt));
+  }
+
+  // driver_locations: add heading + speed if missing
+  const driverLocAlters = [
+    `CREATE TABLE IF NOT EXISTS driver_locations (
+      driver_id TEXT PRIMARY KEY,
+      lat NUMERIC(10,6) NOT NULL,
+      lng NUMERIC(10,6) NOT NULL,
+      heading NUMERIC(6,2) NOT NULL DEFAULT 0,
+      speed NUMERIC(6,2) NOT NULL DEFAULT 0,
+      updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+    )`,
+    `ALTER TABLE driver_locations ADD COLUMN IF NOT EXISTS heading NUMERIC(6,2) NOT NULL DEFAULT 0`,
+    `ALTER TABLE driver_locations ADD COLUMN IF NOT EXISTS speed NUMERIC(6,2) NOT NULL DEFAULT 0`,
+  ];
+  for (const stmt of driverLocAlters) {
     await db.execute(sql.raw(stmt));
   }
 
