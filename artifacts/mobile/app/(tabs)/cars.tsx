@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   ActivityIndicator, Animated, Alert, Platform, Modal,
-  Dimensions, PanResponder, StatusBar, TextInput, KeyboardAvoidingView,
+  Dimensions, PanResponder, StatusBar, TextInput,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -308,10 +308,13 @@ function CancelModal({ ride, visible, onConfirm, onDismiss }: {
 
   useEffect(() => { if (visible) setReason(""); }, [visible]);
 
+  if (!visible) return null;
+
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onDismiss}>
-      <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-        <View style={styles.cancelModalCard}>
+    <Modal visible statusBarTranslucent transparent animationType="slide" onRequestClose={onDismiss}>
+      <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={onDismiss}>
+        <TouchableOpacity activeOpacity={1} style={styles.cancelModalCard} onPress={() => {}}>
+          <View style={styles.handleArea}><View style={styles.handleBar} /></View>
           <Text style={styles.cancelModalTitle}>Cancel Ride?</Text>
           <Text style={styles.cancelModalSub}>
             {ride?.pickup_address ?? "Pickup"} → {ride?.drop_address ?? "Destination"}
@@ -350,22 +353,85 @@ function CancelModal({ ride, visible, onConfirm, onDismiss }: {
               <Text style={styles.cancelModalConfirmText}>Yes, Cancel</Text>
             </TouchableOpacity>
           </View>
-        </View>
-      </KeyboardAvoidingView>
+        </TouchableOpacity>
+      </TouchableOpacity>
     </Modal>
   );
 }
 
+// ─── HISTORY RIDE CARD (cancelled / completed) ────────────────────────────────
+function HistoryRideCard({ ride }: { ride: ActiveRide }) {
+  const isCancelled = ride.status === "cancelled";
+  const statusColor = isCancelled ? RED : GREEN;
+  const statusLabel = isCancelled ? "Cancelled" : "Completed";
+  const veh = VEHICLE_TYPES.find(v => v.id === (ride.vehicle_type ?? "Car")) ?? VEHICLE_TYPES[2];
+
+  return (
+    <View style={[styles.activeRideCard, { opacity: isCancelled ? 0.82 : 1, borderColor: statusColor + "30" }]}>
+      <View style={styles.activeRideHeader}>
+        <View style={styles.activeRideVehicleRow}>
+          <Text style={styles.activeRideEmoji}>{veh.icon}</Text>
+          <Text style={styles.activeRideVehicle}>{veh.label}</Text>
+        </View>
+        <View style={[styles.statusPill, { backgroundColor: statusColor + "18" }]}>
+          <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
+          <Text style={[styles.statusPillText, { color: statusColor }]}>{statusLabel}</Text>
+        </View>
+      </View>
+
+      {ride.ride_for_type === "someone_else" && ride.passenger_name && (
+        <View style={styles.passengerBadge}>
+          <Feather name="user" size={12} color={PURPLE} />
+          <Text style={styles.passengerBadgeText}>For: {ride.passenger_name}</Text>
+        </View>
+      )}
+
+      <View style={styles.routeCard}>
+        <View style={styles.routeRow}>
+          <View style={[styles.routeDot, { backgroundColor: GREEN }]} />
+          <Text style={styles.routeAddr} numberOfLines={1}>{ride.pickup_address ?? "Pickup"}</Text>
+        </View>
+        <View style={styles.routeConnector} />
+        <View style={styles.routeRow}>
+          <View style={[styles.routeDot, { backgroundColor: ORANGE }]} />
+          <Text style={styles.routeAddr} numberOfLines={1}>{ride.drop_address ?? "Destination"}</Text>
+        </View>
+        <View style={styles.rideMeta}>
+          <View style={styles.rideMetaItem}>
+            <Feather name="navigation" size={12} color={C.textSecondary} />
+            <Text style={styles.rideMetaText}>{fmt(ride.distance_km)} km</Text>
+          </View>
+          <Text style={[styles.rideMetaFare, { color: isCancelled ? C.textSecondary : C.text }]}>₹{ride.fare}</Text>
+          {isCancelled && (ride as any).cancellation_reason ? (
+            <Text style={[styles.rideMetaText, { color: RED, fontStyle: "italic" }]} numberOfLines={1}>
+              "{(ride as any).cancellation_reason}"
+            </Text>
+          ) : null}
+        </View>
+      </View>
+    </View>
+  );
+}
+
 // ─── ACTIVE RIDES MODAL ───────────────────────────────────────────────────────
-function ActiveRidesModal({ visible, rides, onClose, onCancelRide }: {
-  visible: boolean; rides: ActiveRide[];
+function ActiveRidesModal({ visible, rides, history, onClose, onCancelRide }: {
+  visible: boolean; rides: ActiveRide[]; history: ActiveRide[];
   onClose: () => void;
   onCancelRide: (ride: ActiveRide) => void;
 }) {
+  const [tab, setTab] = useState<"active" | "history">("active");
+
+  useEffect(() => { if (visible) setTab("active"); }, [visible]);
+
+  if (!visible) return null;
+
+  const cancelled  = history.filter(r => r.status === "cancelled");
+  const completed  = history.filter(r => r.status === "completed");
+
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={styles.modalOverlay}>
-        <View style={styles.activeRidesSheet}>
+    <Modal visible statusBarTranslucent transparent animationType="slide" onRequestClose={onClose}>
+      <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={onClose}>
+        <TouchableOpacity activeOpacity={1} style={styles.activeRidesSheet} onPress={() => {}}>
           {/* Handle */}
           <View style={styles.handleArea}>
             <View style={styles.handleBar} />
@@ -373,9 +439,9 @@ function ActiveRidesModal({ visible, rides, onClose, onCancelRide }: {
 
           <View style={styles.activeRidesHeader}>
             <View>
-              <Text style={styles.activeRidesTitle}>Active Rides</Text>
+              <Text style={styles.activeRidesTitle}>My Rides</Text>
               <Text style={styles.activeRidesSub}>
-                {rides.length} ride{rides.length !== 1 ? "s" : ""} in progress
+                {rides.length} active · {history.length} past
               </Text>
             </View>
             <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
@@ -383,21 +449,63 @@ function ActiveRidesModal({ visible, rides, onClose, onCancelRide }: {
             </TouchableOpacity>
           </View>
 
+          {/* Tabs */}
+          <View style={styles.ridesTabRow}>
+            <TouchableOpacity
+              style={[styles.ridesTab, tab === "active" && styles.ridesTabActive]}
+              onPress={() => setTab("active")}
+            >
+              <Text style={[styles.ridesTabText, tab === "active" && styles.ridesTabTextActive]}>
+                Active {rides.length > 0 ? `(${rides.length})` : ""}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.ridesTab, tab === "history" && styles.ridesTabActive]}
+              onPress={() => setTab("history")}
+            >
+              <Text style={[styles.ridesTabText, tab === "history" && styles.ridesTabTextActive]}>
+                History {history.length > 0 ? `(${history.length})` : ""}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
           <ScrollView contentContainerStyle={styles.activeRidesScroll} showsVerticalScrollIndicator={false}>
-            {rides.length === 0 ? (
-              <View style={styles.driverEmptyState}>
-                <Text style={{ fontSize: 44 }}>🚗</Text>
-                <Text style={styles.emptyTitle}>No active rides</Text>
-                <Text style={styles.emptyDesc}>Your active ride bookings will appear here</Text>
-              </View>
+            {tab === "active" ? (
+              rides.length === 0 ? (
+                <View style={styles.driverEmptyState}>
+                  <Text style={{ fontSize: 44 }}>🚗</Text>
+                  <Text style={styles.emptyTitle}>No active rides</Text>
+                  <Text style={styles.emptyDesc}>Your active ride bookings will appear here</Text>
+                </View>
+              ) : (
+                rides.map(r => <ActiveRideCard key={r.id} ride={r} onCancel={onCancelRide} />)
+              )
             ) : (
-              rides.map(r => (
-                <ActiveRideCard key={r.id} ride={r} onCancel={onCancelRide} />
-              ))
+              <>
+                {completed.length > 0 && (
+                  <>
+                    <Text style={styles.historyGroupLabel}>Completed</Text>
+                    {completed.map(r => <HistoryRideCard key={r.id} ride={r} />)}
+                  </>
+                )}
+                {cancelled.length > 0 && (
+                  <>
+                    <Text style={[styles.historyGroupLabel, { color: RED }]}>Cancelled</Text>
+                    {cancelled.map(r => <HistoryRideCard key={r.id} ride={r} />)}
+                  </>
+                )}
+                {history.length === 0 && (
+                  <View style={styles.driverEmptyState}>
+                    <Text style={{ fontSize: 44 }}>📋</Text>
+                    <Text style={styles.emptyTitle}>No past rides</Text>
+                    <Text style={styles.emptyDesc}>Completed and cancelled rides will appear here</Text>
+                  </View>
+                )}
+              </>
             )}
           </ScrollView>
-        </View>
-      </View>
+        </TouchableOpacity>
+      </TouchableOpacity>
     </Modal>
   );
 }
@@ -430,9 +538,10 @@ export default function CarsScreen() {
   const [passengerPhone, setPassengerPhone] = useState("");
 
   // ── Multiple active rides state ──
-  const [activeRides,        setActiveRides]        = useState<ActiveRide[]>([]);
-  const [showActiveRides,    setShowActiveRides]     = useState(false);
-  const [cancellingRide,     setCancellingRide]      = useState<ActiveRide | null>(null);
+  const [activeRides,     setActiveRides]  = useState<ActiveRide[]>([]);
+  const [rideHistory,     setRideHistory]  = useState<ActiveRide[]>([]);
+  const [showActiveRides, setShowActiveRides] = useState(false);
+  const [cancellingRide,  setCancellingRide] = useState<ActiveRide | null>(null);
 
   // ── Dynamic pricing from admin ──
   const [ridePricing, setRidePricing] = useState<Record<string, { baseFare: number; perKm: number }>>(DEFAULT_PRICING);
@@ -521,6 +630,19 @@ export default function CarsScreen() {
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, [tab]);
 
+  // ── Fetch ride history whenever the modal opens ──
+  useEffect(() => {
+    if (!showActiveRides) return;
+    (async () => {
+      try {
+        const data = await get<ActiveRide[]>("/rides/history");
+        if (Array.isArray(data)) {
+          setRideHistory(data.filter(r => ["cancelled", "completed"].includes(r.status)));
+        }
+      } catch {}
+    })();
+  }, [showActiveRides]);
+
   // ── Poll driver requests + active ride ──
   useEffect(() => {
     if (tab !== "driver" || !isOnline) return;
@@ -607,11 +729,29 @@ export default function CarsScreen() {
 
   // ── Cancel Ride (confirmed with reason) ──
   const handleCancelConfirmed = async (rideId: string, reason: string) => {
+    // Grab the ride before removing it (for history)
+    const rideToCancel = activeRides.find(r => r.id === rideId) ?? cancellingRide;
     setCancellingRide(null);
+
+    // Optimistically remove from active list & add to history
+    setActiveRides(prev => prev.filter(r => r.id !== rideId));
+    if (rideToCancel) {
+      const cancelledRide: ActiveRide = {
+        ...rideToCancel,
+        status: "cancelled",
+        ...(reason ? { cancellation_reason: reason } as any : {}),
+      };
+      setRideHistory(prev => [cancelledRide, ...prev.filter(r => r.id !== rideId)]);
+    }
+
     try {
       await patch(`/rides/${rideId}/cancel`, { cancellationReason: reason });
-      setActiveRides(prev => prev.filter(r => r.id !== rideId));
     } catch {
+      // Rollback optimistic updates if API fails
+      if (rideToCancel) {
+        setActiveRides(prev => [rideToCancel, ...prev]);
+        setRideHistory(prev => prev.filter(r => r.id !== rideId));
+      }
       Alert.alert("Error", "Could not cancel the ride. Please try again.");
     }
   };
@@ -1136,6 +1276,7 @@ export default function CarsScreen() {
       <ActiveRidesModal
         visible={showActiveRides}
         rides={activeRides}
+        history={rideHistory}
         onClose={() => setShowActiveRides(false)}
         onCancelRide={handleCancelRequest}
       />
@@ -1247,7 +1388,7 @@ const styles = StyleSheet.create({
   // Primary button
   primaryBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: ORANGE, borderRadius: 16, paddingVertical: 16 },
   primaryBtnText: { fontSize: 16, fontWeight: "700", color: "#fff", fontFamily: "Inter_700Bold" },
-  cancelBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, borderRadius: 16, paddingVertical: 14, alignContent: "center", borderWidth: 1.5, borderColor: RED, marginTop: 8 },
+  cancelBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, borderRadius: 16, paddingVertical: 14, borderWidth: 1.5, borderColor: RED, marginTop: 8 },
   cancelBtnText: { fontSize: 15, fontWeight: "600", color: RED, fontFamily: "Inter_600SemiBold" },
 
   // Ride details
@@ -1315,14 +1456,22 @@ const styles = StyleSheet.create({
   declineBtn: { flex: 0.6, borderRadius: 14, paddingVertical: 15, alignItems: "center", borderWidth: 1.5, borderColor: C.border },
   declineBtnText: { fontSize: 15, fontWeight: "600", color: C.text, fontFamily: "Inter_600SemiBold" },
 
-  // Active rides modal
-  modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.55)", justifyContent: "flex-end" },
+  // Modal backdrop (replaces modalOverlay — uses TouchableOpacity for tap-to-close)
+  modalBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.55)", justifyContent: "flex-end" },
   activeRidesSheet: { backgroundColor: C.background, borderTopLeftRadius: 28, borderTopRightRadius: 28, maxHeight: SH * 0.88, paddingBottom: 40 },
-  activeRidesHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingBottom: 16 },
+  activeRidesHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingBottom: 12 },
   activeRidesTitle: { fontSize: 22, fontWeight: "800", color: C.text, fontFamily: "Inter_700Bold" },
   activeRidesSub: { fontSize: 13, color: C.textSecondary, fontFamily: "Inter_400Regular", marginTop: 2 },
   closeBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: C.backgroundSecondary, alignItems: "center", justifyContent: "center" },
   activeRidesScroll: { paddingHorizontal: 16, paddingBottom: 20, gap: 12 },
+
+  // Tabs (Active / History)
+  ridesTabRow: { flexDirection: "row", marginHorizontal: 16, marginBottom: 14, backgroundColor: C.backgroundSecondary, borderRadius: 14, padding: 4, gap: 4 },
+  ridesTab: { flex: 1, paddingVertical: 10, borderRadius: 11, alignItems: "center" },
+  ridesTabActive: { backgroundColor: ORANGE },
+  ridesTabText: { fontSize: 14, fontWeight: "600", color: C.textSecondary, fontFamily: "Inter_600SemiBold" },
+  ridesTabTextActive: { color: "#fff" },
+  historyGroupLabel: { fontSize: 12, fontWeight: "700", color: C.textSecondary, fontFamily: "Inter_700Bold", textTransform: "uppercase", letterSpacing: 0.7, marginBottom: 8, marginTop: 4 },
 
   // Active ride card
   activeRideCard: { backgroundColor: C.backgroundSecondary, borderRadius: 20, padding: 16, borderWidth: 1, borderColor: C.border },
