@@ -1,0 +1,159 @@
+Prompt: Fix Cancel Ride Button in Active Rides + Move to History
+
+Fix the Cars tab → Active Rides → Cancel Ride button, which is currently not working.
+
+The cancel action must be fully functional with frontend UI, backend APIs, ride status updates, database changes, and ride history sync.
+
+1) Fix Cancel Ride Button Action
+
+When customer taps Cancel Ride on any active ride card:
+
+Required Flow
+open confirmation modal
+ask:
+“Are you sure you want to cancel this ride?”
+buttons:
+Yes, Cancel Ride
+No, Keep Ride
+
+After confirmation:
+
+call cancel ride API
+update ride status immediately
+remove ride from Active Rides list
+stop live tracking
+release driver assignment
+clear map route if ride currently selected
+
+The button must work for:
+
+searching rides
+driver assigned
+driver arriving
+scheduled future rides
+2) Move Cancelled Ride to Ride History
+
+After successful cancellation:
+
+The ride must NOT disappear permanently.
+
+Instead move it to:
+
+Ride History → Cancelled Section
+
+or mark status as:
+
+Cancelled
+
+History card should show:
+
+ride date
+pickup
+destination
+cancelled time
+fare estimate
+cancellation reason
+booked for self / someone else
+passenger name if applicable
+3) Update Active Ride API
+Cancel Ride API
+
+POST /rides/{rideId}/cancel
+
+Required Backend Actions
+update ride status = cancelled
+set is_active = false
+save cancelled timestamp
+save cancellation reason
+remove from active ride query
+insert into ride history response
+free assigned driver
+stop tracking session
+release reserved ETA slot
+4) Ride History API
+Get Ride History
+
+GET /rides/history/{customerId}
+
+This should now include:
+
+completed rides
+cancelled rides
+scheduled rides
+rides booked for someone else
+
+Add filter:
+
+All
+Completed
+Cancelled
+5) Database Fix
+
+Update rides table.
+
+New Fields
+status
+is_active
+cancelled_at
+cancellation_reason
+moved_to_history
+Status Values
+active
+assigned
+ongoing
+completed
+cancelled
+6) UI Real-Time Sync
+
+After cancellation:
+
+remove card instantly from active rides
+update Active Ride count badge
+add history card instantly
+show success toast:
+Ride cancelled successfully
+no refresh required
+sync on all screens
+7) Important Map Reset
+
+If cancelled ride is currently open on map:
+
+Auto clear:
+
+pickup marker
+destination marker
+route polyline
+driver live marker
+ETA panel
+fare estimate
+
+Reset Cars tab to fresh booking screen.
+
+8) Driver Side Sync
+
+When ride cancelled:
+
+remove request from driver app
+stop navigation
+mark driver available again
+send cancel notification
+update earnings preview
+9) Notifications
+
+Send:
+
+push notification
+in-app notification
+optional SMS
+
+Message:
+
+Your ride has been cancelled successfully
+10) UX Requirement
+no broken button state
+disable double taps
+loading spinner during API call
+instant UI feedback
+clean ride history cards
+preserve app theme
+fast backend response

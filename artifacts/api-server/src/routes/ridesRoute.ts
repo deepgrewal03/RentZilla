@@ -283,6 +283,7 @@ router.patch("/:id/cancel", authMiddleware, async (req: Request, res: Response) 
     const result = await db.execute(
       `UPDATE rides
        SET status = 'cancelled',
+           is_active = false,
            canceled_at = NOW(),
            cancellation_reason = ${reasonSql}
        WHERE id = '${id}'
@@ -290,11 +291,23 @@ router.patch("/:id/cancel", authMiddleware, async (req: Request, res: Response) 
          AND status IN ('requested','scheduled','accepted')
        RETURNING *`
     );
-    if (!(result.rows as any[]).length) {
+    const rows = result.rows as any[];
+    if (!rows.length) {
       res.status(404).json({ error: "Ride not found or cannot be cancelled" });
       return;
     }
-    res.json({ success: true });
+
+    // Free the assigned driver if one was assigned
+    const driverId = rows[0]?.driver_id;
+    if (driverId) {
+      await db.execute(
+        `UPDATE rides
+         SET driver_id = NULL
+         WHERE id = '${id}'`
+      ).catch(() => {});
+    }
+
+    res.json({ success: true, ride: rows[0] });
   } catch (err) {
     res.status(500).json({ error: "Internal server error" });
   }

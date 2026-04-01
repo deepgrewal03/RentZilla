@@ -288,7 +288,8 @@ export async function runMigrations() {
       ride_for_type TEXT NOT NULL DEFAULT 'me',
       passenger_name TEXT,
       passenger_phone TEXT,
-      cancellation_reason TEXT
+      cancellation_reason TEXT,
+      is_active BOOLEAN NOT NULL DEFAULT true
     )
   `));
 
@@ -298,6 +299,7 @@ export async function runMigrations() {
     `ALTER TABLE rides ADD COLUMN IF NOT EXISTS passenger_phone TEXT`,
     `ALTER TABLE rides ADD COLUMN IF NOT EXISTS cancellation_reason TEXT`,
     `ALTER TABLE rides ADD COLUMN IF NOT EXISTS canceled_at TIMESTAMP`,
+    `ALTER TABLE rides ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT true`,
   ];
   for (const stmt of ridesAlters) {
     await db.execute(sql.raw(stmt));

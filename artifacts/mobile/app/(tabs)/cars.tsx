@@ -298,8 +298,8 @@ function ActiveRideCard({ ride, onCancel }: { ride: ActiveRide; onCancel: (r: Ac
 }
 
 // ─── CANCEL REASON MODAL ──────────────────────────────────────────────────────
-function CancelModal({ ride, visible, onConfirm, onDismiss }: {
-  ride: ActiveRide | null; visible: boolean;
+function CancelModal({ ride, visible, loading, onConfirm, onDismiss }: {
+  ride: ActiveRide | null; visible: boolean; loading: boolean;
   onConfirm: (rideId: string, reason: string) => void;
   onDismiss: () => void;
 }) {
@@ -343,14 +343,23 @@ function CancelModal({ ride, visible, onConfirm, onDismiss }: {
           />
 
           <View style={styles.cancelModalBtns}>
-            <TouchableOpacity style={styles.cancelModalKeep} onPress={onDismiss}>
+            <TouchableOpacity
+              style={[styles.cancelModalKeep, loading && { opacity: 0.4 }]}
+              onPress={onDismiss}
+              disabled={loading}
+            >
               <Text style={styles.cancelModalKeepText}>Keep Ride</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={styles.cancelModalConfirm}
-              onPress={() => ride && onConfirm(ride.id, reason)}
+              style={[styles.cancelModalConfirm, loading && { opacity: 0.75 }]}
+              onPress={() => !loading && ride && onConfirm(ride.id, reason)}
+              disabled={loading}
             >
-              <Text style={styles.cancelModalConfirmText}>Yes, Cancel</Text>
+              {loading ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Text style={styles.cancelModalConfirmText}>Yes, Cancel</Text>
+              )}
             </TouchableOpacity>
           </View>
         </TouchableOpacity>
@@ -419,14 +428,19 @@ function ActiveRidesModal({ visible, rides, history, onClose, onCancelRide }: {
   onClose: () => void;
   onCancelRide: (ride: ActiveRide) => void;
 }) {
-  const [tab, setTab] = useState<"active" | "history">("active");
+  const [tab,           setTab]           = useState<"active" | "history">("active");
+  const [historyFilter, setHistoryFilter] = useState<"all" | "completed" | "cancelled">("all");
 
-  useEffect(() => { if (visible) setTab("active"); }, [visible]);
+  useEffect(() => { if (visible) { setTab("active"); setHistoryFilter("all"); } }, [visible]);
 
   if (!visible) return null;
 
-  const cancelled  = history.filter(r => r.status === "cancelled");
-  const completed  = history.filter(r => r.status === "completed");
+  const cancelled = history.filter(r => r.status === "cancelled");
+  const completed = history.filter(r => r.status === "completed");
+  const filteredHistory =
+    historyFilter === "completed" ? completed :
+    historyFilter === "cancelled" ? cancelled :
+    history;
 
   return (
     <Modal visible statusBarTranslucent transparent animationType="slide" onRequestClose={onClose}>
@@ -469,6 +483,23 @@ function ActiveRidesModal({ visible, rides, history, onClose, onCancelRide }: {
             </TouchableOpacity>
           </View>
 
+          {/* History filter pills — shown only on History tab */}
+          {tab === "history" && (
+            <View style={styles.historyFilterRow}>
+              {(["all", "completed", "cancelled"] as const).map(f => (
+                <TouchableOpacity
+                  key={f}
+                  style={[styles.historyFilterPill, historyFilter === f && styles.historyFilterPillActive]}
+                  onPress={() => setHistoryFilter(f)}
+                >
+                  <Text style={[styles.historyFilterText, historyFilter === f && styles.historyFilterTextActive]}>
+                    {f === "all" ? `All (${history.length})` : f === "completed" ? `✓ Completed (${completed.length})` : `✕ Cancelled (${cancelled.length})`}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+
           <ScrollView contentContainerStyle={styles.activeRidesScroll} showsVerticalScrollIndicator={false}>
             {tab === "active" ? (
               rides.length === 0 ? (
@@ -482,25 +513,18 @@ function ActiveRidesModal({ visible, rides, history, onClose, onCancelRide }: {
               )
             ) : (
               <>
-                {completed.length > 0 && (
-                  <>
-                    <Text style={styles.historyGroupLabel}>Completed</Text>
-                    {completed.map(r => <HistoryRideCard key={r.id} ride={r} />)}
-                  </>
-                )}
-                {cancelled.length > 0 && (
-                  <>
-                    <Text style={[styles.historyGroupLabel, { color: RED }]}>Cancelled</Text>
-                    {cancelled.map(r => <HistoryRideCard key={r.id} ride={r} />)}
-                  </>
-                )}
-                {history.length === 0 && (
-                  <View style={styles.driverEmptyState}>
-                    <Text style={{ fontSize: 44 }}>📋</Text>
-                    <Text style={styles.emptyTitle}>No past rides</Text>
-                    <Text style={styles.emptyDesc}>Completed and cancelled rides will appear here</Text>
-                  </View>
-                )}
+                {filteredHistory.length > 0
+                  ? filteredHistory.map(r => <HistoryRideCard key={r.id} ride={r} />)
+                  : (
+                    <View style={styles.driverEmptyState}>
+                      <Text style={{ fontSize: 44 }}>📋</Text>
+                      <Text style={styles.emptyTitle}>
+                        {historyFilter === "all" ? "No past rides" : historyFilter === "completed" ? "No completed rides" : "No cancelled rides"}
+                      </Text>
+                      <Text style={styles.emptyDesc}>Completed and cancelled rides will appear here</Text>
+                    </View>
+                  )
+                }
               </>
             )}
           </ScrollView>
@@ -542,6 +566,9 @@ export default function CarsScreen() {
   const [rideHistory,     setRideHistory]  = useState<ActiveRide[]>([]);
   const [showActiveRides, setShowActiveRides] = useState(false);
   const [cancellingRide,  setCancellingRide] = useState<ActiveRide | null>(null);
+  const [cancelLoading,   setCancelLoading]  = useState(false);
+  const [toastMsg,        setToastMsg]       = useState<string | null>(null);
+  const toastTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ── Dynamic pricing from admin ──
   const [ridePricing, setRidePricing] = useState<Record<string, { baseFare: number; perKm: number }>>(DEFAULT_PRICING);
@@ -722,18 +749,27 @@ export default function CarsScreen() {
     setBooking(false);
   };
 
+  // ── Toast helper ──
+  const showToast = useCallback((msg: string) => {
+    setToastMsg(msg);
+    if (toastTimeout.current) clearTimeout(toastTimeout.current);
+    toastTimeout.current = setTimeout(() => setToastMsg(null), 3000);
+  }, []);
+
   // ── Cancel Ride (opens confirm modal) ──
   const handleCancelRequest = (ride: ActiveRide) => {
     setCancellingRide(ride);
   };
 
-  // ── Cancel Ride (confirmed with reason) ──
+  // ── Cancel Ride (confirmed with reason) — loading guard + map reset + toast ──
   const handleCancelConfirmed = async (rideId: string, reason: string) => {
-    // Grab the ride before removing it (for history)
-    const rideToCancel = activeRides.find(r => r.id === rideId) ?? cancellingRide;
-    setCancellingRide(null);
+    if (cancelLoading) return; // double-tap guard
+    setCancelLoading(true);
 
-    // Optimistically remove from active list & add to history
+    // Grab the ride before any state changes
+    const rideToCancel = activeRides.find(r => r.id === rideId) ?? cancellingRide;
+
+    // Optimistically remove from active list & add to history immediately
     setActiveRides(prev => prev.filter(r => r.id !== rideId));
     if (rideToCancel) {
       const cancelledRide: ActiveRide = {
@@ -746,6 +782,18 @@ export default function CarsScreen() {
 
     try {
       await patch(`/rides/${rideId}/cancel`, { cancellationReason: reason });
+
+      // Close the cancel modal and show success toast
+      setCancellingRide(null);
+      showToast("Ride cancelled successfully");
+
+      // Reset the map/estimate if this ride's route is currently displayed
+      if (drop && rideToCancel?.drop_address === drop.address) {
+        setDrop(null);
+        setEstimate(null);
+        setSheetExpanded(false);
+        mapRef.current?.clearDrop?.();
+      }
     } catch {
       // Rollback optimistic updates if API fails
       if (rideToCancel) {
@@ -753,6 +801,8 @@ export default function CarsScreen() {
         setRideHistory(prev => prev.filter(r => r.id !== rideId));
       }
       Alert.alert("Error", "Could not cancel the ride. Please try again.");
+    } finally {
+      setCancelLoading(false);
     }
   };
 
@@ -1285,9 +1335,20 @@ export default function CarsScreen() {
       <CancelModal
         ride={cancellingRide}
         visible={cancellingRide !== null}
+        loading={cancelLoading}
         onConfirm={handleCancelConfirmed}
-        onDismiss={() => setCancellingRide(null)}
+        onDismiss={() => !cancelLoading && setCancellingRide(null)}
       />
+
+      {/* Success Toast */}
+      {toastMsg !== null && (
+        <View style={styles.toastContainer} pointerEvents="none">
+          <View style={styles.toastPill}>
+            <Feather name="check-circle" size={16} color="#fff" />
+            <Text style={styles.toastText}>{toastMsg}</Text>
+          </View>
+        </View>
+      )}
     </View>
   );
 }
@@ -1496,4 +1557,16 @@ const styles = StyleSheet.create({
   cancelModalKeepText: { fontSize: 15, fontWeight: "600", color: C.text, fontFamily: "Inter_600SemiBold" },
   cancelModalConfirm: { flex: 1, borderRadius: 16, paddingVertical: 16, alignItems: "center", backgroundColor: RED },
   cancelModalConfirmText: { fontSize: 15, fontWeight: "700", color: "#fff", fontFamily: "Inter_700Bold" },
+
+  // History filter pills
+  historyFilterRow: { flexDirection: "row", marginHorizontal: 16, marginBottom: 10, gap: 8, flexWrap: "wrap" },
+  historyFilterPill: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 20, backgroundColor: C.backgroundSecondary, borderWidth: 1.5, borderColor: C.border },
+  historyFilterPillActive: { backgroundColor: ORANGE, borderColor: ORANGE },
+  historyFilterText: { fontSize: 12, fontWeight: "600", color: C.textSecondary, fontFamily: "Inter_600SemiBold" },
+  historyFilterTextActive: { color: "#fff" },
+
+  // Success toast
+  toastContainer: { position: "absolute", bottom: 110, left: 20, right: 20, alignItems: "center", zIndex: 9999 },
+  toastPill: { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: GREEN, borderRadius: 24, paddingHorizontal: 18, paddingVertical: 12, shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.25, shadowRadius: 8, elevation: 8 },
+  toastText: { fontSize: 14, fontWeight: "600", color: "#fff", fontFamily: "Inter_600SemiBold" },
 });
