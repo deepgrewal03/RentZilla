@@ -529,21 +529,6 @@ export default function SettingsTab() {
     ]);
   }
 
-  function confirmDeleteAccount() {
-    Alert.prompt(
-      "Delete Account",
-      "This is permanent. Enter your password to confirm.",
-      async (password) => {
-        if (!password) return;
-        try {
-          await del("/settings/account", { password });
-          await logout();
-          router.replace("/sign-in");
-        } catch (e: any) { Alert.alert("Error", e.message || "Failed to delete account"); }
-      },
-      "secure-text"
-    );
-  }
 
   const displayName = user?.name || [user?.firstName, user?.lastName].filter(Boolean).join(" ") || "User";
 
@@ -850,14 +835,6 @@ export default function SettingsTab() {
               { text: "Cancel", style: "cancel" },
               { text: "Logout", style: "destructive", onPress: async () => { await logout(); router.replace("/sign-in"); } },
             ])}
-          />
-          <Divider />
-          <SettingRow
-            icon="trash-outline" label="Delete Account"
-            sublabel="Permanently delete your account and all data"
-            color="#EF4444" chevron={false}
-            onPress={Platform.OS === "ios" ? confirmDeleteAccount : () =>
-              Alert.alert("Delete Account", "Contact support@rentzilla.in to delete your account permanently.")}
           />
         </Card>
 
