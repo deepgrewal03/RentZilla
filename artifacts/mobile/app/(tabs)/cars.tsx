@@ -26,7 +26,7 @@ const RED    = "#EF4444";
 const PURPLE = "#8B5CF6";
 
 const SHEET_COLLAPSED = SH * 0.52;
-const SHEET_EXPANDED  = SH * 0.72;
+const SHEET_EXPANDED  = SH * 0.87;
 const MAP_HEIGHT = SH - SHEET_COLLAPSED - (Platform.OS === "android" ? 32 : 0);
 
 interface Coords { lat: number; lng: number; address: string }
@@ -53,8 +53,6 @@ interface RideRequest {
 }
 
 const VEHICLE_TYPES = [
-  { id: "Bike",  icon: "🏍️", label: "Bike",  tagline: "Fastest",     color: "#06B6D4" },
-  { id: "Auto",  icon: "🛺", label: "Auto",  tagline: "Affordable",  color: "#10B981" },
   { id: "Car",   icon: "🚗", label: "Car",   tagline: "Comfortable", color: ORANGE },
   { id: "SUV",   icon: "🚙", label: "SUV",   tagline: "Spacious",    color: PURPLE },
   { id: "Van",   icon: "🚐", label: "Van",   tagline: "Group",       color: "#EC4899" },
@@ -176,6 +174,7 @@ function VehicleCard({ v, selected, estimate, onPress, distanceKm, pricing }: {
 function BottomSheet({ children, isExpanded, onToggle }: {
   children: React.ReactNode; isExpanded: boolean; onToggle: () => void;
 }) {
+  const { bottom: bottomInset } = useSafeAreaInsets();
   const sheetY = useRef(new Animated.Value(SHEET_COLLAPSED)).current;
   useEffect(() => {
     Animated.spring(sheetY, {
@@ -195,13 +194,15 @@ function BottomSheet({ children, isExpanded, onToggle }: {
       },
     })
   ).current;
+  // Tab bar is ~49px + bottom safe area inset; pad enough so the button stays above it
+  const scrollBottomPad = bottomInset + 90;
   return (
     <Animated.View style={[styles.bottomSheet, { height: sheetY }]}>
       <TouchableOpacity {...panResponder.panHandlers} onPress={onToggle} style={styles.handleArea} activeOpacity={1}>
         <View style={styles.handleBar} />
       </TouchableOpacity>
       <ScrollView
-        contentContainerStyle={{ paddingBottom: 32 }}
+        contentContainerStyle={{ paddingBottom: scrollBottomPad }}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
@@ -215,7 +216,7 @@ function BottomSheet({ children, isExpanded, onToggle }: {
 function ActiveRideCard({ ride, onCancel }: { ride: ActiveRide; onCancel: (r: ActiveRide) => void }) {
   const statusColor = STATUS_COLOR[ride.status] ?? C.textSecondary;
   const statusLabel = STATUS_LABEL[ride.status] ?? ride.status;
-  const veh = VEHICLE_TYPES.find(v => v.id === (ride.vehicle_type ?? "Car")) ?? VEHICLE_TYPES[2];
+  const veh = VEHICLE_TYPES.find(v => v.id === (ride.vehicle_type ?? "Car")) ?? VEHICLE_TYPES[0];
   const isForOther = ride.ride_for_type === "someone_else";
   const canCancel  = ["requested", "scheduled", "accepted"].includes(ride.status);
 
@@ -386,7 +387,7 @@ function HistoryRideCard({ ride }: { ride: ActiveRide }) {
   const isCancelled = ride.status === "cancelled";
   const statusColor = isCancelled ? RED : GREEN;
   const statusLabel = isCancelled ? "Cancelled" : "Completed";
-  const veh = VEHICLE_TYPES.find(v => v.id === (ride.vehicle_type ?? "Car")) ?? VEHICLE_TYPES[2];
+  const veh = VEHICLE_TYPES.find(v => v.id === (ride.vehicle_type ?? "Car")) ?? VEHICLE_TYPES[0];
 
   return (
     <View style={[styles.activeRideCard, { opacity: isCancelled ? 0.82 : 1, borderColor: statusColor + "30" }]}>

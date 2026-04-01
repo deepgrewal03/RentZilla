@@ -281,12 +281,29 @@ const LeafletMapView = forwardRef<MapRef, Props>(
       },
     }));
 
-    return <View ref={divRef} style={[styles.container, style]} />;
+    // On web, render a raw <div> so google.maps.Map() gets a true DOM element.
+    // In Expo Web, View refs resolve to React component instances, not DOM nodes.
+    if (Platform.OS === "web") {
+      return (
+        <div
+          ref={divRef}
+          style={{
+            width: "100%",
+            height: "100%",
+            backgroundColor: "#e8ddd0",
+            display: "flex",
+            flex: 1,
+          } as any}
+        />
+      );
+    }
+
+    return <View style={[styles.container, style]} />;
   },
 );
 
 export default LeafletMapView;
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#e8e0d8" },
+  container: { flex: 1, backgroundColor: "#e8ddd0" },
 });
