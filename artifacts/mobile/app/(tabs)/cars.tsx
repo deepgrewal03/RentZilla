@@ -756,8 +756,9 @@ export default function CarsScreen() {
     toastTimeout.current = setTimeout(() => setToastMsg(null), 3000);
   }, []);
 
-  // ── Cancel Ride (opens confirm modal) ──
+  // ── Cancel Ride (opens confirm modal) — close rides modal first to avoid stacked portals ──
   const handleCancelRequest = (ride: ActiveRide) => {
+    setShowActiveRides(false);   // dismiss rides list before opening cancel dialog
     setCancellingRide(ride);
   };
 
@@ -768,6 +769,9 @@ export default function CarsScreen() {
 
     // Grab the ride before any state changes
     const rideToCancel = activeRides.find(r => r.id === rideId) ?? cancellingRide;
+
+    // Compute remaining rides BEFORE the optimistic update (for post-cancel re-open logic)
+    const remainingRides = activeRides.filter(r => r.id !== rideId);
 
     // Optimistically remove from active list & add to history immediately
     setActiveRides(prev => prev.filter(r => r.id !== rideId));
@@ -786,6 +790,8 @@ export default function CarsScreen() {
       // Close the cancel modal and show success toast
       setCancellingRide(null);
       showToast("Ride cancelled successfully");
+      // Re-open rides list if the user still has other active rides
+      if (remainingRides.length > 0) setShowActiveRides(true);
 
       // Reset the map/estimate if this ride's route is currently displayed
       if (drop && rideToCancel?.drop_address === drop.address) {
@@ -1337,7 +1343,12 @@ export default function CarsScreen() {
         visible={cancellingRide !== null}
         loading={cancelLoading}
         onConfirm={handleCancelConfirmed}
-        onDismiss={() => !cancelLoading && setCancellingRide(null)}
+        onDismiss={() => {
+          if (!cancelLoading) {
+            setCancellingRide(null);
+            setShowActiveRides(true); // return to rides list on dismiss
+          }
+        }}
       />
 
       {/* Success Toast */}
