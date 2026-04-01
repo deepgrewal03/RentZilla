@@ -16,6 +16,7 @@ import { LocationSearchModal, type LocationResult } from "@/components/rides/Loc
 import { SchedulePickerModal, type ScheduledTime } from "@/components/rides/SchedulePickerModal";
 import LeafletMapView, { type MapRef } from "@/components/rides/LeafletMapView";
 import TripNavigationModal, { type TripRide } from "@/components/rides/TripNavigationModal";
+import DriverLiveMap, { type RequestPin } from "@/components/rides/DriverLiveMap";
 
 const C = Colors.light;
 const { width: SW, height: SH } = Dimensions.get("window");
@@ -1172,18 +1173,26 @@ export default function CarsScreen() {
       )}
 
       {isOnline && !driverActiveRide && (
-        <View style={{ paddingHorizontal: 16 }}>
+        <>
+          {/* Live location map */}
+          <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 4 }}>
+            <DriverLiveMap
+              requests={driverRequests as RequestPin[]}
+              height={260}
+            />
+          </View>
+
+          <View style={{ paddingHorizontal: 16 }}>
           <Text style={styles.sectionLabel}>
             {driverRequests.length ? `${driverRequests.length} Ride Request${driverRequests.length > 1 ? "s" : ""}` : "Waiting for requests…"}
           </Text>
           {driverRequests.length === 0 && (
-            <View style={styles.driverEmptyState}>
-              <Text style={{ fontSize: 44 }}>🚗</Text>
+            <View style={[styles.driverEmptyState, { paddingTop: 10, paddingBottom: 20 }]}>
               <Text style={styles.emptyTitle}>Standby for rides</Text>
               <Text style={styles.emptyDesc}>New requests will pop up here instantly</Text>
             </View>
           )}
-          {driverRequests.map(req => (
+          {driverRequests.map((req) => (
             <View key={req.id} style={styles.requestCard}>
               <View style={{ flex: 1 }}>
                 <View style={styles.routeRow}>
@@ -1214,6 +1223,7 @@ export default function CarsScreen() {
             </View>
           ))}
         </View>
+        </>
       )}
 
       {!isOnline && (
