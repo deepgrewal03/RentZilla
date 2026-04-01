@@ -281,11 +281,6 @@ function ActiveRideCard({ ride, onCancel }: { ride: ActiveRide; onCancel: (r: Ac
             <Text style={styles.driverName}>{ride.driver_name}</Text>
             <Text style={styles.driverSub}>Your driver</Text>
           </View>
-          {ride.driver_phone && (
-            <TouchableOpacity style={styles.callBtn}>
-              <Feather name="phone" size={16} color={GREEN} />
-            </TouchableOpacity>
-          )}
         </View>
       )}
 

@@ -604,8 +604,6 @@ export default function SettingsTab() {
               <SettingRow icon="create-outline" label="Edit Profile" sublabel={displayName} onPress={() => { setFirstName(user?.firstName || ""); setLastName(user?.lastName || ""); setEmail(user?.email || ""); setEditingAccount(true); }} />
               <Divider />
               <SettingRow icon="mail-outline" label="Email" sublabel={user?.email || "Not set"} onPress={() => { setFirstName(user?.firstName || ""); setLastName(user?.lastName || ""); setEmail(user?.email || ""); setEditingAccount(true); }} />
-              <Divider />
-              <SettingRow icon="call-outline" label="Phone Number" sublabel={user?.phone?.startsWith("email-") ? "Not set" : user?.phone || "Not set"} onPress={() => Alert.alert("Phone", "Contact support to update your phone number")} />
             </>
           )}
         </Card>
@@ -695,8 +693,6 @@ export default function SettingsTab() {
             onChange={(v) => updatePrivacy("profileVisibility", v ? "public" : "private")}
             color="#3B82F6"
           />
-          <Divider />
-          <ToggleRow icon="call-outline" label="Show Phone Number" sublabel="Display your number on listings" value={privacy.showPhone} onChange={(v) => updatePrivacy("showPhone", v)} />
           <Divider />
           <SettingRow icon="ban-outline" label="Blocked Users" sublabel="Manage blocked accounts" onPress={() => setShowBlockedModal(true)} color="#EF4444" />
           <Divider />

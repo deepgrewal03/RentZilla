@@ -314,8 +314,6 @@ export default function SettingsScreen() {
               <SettingRow icon="create-outline" label="Edit Profile" sublabel={displayName} onPress={() => { setFirstName(user?.firstName || ""); setLastName(user?.lastName || ""); setEmail(user?.email || ""); setEditingAccount(true); }} />
               <Divider />
               <SettingRow icon="mail-outline" label="Email" sublabel={user?.email || "Not set"} onPress={() => { setFirstName(user?.firstName || ""); setLastName(user?.lastName || ""); setEmail(user?.email || ""); setEditingAccount(true); }} />
-              <Divider />
-              <SettingRow icon="call-outline" label="Phone Number" sublabel={user?.phone?.startsWith("email-") ? "Not set" : user?.phone || "Not set"} onPress={() => Alert.alert("Phone", "Contact support to update your phone number")} />
             </>
           )}
         </Card>
