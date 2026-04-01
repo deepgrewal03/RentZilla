@@ -127,6 +127,10 @@ function getExpoPublicReplId() {
   return process.env.REPL_ID || process.env.EXPO_PUBLIC_REPL_ID;
 }
 
+function getGoogleMapsKey() {
+  return process.env.GOOGLE_MAPS_API_KEY || process.env.EXPO_PUBLIC_GMAPS_KEY || "";
+}
+
 async function startMetro(expoPublicDomain, expoPublicReplId) {
   const isRunning = await checkMetroHealth();
   if (isRunning) {
@@ -134,12 +138,17 @@ async function startMetro(expoPublicDomain, expoPublicReplId) {
     return;
   }
 
+  const gmapsKey = getGoogleMapsKey();
   console.log("Starting Metro...");
   console.log(`Setting EXPO_PUBLIC_DOMAIN=${expoPublicDomain}`);
+  if (gmapsKey) console.log("Google Maps API key: present");
+  else console.warn("WARNING: GOOGLE_MAPS_API_KEY not set — map will be blank in production");
+
   const env = {
     ...process.env,
     EXPO_PUBLIC_DOMAIN: expoPublicDomain,
     EXPO_PUBLIC_REPL_ID: expoPublicReplId,
+    EXPO_PUBLIC_GMAPS_KEY: gmapsKey,
   };
 
   if (expoPublicReplId) {
