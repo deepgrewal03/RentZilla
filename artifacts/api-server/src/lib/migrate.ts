@@ -261,6 +261,48 @@ export async function runMigrations() {
     await db.execute(sql.raw(stmt));
   }
 
+  // ── Rides table + new passenger/cancel columns ───────────────────────────────
+  await db.execute(sql.raw(`
+    CREATE TABLE IF NOT EXISTS rides (
+      id TEXT PRIMARY KEY,
+      rider_id TEXT NOT NULL,
+      driver_id TEXT,
+      pickup_lat NUMERIC(10,6) NOT NULL,
+      pickup_lng NUMERIC(10,6) NOT NULL,
+      pickup_address TEXT,
+      drop_lat NUMERIC(10,6) NOT NULL,
+      drop_lng NUMERIC(10,6) NOT NULL,
+      drop_address TEXT,
+      distance_km NUMERIC(10,2),
+      duration_min INTEGER,
+      fare NUMERIC(10,2),
+      vehicle_type TEXT NOT NULL DEFAULT 'Car',
+      status TEXT NOT NULL DEFAULT 'requested',
+      ride_type TEXT NOT NULL DEFAULT 'instant',
+      scheduled_at TIMESTAMP,
+      requested_at TIMESTAMP NOT NULL DEFAULT NOW(),
+      accepted_at TIMESTAMP,
+      started_at TIMESTAMP,
+      completed_at TIMESTAMP,
+      canceled_at TIMESTAMP,
+      ride_for_type TEXT NOT NULL DEFAULT 'me',
+      passenger_name TEXT,
+      passenger_phone TEXT,
+      cancellation_reason TEXT
+    )
+  `));
+
+  const ridesAlters = [
+    `ALTER TABLE rides ADD COLUMN IF NOT EXISTS ride_for_type TEXT NOT NULL DEFAULT 'me'`,
+    `ALTER TABLE rides ADD COLUMN IF NOT EXISTS passenger_name TEXT`,
+    `ALTER TABLE rides ADD COLUMN IF NOT EXISTS passenger_phone TEXT`,
+    `ALTER TABLE rides ADD COLUMN IF NOT EXISTS cancellation_reason TEXT`,
+    `ALTER TABLE rides ADD COLUMN IF NOT EXISTS canceled_at TIMESTAMP`,
+  ];
+  for (const stmt of ridesAlters) {
+    await db.execute(sql.raw(stmt));
+  }
+
   await db.execute(sql.raw(`
     CREATE TABLE IF NOT EXISTS provider_price_reference (
       id TEXT PRIMARY KEY,

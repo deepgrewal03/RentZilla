@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  ActivityIndicator, Animated, Alert, Platform,
-  Dimensions, PanResponder, StatusBar,
+  ActivityIndicator, Animated, Alert, Platform, Modal,
+  Dimensions, PanResponder, StatusBar, TextInput, KeyboardAvoidingView,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -19,18 +19,15 @@ const C = Colors.light;
 const { width: SW, height: SH } = Dimensions.get("window");
 
 const ORANGE = "#E8742A";
-const NAVY = "#0F1F3D";
-const GOLD = "#F5C842";
-const GREEN = "#22C55E";
-const RED = "#EF4444";
+const NAVY   = "#0F1F3D";
+const GOLD   = "#F5C842";
+const GREEN  = "#22C55E";
+const RED    = "#EF4444";
 const PURPLE = "#8B5CF6";
 
-// Bottom sheet snap points
-const SHEET_COLLAPSED = SH * 0.52;  // how much the sheet peeks from bottom
+const SHEET_COLLAPSED = SH * 0.52;
 const SHEET_EXPANDED  = SH * 0.72;
 const MAP_HEIGHT = SH - SHEET_COLLAPSED - (Platform.OS === "android" ? 32 : 0);
-
-type RideStatus = "idle" | "booking" | "requested" | "scheduled" | "accepted" | "ongoing" | "completed";
 
 interface Coords { lat: number; lng: number; address: string }
 interface RideEstimate { distanceKm: number; durationMin: number; fare: number }
@@ -41,15 +38,20 @@ interface ActiveRide {
   driver_name?: string; driver_phone?: string;
   driver_lat?: number; driver_lng?: number;
   rider_name?: string; rider_phone?: string;
-  pickup_lat: number; pickup_lng: number; drop_lat: number; drop_lng: number;
+  pickup_lat: number; pickup_lng: number;
+  drop_lat: number; drop_lng: number;
+  vehicle_type?: string;
+  ride_for_type?: string;
+  passenger_name?: string;
+  passenger_phone?: string;
 }
 interface RideRequest {
   id: string; pickup_address?: string; drop_address?: string;
   pickup_lat: number; pickup_lng: number; drop_lat: number; drop_lng: number;
-  distance_km?: number; fare?: number;
+  distance_km?: number; fare?: number; rider_name?: string;
+  ride_for_type?: string; passenger_name?: string;
 }
 
-// Visual metadata only — pricing (baseFare/perKm) is fetched from the server
 const VEHICLE_TYPES = [
   { id: "Bike",  icon: "🏍️", label: "Bike",  tagline: "Fastest",     color: "#06B6D4" },
   { id: "Auto",  icon: "🛺", label: "Auto",  tagline: "Affordable",  color: "#10B981" },
@@ -58,7 +60,6 @@ const VEHICLE_TYPES = [
   { id: "Van",   icon: "🚐", label: "Van",   tagline: "Group",       color: "#EC4899" },
 ];
 
-// Default fallback pricing used before API response arrives
 const DEFAULT_PRICING: Record<string, { baseFare: number; perKm: number }> = {
   Bike: { baseFare: 30, perKm: 6 },
   Auto: { baseFare: 40, perKm: 8 },
@@ -67,9 +68,25 @@ const DEFAULT_PRICING: Record<string, { baseFare: number; perKm: number }> = {
   Van:  { baseFare: 90, perKm: 20 },
 };
 
-function fmt(n?: number | null, d = 1) { return n != null ? n.toFixed(d) : "—"; }
-function pad(n: number) { return String(n).padStart(2, "0"); }
+const STATUS_LABEL: Record<string, string> = {
+  requested: "Finding Driver",
+  scheduled: "Scheduled",
+  accepted:  "Driver Assigned",
+  ongoing:   "On the Way",
+  completed: "Completed",
+  cancelled: "Cancelled",
+};
 
+const STATUS_COLOR: Record<string, string> = {
+  requested: GOLD,
+  scheduled: PURPLE,
+  accepted:  GREEN,
+  ongoing:   ORANGE,
+  completed: GREEN,
+  cancelled: RED,
+};
+
+function fmt(n?: number | null, d = 1) { return n != null ? n.toFixed(d) : "—"; }
 
 // ─── STATUS STEP BAR ─────────────────────────────────────────────────────────
 function RideSteps({ status }: { status: string }) {
@@ -80,18 +97,17 @@ function RideSteps({ status }: { status: string }) {
     { key: "completed", label: "Arrived" },
   ];
   const currentIdx = STEPS.findIndex(s => s.key === status);
-
   return (
     <View style={styles.stepsRow}>
       {STEPS.map((step, i) => {
-        const done = i < currentIdx;
+        const done   = i < currentIdx;
         const active = i === currentIdx;
         return (
           <React.Fragment key={step.key}>
             <View style={styles.stepItem}>
               <View style={[
                 styles.stepDot,
-                done && { backgroundColor: GREEN },
+                done   && { backgroundColor: GREEN },
                 active && { backgroundColor: ORANGE, borderColor: ORANGE, borderWidth: 2 },
               ]}>
                 {done && <Feather name="check" size={10} color="#fff" />}
@@ -109,24 +125,21 @@ function RideSteps({ status }: { status: string }) {
 }
 
 // ─── VEHICLE CARD ─────────────────────────────────────────────────────────────
-function VehicleCard({
-  v, selected, estimate, onPress, distanceKm, pricing,
-}: {
+function VehicleCard({ v, selected, estimate, onPress, distanceKm, pricing }: {
   v: typeof VEHICLE_TYPES[0]; selected: boolean;
-  estimate: RideEstimate | null;
-  onPress: () => void; distanceKm?: number;
-  pricing: { baseFare: number; perKm: number };
+  estimate: RideEstimate | null; onPress: () => void;
+  distanceKm?: number; pricing: { baseFare: number; perKm: number };
 }) {
   const fare = distanceKm != null
     ? Math.max(pricing.baseFare, Math.round(pricing.baseFare + distanceKm * pricing.perKm))
     : null;
-  const eta = estimate ? estimate.durationMin + (v.id === "Bike" ? -3 : v.id === "Auto" ? -1 : v.id === "SUV" ? 2 : v.id === "Van" ? 4 : 0) : null;
-
+  const eta = estimate
+    ? estimate.durationMin + (v.id === "Bike" ? -3 : v.id === "Auto" ? -1 : v.id === "SUV" ? 2 : v.id === "Van" ? 4 : 0)
+    : null;
   return (
     <TouchableOpacity
       style={[styles.vehicleCard, selected && { borderColor: v.color, backgroundColor: v.color + "12" }]}
-      onPress={onPress}
-      activeOpacity={0.75}
+      onPress={onPress} activeOpacity={0.75}
     >
       {selected && (
         <View style={[styles.vehicleCheck, { backgroundColor: v.color }]}>
@@ -141,9 +154,7 @@ function VehicleCard({
       ) : (
         <View style={styles.vehicleFareSkeleton} />
       )}
-      {eta != null && (
-        <Text style={styles.vehicleEta}>{Math.max(2, eta)} min</Text>
-      )}
+      {eta != null && <Text style={styles.vehicleEta}>{Math.max(2, eta)} min</Text>}
     </TouchableOpacity>
   );
 }
@@ -153,30 +164,26 @@ function BottomSheet({ children, isExpanded, onToggle }: {
   children: React.ReactNode; isExpanded: boolean; onToggle: () => void;
 }) {
   const sheetY = useRef(new Animated.Value(SHEET_COLLAPSED)).current;
-
   useEffect(() => {
     Animated.spring(sheetY, {
       toValue: isExpanded ? SHEET_EXPANDED : SHEET_COLLAPSED,
       tension: 60, friction: 12, useNativeDriver: false,
     }).start();
   }, [isExpanded]);
-
   const panResponder = useRef(
     PanResponder.create({
       onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dy) > 8,
       onPanResponderRelease: (_, g) => {
         if (g.dy < -30) {
-          Animated.spring(sheetY, { toValue: SHEET_EXPANDED, tension: 60, friction: 12, useNativeDriver: false }).start();
+          Animated.spring(sheetY, { toValue: SHEET_EXPANDED,  tension: 60, friction: 12, useNativeDriver: false }).start();
         } else if (g.dy > 30) {
           Animated.spring(sheetY, { toValue: SHEET_COLLAPSED, tension: 60, friction: 12, useNativeDriver: false }).start();
         }
       },
     })
   ).current;
-
   return (
     <Animated.View style={[styles.bottomSheet, { height: sheetY }]}>
-      {/* Drag handle */}
       <TouchableOpacity {...panResponder.panHandlers} onPress={onToggle} style={styles.handleArea} activeOpacity={1}>
         <View style={styles.handleBar} />
       </TouchableOpacity>
@@ -191,53 +198,263 @@ function BottomSheet({ children, isExpanded, onToggle }: {
   );
 }
 
+// ─── ACTIVE RIDE CARD (used inside modal) ─────────────────────────────────────
+function ActiveRideCard({ ride, onCancel }: { ride: ActiveRide; onCancel: (r: ActiveRide) => void }) {
+  const statusColor = STATUS_COLOR[ride.status] ?? C.textSecondary;
+  const statusLabel = STATUS_LABEL[ride.status] ?? ride.status;
+  const veh = VEHICLE_TYPES.find(v => v.id === (ride.vehicle_type ?? "Car")) ?? VEHICLE_TYPES[2];
+  const isForOther = ride.ride_for_type === "someone_else";
+  const canCancel  = ["requested", "scheduled", "accepted"].includes(ride.status);
+
+  return (
+    <View style={styles.activeRideCard}>
+      {/* Status row */}
+      <View style={styles.activeRideHeader}>
+        <View style={styles.activeRideVehicleRow}>
+          <Text style={styles.activeRideEmoji}>{veh.icon}</Text>
+          <Text style={styles.activeRideVehicle}>{veh.label}</Text>
+        </View>
+        <View style={[styles.statusPill, { backgroundColor: statusColor + "20" }]}>
+          <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
+          <Text style={[styles.statusPillText, { color: statusColor }]}>{statusLabel}</Text>
+        </View>
+      </View>
+
+      {/* Passenger badge */}
+      {isForOther && ride.passenger_name && (
+        <View style={styles.passengerBadge}>
+          <Feather name="user" size={12} color={PURPLE} />
+          <Text style={styles.passengerBadgeText}>For: {ride.passenger_name}</Text>
+          {ride.passenger_phone && (
+            <Text style={styles.passengerBadgePhone}>{ride.passenger_phone}</Text>
+          )}
+        </View>
+      )}
+
+      {/* Route */}
+      <View style={styles.routeCard}>
+        <View style={styles.routeRow}>
+          <View style={[styles.routeDot, { backgroundColor: GREEN }]} />
+          <Text style={styles.routeAddr} numberOfLines={2}>{ride.pickup_address ?? "Pickup"}</Text>
+        </View>
+        <View style={styles.routeConnector} />
+        <View style={styles.routeRow}>
+          <View style={[styles.routeDot, { backgroundColor: ORANGE }]} />
+          <Text style={styles.routeAddr} numberOfLines={2}>{ride.drop_address ?? "Destination"}</Text>
+        </View>
+        <View style={styles.rideMeta}>
+          <View style={styles.rideMetaItem}>
+            <Feather name="navigation" size={12} color={C.textSecondary} />
+            <Text style={styles.rideMetaText}>{fmt(ride.distance_km)} km</Text>
+          </View>
+          <View style={styles.rideMetaItem}>
+            <Feather name="clock" size={12} color={C.textSecondary} />
+            <Text style={styles.rideMetaText}>{ride.duration_min ?? "—"} min</Text>
+          </View>
+          <Text style={styles.rideMetaFare}>₹{ride.fare}</Text>
+        </View>
+      </View>
+
+      {/* Driver */}
+      {ride.driver_name && (
+        <View style={styles.driverCard}>
+          <View style={styles.driverAvatar}>
+            <Text style={styles.driverAvatarText}>{ride.driver_name[0]?.toUpperCase()}</Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.driverName}>{ride.driver_name}</Text>
+            <Text style={styles.driverSub}>Your driver</Text>
+          </View>
+          {ride.driver_phone && (
+            <TouchableOpacity style={styles.callBtn}>
+              <Feather name="phone" size={16} color={GREEN} />
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
+
+      {/* Scheduled time */}
+      {ride.status === "scheduled" && ride.scheduled_at && (
+        <View style={styles.scheduledBanner}>
+          <Feather name="clock" size={14} color={PURPLE} />
+          <Text style={styles.scheduledText}>
+            Scheduled: {new Date(ride.scheduled_at).toLocaleString("en-IN", {
+              weekday: "short", month: "short", day: "numeric",
+              hour: "2-digit", minute: "2-digit",
+            })}
+          </Text>
+        </View>
+      )}
+
+      {/* Cancel */}
+      {canCancel && (
+        <TouchableOpacity style={styles.cancelBtn} onPress={() => onCancel(ride)}>
+          <Feather name="x-circle" size={14} color={RED} />
+          <Text style={styles.cancelBtnText}>Cancel Ride</Text>
+        </TouchableOpacity>
+      )}
+    </View>
+  );
+}
+
+// ─── CANCEL REASON MODAL ──────────────────────────────────────────────────────
+function CancelModal({ ride, visible, onConfirm, onDismiss }: {
+  ride: ActiveRide | null; visible: boolean;
+  onConfirm: (rideId: string, reason: string) => void;
+  onDismiss: () => void;
+}) {
+  const [reason, setReason] = useState("");
+  const REASONS = ["Changed my mind", "Driver taking too long", "Found another option", "Booked by mistake", "Other"];
+
+  useEffect(() => { if (visible) setReason(""); }, [visible]);
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onDismiss}>
+      <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+        <View style={styles.cancelModalCard}>
+          <Text style={styles.cancelModalTitle}>Cancel Ride?</Text>
+          <Text style={styles.cancelModalSub}>
+            {ride?.pickup_address ?? "Pickup"} → {ride?.drop_address ?? "Destination"}
+          </Text>
+
+          <Text style={styles.cancelReasonLabel}>Reason (optional)</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.reasonPillRow}>
+            {REASONS.map(r => (
+              <TouchableOpacity
+                key={r}
+                style={[styles.reasonPill, reason === r && styles.reasonPillActive]}
+                onPress={() => setReason(prev => prev === r ? "" : r)}
+              >
+                <Text style={[styles.reasonPillText, reason === r && styles.reasonPillTextActive]}>{r}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+
+          <TextInput
+            style={styles.reasonInput}
+            placeholder="Or type a reason…"
+            placeholderTextColor={C.textTertiary}
+            value={reason}
+            onChangeText={setReason}
+            maxLength={120}
+          />
+
+          <View style={styles.cancelModalBtns}>
+            <TouchableOpacity style={styles.cancelModalKeep} onPress={onDismiss}>
+              <Text style={styles.cancelModalKeepText}>Keep Ride</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.cancelModalConfirm}
+              onPress={() => ride && onConfirm(ride.id, reason)}
+            >
+              <Text style={styles.cancelModalConfirmText}>Yes, Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </KeyboardAvoidingView>
+    </Modal>
+  );
+}
+
+// ─── ACTIVE RIDES MODAL ───────────────────────────────────────────────────────
+function ActiveRidesModal({ visible, rides, onClose, onCancelRide }: {
+  visible: boolean; rides: ActiveRide[];
+  onClose: () => void;
+  onCancelRide: (ride: ActiveRide) => void;
+}) {
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <View style={styles.modalOverlay}>
+        <View style={styles.activeRidesSheet}>
+          {/* Handle */}
+          <View style={styles.handleArea}>
+            <View style={styles.handleBar} />
+          </View>
+
+          <View style={styles.activeRidesHeader}>
+            <View>
+              <Text style={styles.activeRidesTitle}>Active Rides</Text>
+              <Text style={styles.activeRidesSub}>
+                {rides.length} ride{rides.length !== 1 ? "s" : ""} in progress
+              </Text>
+            </View>
+            <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
+              <Feather name="x" size={20} color={C.text} />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView contentContainerStyle={styles.activeRidesScroll} showsVerticalScrollIndicator={false}>
+            {rides.length === 0 ? (
+              <View style={styles.driverEmptyState}>
+                <Text style={{ fontSize: 44 }}>🚗</Text>
+                <Text style={styles.emptyTitle}>No active rides</Text>
+                <Text style={styles.emptyDesc}>Your active ride bookings will appear here</Text>
+              </View>
+            ) : (
+              rides.map(r => (
+                <ActiveRideCard key={r.id} ride={r} onCancel={onCancelRide} />
+              ))
+            )}
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
 // ─── MAIN SCREEN ─────────────────────────────────────────────────────────────
 export default function CarsScreen() {
   const insets = useSafeAreaInsets();
   const { user, activeMode } = useAuth();
   const { get, post, patch } = useApi();
 
-  const isProvider = (user?.role === "provider" || user?.role === "both") && activeMode === "provider";
+  const isProvider     = (user?.role === "provider" || user?.role === "both") && activeMode === "provider";
   const isProviderUser = user?.role === "provider" || user?.role === "both";
-  const [tab, setTab] = useState<"rider" | "driver">(isProvider ? "driver" : "rider");
+  const [tab, setTab]  = useState<"rider" | "driver">(isProvider ? "driver" : "rider");
 
-  // ── Rider State ──
+  // ── Rider Booking State ──
   const DEFAULT: Coords = { lat: 30.7333, lng: 76.7794, address: "Chandigarh, Punjab" };
-  const [pickup, setPickup]         = useState<Coords>(DEFAULT);
-  const [drop, setDrop]             = useState<Coords | null>(null);
-  const [vehicleType, setVehicleType] = useState("Car");
-  const [estimate, setEstimate]     = useState<RideEstimate | null>(null);
-  const [rideStatus, setRideStatus] = useState<RideStatus>("idle");
-  const [activeRide, setActiveRide] = useState<ActiveRide | null>(null);
-  const [locLoading, setLocLoading] = useState(true);
-  const [rideMode, setRideMode]     = useState<"instant" | "scheduled">("instant");
+  const [pickup,        setPickup]       = useState<Coords>(DEFAULT);
+  const [drop,          setDrop]         = useState<Coords | null>(null);
+  const [vehicleType,   setVehicleType]  = useState("Car");
+  const [estimate,      setEstimate]     = useState<RideEstimate | null>(null);
+  const [locLoading,    setLocLoading]   = useState(true);
+  const [rideMode,      setRideMode]     = useState<"instant" | "scheduled">("instant");
   const [scheduledTime, setScheduledTime] = useState<ScheduledTime | null>(null);
   const [sheetExpanded, setSheetExpanded] = useState(false);
+  const [booking,       setBooking]      = useState(false);
+
+  // ── "Ride for someone else" state ──
+  const [rideFor,        setRideFor]        = useState<"me" | "someone_else">("me");
+  const [passengerName,  setPassengerName]  = useState("");
+  const [passengerPhone, setPassengerPhone] = useState("");
+
+  // ── Multiple active rides state ──
+  const [activeRides,        setActiveRides]        = useState<ActiveRide[]>([]);
+  const [showActiveRides,    setShowActiveRides]     = useState(false);
+  const [cancellingRide,     setCancellingRide]      = useState<ActiveRide | null>(null);
 
   // ── Dynamic pricing from admin ──
   const [ridePricing, setRidePricing] = useState<Record<string, { baseFare: number; perKm: number }>>(DEFAULT_PRICING);
 
   // ── Modals ──
-  const [pickupModalOpen,  setPickupModalOpen]  = useState(false);
-  const [dropModalOpen,    setDropModalOpen]    = useState(false);
+  const [pickupModalOpen,   setPickupModalOpen]   = useState(false);
+  const [dropModalOpen,     setDropModalOpen]     = useState(false);
   const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
 
   // ── Driver State ──
-  const [isOnline, setIsOnline]           = useState(false);
-  const [driverRequests, setDriverRequests] = useState<RideRequest[]>([]);
+  const [isOnline,         setIsOnline]         = useState(false);
+  const [driverRequests,   setDriverRequests]   = useState<RideRequest[]>([]);
   const [driverActiveRide, setDriverActiveRide] = useState<ActiveRide | null>(null);
-  const [driverLoading, setDriverLoading] = useState(false);
-  const [selectedRequest, setSelectedRequest] = useState<RideRequest | null>(null);
+  const [driverLoading,    setDriverLoading]    = useState(false);
+  const [selectedRequest,  setSelectedRequest]  = useState<RideRequest | null>(null);
 
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const mapRef = useRef<MapRef>(null);
-  const mapReadyRef = useRef(false);
+  const pollRef      = useRef<ReturnType<typeof setInterval> | null>(null);
+  const mapRef       = useRef<MapRef>(null);
+  const mapReadyRef  = useRef(false);
 
   const syncPickupToMap = useCallback((loc: Coords) => {
     if (mapReadyRef.current) mapRef.current?.setPickup(loc.lat, loc.lng, loc.address);
-  }, []);
-  const syncDropToMap = useCallback((loc: Coords) => {
-    if (mapReadyRef.current) mapRef.current?.setDrop(loc.lat, loc.lng, loc.address);
   }, []);
 
   // ── Location ──
@@ -246,10 +463,7 @@ export default function CarsScreen() {
       setLocLoading(true);
       try {
         const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status !== "granted") {
-          setLocLoading(false);
-          return;
-        }
+        if (status !== "granted") { setLocLoading(false); return; }
         const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
         const { latitude: lat, longitude: lng } = loc.coords;
         let address = "Current Location";
@@ -268,19 +482,17 @@ export default function CarsScreen() {
     })();
   }, []);
 
-  // ── Fetch live pricing from admin rules ──────────────────────────────────────
+  // ── Fetch live pricing from admin rules ──
   useEffect(() => {
     (async () => {
       try {
         const data = await get<Record<string, { baseFare: number; perKm: number }>>("/pricing/rides");
-        if (data && typeof data === "object") {
-          setRidePricing(prev => ({ ...prev, ...data }));
-        }
+        if (data && typeof data === "object") setRidePricing(prev => ({ ...prev, ...data }));
       } catch {}
     })();
   }, []);
 
-  // ── Update estimate when vehicle type changes (if we have a map route) ──
+  // ── Update estimate when vehicle changes ──
   useEffect(() => {
     if (!estimate || !drop) return;
     const p = ridePricing[vehicleType] ?? DEFAULT_PRICING[vehicleType] ?? { baseFare: 50, perKm: 12 };
@@ -295,21 +507,19 @@ export default function CarsScreen() {
     setSheetExpanded(true);
   }, [vehicleType, ridePricing]);
 
-  // ── Poll rider active ride ──
+  // ── Poll ALL active rides ──
   useEffect(() => {
     if (tab !== "rider") return;
     const check = async () => {
-      if (rideStatus === "idle") return;
       try {
-        const data = await get<ActiveRide | null>("/rides/active");
-        if (data) { setActiveRide(data); setRideStatus(data.status as RideStatus); }
-        else if (rideStatus === "completed") { /* stay on completed view */ }
-        else { setActiveRide(null); setRideStatus("idle"); }
+        const data = await get<ActiveRide[]>("/rides/active");
+        setActiveRides(Array.isArray(data) ? data : []);
       } catch {}
     };
+    check();
     pollRef.current = setInterval(check, 4000);
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
-  }, [tab, rideStatus]);
+  }, [tab]);
 
   // ── Poll driver requests + active ride ──
   useEffect(() => {
@@ -344,34 +554,66 @@ export default function CarsScreen() {
     return () => { watchSub?.remove(); };
   }, [tab, isOnline]);
 
-  // ── Booking ──
+  // ── Reset the booking form completely ──
+  const resetBookingForm = useCallback(() => {
+    setDrop(null);
+    setEstimate(null);
+    setScheduledTime(null);
+    setSheetExpanded(false);
+    setRideFor("me");
+    setPassengerName("");
+    setPassengerPhone("");
+    setRideMode("instant");
+    mapRef.current?.clearDrop?.();
+  }, []);
+
+  // ── Book Ride ──
   const handleBookRide = async () => {
     if (!drop) { Alert.alert("Destination required", "Please select a destination first"); return; }
     if (rideMode === "scheduled" && !scheduledTime) { setScheduleModalOpen(true); return; }
-    setRideStatus("booking");
+    if (rideFor === "someone_else" && !passengerName.trim()) {
+      Alert.alert("Passenger name required", "Please enter the name of the passenger"); return;
+    }
+    setBooking(true);
     try {
-      const data = await post<ActiveRide>("/rides/request", {
+      const newRide = await post<ActiveRide>("/rides/request", {
         pickupLat: pickup.lat, pickupLng: pickup.lng, pickupAddress: pickup.address,
         dropLat: drop.lat, dropLng: drop.lng, dropAddress: drop.address,
         vehicleType,
         ...(rideMode === "scheduled" && scheduledTime ? { scheduledAt: scheduledTime.date.toISOString() } : {}),
+        rideFor,
+        passengerName:  rideFor === "someone_else" ? passengerName.trim()  : undefined,
+        passengerPhone: rideFor === "someone_else" ? passengerPhone.trim() : undefined,
       });
-      setActiveRide(data);
-      setRideStatus(rideMode === "scheduled" ? "scheduled" : "requested");
+      setActiveRides(prev => [newRide, ...prev]);
+      resetBookingForm();
+      Alert.alert(
+        "Ride Booked!",
+        rideFor === "someone_else"
+          ? `Ride booked for ${passengerName.trim()}. Tap "Active Rides" to track.`
+          : "Looking for a driver nearby. Tap \"Active Rides\" to track.",
+        [{ text: "View Active Rides", onPress: () => setShowActiveRides(true) }, { text: "Book Another" }]
+      );
     } catch (e: any) {
-      setRideStatus("idle");
       Alert.alert("Error", e?.message ?? "Could not book ride");
     }
+    setBooking(false);
   };
 
-  const handleCancelRide = async () => {
-    if (!activeRide) return;
+  // ── Cancel Ride (opens confirm modal) ──
+  const handleCancelRequest = (ride: ActiveRide) => {
+    setCancellingRide(ride);
+  };
+
+  // ── Cancel Ride (confirmed with reason) ──
+  const handleCancelConfirmed = async (rideId: string, reason: string) => {
+    setCancellingRide(null);
     try {
-      await patch(`/rides/${activeRide.id}/cancel`, {});
-      setActiveRide(null); setRideStatus("idle"); setDrop(null);
-      setScheduledTime(null); setSheetExpanded(false); setEstimate(null);
-      mapRef.current?.clearDrop();
-    } catch {}
+      await patch(`/rides/${rideId}/cancel`, { cancellationReason: reason });
+      setActiveRides(prev => prev.filter(r => r.id !== rideId));
+    } catch {
+      Alert.alert("Error", "Could not cancel the ride. Please try again.");
+    }
   };
 
   const handleToggleOnline = async () => {
@@ -407,267 +649,216 @@ export default function CarsScreen() {
   };
 
   // ── RIDER UI ────────────────────────────────────────────────────────────────
-  const renderRider = () => {
-    const hasActiveRide = ["requested", "scheduled", "accepted", "ongoing", "completed"].includes(rideStatus);
-    const selectedVehicle = VEHICLE_TYPES.find(v => v.id === vehicleType) ?? VEHICLE_TYPES[2];
+  const renderRider = () => (
+    <>
+      <View style={[styles.mapContainer, { height: MAP_HEIGHT }]}>
+        <LeafletMapView
+          ref={mapRef}
+          initialLat={pickup.lat}
+          initialLng={pickup.lng}
+          onReady={() => {
+            mapReadyRef.current = true;
+            mapRef.current?.setPickup(pickup.lat, pickup.lng, pickup.address);
+            if (drop) mapRef.current?.setDrop(drop.lat, drop.lng, drop.address);
+          }}
+          onRouteCalculated={handleRouteCalculated}
+          onCenterChanged={(lat, lng, address) => {
+            setPickup({ lat, lng, address });
+          }}
+          onGpsLocation={(lat, lng, address) => {
+            setPickup({ lat, lng, address });
+          }}
+          onLocationSelected={(mode, lat, lng, address) => {
+            if (mode === "pickup") {
+              setPickup({ lat, lng, address });
+            } else {
+              setDrop({ lat, lng, address });
+              setEstimate(null);
+            }
+          }}
+        />
+      </View>
 
-    return (
-      <>
-        {/* Real Interactive Map */}
-        <View style={[styles.mapContainer, { height: MAP_HEIGHT }]}>
-          <LeafletMapView
-            ref={mapRef}
-            initialLat={pickup.lat}
-            initialLng={pickup.lng}
-            onReady={() => {
-              mapReadyRef.current = true;
-              mapRef.current?.setPickup(pickup.lat, pickup.lng, pickup.address);
-              if (drop) mapRef.current?.setDrop(drop.lat, drop.lng, drop.address);
-            }}
-            onRouteCalculated={handleRouteCalculated}
-            onCenterChanged={(lat, lng, address) => {
-              // When user drags the map — update pickup with the fully reverse-geocoded address
-              if (rideStatus === "idle" && !activeRide) {
-                setPickup({ lat, lng, address });
-              }
-            }}
-            onGpsLocation={(lat, lng, address) => {
-              const loc: Coords = { lat, lng, address };
-              setPickup(loc);
-            }}
-            onLocationSelected={(mode, lat, lng, address) => {
-              if (mode === "pickup") {
-                setPickup({ lat, lng, address });
-              } else {
-                const loc: Coords = { lat, lng, address };
-                setDrop(loc);
-                setEstimate(null);
-              }
-            }}
-          />
-          {activeRide?.driver_lat && ["accepted", "ongoing"].includes(rideStatus) && (
-            <View pointerEvents="none" style={StyleSheet.absoluteFillObject} />
+      <BottomSheet isExpanded={sheetExpanded} onToggle={() => setSheetExpanded(v => !v)}>
+        <View style={styles.sheetInner}>
+
+          {/* Ride mode toggle */}
+          <View style={styles.modeToggle}>
+            <TouchableOpacity
+              style={[styles.modeBtn, rideMode === "instant" && styles.modeBtnActive]}
+              onPress={() => setRideMode("instant")}
+            >
+              <Feather name="zap" size={14} color={rideMode === "instant" ? "#fff" : C.textSecondary} />
+              <Text style={[styles.modeBtnText, rideMode === "instant" && styles.modeBtnTextActive]}>Book Now</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.modeBtn, rideMode === "scheduled" && { ...styles.modeBtnActive, backgroundColor: PURPLE }]}
+              onPress={() => setRideMode("scheduled")}
+            >
+              <Feather name="clock" size={14} color={rideMode === "scheduled" ? "#fff" : C.textSecondary} />
+              <Text style={[styles.modeBtnText, rideMode === "scheduled" && styles.modeBtnTextActive]}>Schedule</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Scheduled time */}
+          {rideMode === "scheduled" && (
+            <TouchableOpacity style={styles.scheduledTimeRow} onPress={() => setScheduleModalOpen(true)}>
+              <Feather name="clock" size={16} color={PURPLE} />
+              <Text style={styles.scheduledTimeText}>
+                {scheduledTime ? scheduledTime.label : "Select date & time"}
+              </Text>
+              <Feather name="chevron-right" size={16} color={C.textTertiary} />
+            </TouchableOpacity>
           )}
-        </View>
 
-        {/* Bottom Sheet */}
-        <BottomSheet isExpanded={sheetExpanded} onToggle={() => setSheetExpanded(v => !v)}>
-          {hasActiveRide && activeRide ? (
-            // ── Active ride view ──
-            <View style={styles.sheetInner}>
-              {rideStatus === "scheduled" ? (
-                <View style={styles.scheduledBanner}>
-                  <Feather name="clock" size={16} color={PURPLE} />
-                  <Text style={styles.scheduledText}>
-                    Scheduled for {activeRide.scheduled_at
-                      ? new Date(activeRide.scheduled_at).toLocaleString("en-IN", { weekday: "short", hour: "2-digit", minute: "2-digit" })
-                      : "—"}
-                  </Text>
-                </View>
-              ) : (
-                <RideSteps status={rideStatus} />
-              )}
+          {/* Location inputs */}
+          <View style={styles.locationBox}>
+            <TouchableOpacity style={styles.locationRow} onPress={() => setPickupModalOpen(true)}>
+              <View style={[styles.locDot, { backgroundColor: GREEN }]} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.locLabel}>Pickup</Text>
+                <Text style={styles.locValue} numberOfLines={1}>
+                  {locLoading ? "Detecting your location…" : pickup.address}
+                </Text>
+              </View>
+              <Feather name="edit-2" size={14} color={C.textTertiary} />
+            </TouchableOpacity>
+            <View style={styles.locDivider}><View style={styles.locLine} /></View>
+            <TouchableOpacity
+              style={[styles.locationRow, !drop && styles.locationRowPlaceholder]}
+              onPress={() => { setDropModalOpen(true); setSheetExpanded(true); }}
+            >
+              <View style={[styles.locDot, { backgroundColor: drop ? ORANGE : C.border }]} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.locLabel}>Drop-off</Text>
+                <Text style={[styles.locValue, !drop && { color: C.textTertiary }]} numberOfLines={1}>
+                  {drop ? drop.address : "Where are you going?"}
+                </Text>
+              </View>
+              <Feather name={drop ? "edit-2" : "search"} size={14} color={drop ? C.textTertiary : ORANGE} />
+            </TouchableOpacity>
+          </View>
 
-              <View style={styles.routeCard}>
-                <View style={styles.routeRow}>
-                  <View style={[styles.routeDot, { backgroundColor: GREEN }]} />
-                  <Text style={styles.routeAddr} numberOfLines={2}>{activeRide.pickup_address ?? "Pickup"}</Text>
-                </View>
-                <View style={styles.routeConnector} />
-                <View style={styles.routeRow}>
-                  <View style={[styles.routeDot, { backgroundColor: ORANGE }]} />
-                  <Text style={styles.routeAddr} numberOfLines={2}>{activeRide.drop_address ?? "Destination"}</Text>
-                </View>
+          {/* Estimate */}
+          {estimate && (
+            <LinearGradient colors={[NAVY, "#1a3060"]} style={styles.estimateBanner}>
+              <View style={styles.estimateStat}>
+                <Text style={styles.estimateVal}>{fmt(estimate.distanceKm)} km</Text>
+                <Text style={styles.estimateKey}>Distance</Text>
+              </View>
+              <View style={styles.estimateDivider} />
+              <View style={styles.estimateStat}>
+                <Text style={styles.estimateVal}>{estimate.durationMin} min</Text>
+                <Text style={styles.estimateKey}>Est. time</Text>
+              </View>
+              <View style={styles.estimateDivider} />
+              <View style={styles.estimateStat}>
+                <Text style={[styles.estimateVal, { color: GOLD }]}>₹{estimate.fare}</Text>
+                <Text style={styles.estimateKey}>Base fare</Text>
+              </View>
+            </LinearGradient>
+          )}
 
-                <View style={styles.rideMeta}>
-                  <View style={styles.rideMetaItem}>
-                    <Feather name="navigation" size={13} color={C.textSecondary} />
-                    <Text style={styles.rideMetaText}>{fmt(activeRide.distance_km)} km</Text>
-                  </View>
-                  <View style={styles.rideMetaItem}>
-                    <Feather name="clock" size={13} color={C.textSecondary} />
-                    <Text style={styles.rideMetaText}>{activeRide.duration_min} min</Text>
-                  </View>
-                  <View style={styles.rideMetaItem}>
-                    <Text style={styles.rideMetaFare}>₹{activeRide.fare}</Text>
-                  </View>
-                </View>
+          {/* Vehicle selector */}
+          {drop && (
+            <>
+              <Text style={styles.sectionLabel}>Choose Vehicle</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.vehicleRow}>
+                {VEHICLE_TYPES.map(v => (
+                  <VehicleCard
+                    key={v.id} v={v}
+                    selected={vehicleType === v.id}
+                    estimate={estimate}
+                    distanceKm={estimate?.distanceKm}
+                    onPress={() => setVehicleType(v.id)}
+                    pricing={ridePricing[v.id] ?? DEFAULT_PRICING[v.id] ?? { baseFare: 50, perKm: 12 }}
+                  />
+                ))}
+              </ScrollView>
+            </>
+          )}
+
+          {/* Ride For Toggle */}
+          {drop && (
+            <View style={styles.rideForSection}>
+              <Text style={styles.sectionLabel}>Who is this ride for?</Text>
+              <View style={styles.rideForToggle}>
+                <TouchableOpacity
+                  style={[styles.rideForBtn, rideFor === "me" && styles.rideForBtnActive]}
+                  onPress={() => setRideFor("me")}
+                >
+                  <Feather name="user" size={14} color={rideFor === "me" ? "#fff" : C.textSecondary} />
+                  <Text style={[styles.rideForBtnText, rideFor === "me" && styles.rideForBtnTextActive]}>Me</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.rideForBtn, rideFor === "someone_else" && { ...styles.rideForBtnActive, backgroundColor: PURPLE }]}
+                  onPress={() => setRideFor("someone_else")}
+                >
+                  <Feather name="users" size={14} color={rideFor === "someone_else" ? "#fff" : C.textSecondary} />
+                  <Text style={[styles.rideForBtnText, rideFor === "someone_else" && styles.rideForBtnTextActive]}>Someone Else</Text>
+                </TouchableOpacity>
               </View>
 
-              {activeRide.driver_name && (
-                <View style={styles.driverCard}>
-                  <View style={styles.driverAvatar}>
-                    <Text style={styles.driverAvatarText}>{activeRide.driver_name[0]?.toUpperCase()}</Text>
+              {rideFor === "someone_else" && (
+                <View style={styles.passengerFields}>
+                  <View style={styles.passengerInputWrap}>
+                    <Feather name="user" size={15} color={PURPLE} style={styles.passengerInputIcon} />
+                    <TextInput
+                      style={styles.passengerInput}
+                      placeholder="Passenger full name *"
+                      placeholderTextColor={C.textTertiary}
+                      value={passengerName}
+                      onChangeText={setPassengerName}
+                      autoCapitalize="words"
+                    />
                   </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.driverName}>{activeRide.driver_name}</Text>
-                    <Text style={styles.driverSub}>Your driver • {selectedVehicle.icon} {vehicleType}</Text>
+                  <View style={styles.passengerInputWrap}>
+                    <Feather name="phone" size={15} color={PURPLE} style={styles.passengerInputIcon} />
+                    <TextInput
+                      style={styles.passengerInput}
+                      placeholder="Passenger phone (optional)"
+                      placeholderTextColor={C.textTertiary}
+                      value={passengerPhone}
+                      onChangeText={setPassengerPhone}
+                      keyboardType="phone-pad"
+                    />
                   </View>
-                  <TouchableOpacity style={styles.callBtn}>
-                    <Feather name="phone" size={16} color={GREEN} />
-                  </TouchableOpacity>
                 </View>
-              )}
-
-              {["requested", "scheduled"].includes(rideStatus) && (
-                <TouchableOpacity style={styles.cancelBtn} onPress={handleCancelRide}>
-                  <Text style={styles.cancelBtnText}>Cancel Ride</Text>
-                </TouchableOpacity>
-              )}
-              {rideStatus === "completed" && (
-                <TouchableOpacity style={styles.primaryBtn} onPress={() => {
-                  setRideStatus("idle"); setActiveRide(null); setDrop(null);
-                  setScheduledTime(null); setSheetExpanded(false);
-                }}>
-                  <Feather name="star" size={16} color="#fff" />
-                  <Text style={styles.primaryBtnText}>Done — Rate Ride</Text>
-                </TouchableOpacity>
               )}
             </View>
-          ) : (
-            // ── Booking form ──
-            <View style={styles.sheetInner}>
-              {/* Ride mode toggle */}
-              <View style={styles.modeToggle}>
-                <TouchableOpacity
-                  style={[styles.modeBtn, rideMode === "instant" && styles.modeBtnActive]}
-                  onPress={() => setRideMode("instant")}
-                >
-                  <Feather name="zap" size={14} color={rideMode === "instant" ? "#fff" : C.textSecondary} />
-                  <Text style={[styles.modeBtnText, rideMode === "instant" && styles.modeBtnTextActive]}>
-                    Book Now
+          )}
+
+          {/* Book button */}
+          <TouchableOpacity
+            style={[
+              styles.primaryBtn,
+              { marginTop: 12, backgroundColor: rideMode === "scheduled" ? PURPLE : ORANGE },
+              (!drop || booking) && { opacity: 0.5 },
+            ]}
+            onPress={handleBookRide}
+            disabled={!drop || booking}
+          >
+            {booking
+              ? <ActivityIndicator color="#fff" />
+              : <>
+                  <Feather name={rideMode === "scheduled" ? "clock" : "navigation"} size={18} color="#fff" />
+                  <Text style={styles.primaryBtnText}>
+                    {rideMode === "scheduled"
+                      ? (scheduledTime ? `Schedule for ${scheduledTime.label}` : "Schedule Ride")
+                      : "Book Ride Now"}
                   </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.modeBtn, rideMode === "scheduled" && { ...styles.modeBtnActive, backgroundColor: PURPLE }]}
-                  onPress={() => setRideMode("scheduled")}
-                >
-                  <Feather name="clock" size={14} color={rideMode === "scheduled" ? "#fff" : C.textSecondary} />
-                  <Text style={[styles.modeBtnText, rideMode === "scheduled" && styles.modeBtnTextActive]}>
-                    Schedule
-                  </Text>
-                </TouchableOpacity>
-              </View>
-
-              {/* Scheduled time display */}
-              {rideMode === "scheduled" && (
-                <TouchableOpacity style={styles.scheduledTimeRow} onPress={() => setScheduleModalOpen(true)}>
-                  <Feather name="clock" size={16} color={PURPLE} />
-                  <Text style={styles.scheduledTimeText}>
-                    {scheduledTime ? scheduledTime.label : "Select date & time"}
-                  </Text>
-                  <Feather name="chevron-right" size={16} color={C.textTertiary} />
-                </TouchableOpacity>
-              )}
-
-              {/* Location inputs */}
-              <View style={styles.locationBox}>
-                {/* Pickup */}
-                <TouchableOpacity style={styles.locationRow} onPress={() => setPickupModalOpen(true)}>
-                  <View style={[styles.locDot, { backgroundColor: GREEN }]} />
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.locLabel}>Pickup</Text>
-                    <Text style={styles.locValue} numberOfLines={1}>
-                      {locLoading ? "Detecting your location…" : pickup.address}
-                    </Text>
-                  </View>
-                  <Feather name="edit-2" size={14} color={C.textTertiary} />
-                </TouchableOpacity>
-
-                <View style={styles.locDivider}>
-                  <View style={styles.locLine} />
-                </View>
-
-                {/* Drop */}
-                <TouchableOpacity
-                  style={[styles.locationRow, !drop && styles.locationRowPlaceholder]}
-                  onPress={() => { setDropModalOpen(true); setSheetExpanded(true); }}
-                >
-                  <View style={[styles.locDot, { backgroundColor: drop ? ORANGE : C.border }]} />
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.locLabel}>Drop-off</Text>
-                    <Text style={[styles.locValue, !drop && { color: C.textTertiary }]} numberOfLines={1}>
-                      {drop ? drop.address : "Where are you going?"}
-                    </Text>
-                  </View>
-                  <Feather name={drop ? "edit-2" : "search"} size={14} color={drop ? C.textTertiary : ORANGE} />
-                </TouchableOpacity>
-              </View>
-
-              {/* Estimate summary (compact) */}
-              {estimate && (
-                <LinearGradient colors={[NAVY, "#1a3060"]} style={styles.estimateBanner}>
-                  <View style={styles.estimateStat}>
-                    <Text style={styles.estimateVal}>{fmt(estimate.distanceKm)} km</Text>
-                    <Text style={styles.estimateKey}>Distance</Text>
-                  </View>
-                  <View style={styles.estimateDivider} />
-                  <View style={styles.estimateStat}>
-                    <Text style={styles.estimateVal}>{estimate.durationMin} min</Text>
-                    <Text style={styles.estimateKey}>Est. time</Text>
-                  </View>
-                  <View style={styles.estimateDivider} />
-                  <View style={styles.estimateStat}>
-                    <Text style={[styles.estimateVal, { color: GOLD }]}>
-                      ₹{estimate.fare}
-                    </Text>
-                    <Text style={styles.estimateKey}>Base fare</Text>
-                  </View>
-                </LinearGradient>
-              )}
-
-              {/* Vehicle selector */}
-              {drop && (
-                <>
-                  <Text style={styles.sectionLabel}>Choose Vehicle</Text>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.vehicleRow}>
-                    {VEHICLE_TYPES.map(v => (
-                      <VehicleCard
-                        key={v.id} v={v}
-                        selected={vehicleType === v.id}
-                        estimate={estimate}
-                        distanceKm={estimate?.distanceKm}
-                        onPress={() => setVehicleType(v.id)}
-                        pricing={ridePricing[v.id] ?? DEFAULT_PRICING[v.id] ?? { baseFare: 50, perKm: 12 }}
-                      />
-                    ))}
-                  </ScrollView>
                 </>
-              )}
+            }
+          </TouchableOpacity>
 
-              {/* Book button */}
-              <TouchableOpacity
-                style={[
-                  styles.primaryBtn,
-                  { marginTop: 12, backgroundColor: rideMode === "scheduled" ? PURPLE : ORANGE },
-                  (!drop) && { opacity: 0.45 },
-                ]}
-                onPress={handleBookRide}
-                disabled={!drop || rideStatus === "booking"}
-              >
-                {rideStatus === "booking"
-                  ? <ActivityIndicator color="#fff" />
-                  : <>
-                    <Feather name={rideMode === "scheduled" ? "clock" : "navigation"} size={18} color="#fff" />
-                    <Text style={styles.primaryBtnText}>
-                      {rideMode === "scheduled"
-                        ? (scheduledTime ? `Schedule for ${scheduledTime.label}` : "Schedule Ride")
-                        : "Book Ride Now"}
-                    </Text>
-                  </>
-                }
-              </TouchableOpacity>
-            </View>
-          )}
-        </BottomSheet>
-      </>
-    );
-  };
+        </View>
+      </BottomSheet>
+    </>
+  );
 
   // ── DRIVER UI ───────────────────────────────────────────────────────────────
   const renderDriver = () => (
-    <ScrollView style={{ flex: 1 }} contentContainerStyle={[styles.driverContainer]}>
-      {/* Online toggle */}
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.driverContainer}>
       <LinearGradient
         colors={isOnline ? ["#14532D", "#15803D"] : [NAVY, "#1a3060"]}
         style={styles.onlineCard}
@@ -683,8 +874,7 @@ export default function CarsScreen() {
         </View>
         <TouchableOpacity
           style={[styles.onlineToggleBtn, { backgroundColor: isOnline ? RED : GREEN }]}
-          onPress={handleToggleOnline}
-          disabled={driverLoading}
+          onPress={handleToggleOnline} disabled={driverLoading}
         >
           {driverLoading
             ? <ActivityIndicator color="#fff" size="small" />
@@ -693,7 +883,6 @@ export default function CarsScreen() {
         </TouchableOpacity>
       </LinearGradient>
 
-      {/* Active ride for driver */}
       {driverActiveRide && (
         <View style={styles.driverActiveCard}>
           <View style={styles.driverActiveHeader}>
@@ -704,6 +893,18 @@ export default function CarsScreen() {
               </Text>
             </View>
           </View>
+
+          {/* Show passenger info if ride booked for someone else */}
+          {driverActiveRide.ride_for_type === "someone_else" && driverActiveRide.passenger_name && (
+            <View style={[styles.passengerBadge, { marginBottom: 10 }]}>
+              <Feather name="users" size={12} color={PURPLE} />
+              <Text style={styles.passengerBadgeText}>Passenger: {driverActiveRide.passenger_name}</Text>
+              {driverActiveRide.passenger_phone && (
+                <Text style={styles.passengerBadgePhone}>{driverActiveRide.passenger_phone}</Text>
+              )}
+            </View>
+          )}
+
           <View style={styles.routeRow}>
             <View style={[styles.routeDot, { backgroundColor: GREEN }]} />
             <Text style={styles.routeAddr}>{driverActiveRide.pickup_address ?? `${driverActiveRide.pickup_lat.toFixed(3)}, ${driverActiveRide.pickup_lng.toFixed(3)}`}</Text>
@@ -714,12 +915,10 @@ export default function CarsScreen() {
             <Text style={styles.routeAddr}>{driverActiveRide.drop_address ?? `${driverActiveRide.drop_lat.toFixed(3)}, ${driverActiveRide.drop_lng.toFixed(3)}`}</Text>
           </View>
           <View style={styles.rideMeta}>
-            <View style={styles.rideMetaItem}>
-              <Text style={styles.rideMetaText}>Rider: {driverActiveRide.rider_name ?? "—"}</Text>
-            </View>
-            <View style={styles.rideMetaItem}>
-              <Text style={styles.rideMetaFare}>₹{driverActiveRide.fare}</Text>
-            </View>
+            <Text style={styles.rideMetaText}>
+              Rider: {driverActiveRide.rider_name ?? "—"}
+            </Text>
+            <Text style={styles.rideMetaFare}>₹{driverActiveRide.fare}</Text>
           </View>
           {driverActiveRide.status === "accepted" && (
             <TouchableOpacity style={[styles.primaryBtn, { backgroundColor: GREEN }]} onPress={handleStartRide}>
@@ -736,7 +935,6 @@ export default function CarsScreen() {
         </View>
       )}
 
-      {/* Ride requests */}
       {isOnline && !driverActiveRide && (
         <View style={{ paddingHorizontal: 16 }}>
           <Text style={styles.sectionLabel}>
@@ -763,6 +961,9 @@ export default function CarsScreen() {
                 </View>
                 <View style={styles.rideMeta}>
                   <Text style={styles.rideMetaText}>{fmt(req.distance_km)} km</Text>
+                  {req.ride_for_type === "someone_else" && req.passenger_name && (
+                    <Text style={[styles.rideMetaText, { color: PURPLE }]}>For: {req.passenger_name}</Text>
+                  )}
                   <Text style={[styles.rideMetaFare, { color: GOLD }]}>₹{req.fare ?? "—"}</Text>
                 </View>
               </View>
@@ -787,11 +988,16 @@ export default function CarsScreen() {
         </View>
       )}
 
-      {/* Request detail */}
       {selectedRequest && (
         <View style={styles.requestDetailOverlay}>
           <View style={styles.requestDetailCard}>
             <Text style={styles.requestDetailTitle}>New Ride Request</Text>
+            {selectedRequest.ride_for_type === "someone_else" && selectedRequest.passenger_name && (
+              <View style={[styles.passengerBadge, { marginBottom: 10 }]}>
+                <Feather name="users" size={12} color={PURPLE} />
+                <Text style={styles.passengerBadgeText}>Passenger: {selectedRequest.passenger_name}</Text>
+              </View>
+            )}
             <View style={styles.routeRow}>
               <View style={[styles.routeDot, { backgroundColor: GREEN }]} />
               <View>
@@ -832,6 +1038,9 @@ export default function CarsScreen() {
     </ScrollView>
   );
 
+  // ── Active rides badge count ──
+  const activeCount = activeRides.length;
+
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <StatusBar barStyle="light-content" backgroundColor={NAVY} />
@@ -842,25 +1051,43 @@ export default function CarsScreen() {
           <Text style={styles.headerTitle}>Cars</Text>
           <Text style={styles.headerSub}>Ride-booking · Punjab</Text>
         </View>
-        {isProviderUser && (
-          <View style={styles.tabPills}>
-            {(["rider", "driver"] as const).map(t => (
-              <TouchableOpacity
-                key={t}
-                style={[styles.tabPill, tab === t && styles.tabPillActive]}
-                onPress={() => { setTab(t); if (pollRef.current) clearInterval(pollRef.current); }}
-              >
-                <Feather
-                  name={t === "rider" ? "user" : "truck"}
-                  size={13} color={tab === t ? "#fff" : "rgba(255,255,255,0.55)"}
-                />
-                <Text style={[styles.tabPillText, tab === t && styles.tabPillTextActive]}>
-                  {t === "rider" ? "Rider" : "Driver"}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
+
+        <View style={styles.headerRight}>
+          {/* Active Rides button with badge */}
+          {tab === "rider" && (
+            <TouchableOpacity
+              style={[styles.activeRidesBtn, activeCount > 0 && styles.activeRidesBtnActive]}
+              onPress={() => setShowActiveRides(true)}
+            >
+              <Feather name="navigation" size={14} color={activeCount > 0 ? "#fff" : "rgba(255,255,255,0.7)"} />
+              <Text style={[styles.activeRidesBtnText, activeCount > 0 && { color: "#fff" }]}>
+                {activeCount > 0 ? `Active Rides (${activeCount})` : "My Rides"}
+              </Text>
+              {activeCount > 0 && (
+                <View style={styles.rideBadge}>
+                  <Text style={styles.rideBadgeText}>{activeCount}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          )}
+
+          {isProviderUser && (
+            <View style={styles.tabPills}>
+              {(["rider", "driver"] as const).map(t => (
+                <TouchableOpacity
+                  key={t}
+                  style={[styles.tabPill, tab === t && styles.tabPillActive]}
+                  onPress={() => { setTab(t); if (pollRef.current) clearInterval(pollRef.current); }}
+                >
+                  <Feather name={t === "rider" ? "user" : "truck"} size={13} color={tab === t ? "#fff" : "rgba(255,255,255,0.55)"} />
+                  <Text style={[styles.tabPillText, tab === t && styles.tabPillTextActive]}>
+                    {t === "rider" ? "Rider" : "Driver"}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+        </View>
       </LinearGradient>
 
       {/* Content */}
@@ -868,7 +1095,7 @@ export default function CarsScreen() {
         {tab === "rider" ? renderRider() : renderDriver()}
       </View>
 
-      {/* Modals */}
+      {/* Location Modals */}
       <LocationSearchModal
         visible={pickupModalOpen}
         onClose={() => setPickupModalOpen(false)}
@@ -881,9 +1108,7 @@ export default function CarsScreen() {
         title="Choose Pickup"
         color={GREEN}
         showCurrentLocation
-        onCurrentLocation={() => {
-          mapRef.current?.getCurrentLocation();
-        }}
+        onCurrentLocation={() => { mapRef.current?.getCurrentLocation(); }}
         userLat={pickup.lat}
         userLng={pickup.lng}
       />
@@ -906,6 +1131,22 @@ export default function CarsScreen() {
         onClose={() => setScheduleModalOpen(false)}
         onConfirm={(t: ScheduledTime) => setScheduledTime(t)}
       />
+
+      {/* Active Rides Modal */}
+      <ActiveRidesModal
+        visible={showActiveRides}
+        rides={activeRides}
+        onClose={() => setShowActiveRides(false)}
+        onCancelRide={handleCancelRequest}
+      />
+
+      {/* Cancel Confirmation Modal */}
+      <CancelModal
+        ride={cancellingRide}
+        visible={cancellingRide !== null}
+        onConfirm={handleCancelConfirmed}
+        onDismiss={() => setCancellingRide(null)}
+      />
     </View>
   );
 }
@@ -915,18 +1156,26 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#0a1628" },
 
   // Header
-  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingVertical: 14 },
+  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingVertical: 14, flexWrap: "wrap", gap: 8 },
   headerTitle: { fontSize: 26, fontWeight: "800", color: "#fff", fontFamily: "Inter_700Bold" },
   headerSub: { fontSize: 12, color: "rgba(255,255,255,0.5)", fontFamily: "Inter_400Regular", marginTop: 2 },
+  headerRight: { flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap" },
+
+  // Active rides button
+  activeRidesBtn: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 20, backgroundColor: "rgba(255,255,255,0.12)", borderWidth: 1, borderColor: "rgba(255,255,255,0.2)" },
+  activeRidesBtnActive: { backgroundColor: ORANGE, borderColor: ORANGE },
+  activeRidesBtnText: { fontSize: 12, color: "rgba(255,255,255,0.7)", fontFamily: "Inter_600SemiBold" },
+  rideBadge: { width: 16, height: 16, borderRadius: 8, backgroundColor: "#fff", alignItems: "center", justifyContent: "center" },
+  rideBadgeText: { fontSize: 9, fontWeight: "800", color: ORANGE, fontFamily: "Inter_700Bold" },
+
   tabPills: { flexDirection: "row", backgroundColor: "rgba(255,255,255,0.1)", borderRadius: 20, padding: 3, gap: 2 },
   tabPill: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 17 },
   tabPillActive: { backgroundColor: ORANGE },
   tabPillText: { fontSize: 12, color: "rgba(255,255,255,0.55)", fontFamily: "Inter_500Medium" },
   tabPillTextActive: { color: "#fff", fontFamily: "Inter_700Bold" },
 
-  // Map container
+  // Map
   mapContainer: { width: "100%", overflow: "hidden", position: "relative", backgroundColor: "#e8ddd0" },
-  coordText: { fontSize: 10, color: GOLD, fontFamily: "Inter_400Regular" },
 
   // Bottom sheet
   bottomSheet: { position: "absolute", bottom: 0, left: 0, right: 0, backgroundColor: C.background, borderTopLeftRadius: 28, borderTopRightRadius: 28, shadowColor: "#000", shadowOffset: { width: 0, height: -6 }, shadowOpacity: 0.2, shadowRadius: 20, elevation: 20 },
@@ -976,10 +1225,29 @@ const styles = StyleSheet.create({
   vehicleFareSkeleton: { width: 40, height: 16, backgroundColor: C.border, borderRadius: 4, marginTop: 6 },
   vehicleEta: { fontSize: 11, color: C.textSecondary, fontFamily: "Inter_400Regular", marginTop: 2 },
 
+  // Ride for toggle
+  rideForSection: { marginBottom: 14 },
+  rideForToggle: { flexDirection: "row", backgroundColor: C.backgroundSecondary, borderRadius: 14, padding: 4, gap: 4, marginBottom: 10 },
+  rideForBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 10, borderRadius: 11 },
+  rideForBtnActive: { backgroundColor: ORANGE },
+  rideForBtnText: { fontSize: 14, fontWeight: "600", color: C.textSecondary, fontFamily: "Inter_600SemiBold" },
+  rideForBtnTextActive: { color: "#fff" },
+
+  // Passenger fields
+  passengerFields: { gap: 8 },
+  passengerInputWrap: { flexDirection: "row", alignItems: "center", backgroundColor: C.backgroundSecondary, borderRadius: 14, borderWidth: 1.5, borderColor: `${PURPLE}40`, paddingHorizontal: 12, paddingVertical: 4 },
+  passengerInputIcon: { marginRight: 8 },
+  passengerInput: { flex: 1, fontSize: 15, color: C.text, fontFamily: "Inter_400Regular", paddingVertical: 10 },
+
+  // Passenger badge (in active ride card / driver view)
+  passengerBadge: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: `${PURPLE}14`, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 6, borderWidth: 1, borderColor: `${PURPLE}25`, marginBottom: 8 },
+  passengerBadgeText: { fontSize: 12, color: PURPLE, fontFamily: "Inter_600SemiBold", flex: 1 },
+  passengerBadgePhone: { fontSize: 11, color: C.textSecondary, fontFamily: "Inter_400Regular" },
+
   // Primary button
   primaryBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: ORANGE, borderRadius: 16, paddingVertical: 16 },
   primaryBtnText: { fontSize: 16, fontWeight: "700", color: "#fff", fontFamily: "Inter_700Bold" },
-  cancelBtn: { borderRadius: 16, paddingVertical: 15, alignItems: "center", borderWidth: 1.5, borderColor: RED, marginTop: 8 },
+  cancelBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, borderRadius: 16, paddingVertical: 14, alignContent: "center", borderWidth: 1.5, borderColor: RED, marginTop: 8 },
   cancelBtnText: { fontSize: 15, fontWeight: "600", color: RED, fontFamily: "Inter_600SemiBold" },
 
   // Ride details
@@ -1011,7 +1279,12 @@ const styles = StyleSheet.create({
 
   // Scheduled banner
   scheduledBanner: { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: `${PURPLE}14`, borderRadius: 12, padding: 12, marginBottom: 12, borderWidth: 1, borderColor: `${PURPLE}30` },
-  scheduledText: { fontSize: 14, color: PURPLE, fontFamily: "Inter_500Medium", flex: 1 },
+  scheduledText: { fontSize: 13, color: PURPLE, fontFamily: "Inter_500Medium", flex: 1 },
+
+  // Status pill / dot
+  statusPill: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10 },
+  statusPillText: { fontSize: 12, fontWeight: "600", fontFamily: "Inter_600SemiBold" },
+  statusDot: { width: 6, height: 6, borderRadius: 3 },
 
   // Driver view
   driverContainer: { paddingTop: 16, paddingBottom: 120 },
@@ -1025,8 +1298,6 @@ const styles = StyleSheet.create({
   driverActiveCard: { marginHorizontal: 16, backgroundColor: C.backgroundSecondary, borderRadius: 20, padding: 16, marginBottom: 16 },
   driverActiveHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 },
   driverActiveTitle: { fontSize: 16, fontWeight: "700", color: C.text, fontFamily: "Inter_700Bold" },
-  statusPill: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10 },
-  statusPillText: { fontSize: 12, fontWeight: "600", fontFamily: "Inter_600SemiBold" },
   requestCard: { backgroundColor: C.backgroundSecondary, borderRadius: 18, padding: 14, marginBottom: 12, flexDirection: "row", alignItems: "center", gap: 12 },
   requestActions: { gap: 8, alignItems: "center" },
   rejectSmallBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: `${RED}15`, alignItems: "center", justifyContent: "center" },
@@ -1043,4 +1314,37 @@ const styles = StyleSheet.create({
   requestDetailBtns: { flexDirection: "row", gap: 10, marginTop: 12 },
   declineBtn: { flex: 0.6, borderRadius: 14, paddingVertical: 15, alignItems: "center", borderWidth: 1.5, borderColor: C.border },
   declineBtnText: { fontSize: 15, fontWeight: "600", color: C.text, fontFamily: "Inter_600SemiBold" },
+
+  // Active rides modal
+  modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.55)", justifyContent: "flex-end" },
+  activeRidesSheet: { backgroundColor: C.background, borderTopLeftRadius: 28, borderTopRightRadius: 28, maxHeight: SH * 0.88, paddingBottom: 40 },
+  activeRidesHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingBottom: 16 },
+  activeRidesTitle: { fontSize: 22, fontWeight: "800", color: C.text, fontFamily: "Inter_700Bold" },
+  activeRidesSub: { fontSize: 13, color: C.textSecondary, fontFamily: "Inter_400Regular", marginTop: 2 },
+  closeBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: C.backgroundSecondary, alignItems: "center", justifyContent: "center" },
+  activeRidesScroll: { paddingHorizontal: 16, paddingBottom: 20, gap: 12 },
+
+  // Active ride card
+  activeRideCard: { backgroundColor: C.backgroundSecondary, borderRadius: 20, padding: 16, borderWidth: 1, borderColor: C.border },
+  activeRideHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 10 },
+  activeRideVehicleRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  activeRideEmoji: { fontSize: 22 },
+  activeRideVehicle: { fontSize: 16, fontWeight: "700", color: C.text, fontFamily: "Inter_700Bold" },
+
+  // Cancel modal
+  cancelModalCard: { backgroundColor: C.background, borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 24, paddingBottom: 40 },
+  cancelModalTitle: { fontSize: 22, fontWeight: "800", color: C.text, fontFamily: "Inter_700Bold", marginBottom: 4 },
+  cancelModalSub: { fontSize: 13, color: C.textSecondary, fontFamily: "Inter_400Regular", marginBottom: 20 },
+  cancelReasonLabel: { fontSize: 12, fontWeight: "700", color: C.textSecondary, fontFamily: "Inter_700Bold", textTransform: "uppercase", letterSpacing: 0.7, marginBottom: 10 },
+  reasonPillRow: { gap: 8, paddingBottom: 4 },
+  reasonPill: { paddingHorizontal: 14, paddingVertical: 9, borderRadius: 20, backgroundColor: C.backgroundSecondary, borderWidth: 1.5, borderColor: C.border },
+  reasonPillActive: { backgroundColor: RED, borderColor: RED },
+  reasonPillText: { fontSize: 13, color: C.text, fontFamily: "Inter_500Medium" },
+  reasonPillTextActive: { color: "#fff" },
+  reasonInput: { backgroundColor: C.backgroundSecondary, borderRadius: 14, padding: 14, fontSize: 15, color: C.text, fontFamily: "Inter_400Regular", marginTop: 12, marginBottom: 20, borderWidth: 1, borderColor: C.border },
+  cancelModalBtns: { flexDirection: "row", gap: 10 },
+  cancelModalKeep: { flex: 1, borderRadius: 16, paddingVertical: 16, alignItems: "center", borderWidth: 1.5, borderColor: C.border },
+  cancelModalKeepText: { fontSize: 15, fontWeight: "600", color: C.text, fontFamily: "Inter_600SemiBold" },
+  cancelModalConfirm: { flex: 1, borderRadius: 16, paddingVertical: 16, alignItems: "center", backgroundColor: RED },
+  cancelModalConfirmText: { fontSize: 15, fontWeight: "700", color: "#fff", fontFamily: "Inter_700Bold" },
 });

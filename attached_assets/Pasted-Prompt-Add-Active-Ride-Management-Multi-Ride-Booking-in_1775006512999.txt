@@ -1,0 +1,200 @@
+Prompt: Add Active Ride Management + Multi-Ride Booking in Cars Tab
+
+Upgrade the Cars tab (Ride Sharing / Ride Booking module) in the RentZilla customer app.
+
+Add a fully functional Active Ride management system that allows customers to:
+
+see current active rides
+cancel rides
+book multiple rides
+book rides for someone else
+clear pickup/drop after cancellation
+manage ride history cleanly
+
+This must include frontend UI, backend APIs, database, ride state sync, and live ride updates.
+
+1) Add “Active Ride” Button on Cars Tab
+
+On the Cars tab main screen, place a clearly visible:
+
+Active Ride Button
+
+Position:
+
+top-right corner
+below search bar
+sticky floating CTA
+or segmented tab beside “Book Ride”
+
+Use badge count if multiple active rides exist:
+
+Active Rides (2)
+2) Active Ride Screen
+
+When customer taps Active Ride, open a dedicated screen showing all currently active rides.
+
+Each active ride card should show:
+
+driver name
+vehicle details
+live driver location
+ETA
+pickup address
+destination address
+fare
+ride status
+contact driver button
+Cancel Ride button
+
+Statuses:
+
+searching
+driver assigned
+driver arriving
+trip started
+completed
+3) Allow Multiple Active Rides
+
+A customer should be able to book multiple rides at the same time.
+
+Example Use Cases
+one ride for self
+another ride for family member
+one ride scheduled later
+multiple pickup requests
+Logic
+
+Do not restrict one active ride per customer.
+
+Each ride must have:
+
+separate ride id
+separate driver
+separate route
+separate live tracking
+separate cancel flow
+4) Booking Ride for Someone Else
+
+In ride booking flow, add a new selection field:
+
+Who is this ride for?
+
+Use toggle / segmented selector:
+
+Me
+Someone Else
+
+Default:
+
+Me
+If “Someone Else” Selected
+
+Show required input fields:
+
+Passenger Name
+
+text input:
+Enter passenger full name
+
+Optional extra fields:
+
+passenger phone
+pickup instructions
+landmark
+
+This name must be:
+
+visible to driver
+visible in active ride card
+stored in booking record
+shown in ride history
+5) Cancel Ride Flow
+
+When customer taps Cancel Ride:
+
+show confirmation modal
+cancel driver request / trip
+release assigned driver
+update ride status
+stop live tracking
+save cancellation reason
+6) Clear Pickup + Destination After Cancellation
+
+This is important.
+
+After successful ride cancellation:
+
+Automatically clear:
+pickup address field
+destination address field
+selected route polyline
+estimated fare
+selected vehicle type
+ride-for-person selection
+passenger name field
+
+Cars tab should reset to fresh new booking state.
+
+This prevents old addresses staying in the UI.
+
+7) APIs Required
+Get Active Rides
+
+GET /rides/active/{customerId}
+
+Returns all active rides.
+
+Book Ride
+
+POST /rides/book
+
+Payload must include:
+
+rideFor (me / someone_else)
+passengerName
+pickup
+destination
+ride type
+schedule time
+Cancel Ride
+
+POST /rides/{rideId}/cancel
+
+Action:
+
+driver released
+route cleared
+UI reset
+ride moved to cancelled history
+8) Database Changes
+Rides Table
+
+Add fields:
+
+ride_for_type
+passenger_name
+passenger_phone
+is_active
+canceled_at
+cancellation_reason
+
+Supports multi-active rides.
+
+9) Driver Side
+
+Driver app should show:
+
+if ride is for someone else
+passenger name
+special pickup instructions
+customer contact
+rider contact if different
+10) UX Requirements
+smooth active ride badge updates
+live ride refresh every few seconds
+clean card design
+cancel animation smooth
+auto reset map after cancellation
+preserve app theme
+fast ride state sync
+support repeated simultaneous bookings
