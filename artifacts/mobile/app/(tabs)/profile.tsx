@@ -7,7 +7,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import * as Location from "expo-location";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -67,6 +67,7 @@ export default function ProfileScreen() {
   const [showPhotoMenu, setShowPhotoMenu] = useState(false);
   const [previewUri, setPreviewUri] = useState<string | null>(null);
   const uploadingRef = useRef(false);
+  const [pendingAction, setPendingAction] = useState<"gallery" | "camera" | null>(null);
 
   const [showLocationModal, setShowLocationModal] = useState(false);
   const [manualLocation, setManualLocation]       = useState(user?.location || "");
@@ -100,6 +101,31 @@ export default function ProfileScreen() {
     } finally {
       setSaving(false);
     }
+  }
+
+  // ── Web: resize + compress via Canvas → base64 JPEG ─────────────────────
+  async function compressImageWeb(uri: string): Promise<string> {
+    return new Promise((resolve) => {
+      const img = new window.Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => {
+        const MAX = 800;
+        let w = img.naturalWidth;
+        let h = img.naturalHeight;
+        if (w > MAX || h > MAX) {
+          if (w > h) { h = Math.round((h * MAX) / w); w = MAX; }
+          else        { w = Math.round((w * MAX) / h); h = MAX; }
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width  = w;
+        canvas.height = h;
+        const ctx = canvas.getContext("2d")!;
+        ctx.drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL("image/jpeg", 0.75));
+      };
+      img.onerror = () => resolve(uri);
+      img.src = uri;
+    });
   }
 
   // ── Compress an image URI to JPEG ≤200KB ─────────────────────────────────
@@ -147,19 +173,8 @@ export default function ProfileScreen() {
       let profileImage: string;
 
       if (Platform.OS === "web") {
-        // Web: blob URL — convert to base64 data URI
-        if (asset.uri && asset.uri.startsWith("blob:")) {
-          const response = await fetch(asset.uri);
-          const blob = await response.blob();
-          profileImage = await new Promise<string>((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onloadend = () => resolve(reader.result as string);
-            reader.onerror = reject;
-            reader.readAsDataURL(blob);
-          });
-        } else {
-          profileImage = asset.uri;
-        }
+        // Web: resize & compress with Canvas → JPEG ≤200 KB
+        profileImage = await compressImageWeb(asset.uri);
       } else {
         // Native: compress with ImageManipulator
         profileImage = await compressImage(asset.uri);
@@ -185,60 +200,85 @@ export default function ProfileScreen() {
     }
   }
 
-  async function pickPhotoFromGallery() {
+  // ── Schedule gallery / camera after modal fully closes ───────────────────
+  // Instead of setTimeout inside the press handler (unreliable in production),
+  // we set a pendingAction and let useEffect fire the picker only AFTER React
+  // has re-rendered with showPhotoMenu=false and the native slide animation
+  // (~350 ms on iOS) is complete.
+  function pickPhotoFromGallery() {
+    setPendingAction("gallery");
     setShowPhotoMenu(false);
-    // Small delay so modal closes before permission dialog appears
-    setTimeout(async () => {
-      try {
-        const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-        if (!perm.granted) {
-          Alert.alert(
-            "Permission Required",
-            "Please allow photo library access in your device Settings → RentZilla → Photos.",
-            [{ text: "OK" }]
-          );
-          return;
-        }
-        const result = await ImagePicker.launchImageLibraryAsync({
-          mediaTypes: ImagePicker.MediaTypeOptions.Images,
-          allowsEditing: true,
-          aspect: [1, 1],
-          quality: 0.85, // kept high here — we compress in uploadPhoto
-        });
-        if (!result.canceled && result.assets[0]) {
-          await uploadPhoto(result.assets[0]);
-        }
-      } catch {
-        Alert.alert("Error", "Could not open photo library. Please try again.");
-      }
-    }, 200);
   }
 
-  async function takePhoto() {
+  function takePhoto() {
+    setPendingAction("camera");
     setShowPhotoMenu(false);
-    setTimeout(async () => {
-      try {
-        const perm = await ImagePicker.requestCameraPermissionsAsync();
-        if (!perm.granted) {
-          Alert.alert(
-            "Permission Required",
-            "Please allow camera access in your device Settings → RentZilla → Camera.",
-            [{ text: "OK" }]
-          );
-          return;
-        }
-        const result = await ImagePicker.launchCameraAsync({
-          allowsEditing: true,
-          aspect: [1, 1],
-          quality: 0.85,
-        });
-        if (!result.canceled && result.assets[0]) {
-          await uploadPhoto(result.assets[0]);
-        }
-      } catch {
-        Alert.alert("Error", "Could not open camera. Please try again.");
+  }
+
+  useEffect(() => {
+    if (showPhotoMenu || !pendingAction) return;
+    // Wait for native modal slide-out animation before launching system picker
+    const delay = Platform.OS === "ios" ? 500 : 350;
+    const t = setTimeout(async () => {
+      const action = pendingAction;
+      setPendingAction(null);
+      if (action === "gallery") await _doPickGallery();
+      else                       await _doTakeCamera();
+    }, delay);
+    return () => clearTimeout(t);
+  }, [showPhotoMenu, pendingAction]);
+
+  async function _doPickGallery() {
+    try {
+      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!perm.granted) {
+        Alert.alert(
+          "Permission Required",
+          perm.canAskAgain
+            ? "RentZilla needs photo library access to set your profile picture."
+            : "Photo access is blocked. Go to Settings → RentZilla → Photos and enable access.",
+          [{ text: "OK" }]
+        );
+        return;
       }
-    }, 200);
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 1,
+      });
+      if (!result.canceled && result.assets[0]) {
+        await uploadPhoto(result.assets[0]);
+      }
+    } catch (err) {
+      Alert.alert("Error", "Could not open photo library. Please try again.");
+    }
+  }
+
+  async function _doTakeCamera() {
+    try {
+      const perm = await ImagePicker.requestCameraPermissionsAsync();
+      if (!perm.granted) {
+        Alert.alert(
+          "Permission Required",
+          perm.canAskAgain
+            ? "RentZilla needs camera access to take your profile photo."
+            : "Camera access is blocked. Go to Settings → RentZilla → Camera and enable access.",
+          [{ text: "OK" }]
+        );
+        return;
+      }
+      const result = await ImagePicker.launchCameraAsync({
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 1,
+      });
+      if (!result.canceled && result.assets[0]) {
+        await uploadPhoto(result.assets[0]);
+      }
+    } catch (err) {
+      Alert.alert("Error", "Could not open camera. Please try again.");
+    }
   }
 
   async function removePhoto() {
