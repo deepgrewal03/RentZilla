@@ -27,7 +27,7 @@ export function SchedulePickerModal({ visible, onClose, onConfirm }: Props) {
   const insets = useSafeAreaInsets();
   const now = new Date();
 
-  // Build available dates (today + next 6 days)
+  // Pre-compute dates so useState can use them as initial values
   const dates = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(now);
     d.setDate(d.getDate() + i);
@@ -35,18 +35,22 @@ export function SchedulePickerModal({ visible, onClose, onConfirm }: Props) {
     return d;
   });
 
-  // Build available times (next 30-min slot to 23:30, every 30 min)
+  // Build available times (every 30 min across the day)
   const timeSlots: Date[] = [];
   for (let h = 0; h < 24; h++) {
-    for (let m of [0, 30]) {
+    for (const m of [0, 30]) {
       const t = new Date(now);
       t.setHours(h, m, 0, 0);
       timeSlots.push(t);
     }
   }
 
+  // ALL hooks must be called before any conditional return
   const [selectedDate, setSelectedDate] = useState(dates[0]);
   const [selectedTime, setSelectedTime] = useState<Date | null>(null);
+
+  // Guard: prevents invisible overlay blocking touches on web when modal is closed
+  if (!visible) return null;
 
   const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -73,7 +77,7 @@ export function SchedulePickerModal({ visible, onClose, onConfirm }: Props) {
   }
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+    <Modal visible transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.backdrop}>
         <TouchableOpacity style={StyleSheet.absoluteFill} onPress={onClose} />
         <View style={[styles.sheet, { paddingBottom: insets.bottom + 16 }]}>

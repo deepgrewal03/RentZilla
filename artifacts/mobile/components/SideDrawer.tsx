@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Alert,
   Animated,
@@ -32,6 +32,8 @@ export function SideDrawer({ visible, onClose }: Props) {
   const insets = useSafeAreaInsets();
   const slideAnim = useRef(new Animated.Value(-DRAWER_WIDTH)).current;
   const overlayAnim = useRef(new Animated.Value(0)).current;
+  // `mounted` lags behind `visible` so the close animation can play before unmount
+  const [mounted, setMounted] = useState(false);
 
   const MENU_ITEMS = [
     { icon: "home-outline", labelKey: "home", path: "/(tabs)" },
@@ -44,6 +46,7 @@ export function SideDrawer({ visible, onClose }: Props) {
 
   useEffect(() => {
     if (visible) {
+      setMounted(true);
       Animated.parallel([
         Animated.spring(slideAnim, { toValue: 0, useNativeDriver: true, tension: 65, friction: 11 }),
         Animated.timing(overlayAnim, { toValue: 1, duration: 250, useNativeDriver: true }),
@@ -52,9 +55,11 @@ export function SideDrawer({ visible, onClose }: Props) {
       Animated.parallel([
         Animated.timing(slideAnim, { toValue: -DRAWER_WIDTH, duration: 220, useNativeDriver: true }),
         Animated.timing(overlayAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
-      ]).start();
+      ]).start(() => setMounted(false));
     }
   }, [visible]);
+
+  if (!mounted) return null;
 
   function navigate(path: string) {
     Haptics.selectionAsync();
@@ -85,7 +90,7 @@ export function SideDrawer({ visible, onClose }: Props) {
   const topPad = isWeb ? 67 : insets.top;
 
   return (
-    <Modal visible={visible} transparent animationType="none" onRequestClose={onClose}>
+    <Modal visible transparent animationType="none" onRequestClose={onClose}>
       <Animated.View style={[styles.overlay, { opacity: overlayAnim }]}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
       </Animated.View>

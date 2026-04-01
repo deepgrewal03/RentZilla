@@ -103,40 +103,42 @@ export function NotificationBell() {
         </Animated.View>
       </Pressable>
 
-      <Modal visible={open} transparent animationType="none" onRequestClose={() => setOpen(false)}>
-        <Pressable style={styles.modalOverlay} onPress={() => setOpen(false)} />
-        <Animated.View style={[styles.panel, { top: topPad + 56 }]}>
-          <View style={styles.panelHeader}>
-            <Text style={styles.panelTitle}>{t.notifications}</Text>
-            {unreadCount > 0 && (
-              <Pressable onPress={markAllRead}>
-                <Text style={styles.markAllText}>{t.markAllRead}</Text>
-              </Pressable>
-            )}
-          </View>
+      {open && (
+        <Modal visible transparent animationType="none" onRequestClose={() => setOpen(false)}>
+          <Pressable style={styles.modalOverlay} onPress={() => setOpen(false)} />
+          <Animated.View style={[styles.panel, { top: topPad + 56 }]}>
+            <View style={styles.panelHeader}>
+              <Text style={styles.panelTitle}>{t.notifications}</Text>
+              {unreadCount > 0 && (
+                <Pressable onPress={markAllRead}>
+                  <Text style={styles.markAllText}>{t.markAllRead}</Text>
+                </Pressable>
+              )}
+            </View>
 
-          <ScrollView style={styles.panelList} showsVerticalScrollIndicator={false}>
-            {notifications.length === 0 ? (
-              <View style={styles.emptyBox}>
-                <Ionicons name="notifications-off-outline" size={36} color={C.textTertiary} />
-                <Text style={styles.emptyText}>{t.noNotifications}</Text>
-              </View>
-            ) : (
-              notifications.map((n) => (
-                <View key={n.id} style={[styles.notifItem, !n.isRead && styles.notifUnread]}>
-                  <View style={[styles.notifDot, n.isRead && styles.notifDotRead]} />
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.notifTitle}>{n.title}</Text>
-                    <Text style={styles.notifMsg}>{n.message}</Text>
-                    <Text style={styles.notifTime}>{timeAgo(n.createdAt, isPa)}</Text>
-                  </View>
+            <ScrollView style={styles.panelList} showsVerticalScrollIndicator={false}>
+              {notifications.length === 0 ? (
+                <View style={styles.emptyBox}>
+                  <Ionicons name="notifications-off-outline" size={36} color={C.textTertiary} />
+                  <Text style={styles.emptyText}>{t.noNotifications}</Text>
                 </View>
-              ))
-            )}
-            <View style={{ height: 16 }} />
-          </ScrollView>
-        </Animated.View>
-      </Modal>
+              ) : (
+                notifications.map((n) => (
+                  <View key={n.id} style={[styles.notifItem, !n.isRead && styles.notifUnread]}>
+                    <View style={[styles.notifDot, n.isRead && styles.notifDotRead]} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.notifTitle}>{n.title}</Text>
+                      <Text style={styles.notifMsg}>{n.message}</Text>
+                      <Text style={styles.notifTime}>{timeAgo(n.createdAt, isPa)}</Text>
+                    </View>
+                  </View>
+                ))
+              )}
+              <View style={{ height: 16 }} />
+            </ScrollView>
+          </Animated.View>
+        </Modal>
+      )}
     </>
   );
 }

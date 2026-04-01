@@ -535,8 +535,11 @@ export function LocationSearchModal({
 
   const showingQuery = query.trim().length >= 1;
 
+  // Guard: prevents invisible modal overlay blocking touches on web
+  if (!visible) return null;
+
   return (
-    <Modal visible={visible} transparent animationType="none" statusBarTranslucent onRequestClose={onClose}>
+    <Modal visible transparent animationType="none" statusBarTranslucent onRequestClose={onClose}>
       <View style={styles.backdrop}>
         <TouchableOpacity style={StyleSheet.absoluteFill} onPress={onClose} />
         {resolving && (
