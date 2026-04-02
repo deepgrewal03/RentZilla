@@ -233,19 +233,10 @@ export default function AddListingScreen() {
             </View>
           </View>
 
-          {/* Expected Price — admin reference only, never shown to customers */}
+          {/* Expected Price */}
           {category !== "cars" && (
             <View style={styles.section}>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 6 }}>
-                <Text style={styles.fieldLabel}>Your Expected Rate (₹)</Text>
-                <View style={{
-                  backgroundColor: "#FFF3E0", borderRadius: 8, paddingHorizontal: 7, paddingVertical: 2,
-                }}>
-                  <Text style={{ fontSize: 9, fontWeight: "700", color: "#E65100", fontFamily: "Inter_700Bold" }}>
-                    ADMIN ONLY
-                  </Text>
-                </View>
-              </View>
+              <Text style={[styles.fieldLabel, { marginBottom: 6 }]}>Your Expected Rate (₹)</Text>
               <View style={styles.priceInputWrap}>
                 <Text style={styles.rupee}>₹</Text>
                 <TextInput
@@ -257,9 +248,6 @@ export default function AddListingScreen() {
                   keyboardType="numeric"
                 />
               </View>
-              <Text style={{ fontSize: 11, color: C.textTertiary, marginTop: 6, lineHeight: 15 }}>
-                This price is for admin reference only. Customers will see the admin-controlled final price.
-              </Text>
             </View>
           )}
 
