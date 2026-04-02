@@ -122,6 +122,118 @@ function noCache(res: Response) {
   res.removeHeader("Last-Modified");
 }
 
+// ── Static service-type map (subcategory → service types) ────────────────────
+const SERVICE_TYPE_MAP: Record<string, string[]> = {
+  // Services
+  "Plumbing":     ["Pipe Repair & Leak Fix", "Bathroom Fitting & Installation", "Kitchen Sink & Tap Repair", "Drain & Sewer Cleaning", "Water Tank Service", "Emergency Plumbing Call"],
+  "Electrician":  ["Electrical Wiring", "Panel & Board Repair", "Light & Fan Install", "AC Wiring", "Fault Diagnosis", "Safety Inspection"],
+  "Beauty":       ["Professional Hair Styling", "Facial & Skin Treatment", "Waxing Services", "Nail Care & Art", "Bridal Makeup", "Beauty Consultation"],
+  "Carpenter":    ["Furniture Making & Repair", "Door & Window Fitting", "Cabinet & Wardrobe Work", "Wooden Flooring", "Roof & Framework", "Custom Woodwork"],
+  "Painter":      ["Interior Painting", "Exterior Painting", "Wall Texture / Design", "Wood Polish & Paint", "Waterproofing", "Touch-Up & Repair"],
+  "AC Repair":    ["AC Installation", "AC Service & Gas Fill", "Deep Cleaning", "AC Repair", "Split AC Fitting", "Central AC Maintenance"],
+  // Equipment
+  "Tractor":      ["Ploughing Service", "Sowing & Seeding", "Crop Harvesting", "Land Levelling", "Rotavation", "Multi-Day Farm Work"],
+  "Harvester":    ["Wheat Harvesting", "Rice Harvesting", "Crop Cutting", "Threshing & Bundling", "Field Clearance", "Multi-Crop Harvest"],
+  "Rotavator":    ["Soil Preparation", "Field Rotavation", "Seedbed Preparation", "Stubble Management", "Inter-Row Cultivation", "Multi-Day Rotavation"],
+  "Sprayer":      ["Pesticide Spraying", "Fertilizer Application", "Weed Control", "Crop Protection", "Field Spraying", "Emergency Treatment"],
+  "Plough":       ["Deep Ploughing", "Disc Ploughing", "Field Preparation", "Subsoil Breaking", "Irrigation Channels", "Multi-Day Ploughing"],
+  "Cultivator":   ["Soil Aeration", "Weed Control", "Pre-Sowing Cultivation", "Inter-Row Cultivation", "Field Levelling", "Stubble Incorporation"],
+  "JCB":          ["Excavation Work", "Foundation Digging", "Land Clearing", "Trench Digging", "Loading & Transport", "Demolition Assist"],
+  "Excavator":    ["Excavation Work", "Foundation Digging", "Land Clearing", "Trench Digging", "Loading & Transport", "Demolition Assist"],
+  "Bulldozer":    ["Land Clearing", "Earthmoving", "Site Levelling", "Road Construction", "Foundation Preparation", "Demolition Work"],
+  "Poclain":      ["Heavy Excavation", "Foundation Digging", "Rock Cutting", "Trench Work", "Canal Digging", "Deep Earth Moving"],
+  "Rock Breaker": ["Rock Breaking", "Concrete Demolition", "Hard Soil Penetration", "Road Breaking", "Quarry Work", "Foundation Rock Removal"],
+  "Wheel Loader": ["Material Loading", "Aggregate Transport", "Site Cleanup", "Bulk Material Handling", "Loading & Unloading", "Road Construction"],
+  "Chhota Hathi": ["Local Goods Transport", "House Shifting", "Market Delivery", "Construction Material", "Agricultural Produce", "Short Distance Haul"],
+  "Loader":       ["Material Loading", "Bulk Handling", "Site Cleanup", "Loading & Unloading", "Agricultural Loading", "Construction Material"],
+  "Backhoe":      ["Trenching", "Foundation Digging", "Pipe Laying", "Land Clearing", "Drainage Work", "Excavation Work"],
+  "Roller":       ["Road Compaction", "Soil Compaction", "Site Levelling", "Asphalt Rolling", "Agricultural Land Compaction", "Multi-Day Compaction"],
+  "Crane":        ["Heavy Lifting", "Construction Crane", "Material Loading", "Event Setup Lift", "Industrial Use", "Bridge / Tower Work"],
+  "Dump Truck":   ["Earth Transport", "Construction Waste", "Aggregate Delivery", "Agricultural Produce", "Mining Material", "Long-Distance Haul"],
+};
+
+// ── GET /pricing/admin/service-types — list service types for a subcategory ───
+router.get("/admin/service-types", adminMiddleware, async (req: Request, res: Response) => {
+  const { subcategory } = req.query as any;
+  if (!subcategory) { res.status(400).json({ error: "subcategory is required" }); return; }
+  const types = SERVICE_TYPE_MAP[subcategory] ?? [];
+  res.json({ subcategory, serviceTypes: types });
+});
+
+// ── GET /pricing/admin/service-type-rules — all rules for a subcategory ────────
+router.get("/admin/service-type-rules", adminMiddleware, async (req: Request, res: Response) => {
+  noCache(res);
+  const { category, subcategory } = req.query as any;
+  if (!category || !subcategory) { res.status(400).json({ error: "category and subcategory are required" }); return; }
+  try {
+    const rows = toRows(await db.execute(sql`
+      SELECT * FROM pricing_service_type_rules
+      WHERE category = ${category} AND subcategory = ${subcategory}
+      ORDER BY service_type
+    `));
+    res.json(rows);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── POST /pricing/admin/service-type-rules — upsert a service-type rule ────────
+router.post("/admin/service-type-rules", adminMiddleware, async (req: Request, res: Response) => {
+  try {
+    const ar = req as any;
+    const {
+      category, subcategory, service_type,
+      base_fee = 0, hourly_rate = 0, daily_rate = 0,
+      km_rate = 0, operator_fee = 0, fuel_fee = 0,
+      material_fee = 0, urgency_fee = 0, delivery_fee = 0,
+      platform_fee = 0, commission_percent = 10, security_deposit = 0,
+    } = req.body;
+
+    if (!category || !subcategory || !service_type) {
+      res.status(400).json({ error: "category, subcategory and service_type are required" }); return;
+    }
+
+    const existing = toRows(await db.execute(sql`
+      SELECT id FROM pricing_service_type_rules
+      WHERE category = ${category} AND subcategory = ${subcategory} AND service_type = ${service_type}
+    `));
+
+    if (existing.length > 0) {
+      await db.execute(sql`
+        UPDATE pricing_service_type_rules SET
+          base_fee = ${base_fee}, hourly_rate = ${hourly_rate}, daily_rate = ${daily_rate},
+          km_rate = ${km_rate}, operator_fee = ${operator_fee}, fuel_fee = ${fuel_fee},
+          material_fee = ${material_fee}, urgency_fee = ${urgency_fee},
+          delivery_fee = ${delivery_fee}, platform_fee = ${platform_fee},
+          commission_percent = ${commission_percent}, security_deposit = ${security_deposit},
+          updated_by = ${ar.adminEmail}, updated_at = NOW()
+        WHERE category = ${category} AND subcategory = ${subcategory} AND service_type = ${service_type}
+      `);
+    } else {
+      const id = genId();
+      await db.execute(sql`
+        INSERT INTO pricing_service_type_rules
+          (id, category, subcategory, service_type, base_fee, hourly_rate, daily_rate, km_rate,
+           operator_fee, fuel_fee, material_fee, urgency_fee, delivery_fee,
+           platform_fee, commission_percent, security_deposit, updated_by, updated_at)
+        VALUES
+          (${id}, ${category}, ${subcategory}, ${service_type}, ${base_fee}, ${hourly_rate},
+           ${daily_rate}, ${km_rate}, ${operator_fee}, ${fuel_fee}, ${material_fee},
+           ${urgency_fee}, ${delivery_fee}, ${platform_fee}, ${commission_percent},
+           ${security_deposit}, ${ar.adminEmail}, NOW())
+      `);
+    }
+
+    const result = toRows(await db.execute(sql`
+      SELECT * FROM pricing_service_type_rules
+      WHERE category = ${category} AND subcategory = ${subcategory} AND service_type = ${service_type}
+    `));
+    res.json(result[0]);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ── GET /pricing/rides — public: per-vehicle pricing for the Cars tab ─────────
 // Returns base fare + per-km rate for each vehicle type (Bike/Auto/Car/SUV/Van)
 // from pricing_rules (category='cars'). Falls back to defaults if no rule set.
@@ -174,15 +286,26 @@ router.get("/rides", async (req: Request, res: Response) => {
 router.get("/calculate", async (req: Request, res: Response) => {
   noCache(res);
   try {
-    const { category, subcategory, hours = "1", days = "1", distance_km = "0" } = req.query as any;
+    const { category, subcategory, service_type, hours = "1", days = "1", distance_km = "0" } = req.query as any;
 
     if (!category || !subcategory) {
       res.status(400).json({ error: "category and subcategory are required" }); return;
     }
 
-    const rows = toRows(await db.execute(sql`
-      SELECT * FROM pricing_rules WHERE category = ${category} AND subcategory = ${subcategory}
-    `));
+    // If a service_type is provided, try its specific rule first
+    let rows: any[] = [];
+    if (service_type) {
+      rows = toRows(await db.execute(sql`
+        SELECT * FROM pricing_service_type_rules
+        WHERE category = ${category} AND subcategory = ${subcategory} AND service_type = ${service_type}
+      `));
+    }
+    // Fall back to subcategory-level rule
+    if (rows.length === 0) {
+      rows = toRows(await db.execute(sql`
+        SELECT * FROM pricing_rules WHERE category = ${category} AND subcategory = ${subcategory}
+      `));
+    }
 
     if (rows.length === 0) {
       res.json({ customer_price: 0, provider_payout: 0, app_commission: 0, found: false });
