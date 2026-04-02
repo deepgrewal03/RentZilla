@@ -29,7 +29,10 @@ type Step = "intro" | "otp" | "role" | "form" | "success";
 type ProviderType = "cars" | "equipment" | "services";
 
 const CAR_TYPES     = ["Sedan", "SUV", "Hatchback", "Station Wagon"];
-const EQUIP_TYPES   = ["Tractor", "Harvester", "Rotavator", "Sprayer", "Plough", "Cultivator"];
+const EQUIP_TYPES   = [
+  "Tractor", "Harvester", "Rotavator", "Sprayer", "Plough", "Cultivator",
+  "JCB", "Excavator", "Poclain", "Rock Breaker", "Bulldozer", "Wheel Loader",
+];
 const SERVICE_TYPES = ["Plumber", "Electrician", "Beauty", "Carpenter", "Painter", "AC Repair"];
 
 const ROLES: { id: ProviderType; label: string; icon: string; desc: string; color: string; bg: string }[] = [
