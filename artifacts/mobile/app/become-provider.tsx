@@ -31,7 +31,7 @@ type ProviderType = "cars" | "equipment" | "services";
 const CAR_TYPES     = ["Sedan", "SUV", "Hatchback", "Station Wagon"];
 const EQUIP_TYPES   = [
   "Tractor", "Harvester", "Rotavator", "Sprayer", "Plough", "Cultivator",
-  "JCB", "Excavator", "Poclain", "Rock Breaker", "Bulldozer", "Wheel Loader",
+  "JCB", "Excavator", "Poclain", "Rock Breaker", "Bulldozer", "Wheel Loader", "Chhota Hathi",
 ];
 const SERVICE_TYPES = ["Plumber", "Electrician", "Beauty", "Carpenter", "Painter", "AC Repair"];
 

@@ -34,14 +34,14 @@ const SUBCATEGORIES: Record<Category, string[]> = {
   cars: ["Sedan", "SUV", "Truck", "Van", "Tempo"],
   equipment: [
     "Tractor", "Harvester", "Rotavator", "Sprayer", "Plough", "Cultivator",
-    "JCB", "Excavator", "Bulldozer", "Poclain", "Rock Breaker", "Wheel Loader",
+    "JCB", "Excavator", "Bulldozer", "Poclain", "Rock Breaker", "Wheel Loader", "Chhota Hathi",
     "Loader", "Backhoe", "Roller", "Crane", "Dump Truck",
   ],
   services: ["Plumber", "Electrician", "Beauty", "Carpenter", "Painter", "AC Repair"],
 };
 
 const EARTH_MOVER_TYPES = new Set([
-  "JCB", "Excavator", "Bulldozer", "Poclain", "Rock Breaker", "Wheel Loader",
+  "JCB", "Excavator", "Bulldozer", "Poclain", "Rock Breaker", "Wheel Loader", "Chhota Hathi",
   "Loader", "Backhoe", "Roller", "Crane", "Dump Truck",
 ]);
 

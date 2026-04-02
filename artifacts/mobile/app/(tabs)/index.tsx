@@ -74,8 +74,10 @@ export default function HomeScreen() {
       if (user?.id && (user.role === "provider" || user.role === "both")) {
         params.push(`excludeProviderId=${encodeURIComponent(user.id)}`);
       }
-      if (params.length)              path += "?" + params.join("&");
-      setListings(await get<Listing[]>(path));
+      if (params.length) path += "?" + params.join("&");
+      const data = await get<Listing[]>(path);
+      // Cars are exclusively for ride-booking via the Cars tab — never show them here
+      setListings(data.filter((l: Listing) => l.category !== "cars"));
     } catch { }
     finally { setLoading(false); setRefreshing(false); }
   }
@@ -205,7 +207,8 @@ export default function HomeScreen() {
             { label: "Poclain",      labelPa: "ਪੋਕਲੇਨ",       icon: "construct-outline",  color: "#BF360C", bg: "#FBE9E7" },
             { label: "Rock Breaker", labelPa: "ਰੌਕ ਬ੍ਰੇਕਰ",   icon: "hammer-outline",     color: "#37474F", bg: "#ECEFF1" },
             { label: "Bulldozer",    labelPa: "ਬੁਲਡੋਜ਼ਰ",     icon: "arrow-forward-circle-outline", color: "#4E342E", bg: "#EFEBE9" },
-            { label: "Wheel Loader", labelPa: "ਵ੍ਹੀਲ ਲੋਡਰ",   icon: "cube-outline",       color: "#1565C0", bg: "#E3F2FD" },
+            { label: "Wheel Loader",  labelPa: "ਵ੍ਹੀਲ ਲੋਡਰ",    icon: "cube-outline",       color: "#1565C0", bg: "#E3F2FD" },
+            { label: "Chhota Hathi", labelPa: "ਛੋਟਾ ਹਾਥੀ",    icon: "car-outline",        color: "#6D4C41", bg: "#EFEBE9" },
           ].map((item) => {
             const active = selectedCategory === "equipment" && selectedSubcat === item.label;
             return (

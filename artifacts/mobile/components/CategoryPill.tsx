@@ -41,8 +41,9 @@ export const SUBCATEGORIES: Record<string, { id: string; label: string }[]> = {
     { id: "excavator",    label: "Excavator" },
     { id: "poclain",      label: "Poclain" },
     { id: "rock_breaker", label: "Rock Breaker" },
-    { id: "bulldozer",    label: "Bulldozer" },
-    { id: "wheel_loader", label: "Wheel Loader" },
+    { id: "bulldozer",     label: "Bulldozer" },
+    { id: "wheel_loader",  label: "Wheel Loader" },
+    { id: "chhota_hathi",  label: "Chhota Hathi" },
   ],
   services: [
     { id: "plumber", label: "Plumber" },
