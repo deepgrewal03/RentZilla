@@ -103,13 +103,13 @@ export default function ProfileScreen() {
     }
   }
 
-  // ── Web: resize + compress via Canvas → base64 JPEG ─────────────────────
+  // ── Web: resize + compress via Canvas → base64 JPEG < 200 KB ────────────
   async function compressImageWeb(uri: string): Promise<string> {
     return new Promise((resolve) => {
       const img = new window.Image();
       img.crossOrigin = "anonymous";
       img.onload = () => {
-        const MAX = 800;
+        const MAX = 600;
         let w = img.naturalWidth;
         let h = img.naturalHeight;
         if (w > MAX || h > MAX) {
@@ -121,7 +121,7 @@ export default function ProfileScreen() {
         canvas.height = h;
         const ctx = canvas.getContext("2d")!;
         ctx.drawImage(img, 0, 0, w, h);
-        resolve(canvas.toDataURL("image/jpeg", 0.75));
+        resolve(canvas.toDataURL("image/jpeg", 0.65));
       };
       img.onerror = () => resolve(uri);
       img.src = uri;
@@ -133,11 +133,12 @@ export default function ProfileScreen() {
     try {
       // Try the new builder-style API (expo-image-manipulator v13+/SDK 51+)
       if ((ImageManipulator as any).manipulate) {
-        const ctx = (ImageManipulator as any).manipulate(uri);
-        ctx.resize({ width: 800 });
-        const img = await ctx.renderAsync();
+        const img = await (ImageManipulator as any)
+          .manipulate(uri)
+          .resize({ width: 600 })
+          .renderAsync();
         const result = await img.saveAsync({
-          compress: 0.72,
+          compress: 0.65,
           format: (ImageManipulator as any).SaveFormat?.JPEG ?? "jpeg",
           base64: true,
         });
@@ -147,8 +148,8 @@ export default function ProfileScreen() {
       // Fall back to the old API (manipulateAsync)
       const result = await (ImageManipulator as any).manipulateAsync(
         uri,
-        [{ resize: { width: 800 } }],
-        { compress: 0.72, format: "jpeg", base64: true }
+        [{ resize: { width: 600 } }],
+        { compress: 0.65, format: "jpeg", base64: true }
       );
       if (result.base64) return `data:image/jpeg;base64,${result.base64}`;
       return result.uri;
