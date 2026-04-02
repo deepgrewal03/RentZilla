@@ -287,9 +287,10 @@ function ReportIssueModal({ visible, onClose, api }: { visible: boolean; onClose
     try {
       await api.post("/safety/issues", { category, description });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      Alert.alert("Issue Reported", "We've received your report. Our team will look into it within 24 hours.", [
-        { text: "OK", onPress: () => { setCategory(""); setDescription(""); onClose(); } },
-      ]);
+      setCategory("");
+      setDescription("");
+      onClose();
+      Alert.alert("Issue Reported", "We've received your report. Our team will look into it within 24 hours.");
     } catch (e: any) {
       Alert.alert("Error", e.message || "Could not submit issue");
     } finally { setSubmitting(false); }

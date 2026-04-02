@@ -5,9 +5,10 @@ import {
   listingsTable,
   bookingsTable,
   reportsTable,
+  issuesTable,
   notificationsTable,
 } from "@workspace/db";
-import { eq, desc, sql, count, sum } from "drizzle-orm";
+import { eq, desc, sql, count, sum, leftJoin } from "drizzle-orm";
 
 const router: IRouter = Router();
 type AR = Request & { userId: string; adminEmail: string };
@@ -320,14 +321,31 @@ router.patch("/bookings/:id", adminMiddleware, async (req: Request, res: Respons
 });
 
 // ── Reports ───────────────────────────────────────────────────────────────────
+const reporterAlias = usersTable;
+
 router.get("/reports", adminMiddleware, async (req: Request, res: Response) => {
   try {
     const { status, page = "1", limit = "20" } = req.query as Record<string, string>;
     const offset = (parseInt(page) - 1) * parseInt(limit);
-    let query = db.select().from(reportsTable).$dynamic();
-    if (status) query = query.where(eq(reportsTable.status, status as any));
-    const reports = await query.orderBy(desc(reportsTable.createdAt)).limit(parseInt(limit)).offset(offset);
-    const totalR = await db.select({ c: count() }).from(reportsTable);
+
+    let baseQ = db.select({
+      id: reportsTable.id,
+      reporterId: reportsTable.reporterId,
+      reportedUserId: reportsTable.reportedUserId,
+      reportedUserName: reportsTable.reportedUserName,
+      reason: reportsTable.reason,
+      description: reportsTable.description,
+      status: reportsTable.status,
+      createdAt: reportsTable.createdAt,
+      reporterName: reporterAlias.name,
+      reporterRole: reporterAlias.role,
+    }).from(reportsTable)
+      .leftJoin(reporterAlias, eq(reportsTable.reporterId, reporterAlias.id))
+      .$dynamic();
+
+    if (status) baseQ = baseQ.where(eq(reportsTable.status, status as any));
+    const reports = await baseQ.orderBy(desc(reportsTable.createdAt)).limit(parseInt(limit)).offset(offset);
+    const totalR   = await db.select({ c: count() }).from(reportsTable);
     res.json({ reports, total: Number(totalR[0]?.c ?? 0), page: parseInt(page), limit: parseInt(limit) });
   } catch { res.status(500).json({ error: "Internal server error" }); }
 });
@@ -338,6 +356,42 @@ router.patch("/reports/:id", adminMiddleware, async (req: Request, res: Response
     await db.update(reportsTable).set({ status }).where(eq(reportsTable.id, req.params.id));
     const r = req as AR;
     await logAction(r.userId, r.adminEmail, "UPDATE_REPORT", "report", req.params.id, { status });
+    res.json({ success: true });
+  } catch { res.status(500).json({ error: "Internal server error" }); }
+});
+
+// ── Issues (Report an Issue from app) ─────────────────────────────────────────
+router.get("/issues", adminMiddleware, async (req: Request, res: Response) => {
+  try {
+    const { status, page = "1", limit = "20" } = req.query as Record<string, string>;
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+
+    let baseQ = db.select({
+      id: issuesTable.id,
+      userId: issuesTable.userId,
+      category: issuesTable.category,
+      description: issuesTable.description,
+      status: issuesTable.status,
+      createdAt: issuesTable.createdAt,
+      userName: usersTable.name,
+      userRole: usersTable.role,
+    }).from(issuesTable)
+      .leftJoin(usersTable, eq(issuesTable.userId, usersTable.id))
+      .$dynamic();
+
+    if (status) baseQ = baseQ.where(eq(issuesTable.status, status));
+    const issues = await baseQ.orderBy(desc(issuesTable.createdAt)).limit(parseInt(limit)).offset(offset);
+    const totalR  = await db.select({ c: count() }).from(issuesTable);
+    res.json({ issues, total: Number(totalR[0]?.c ?? 0), page: parseInt(page), limit: parseInt(limit) });
+  } catch { res.status(500).json({ error: "Internal server error" }); }
+});
+
+router.patch("/issues/:id", adminMiddleware, async (req: Request, res: Response) => {
+  try {
+    const { status } = req.body;
+    await db.update(issuesTable).set({ status }).where(eq(issuesTable.id, req.params.id));
+    const r = req as AR;
+    await logAction(r.userId, r.adminEmail, "UPDATE_ISSUE", "issue", req.params.id, { status });
     res.json({ success: true });
   } catch { res.status(500).json({ error: "Internal server error" }); }
 });
