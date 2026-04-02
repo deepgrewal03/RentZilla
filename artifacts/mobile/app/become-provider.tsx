@@ -34,7 +34,7 @@ const EQUIP_TYPES   = [
   "JCB", "Excavator", "Bulldozer", "Poclain", "Rock Breaker", "Wheel Loader",
   "Chhota Hathi", "Loader", "Backhoe", "Roller", "Crane", "Dump Truck",
 ];
-const SERVICE_TYPES = ["Plumber", "Electrician", "Beauty", "Carpenter", "Painter", "AC Repair"];
+const SERVICE_TYPES = ["Plumbing", "Electrician", "Beauty", "Carpenter", "Painter", "AC Repair"];
 
 const ROLES: { id: ProviderType; label: string; icon: string; desc: string; color: string; bg: string }[] = [
   { id: "cars",      label: "Car Driver",          icon: "car-sport-outline",   desc: "Drive customers & earn per trip",           color: "#0F1F3D", bg: "#E8ECF4" },

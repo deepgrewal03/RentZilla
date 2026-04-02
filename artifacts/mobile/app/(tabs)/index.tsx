@@ -243,7 +243,7 @@ export default function HomeScreen() {
         </View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
           {[
-            { label: "Plumber",     labelPa: "ਪਲੰਬਰ",          icon: "water-outline",       color: "#1565C0", bg: "#E3F2FD" },
+            { label: "Plumbing",    labelPa: "ਪਲੰਬਿੰਗ",         icon: "water-outline",       color: "#1565C0", bg: "#E3F2FD" },
             { label: "Electrician", labelPa: "ਇਲੈਕਟ੍ਰੀਸ਼ੀਅਨ",  icon: "flash-outline",       color: "#F57F17", bg: "#FFFDE7" },
             { label: "Beauty",      labelPa: "ਬਿਊਟੀ",           icon: "flower-outline",      color: "#AD1457", bg: "#FCE4EC" },
             { label: "Carpenter",   labelPa: "ਤਰਖਾਣ",           icon: "hammer-outline",      color: "#4E342E", bg: "#EFEBE9" },

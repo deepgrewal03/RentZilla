@@ -32,10 +32,10 @@ const MAX_RECENT = 8;
 const POPULAR = [
   { q: "Swift Car",      icon: "car-outline",         lib: "ion",  cat: "cars" },
   { q: "Tractor",        icon: "tractor",              lib: "mci",  cat: "equipment" },
-  { q: "Plumber",        icon: "construct-outline",    lib: "ion",  cat: "services" },
+  { q: "Plumbing",       icon: "water-outline",        lib: "ion",  cat: "services" },
   { q: "Electrician",    icon: "flash-outline",        lib: "ion",  cat: "services" },
-  { q: "Beauty Parlor",  icon: "sparkles-outline",     lib: "ion",  cat: "services" },
-  { q: "Mechanic",       icon: "build-outline",        lib: "ion",  cat: "services" },
+  { q: "Beauty",         icon: "sparkles-outline",     lib: "ion",  cat: "services" },
+  { q: "Painter",        icon: "brush-outline",        lib: "ion",  cat: "services" },
   { q: "Toyota Innova",  icon: "car-outline",          lib: "ion",  cat: "cars" },
   { q: "Harvester",      icon: "tractor",              lib: "mci",  cat: "equipment" },
   { q: "Carpenter",      icon: "hammer-outline",       lib: "ion",  cat: "services" },

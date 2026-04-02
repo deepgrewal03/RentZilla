@@ -39,7 +39,7 @@ const SUBCATEGORIES: Record<Category, string[]> = {
     "JCB", "Excavator", "Bulldozer", "Poclain", "Rock Breaker", "Wheel Loader", "Chhota Hathi",
     "Loader", "Backhoe", "Roller", "Crane", "Dump Truck",
   ],
-  services: ["Plumber", "Electrician", "Beauty", "Carpenter", "Painter", "AC Repair"],
+  services: ["Plumbing", "Electrician", "Beauty", "Carpenter", "Painter", "AC Repair"],
 };
 
 const EARTH_MOVER_TYPES = new Set([

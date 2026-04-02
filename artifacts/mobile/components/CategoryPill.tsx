@@ -52,11 +52,12 @@ export const SUBCATEGORIES: Record<string, { id: string; label: string }[]> = {
     { id: "dump_truck",   label: "Dump Truck" },
   ],
   services: [
-    { id: "plumber", label: "Plumber" },
+    { id: "plumbing",    label: "Plumbing" },
     { id: "electrician", label: "Electrician" },
-    { id: "beauty", label: "Beauty" },
-    { id: "carpenter", label: "Carpenter" },
-    { id: "painter", label: "Painter" },
+    { id: "beauty",      label: "Beauty" },
+    { id: "carpenter",   label: "Carpenter" },
+    { id: "painter",     label: "Painter" },
+    { id: "ac_repair",   label: "AC Repair" },
   ],
 };
 

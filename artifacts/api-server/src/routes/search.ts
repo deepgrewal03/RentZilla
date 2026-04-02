@@ -151,10 +151,10 @@ router.get("/popular", async (_req: Request, res: Response) => {
     const popularSearches = [
       { label: "Swift Car", icon: "car-outline", category: "cars" },
       { label: "Tractor", icon: "tractor", category: "equipment" },
-      { label: "Plumber", icon: "construct-outline", category: "services" },
+      { label: "Plumbing", icon: "water-outline", category: "services" },
       { label: "Electrician", icon: "flash-outline", category: "services" },
-      { label: "Beauty Parlor", icon: "sparkles-outline", category: "services" },
-      { label: "Mechanic", icon: "build-outline", category: "services" },
+      { label: "Beauty", icon: "sparkles-outline", category: "services" },
+      { label: "Painter", icon: "brush-outline", category: "services" },
       { label: "Toyota Innova", icon: "car-outline", category: "cars" },
       { label: "Harvester", icon: "tractor", category: "equipment" },
       { label: "Carpenter", icon: "hammer-outline", category: "services" },

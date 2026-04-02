@@ -11,9 +11,7 @@ import {
 // ── Static subcategory lists ──────────────────────────────────────────────────
 const SUBCATEGORIES: Record<string, string[]> = {
   services: [
-    "Plumbing", "Electrician", "Carpenter", "AC Repair",
-    "Cleaning", "Painting", "Salon / Beauty", "Catering",
-    "Home Repair", "Pest Control",
+    "Plumbing", "Electrician", "Beauty", "Carpenter", "Painter", "AC Repair",
   ],
   professions: [
     "Doctor (Home Visit)", "Lawyer", "Accountant", "Tutor",
