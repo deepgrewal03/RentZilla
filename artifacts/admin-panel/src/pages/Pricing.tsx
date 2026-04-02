@@ -20,8 +20,9 @@ const SUBCATEGORIES: Record<string, string[]> = {
     "Photographer", "Event Manager", "Nutritionist", "Yoga Trainer",
   ],
   equipment: [
-    "JCB", "Tractor", "DJ Setup", "Crane", "Harvester",
-    "Generator", "Excavator", "Concrete Mixer", "Water Tanker",
+    "Tractor", "Harvester", "Rotavator", "Sprayer", "Plough", "Cultivator",
+    "JCB", "Excavator", "Bulldozer", "Poclain", "Rock Breaker", "Wheel Loader",
+    "Chhota Hathi", "Loader", "Backhoe", "Roller", "Crane", "Dump Truck",
   ],
 };
 
