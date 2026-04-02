@@ -389,7 +389,32 @@ router.get("/issues", adminMiddleware, async (req: Request, res: Response) => {
 router.patch("/issues/:id", adminMiddleware, async (req: Request, res: Response) => {
   try {
     const { status } = req.body;
+
+    // Fetch the issue first so we know who reported it and what category
+    const existing = await db.select().from(issuesTable).where(eq(issuesTable.id, req.params.id)).limit(1);
+    if (!existing.length) { res.status(404).json({ error: "Issue not found" }); return; }
+    const issue = existing[0];
+
     await db.update(issuesTable).set({ status }).where(eq(issuesTable.id, req.params.id));
+
+    // Send in-app notification to the reporter when their issue is closed
+    if (status === "closed" && issue.userId) {
+      const CATEGORY_LABEL: Record<string, string> = {
+        payment: "Payment", booking: "Booking", driver: "Driver",
+        app_bug: "App Bug", other: "General",
+      };
+      const catLabel = CATEGORY_LABEL[issue.category] ?? issue.category;
+      const notifTitle   = "Your Issue Has Been Resolved ✅";
+      const notifMessage = `Your ${catLabel} issue report has been reviewed and closed by our support team. Thank you for helping us improve RentZilla!`;
+      await db.insert(notificationsTable).values({
+        id: genId(),
+        userId: issue.userId,
+        title: notifTitle,
+        message: notifMessage,
+        isRead: false,
+      });
+    }
+
     const r = req as AR;
     await logAction(r.userId, r.adminEmail, "UPDATE_ISSUE", "issue", req.params.id, { status });
     res.json({ success: true });
