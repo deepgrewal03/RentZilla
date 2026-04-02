@@ -43,6 +43,7 @@ export interface RegisterData {
   dob?: string;
   password: string;
   role: UserRole;
+  location?: string;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);

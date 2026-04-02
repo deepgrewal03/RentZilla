@@ -35,7 +35,7 @@ function buildUserResponse(user: typeof usersTable.$inferSelect) {
 // POST /api/auth/register  — email + password sign-up
 router.post("/register", async (req, res) => {
   try {
-    const { firstName, lastName, email, mobile, countryCode, dob, password, role } = req.body;
+    const { firstName, lastName, email, mobile, countryCode, dob, password, role, location } = req.body;
 
     if (!email || !password) {
       res.status(400).json({ error: "Email and password are required" });
@@ -79,7 +79,7 @@ router.post("/register", async (req, res) => {
       name: fullName || null,
       passwordHash,
       role: (role as "customer" | "provider") || "customer",
-      location: null,
+      location: location || null,
       profileImage: null,
       dob: dob || null,
     } as any;

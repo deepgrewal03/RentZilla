@@ -28,6 +28,34 @@ import { useLang } from "@/context/LanguageContext";
 const C = Colors.light;
 const TINT = "#FF7A18";
 
+// ── Punjab Districts & Towns ──────────────────────────────────────────────────
+const PUNJAB_AREAS: Record<string, string[]> = {
+  "Amritsar": ["Ajnala", "Majitha", "Jandiala Guru", "Rayya", "Baba Bakala", "Chheharta", "Attari", "Beas"],
+  "Barnala": ["Tapa", "Dhanaula", "Bhadaur", "Handiaya", "Mehal Kalan"],
+  "Bathinda": ["Talwandi Sabo", "Maur", "Rampura Phul", "Goniana", "Bhucho Mandi", "Raman", "Sangat"],
+  "Faridkot": ["Kotkapura", "Jaitu", "Sadiq", "Machaki Mal Singh"],
+  "Fatehgarh Sahib": ["Sirhind", "Mandi Gobindgarh", "Bassi Pathana", "Amloh", "Khamanon"],
+  "Fazilka": ["Abohar", "Jalalabad", "Arniwala", "Khuian Sarwar", "Sitto Gunno"],
+  "Ferozepur": ["Zira", "Guru Har Sahai", "Makhu", "Mallanwala", "Mamdot", "Talwandi Bhai"],
+  "Gurdaspur": ["Batala", "Dera Baba Nanak", "Dhariwal", "Qadian", "Sri Hargobindpur", "Dinanagar", "Fatehgarh Churian"],
+  "Hoshiarpur": ["Dasuya", "Mukerian", "Garhshankar", "Hariana", "Tanda Urmar", "Sham Chaurasi", "Hajipur"],
+  "Jalandhar": ["Nakodar", "Phillaur", "Shahkot", "Adampur", "Kartarpur", "Bhogpur", "Goraya"],
+  "Kapurthala": ["Phagwara", "Sultanpur Lodhi", "Bholath", "Begowal", "Nadala", "Dhilwan"],
+  "Ludhiana": ["Khanna", "Samrala", "Jagraon", "Raikot", "Payal", "Machhiwara", "Doraha", "Sahnewal"],
+  "Malerkotla": ["Ahmedgarh", "Amargarh", "Kup Kalan"],
+  "Mansa": ["Budhlada", "Sardulgarh", "Bhikhi", "Bareta", "Joga"],
+  "Moga": ["Bagha Purana", "Nihal Singh Wala", "Dharamkot", "Kot Ise Khan"],
+  "Pathankot": ["Sujanpur", "Dhar Kalan", "Narot Jaimal Singh"],
+  "Patiala": ["Rajpura", "Nabha", "Samana", "Patran", "Sanaur", "Ghanaur", "Devigarh"],
+  "Rupnagar (Ropar)": ["Anandpur Sahib", "Nangal", "Chamkaur Sahib", "Morinda", "Nurpur Bedi"],
+  "SAS Nagar (Mohali)": ["Zirakpur", "Kharar", "Dera Bassi", "Kurali", "Banur", "Lalru"],
+  "Sangrur": ["Sunam", "Lehragaga", "Dhuri", "Moonak", "Longowal", "Bhawanigarh", "Cheema"],
+  "Shaheed Bhagat Singh Nagar (Nawanshahr)": ["Banga", "Balachaur", "Rahon", "Aur", "Mukandpur"],
+  "Sri Muktsar Sahib": ["Malout", "Gidderbaha", "Bariwala", "Lambi"],
+  "Tarn Taran": ["Patti", "Khadoor Sahib", "Bhikhiwind", "Khem Karan", "Goindwal Sahib", "Chohla Sahib"],
+};
+const DISTRICTS = Object.keys(PUNJAB_AREAS).sort();
+
 // ── Country list ─────────────────────────────────────────────────────────────
 const COUNTRIES = [
   { code: "+91",  flag: "🇮🇳", name: "India",           minDigits: 10, maxDigits: 10 },
@@ -416,6 +444,11 @@ export default function SignUpScreen() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [role, setRole] = useState<UserRole>("customer");
   const [agreedToTerms, setAgreedToTerms] = useState(false);
+  const [selectedDistrict, setSelectedDistrict] = useState("");
+  const [selectedCity, setSelectedCity]         = useState("");
+  const [showDistrictPicker, setShowDistrictPicker] = useState(false);
+  const [showCityPicker, setShowCityPicker]         = useState(false);
+  const [districtSearch, setDistrictSearch]         = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -474,6 +507,10 @@ export default function SignUpScreen() {
     }
     setLoading(true);
     try {
+      const locationValue = selectedCity && selectedDistrict
+        ? `${selectedCity}, ${selectedDistrict}`
+        : selectedDistrict || undefined;
+
       await register({
         firstName: firstName.trim(),
         lastName: lastName.trim(),
@@ -483,6 +520,7 @@ export default function SignUpScreen() {
         dob: dob.trim(),
         password,
         role,
+        location: locationValue,
       });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       router.replace("/(tabs)");
@@ -518,6 +556,86 @@ export default function SignUpScreen() {
           onClose={() => setShowDatePicker(false)}
         />
       )}
+
+      {/* District Picker Modal */}
+      <Modal visible={showDistrictPicker} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => { setShowDistrictPicker(false); setDistrictSearch(""); }}>
+        <View style={styles.pickerModal}>
+          <View style={styles.pickerHeader}>
+            <Text style={styles.pickerTitle}>Select District</Text>
+            <Pressable onPress={() => { setShowDistrictPicker(false); setDistrictSearch(""); }} style={styles.pickerClose}>
+              <Ionicons name="close" size={22} color={C.text} />
+            </Pressable>
+          </View>
+          <View style={styles.pickerSearch}>
+            <Ionicons name="search-outline" size={16} color={C.textTertiary} />
+            <TextInput
+              style={styles.pickerSearchInput}
+              value={districtSearch}
+              onChangeText={setDistrictSearch}
+              placeholder="Search district..."
+              placeholderTextColor={C.textTertiary}
+              autoFocus
+            />
+          </View>
+          <FlatList
+            data={DISTRICTS.filter(d => !districtSearch.trim() || d.toLowerCase().includes(districtSearch.toLowerCase()))}
+            keyExtractor={item => item}
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                style={[styles.pickerItem, selectedDistrict === item && styles.pickerItemActive]}
+                onPress={() => {
+                  setSelectedDistrict(item);
+                  setSelectedCity("");
+                  setShowDistrictPicker(false);
+                  setDistrictSearch("");
+                  Haptics.selectionAsync();
+                }}
+              >
+                <Ionicons name="location-outline" size={18} color={selectedDistrict === item ? TINT : C.textSecondary} />
+                <Text style={[styles.pickerCountryName, { flex: 1 }]}>{item}</Text>
+                <Text style={[styles.pickerCode, { fontSize: 11 }]}>{PUNJAB_AREAS[item]?.length} towns</Text>
+                {selectedDistrict === item && <Ionicons name="checkmark" size={18} color={TINT} />}
+              </TouchableOpacity>
+            )}
+          />
+        </View>
+      </Modal>
+
+      {/* City Picker Modal */}
+      <Modal visible={showCityPicker} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowCityPicker(false)}>
+        <View style={styles.pickerModal}>
+          <View style={styles.pickerHeader}>
+            <Text style={styles.pickerTitle}>Select City / Town</Text>
+            <Pressable onPress={() => setShowCityPicker(false)} style={styles.pickerClose}>
+              <Ionicons name="close" size={22} color={C.text} />
+            </Pressable>
+          </View>
+          {selectedDistrict ? (
+            <View style={styles.districtBadge}>
+              <Ionicons name="business-outline" size={13} color={TINT} />
+              <Text style={styles.districtBadgeText}>{selectedDistrict} District</Text>
+            </View>
+          ) : null}
+          <FlatList
+            data={selectedDistrict ? PUNJAB_AREAS[selectedDistrict] : []}
+            keyExtractor={item => item}
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                style={[styles.pickerItem, selectedCity === item && styles.pickerItemActive]}
+                onPress={() => {
+                  setSelectedCity(item);
+                  setShowCityPicker(false);
+                  Haptics.selectionAsync();
+                }}
+              >
+                <Ionicons name="navigate-outline" size={17} color={selectedCity === item ? TINT : C.textSecondary} />
+                <Text style={[styles.pickerCountryName, { flex: 1 }]}>{item}</Text>
+                {selectedCity === item && <Ionicons name="checkmark" size={18} color={TINT} />}
+              </TouchableOpacity>
+            )}
+          />
+        </View>
+      </Modal>
 
       {/* Country Picker Modal */}
       <Modal visible={showCountryPicker} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowCountryPicker(false)}>
@@ -682,6 +800,56 @@ export default function SignUpScreen() {
               }
             </View>
 
+            {/* Area / Location — District + City */}
+            <View style={styles.fieldGroup}>
+              <Text style={styles.fieldLabel}>
+                Area / Location <Text style={styles.optional}>(Optional)</Text>
+              </Text>
+
+              {/* District selector */}
+              <Pressable
+                onPress={() => { setShowDistrictPicker(true); Haptics.selectionAsync(); }}
+                style={[styles.iconInput, styles.dobPressable, { marginBottom: 8 }]}
+              >
+                <Ionicons name="business-outline" size={17} color={selectedDistrict ? TINT : C.textTertiary} />
+                <Text style={[styles.dobValueText, !selectedDistrict && { color: C.textTertiary }]}>
+                  {selectedDistrict || "Select District"}
+                </Text>
+                <Ionicons name="chevron-down" size={15} color={C.textTertiary} />
+              </Pressable>
+
+              {/* City selector — only enabled after district is picked */}
+              <Pressable
+                onPress={() => {
+                  if (!selectedDistrict) { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning); return; }
+                  setShowCityPicker(true);
+                  Haptics.selectionAsync();
+                }}
+                style={[styles.iconInput, styles.dobPressable, !selectedDistrict && { opacity: 0.45 }]}
+              >
+                <Ionicons name="navigate-outline" size={17} color={selectedCity ? TINT : C.textTertiary} />
+                <Text style={[styles.dobValueText, !selectedCity && { color: C.textTertiary }]}>
+                  {selectedCity || (selectedDistrict ? "Select City / Town" : "Select district first")}
+                </Text>
+                {selectedCity ? (
+                  <Pressable
+                    onPress={(e) => { e.stopPropagation(); setSelectedCity(""); }}
+                    hitSlop={8}
+                  >
+                    <Ionicons name="close-circle" size={17} color={C.textTertiary} />
+                  </Pressable>
+                ) : (
+                  <Ionicons name="chevron-down" size={15} color={C.textTertiary} />
+                )}
+              </Pressable>
+
+              <Text style={styles.fieldHint}>
+                {selectedDistrict
+                  ? (selectedCity ? `📍 ${selectedCity}, ${selectedDistrict}` : `Select your city/town in ${selectedDistrict}`)
+                  : "Helps match you with nearby providers"}
+              </Text>
+            </View>
+
             {/* Password */}
             <View style={styles.fieldGroup}>
               <Text style={styles.fieldLabel}>{t.password} *</Text>
@@ -829,6 +997,14 @@ const styles = StyleSheet.create({
   dobValueText: { flex: 1, fontSize: 14, fontFamily: "Inter_400Regular", color: C.text },
   dobAge: { backgroundColor: "#FFF5EC", borderRadius: 10, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: "#FFD5A8" },
   dobAgeText: { fontSize: 12, fontWeight: "700", fontFamily: "Inter_700Bold", color: TINT },
+
+  // District badge in city picker
+  districtBadge: {
+    flexDirection: "row", alignItems: "center", gap: 6,
+    backgroundColor: "#FFF5EC", paddingHorizontal: 16, paddingVertical: 8,
+    borderBottomWidth: 1, borderBottomColor: "#FFD5A8",
+  },
+  districtBadgeText: { fontSize: 13, fontWeight: "600", fontFamily: "Inter_600SemiBold", color: TINT },
 
   // Country picker
   countryBtn: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 10, paddingVertical: 11 },
