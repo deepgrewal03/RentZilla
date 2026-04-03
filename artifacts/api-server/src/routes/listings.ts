@@ -1,7 +1,7 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { db } from "@workspace/db";
 import { listingsTable, usersTable, reviewsTable } from "@workspace/db";
-import { eq, ne, and, gte, lte, like, sql } from "drizzle-orm";
+import { eq, ne, and, or, gte, lte, ilike, inArray, sql } from "drizzle-orm";
 import { authMiddleware } from "./users.js";
 
 const router: IRouter = Router();
@@ -54,7 +54,31 @@ router.get("/", async (req: Request, res: Response) => {
     if (providerId) conditions.push(eq(listingsTable.providerId, providerId as string));
     if (minPrice) conditions.push(gte(listingsTable.price, Number(minPrice)));
     if (maxPrice) conditions.push(lte(listingsTable.price, Number(maxPrice)));
-    if (search) conditions.push(like(listingsTable.title, `%${search}%`));
+
+    if (search) {
+      const s = search as string;
+      /* Find providers whose name or location match — so searching "Bathinda" or
+         a provider's name also surfaces their listings */
+      const matchingProviders = await db
+        .select({ id: usersTable.id })
+        .from(usersTable)
+        .where(or(
+          ilike(usersTable.name, `%${s}%`),
+          ilike(usersTable.location, `%${s}%`),
+        ));
+      const providerIds = matchingProviders.map(p => p.id);
+
+      conditions.push(
+        or(
+          ilike(listingsTable.title,       `%${s}%`),
+          ilike(listingsTable.description, `%${s}%`),
+          ilike(listingsTable.subcategory, `%${s}%`),
+          ilike(listingsTable.location,    `%${s}%`),
+          ...(providerIds.length > 0 ? [inArray(listingsTable.providerId, providerIds)] : []),
+        )!
+      );
+    }
+
     // Exclude provider's own listings from customer feed
     if (excludeProviderId) conditions.push(ne(listingsTable.providerId, excludeProviderId as string));
 
