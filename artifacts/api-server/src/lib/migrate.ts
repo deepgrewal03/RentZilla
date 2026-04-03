@@ -367,6 +367,8 @@ export async function runMigrations() {
     `ALTER TABLE bookings ADD COLUMN IF NOT EXISTS promo_code TEXT`,
     `ALTER TABLE bookings ADD COLUMN IF NOT EXISTS discount_amount NUMERIC(10,2) NOT NULL DEFAULT 0`,
     `ALTER TABLE bookings ADD COLUMN IF NOT EXISTS final_amount NUMERIC(10,2) NOT NULL DEFAULT 0`,
+    `ALTER TABLE bookings ADD COLUMN IF NOT EXISTS service_fee NUMERIC(10,2) NOT NULL DEFAULT 0`,
+    `ALTER TABLE bookings ADD COLUMN IF NOT EXISTS extra_charges TEXT`,
   ];
   for (const stmt of bookingExtras) {
     await db.execute(sql.raw(stmt));

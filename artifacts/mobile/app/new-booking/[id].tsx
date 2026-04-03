@@ -95,6 +95,10 @@ export default function NewBookingScreen() {
   // ── Notes ──────────────────────────────────────────────────────────────────
   const [notes, setNotes] = useState("");
 
+  // ── Service fee + extra charges ────────────────────────────────────────────
+  const [serviceFee, setServiceFee] = useState("");
+  const [extraCharges, setExtraCharges] = useState<{ id: string; label: string; amount: string }[]>([]);
+
   // ── Promo code state ───────────────────────────────────────────────────────
   const [promoCode, setPromoCode] = useState("");
   const [promoLoading, setPromoLoading] = useState(false);
@@ -282,6 +286,9 @@ export default function NewBookingScreen() {
     ]).start();
     setSubmitting(true);
     try {
+      const cleanedExtraCharges = extraCharges
+        .filter(c => c.label.trim() && parseFloat(c.amount) > 0)
+        .map(c => ({ label: c.label.trim(), amount: parseFloat(c.amount) }));
       const result = await post<{ id: string }>("/bookings", {
         listingId: id,
         bookingDate: selectedDate,
@@ -289,6 +296,8 @@ export default function NewBookingScreen() {
         serviceTypes: selectedServices,
         notes: notes.trim() || undefined,
         promoCode: promoApplied ? promoCode.trim() : undefined,
+        serviceFee: serviceFeeNum > 0 ? serviceFeeNum : undefined,
+        extraCharges: cleanedExtraCharges.length > 0 ? cleanedExtraCharges : undefined,
       });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       const slotLabel = selectedSlots.length === 1
@@ -340,7 +349,9 @@ export default function NewBookingScreen() {
     ? pricingResult.customer_price
     : listing.price * Math.max(1, selectedSlots.length);
   const discount   = promoApplied && promoResult?.valid ? (promoResult.discount ?? 0) : 0;
-  const finalTotal = Math.max(0, baseTotal - discount);
+  const serviceFeeNum = parseFloat(serviceFee) || 0;
+  const extraChargesTotal = extraCharges.reduce((s, c) => s + (parseFloat(c.amount) || 0), 0);
+  const finalTotal = Math.max(0, baseTotal + serviceFeeNum + extraChargesTotal - discount);
 
   return (
     <View style={styles.root}>
@@ -538,9 +549,81 @@ export default function NewBookingScreen() {
           />
         </View>
 
-        {/* ── STEP 5: Promo Code ── */}
+        {/* ── Service Fee & Extra Charges ── */}
         <SectionLabel
           step={serviceTypes.length > 0 ? 5 : 4}
+          label="Service Fee"
+          sub="Any additional service fee to include?"
+        />
+        <View style={styles.extraFeeWrap}>
+          <View style={styles.feeInputRow}>
+            <Text style={styles.feeRupee}>₹</Text>
+            <TextInput
+              style={styles.feeInput}
+              value={serviceFee}
+              onChangeText={v => setServiceFee(v.replace(/[^0-9.]/g, ""))}
+              placeholder="0"
+              placeholderTextColor={C.textTertiary}
+              keyboardType="decimal-pad"
+            />
+          </View>
+        </View>
+
+        <SectionLabel
+          step={serviceTypes.length > 0 ? 6 : 5}
+          label="Other Charges"
+          sub="Add any extra costs (materials, travel, etc.)"
+        />
+        <View style={styles.extraFeeWrap}>
+          {extraCharges.map((charge, idx) => (
+            <View key={charge.id} style={styles.extraChargeRow}>
+              <TextInput
+                style={[styles.feeInput, styles.extraChargeLabel]}
+                value={charge.label}
+                onChangeText={v => {
+                  const updated = [...extraCharges];
+                  updated[idx] = { ...updated[idx], label: v };
+                  setExtraCharges(updated);
+                }}
+                placeholder="Description (e.g. Travel)"
+                placeholderTextColor={C.textTertiary}
+              />
+              <View style={styles.extraChargeAmtWrap}>
+                <Text style={styles.feeRupee}>₹</Text>
+                <TextInput
+                  style={[styles.feeInput, { flex: 1 }]}
+                  value={charge.amount}
+                  onChangeText={v => {
+                    const updated = [...extraCharges];
+                    updated[idx] = { ...updated[idx], amount: v.replace(/[^0-9.]/g, "") };
+                    setExtraCharges(updated);
+                  }}
+                  placeholder="0"
+                  placeholderTextColor={C.textTertiary}
+                  keyboardType="decimal-pad"
+                />
+              </View>
+              <Pressable
+                onPress={() => setExtraCharges(extraCharges.filter((_, i) => i !== idx))}
+                style={styles.extraChargeRemove}
+                hitSlop={8}
+              >
+                <Ionicons name="close-circle" size={20} color={RED} />
+              </Pressable>
+            </View>
+          ))}
+          <Pressable
+            onPress={() => setExtraCharges([...extraCharges, { id: Date.now().toString(), label: "", amount: "" }])}
+            style={styles.addChargeBtn}
+          >
+            <Ionicons name="add-circle-outline" size={18} color={ORANGE} />
+            <Text style={styles.addChargeBtnText}>Add Charge</Text>
+          </Pressable>
+        </View>
+
+        {/* ── Promo Code ── */}
+        <SectionLabel
+          step={serviceTypes.length > 0 ? 7 : 6}
           label="Promo Code"
           sub="Have a coupon? Enter it below"
         />
@@ -692,6 +775,28 @@ export default function NewBookingScreen() {
               </Text>
             </View>
           )}
+
+          {/* Service fee row */}
+          {serviceFeeNum > 0 && (
+            <View style={styles.summaryRow}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                <Ionicons name="shield-checkmark-outline" size={13} color={ORANGE} />
+                <Text style={styles.summaryLabel}> Service Fee</Text>
+              </View>
+              <Text style={styles.summaryValue}>₹{serviceFeeNum.toLocaleString("en-IN")}</Text>
+            </View>
+          )}
+
+          {/* Extra charges rows */}
+          {extraCharges.filter(c => c.label.trim() && parseFloat(c.amount) > 0).map((c, i) => (
+            <View key={i} style={styles.summaryRow}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                <Ionicons name="add-circle-outline" size={13} color={ORANGE} />
+                <Text style={styles.summaryLabel}> {c.label}</Text>
+              </View>
+              <Text style={styles.summaryValue}>₹{(parseFloat(c.amount) || 0).toLocaleString("en-IN")}</Text>
+            </View>
+          ))}
 
           {/* Discount row */}
           {promoApplied && discount > 0 && (
@@ -898,6 +1003,34 @@ const styles = StyleSheet.create({
     fontSize: 14, fontFamily: "Inter_400Regular", color: "#2C2C2C",
     borderWidth: 1, borderColor: "#E8E8E8", minHeight: 80,
   },
+
+  // Service fee & extra charges
+  extraFeeWrap: { marginHorizontal: 20, gap: 8 },
+  feeInputRow: {
+    flexDirection: "row", alignItems: "center",
+    backgroundColor: "#fff", borderRadius: 12, borderWidth: 1, borderColor: "#E8E8E8",
+    paddingHorizontal: 14, paddingVertical: 2,
+  },
+  feeRupee: { fontSize: 16, color: ORANGE, fontFamily: "Inter_600SemiBold", marginRight: 4 },
+  feeInput: {
+    flex: 1, paddingVertical: 12, fontSize: 15,
+    fontFamily: "Inter_500Medium", color: "#2C2C2C",
+  },
+  extraChargeRow: {
+    flexDirection: "row", alignItems: "center", gap: 8,
+    backgroundColor: "#fff", borderRadius: 12, borderWidth: 1, borderColor: "#E8E8E8",
+    paddingHorizontal: 14, paddingVertical: 2,
+  },
+  extraChargeLabel: { flex: 2 },
+  extraChargeAmtWrap: { flexDirection: "row", alignItems: "center", flex: 1.2 },
+  extraChargeRemove: { padding: 4 },
+  addChargeBtn: {
+    flexDirection: "row", alignItems: "center", gap: 6,
+    paddingVertical: 10, paddingHorizontal: 14,
+    backgroundColor: ORANGE + "15", borderRadius: 10,
+    alignSelf: "flex-start",
+  },
+  addChargeBtnText: { color: ORANGE, fontSize: 13, fontFamily: "Inter_600SemiBold" },
 
   // Promo code
   promoWrap: { marginHorizontal: 20, gap: 8 },

@@ -192,7 +192,17 @@ export default function BookingDetailScreen() {
           ) : (
             <InfoRow icon="time-outline" label="Duration" value={`${booking.totalDays} day${booking.totalDays > 1 ? "s" : ""}`} />
           )}
-          <InfoRow icon="cash-outline" label="Total Amount" value={`₹${booking.totalAmount.toLocaleString("en-IN")}`} highlight />
+          <InfoRow icon="cash-outline" label="Base Amount" value={`₹${(booking as any).totalAmount?.toLocaleString("en-IN") ?? "—"}`} />
+          {(booking as any).serviceFee > 0 && (
+            <InfoRow icon="shield-checkmark-outline" label="Service Fee" value={`₹${(booking as any).serviceFee.toLocaleString("en-IN")}`} />
+          )}
+          {Array.isArray((booking as any).extraCharges) && (booking as any).extraCharges.map((c: any, i: number) => (
+            <InfoRow key={i} icon="add-circle-outline" label={c.label || "Extra Charge"} value={`₹${Number(c.amount).toLocaleString("en-IN")}`} />
+          ))}
+          {(booking as any).discountAmount > 0 && (
+            <InfoRow icon="pricetag-outline" label={`Promo${(booking as any).promoCode ? ` (${(booking as any).promoCode})` : ""}`} value={`-₹${(booking as any).discountAmount.toLocaleString("en-IN")}`} />
+          )}
+          <InfoRow icon="wallet-outline" label="Total Payable" value={`₹${((booking as any).finalAmount || (booking as any).totalAmount || 0).toLocaleString("en-IN")}`} highlight />
           <InfoRow icon="card-outline" label="Payment" value={booking.paymentStatus.charAt(0).toUpperCase() + booking.paymentStatus.slice(1)} />
           {isCustomer ? (
             <InfoRow icon="person-outline" label="Provider" value={`${booking.customerName || "Provider"}`} />
