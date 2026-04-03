@@ -146,13 +146,23 @@ export default function NewBookingScreen() {
     }
   }
 
-  async function fetchPricing(l: Listing, serviceType: string | undefined) {
+  // fetchPricing: calls /pricing/calculate with the actual slot count so
+  // hourly_rate × numSlots is computed server-side and returned as a single total.
+  async function fetchPricing(
+    l: Listing,
+    serviceType: string | undefined,
+    numSlots: number = 1,
+  ) {
     if (!l.category || !l.subcategory) return;
     setPricingLoading(true);
     try {
+      const isEquip = l.category === "equipment";
       const params = new URLSearchParams({
         category: l.category, subcategory: l.subcategory,
-        hours: "1", days: "1", distance_km: "0",
+        // Equipment is priced per-day; services/professions per-hour.
+        hours: isEquip ? "0" : String(Math.max(1, numSlots)),
+        days:  isEquip ? String(Math.max(1, numSlots)) : "0",
+        distance_km: "0",
       });
       if (serviceType) params.set("service_type", serviceType);
       const result = await get<PricingResult>(`/pricing/calculate?${params.toString()}`);
@@ -163,19 +173,26 @@ export default function NewBookingScreen() {
     }
   }
 
-  // Re-fetch pricing whenever the primary selected service type changes
+  // Re-fetch whenever the primary service type OR the slot count changes
   useEffect(() => {
     if (!listing) return;
     if (serviceTypes.length === 0) return;
     const primary = selectedServices[0];
     if (primary) {
-      fetchPricing(listing, primary);
+      fetchPricing(listing, primary, selectedSlots.length || 1);
     } else {
-      // No service type selected yet — clear pricing so placeholder shows
       setPricingResult(null);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedServices[0]]);
+  }, [selectedServices[0], selectedSlots.length]);
+
+  // For listings with no service-type selection, re-fetch when slot count changes
+  useEffect(() => {
+    if (!listing) return;
+    if (serviceTypes.length > 0) return; // handled above
+    fetchPricing(listing, undefined, selectedSlots.length || 1);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedSlots.length]);
 
   async function loadSlots() {
     if (!id || !selectedDate) return;
@@ -216,9 +233,10 @@ export default function NewBookingScreen() {
   async function applyPromo() {
     if (!promoCode.trim()) return;
     if (!listing) return;
-    const hours = Math.max(1, selectedSlots.length);
-    const basePrice = pricingResult?.found ? pricingResult.customer_price : listing.price;
-    const amount = basePrice * hours;
+    // customer_price is already the total for all selected slots (server-side calculation)
+    const amount = pricingResult?.found
+      ? pricingResult.customer_price
+      : listing.price * Math.max(1, selectedSlots.length);
 
     setPromoLoading(true);
     setPromoResult(null);
@@ -314,12 +332,15 @@ export default function NewBookingScreen() {
 
   const accent = getCategoryAccent(listing.category);
   const hasImg = listing.images && listing.images.length > 0;
-  const adminPrice  = pricingResult?.found ? pricingResult.customer_price : null;
-  const unitPrice   = adminPrice ?? listing.price;
-  const hours       = Math.max(1, selectedSlots.length);
-  const baseTotal   = unitPrice * (selectedSlots.length > 0 ? selectedSlots.length : 1);
-  const discount    = promoApplied && promoResult?.valid ? (promoResult.discount ?? 0) : 0;
-  const finalTotal  = Math.max(0, baseTotal - discount);
+
+  // pricingResult.customer_price is already the TOTAL for the actual number of
+  // slots passed to /pricing/calculate (hourly_rate × numSlots computed server-side).
+  // Never multiply it by numSlots again.
+  const baseTotal  = pricingResult?.found
+    ? pricingResult.customer_price
+    : listing.price * Math.max(1, selectedSlots.length);
+  const discount   = promoApplied && promoResult?.valid ? (promoResult.discount ?? 0) : 0;
+  const finalTotal = Math.max(0, baseTotal - discount);
 
   return (
     <View style={styles.root}>
@@ -609,10 +630,14 @@ export default function NewBookingScreen() {
           <View style={styles.summaryRow}>
             <Text style={styles.summaryLabel}>
               {listing.subcategory || listing.title}
-              {selectedSlots.length > 0 ? ` × ${selectedSlots.length} hr${selectedSlots.length > 1 ? "s" : ""}` : ` × 1 ${listing.priceUnit === "per_hour" ? "hr" : "day"}`}
+              {selectedSlots.length > 0
+                ? listing.category === "equipment"
+                  ? ` × ${selectedSlots.length} day${selectedSlots.length > 1 ? "s" : ""}`
+                  : ` × ${selectedSlots.length} hr${selectedSlots.length > 1 ? "s" : ""}`
+                : ""}
             </Text>
             <Text style={styles.summaryValue}>
-              ₹{(unitPrice * (selectedSlots.length || 1)).toLocaleString("en-IN")}
+              ₹{baseTotal.toLocaleString("en-IN")}
             </Text>
           </View>
 
@@ -622,13 +647,13 @@ export default function NewBookingScreen() {
               <View style={styles.summaryRow}>
                 <Text style={styles.summaryLabel}>Platform commission ({pricingResult.commission_percent}%)</Text>
                 <Text style={[styles.summaryValue, { color: "#AEAEAE" }]}>
-                  ₹{(pricingResult.app_commission * (selectedSlots.length || 1)).toLocaleString("en-IN")}
+                  ₹{pricingResult.app_commission.toLocaleString("en-IN")}
                 </Text>
               </View>
               <View style={styles.summaryRow}>
                 <Text style={styles.summaryLabel}>Provider payout</Text>
                 <Text style={[styles.summaryValue, { color: GREEN }]}>
-                  ₹{(pricingResult.provider_payout * (selectedSlots.length || 1)).toLocaleString("en-IN")}
+                  ₹{pricingResult.provider_payout.toLocaleString("en-IN")}
                 </Text>
               </View>
               {pricingResult.security_deposit > 0 && (
