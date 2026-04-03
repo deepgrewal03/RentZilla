@@ -356,6 +356,7 @@ export default function SettingsTab() {
   const { user, logout, updateUser, activeMode, setActiveMode } = useAuth();
   const isBoth = user?.role === "both";
   const isCustomerOnly = user?.role === "customer";
+  const isProviderOnly = user?.role === "provider";
   const api = useApi();
   const { get, patch, del, post, put } = api;
   const { t, language, toggleLanguage } = useLang();
@@ -708,6 +709,29 @@ export default function SettingsTab() {
           </>
         )}
 
+        {isProviderOnly && (
+          <>
+            <SectionHeader title="Expand Your Access" icon="person-add-outline" />
+            <Pressable
+              onPress={() => router.push("/become-customer")}
+              style={({ pressed }) => [ss.upgradeCard, ss.customerCard, { opacity: pressed ? 0.92 : 1 }]}
+            >
+              <View style={ss.upgradeLeft}>
+                <View style={[ss.upgradeIconWrap, ss.customerIconWrap]}>
+                  <Ionicons name="person-circle-outline" size={28} color="#0F1F3D" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[ss.upgradeTitle, { color: "#0F1F3D" }]}>Become a Customer</Text>
+                  <Text style={[ss.upgradeDesc, { color: "rgba(15,31,61,0.55)" }]}>Browse and book from other providers. Use both sides of RentZilla.</Text>
+                </View>
+              </View>
+              <View style={[ss.upgradeArrow, { backgroundColor: "#0F1F3D" }]}>
+                <Ionicons name="arrow-forward" size={18} color="#fff" />
+              </View>
+            </Pressable>
+          </>
+        )}
+
         {isBoth && (
           <>
             <SectionHeader title="Active Mode" icon="swap-horizontal-outline" />
@@ -944,6 +968,8 @@ const ss = StyleSheet.create({
   upgradeTitle: { fontSize: 16, fontWeight: "700", fontFamily: "Inter_700Bold", color: "#fff" },
   upgradeDesc: { fontSize: 12, color: "rgba(255,255,255,0.65)", fontFamily: "Inter_400Regular", marginTop: 3, lineHeight: 17 },
   upgradeArrow: { width: 36, height: 36, borderRadius: 18, backgroundColor: ORANGE, alignItems: "center", justifyContent: "center" },
+  customerCard: { backgroundColor: "#EEF1F8", shadowColor: "#0F1F3D" },
+  customerIconWrap: { backgroundColor: "rgba(15,31,61,0.10)" },
 
   modeSwitcherCard: { flexDirection: "row", padding: 6, gap: 6 },
   modeOption: { flex: 1, alignItems: "center", justifyContent: "center", paddingVertical: 16, borderRadius: 12, gap: 4, backgroundColor: C.backgroundTertiary },
