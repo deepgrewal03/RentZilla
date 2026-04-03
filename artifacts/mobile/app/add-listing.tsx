@@ -64,7 +64,6 @@ export default function AddListingScreen() {
   const [subcategory, setSubcategory] = useState("");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [price, setPrice] = useState("");
   const [priceUnit, setPriceUnit] = useState<PriceUnit>("per_day");
   const [location, setLocation] = useState("");
   const [imageUrl, setImageUrl] = useState("");
@@ -79,8 +78,8 @@ export default function AddListingScreen() {
   const topPad = isWeb ? 67 : insets.top;
 
   async function handleSave() {
-    if (!title.trim() || !price || !location) {
-      Alert.alert("Missing Info", "Please fill in title, price, and location.");
+    if (!title.trim() || !expectedPrice || !location) {
+      Alert.alert("Missing Info", "Please fill in title, your expected rate, and location.");
       return;
     }
     setSaving(true);
@@ -90,7 +89,7 @@ export default function AddListingScreen() {
         subcategory: subcategory || undefined,
         title: title.trim(),
         description: description.trim() || undefined,
-        price: Number(price),
+        price: Number(expectedPrice),
         priceUnit,
         location,
         images: imageUrl ? [imageUrl] : [],
@@ -204,17 +203,17 @@ export default function AddListingScreen() {
             />
           </View>
 
-          {/* Price */}
+          {/* Expected Rate — replaces old "Price" field */}
           <View style={styles.section}>
-            <Text style={styles.fieldLabel}>Price (₹) *</Text>
+            <Text style={styles.fieldLabel}>Your Expected Rate (₹) *</Text>
             <View style={styles.priceRow}>
               <View style={styles.priceInputWrap}>
                 <Text style={styles.rupee}>₹</Text>
                 <TextInput
                   style={styles.priceInput}
-                  value={price}
-                  onChangeText={setPrice}
-                  placeholder="0"
+                  value={expectedPrice}
+                  onChangeText={setExpectedPrice}
+                  placeholder={category === "equipment" ? "e.g. 1200" : category === "cars" ? "e.g. 2500" : "e.g. 350"}
                   placeholderTextColor={C.textTertiary}
                   keyboardType="numeric"
                 />
@@ -232,24 +231,6 @@ export default function AddListingScreen() {
               </View>
             </View>
           </View>
-
-          {/* Expected Price */}
-          {category !== "cars" && (
-            <View style={styles.section}>
-              <Text style={[styles.fieldLabel, { marginBottom: 6 }]}>Your Expected Rate (₹)</Text>
-              <View style={styles.priceInputWrap}>
-                <Text style={styles.rupee}>₹</Text>
-                <TextInput
-                  style={styles.priceInput}
-                  value={expectedPrice}
-                  onChangeText={setExpectedPrice}
-                  placeholder={category === "equipment" ? "Your daily/hourly rate, e.g. 1200" : "Your service rate, e.g. 350"}
-                  placeholderTextColor={C.textTertiary}
-                  keyboardType="numeric"
-                />
-              </View>
-            </View>
-          )}
 
           {/* Location */}
           <View style={styles.section}>

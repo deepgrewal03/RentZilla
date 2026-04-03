@@ -155,7 +155,9 @@ export function ListingCard({ listing, style, isCustomer }: Props) {
                 </View>
               )}
             </View>
-            <Text style={styles.price}>{formatPrice(listing.price, listing.priceUnit)}</Text>
+            <View style={styles.quoteChip}>
+              <Text style={styles.quoteChipText}>Get Quote</Text>
+            </View>
           </View>
 
           <Text style={styles.providerText} numberOfLines={1}>by {listing.providerName || "Provider"}</Text>
@@ -241,7 +243,11 @@ const styles = StyleSheet.create({
   ratingRow: { flexDirection: "row", alignItems: "center", gap: 3 },
   rating: { fontSize: 13, fontWeight: "700", fontFamily: "Inter_700Bold", color: "#2C2C2C" },
   ratingCount: { fontSize: 11, color: "#AEAEAE", fontFamily: "Inter_400Regular" },
-  price: { fontSize: 16, fontWeight: "700", fontFamily: "Inter_700Bold", color: "#FF7A18" },
+  quoteChip: {
+    backgroundColor: "#FFF0E6", paddingHorizontal: 8, paddingVertical: 3,
+    borderRadius: 6, borderWidth: 1, borderColor: "#FFD4B0",
+  },
+  quoteChipText: { fontSize: 11, fontWeight: "600", fontFamily: "Inter_600SemiBold", color: "#FF7A18" },
 
   newBadge: { backgroundColor: "#E8F5E9", borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2 },
   newBadgeText: { fontSize: 10, fontWeight: "700", fontFamily: "Inter_700Bold", color: "#2E7D32", letterSpacing: 0.5 },

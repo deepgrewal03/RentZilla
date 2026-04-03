@@ -379,11 +379,6 @@ export default function ListingDetailScreen() {
             )}
           </View>
 
-          <View style={styles.priceRow}>
-            <Text style={styles.price}>₹{listing.price.toLocaleString("en-IN")}</Text>
-            <Text style={styles.priceUnit}>/{listing.priceUnit === "per_day" ? "day" : "hour"}</Text>
-          </View>
-
           {listing.rating != null && (
             <View style={styles.ratingRow}>
               <StarRating rating={Math.round(listing.rating)} size={16} />
@@ -559,7 +554,6 @@ export default function ListingDetailScreen() {
                   <Text style={styles.summaryText}>
                     {bookingDate} · {selectedSlot}
                   </Text>
-                  <Text style={styles.summaryAmount}>₹{listing.price.toLocaleString("en-IN")}</Text>
                 </View>
               )}
 
@@ -586,8 +580,8 @@ export default function ListingDetailScreen() {
       {!isOwner && listing.isAvailable && isCustomer && !showBooking && !isCarListing && (
         <View style={[styles.bottomBar, { paddingBottom: (isWeb ? 34 : insets.bottom) + 12 }]}>
           <View>
-            <Text style={styles.bottomPrice}>₹{listing.price.toLocaleString("en-IN")}</Text>
-            <Text style={styles.bottomUnit}>per {listing.priceUnit === "per_day" ? "day" : "hour"}</Text>
+            <Text style={styles.bottomPriceLabel}>Pricing set by admin</Text>
+            <Text style={styles.bottomUnit}>Select time to see rates</Text>
           </View>
           <Pressable onPress={() => { Haptics.selectionAsync(); setShowBooking(true); }} style={styles.bookNowBtn}>
             <Ionicons name="calendar-outline" size={18} color="#fff" />
@@ -761,8 +755,8 @@ const styles = StyleSheet.create({
     flexDirection: "row", justifyContent: "space-between", alignItems: "center",
     paddingHorizontal: 20, paddingTop: 14,
   },
-  bottomPrice: { fontSize: 20, fontWeight: "700", fontFamily: "Inter_700Bold", color: C.text },
-  bottomUnit: { fontSize: 12, color: C.textSecondary, fontFamily: "Inter_400Regular" },
+  bottomPriceLabel: { fontSize: 13, fontWeight: "600", fontFamily: "Inter_600SemiBold", color: C.text },
+  bottomUnit: { fontSize: 11, color: C.textSecondary, fontFamily: "Inter_400Regular", marginTop: 1 },
   bookNowBtn: {
     backgroundColor: TINT, borderRadius: 14,
     paddingHorizontal: 24, paddingVertical: 13,

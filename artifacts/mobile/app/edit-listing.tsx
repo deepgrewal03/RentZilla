@@ -256,9 +256,9 @@ export default function EditListingScreen() {
             />
           </View>
 
-          {/* Price */}
+          {/* Expected Rate */}
           <View style={styles.section}>
-            <Text style={styles.fieldLabel}>Price (₹) *</Text>
+            <Text style={styles.fieldLabel}>Your Expected Rate (₹) *</Text>
             <View style={styles.priceRow}>
               <View style={styles.priceInputWrap}>
                 <Text style={styles.rupee}>₹</Text>
