@@ -50,6 +50,10 @@ type RecentBooking = {
   id: string;
   status: string;
   total_amount: number;
+  final_amount?: number;
+  service_fee?: number;
+  extra_charges?: string | null;
+  service_type?: string | null;
   start_date: string;
   end_date: string;
   total_days: number;
@@ -78,10 +82,11 @@ function SkeletonRect({ w, h, r = 8, mt = 0 }: { w: number | string; h: number; 
 
 function StatusChip({ status }: { status: string }) {
   const map: Record<string, { bg: string; fg: string; label: string }> = {
-    pending:   { bg: "#FFF3CD", fg: "#856404", label: "Pending" },
-    confirmed: { bg: "#D1FAE5", fg: "#065F46", label: "Confirmed" },
-    completed: { bg: "#DBEAFE", fg: "#1D4ED8", label: "Completed" },
-    cancelled: { bg: "#FEE2E2", fg: "#991B1B", label: "Cancelled" },
+    pending:     { bg: "#FFF3CD", fg: "#856404",  label: "Pending" },
+    confirmed:   { bg: "#D1FAE5", fg: "#065F46",  label: "Confirmed" },
+    in_progress: { bg: "#FEF3C7", fg: "#B45309",  label: "In Progress" },
+    completed:   { bg: "#DBEAFE", fg: "#1D4ED8",  label: "Completed" },
+    cancelled:   { bg: "#FEE2E2", fg: "#991B1B",  label: "Cancelled" },
   };
   const s = map[status] ?? { bg: "#F3F4F6", fg: "#374151", label: status };
   return (
@@ -89,6 +94,11 @@ function StatusChip({ status }: { status: string }) {
       <Text style={[styles.chipText, { color: s.fg }]}>{s.label}</Text>
     </View>
   );
+}
+
+function displayAmount(b: RecentBooking): number {
+  const fa = Number(b.final_amount ?? 0);
+  return fa > 0 ? fa : Number(b.total_amount);
 }
 
 export default function DashboardScreen() {
@@ -465,6 +475,12 @@ export default function DashboardScreen() {
                 </View>
                 <View style={styles.bookingInfo}>
                   <Text style={styles.bookingTitle} numberOfLines={1}>{b.listing_title}</Text>
+                  {!!b.service_type && (
+                    <View style={styles.serviceTypeRow}>
+                      <Ionicons name="pricetag-outline" size={11} color="#FF7A18" />
+                      <Text style={styles.serviceTypeText}>{b.service_type}</Text>
+                    </View>
+                  )}
                   <View style={styles.bookingCustomerRow}>
                     <Ionicons name="person-circle-outline" size={13} color={C.textSecondary} />
                     <Text style={styles.bookingCustomer}>{b.customer_name}</Text>
@@ -475,7 +491,7 @@ export default function DashboardScreen() {
                     {new Date(b.end_date).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
                     {" · "}{b.total_days}d
                   </Text>
-                  <Text style={styles.bookingAmount}>₹{Number(b.total_amount).toLocaleString("en-IN")}</Text>
+                  <Text style={styles.bookingAmount}>₹{displayAmount(b).toLocaleString("en-IN")}</Text>
                 </View>
                 <View style={styles.bookingBtns}>
                   <Pressable onPress={() => updateBookingStatus(b.id, "confirmed")} style={styles.confirmBtn}>
@@ -518,35 +534,62 @@ export default function DashboardScreen() {
               <Text style={styles.emptyText}>Bookings from customers will appear here</Text>
             </View>
           ) : (
-            recentBookings.filter((b) => b.status !== "pending").slice(0, 6).map((b) => (
-              <View key={b.id} style={[styles.bookingCard, { marginBottom: 10 }]}>
-                {b.listing_images?.[0] ? (
-                  <Image source={{ uri: b.listing_images[0] }} style={styles.bookingThumb} contentFit="cover" />
-                ) : (
-                  <View style={[styles.bookingThumb, styles.thumbPlaceholder]}>
-                    <Ionicons name="cube-outline" size={18} color={C.textTertiary} />
+            recentBookings.filter((b) => b.status !== "pending").slice(0, 6).map((b) => {
+              const needsAction = b.status === "confirmed" || b.status === "in_progress";
+              const actionLabel = b.status === "confirmed" ? "Tap to open job" : b.status === "in_progress" ? "Tap to complete job" : null;
+              return (
+                <Pressable
+                  key={b.id}
+                  onPress={() => router.push(`/booking/${b.id}` as any)}
+                  style={({ pressed }) => [
+                    styles.bookingCard,
+                    { marginBottom: 10 },
+                    needsAction && { borderLeftWidth: 3, borderLeftColor: "#FF7A18" },
+                    pressed && { opacity: 0.85 },
+                  ]}
+                >
+                  {b.listing_images?.[0] ? (
+                    <Image source={{ uri: b.listing_images[0] }} style={styles.bookingThumb} contentFit="cover" />
+                  ) : (
+                    <View style={[styles.bookingThumb, styles.thumbPlaceholder]}>
+                      <Ionicons name="cube-outline" size={18} color={C.textTertiary} />
+                    </View>
+                  )}
+                  <View style={styles.bookingInfo}>
+                    <View style={styles.bookingTitleRow}>
+                      <Text style={[styles.bookingTitle, { flex: 1 }]} numberOfLines={1}>{b.listing_title}</Text>
+                      <StatusChip status={b.status} />
+                    </View>
+                    {!!b.service_type && (
+                      <View style={styles.serviceTypeRow}>
+                        <Ionicons name="pricetag-outline" size={11} color="#FF7A18" />
+                        <Text style={styles.serviceTypeText}>{b.service_type}</Text>
+                      </View>
+                    )}
+                    <View style={styles.bookingCustomerRow}>
+                      <Ionicons name="person-circle-outline" size={13} color={C.textSecondary} />
+                      <Text style={styles.bookingCustomer}>{b.customer_name}</Text>
+                    </View>
+                    <View style={styles.bookingBottomRow}>
+                      <Text style={styles.bookingDates}>
+                        {new Date(b.start_date).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
+                        {" – "}
+                        {new Date(b.end_date).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
+                      </Text>
+                      <View style={{ alignItems: "flex-end" }}>
+                        <Text style={styles.bookingAmount}>₹{displayAmount(b).toLocaleString("en-IN")}</Text>
+                        {actionLabel && (
+                          <Text style={{ fontSize: 10, color: "#FF7A18", fontFamily: "Inter_500Medium" }}>{actionLabel}</Text>
+                        )}
+                      </View>
+                    </View>
                   </View>
-                )}
-                <View style={styles.bookingInfo}>
-                  <View style={styles.bookingTitleRow}>
-                    <Text style={[styles.bookingTitle, { flex: 1 }]} numberOfLines={1}>{b.listing_title}</Text>
-                    <StatusChip status={b.status} />
-                  </View>
-                  <View style={styles.bookingCustomerRow}>
-                    <Ionicons name="person-circle-outline" size={13} color={C.textSecondary} />
-                    <Text style={styles.bookingCustomer}>{b.customer_name}</Text>
-                  </View>
-                  <View style={styles.bookingBottomRow}>
-                    <Text style={styles.bookingDates}>
-                      {new Date(b.start_date).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
-                      {" – "}
-                      {new Date(b.end_date).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}
-                    </Text>
-                    <Text style={styles.bookingAmount}>₹{Number(b.total_amount).toLocaleString("en-IN")}</Text>
-                  </View>
-                </View>
-              </View>
-            ))
+                  {needsAction && (
+                    <Ionicons name="chevron-forward" size={16} color="#FF7A18" style={{ alignSelf: "center", marginLeft: 2 }} />
+                  )}
+                </Pressable>
+              );
+            })
           )}
         </View>
 
@@ -917,6 +960,8 @@ const styles = StyleSheet.create({
   bookingTitle: { fontSize: 13, fontWeight: "600", fontFamily: "Inter_600SemiBold", color: "#111827" },
   bookingCustomerRow: { flexDirection: "row", alignItems: "center", gap: 4 },
   bookingCustomer: { fontSize: 12, color: "#6B7280", fontFamily: "Inter_400Regular" },
+  serviceTypeRow: { flexDirection: "row", alignItems: "center", gap: 4 },
+  serviceTypeText: { fontSize: 11, color: "#FF7A18", fontFamily: "Inter_500Medium" },
   bookingDates: { fontSize: 11, color: "#9CA3AF", fontFamily: "Inter_400Regular" },
   bookingBottomRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 1 },
   bookingAmount: { fontSize: 13, fontWeight: "700", fontFamily: "Inter_700Bold", color: ORANGE },

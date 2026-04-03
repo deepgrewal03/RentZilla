@@ -137,7 +137,9 @@ router.get("/recent-bookings", authMiddleware, async (req: Request, res: Respons
     const userId = (req as AR).userId;
     const result = await db.execute(`
       SELECT
-        b.id, b.status, b.total_amount, b.start_date, b.end_date, b.total_days, b.created_at,
+        b.id, b.status, b.total_amount, b.final_amount, b.service_fee,
+        b.extra_charges, b.service_type, b.start_date, b.end_date,
+        b.total_days, b.created_at,
         l.title as listing_title, l.images as listing_images,
         u.name as customer_name, u.phone as customer_phone, u.email as customer_email
       FROM bookings b
