@@ -281,6 +281,7 @@ export default function SearchScreen() {
 
   function commitSearch(q: string) {
     if (!q.trim()) return;
+    inputRef.current?.blur();   /* blur first to stop web from re-focusing */
     setQuery(q);
     setCommittedQuery(q);
     saveRecentSearch(q);
@@ -313,8 +314,8 @@ export default function SearchScreen() {
   const hasSuggestions = suggestions &&
     (suggestions.vehicles.length + suggestions.services.length +
      suggestions.providers.length + suggestions.locations.length) > 0;
-  const showRecent = isFocused && !query.trim() && recentSearches.length > 0;
-  const showPopular = isFocused && !query.trim() && recentSearches.length === 0;
+  const showRecent  = isFocused && !query.trim() && recentSearches.length > 0;
+  const showPopular = isFocused && !query.trim();   /* always show when focused + empty */
 
   const dropdownHeight = dropdownAnim.interpolate({
     inputRange: [0, 1],
@@ -475,16 +476,20 @@ export default function SearchScreen() {
                           style={({ pressed }) => [styles.suggRow, pressed && styles.suggRowPressed]}
                           onPress={() => {
                             if (item.type === "listing") {
-                              saveRecentSearch(item.title);
+                              /* save the typed query, not the listing title */
+                              if (query.trim()) saveRecentSearch(query.trim());
+                              inputRef.current?.blur();
+                              setIsFocused(false);
+                              hideDropdown();
                               router.push(`/listing/${item.id}` as any);
-                              hideDropdown();
-                              setIsFocused(false);
                             } else if (item.type === "provider") {
-                              saveRecentSearch(item.title);
-                              router.push(`/provider/${item.id}` as any);
-                              hideDropdown();
+                              if (query.trim()) saveRecentSearch(query.trim());
+                              inputRef.current?.blur();
                               setIsFocused(false);
+                              hideDropdown();
+                              router.push(`/provider/${item.id}` as any);
                             } else {
+                              /* location item — commit the location name as search */
                               commitSearch(item.title);
                             }
                           }}
