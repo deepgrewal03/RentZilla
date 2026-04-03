@@ -1,5 +1,5 @@
 export type Category = "cars" | "equipment" | "services";
-export type BookingStatus = "pending" | "confirmed" | "completed" | "cancelled";
+export type BookingStatus = "pending" | "confirmed" | "in_progress" | "completed" | "cancelled";
 export type PaymentStatus = "pending" | "paid" | "refunded";
 export type PriceUnit = "per_day" | "per_hour";
 

@@ -7,10 +7,11 @@ import { BookingStatus } from "@/types";
 const C = Colors.light;
 
 const STATUS_CONFIG: Record<BookingStatus, { label: string; bg: string; text: string }> = {
-  pending: { label: "Pending", bg: "#FFF9EC", text: "#D97706" },
-  confirmed: { label: "Confirmed", bg: "#ECFDF5", text: "#059669" },
-  completed: { label: "Completed", bg: "#EFF6FF", text: "#2563EB" },
-  cancelled: { label: "Cancelled", bg: "#FEF2F2", text: "#DC2626" },
+  pending:     { label: "Pending",     bg: "#FFF9EC", text: "#D97706" },
+  confirmed:   { label: "Confirmed",   bg: "#ECFDF5", text: "#059669" },
+  in_progress: { label: "In Progress", bg: "#FFF3E0", text: "#FF7A18" },
+  completed:   { label: "Completed",   bg: "#EFF6FF", text: "#2563EB" },
+  cancelled:   { label: "Cancelled",   bg: "#FEF2F2", text: "#DC2626" },
 };
 
 export function BookingStatusBadge({ status }: { status: BookingStatus }) {

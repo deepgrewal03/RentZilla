@@ -57,6 +57,8 @@ async function enrichBooking(booking: typeof bookingsTable.$inferSelect) {
     serviceTypes: b.service_types ? safeParseJson(b.service_types, []) : null,
     promoCode: b.promo_code || null,
     discountAmount: Number(b.discount_amount || 0),
+    serviceFee: Number(b.service_fee || 0),
+    extraCharges: b.extra_charges ? safeParseJson(b.extra_charges, []) : [],
     finalAmount: Number(b.final_amount || 0) || Number(booking.totalAmount),
     createdAt: booking.createdAt.toISOString(),
   };
@@ -455,6 +457,63 @@ router.put("/:id", authMiddleware, async (req: Request, res: Response) => {
     res.json(enriched);
   } catch (err) {
     req.log.error({ err }, "Update booking error");
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ── POST /bookings/:id/open-job (provider marks booking as in-progress) ────────
+router.post("/:id/open-job", authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as Request & { userId: string }).userId;
+    const rows = toRows(await db.execute(sql`SELECT * FROM bookings WHERE id = ${req.params.id} LIMIT 1`));
+    if (rows.length === 0) { res.status(404).json({ error: "Booking not found" }); return; }
+    const b = rows[0];
+    if (b.provider_id !== userId) { res.status(403).json({ error: "Not your booking" }); return; }
+    if (b.status !== "confirmed") { res.status(400).json({ error: "Booking must be confirmed to open" }); return; }
+    await db.execute(sql`UPDATE bookings SET status = 'in_progress' WHERE id = ${req.params.id}`);
+    const updated = await db.select().from(bookingsTable).where(eq(bookingsTable.id, req.params.id)).limit(1);
+    const enriched = await enrichBooking(updated[0]);
+    res.json(enriched);
+  } catch (err) {
+    req.log.error({ err }, "Open job error");
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ── POST /bookings/:id/complete-job (provider marks job done + adds charges) ──
+router.post("/:id/complete-job", authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as Request & { userId: string }).userId;
+    const { serviceFee, extraCharges } = req.body;
+
+    const rows = toRows(await db.execute(sql`SELECT * FROM bookings WHERE id = ${req.params.id} LIMIT 1`));
+    if (rows.length === 0) { res.status(404).json({ error: "Booking not found" }); return; }
+    const b = rows[0];
+    if (b.provider_id !== userId) { res.status(403).json({ error: "Not your booking" }); return; }
+    if (b.status !== "in_progress") { res.status(400).json({ error: "Job must be opened first" }); return; }
+
+    const baseAmount = Number(b.total_amount || 0);
+    const discount = Number(b.discount_amount || 0);
+    const extraFee = Number(serviceFee) || 0;
+    const chargesArr: { label: string; amount: number; description?: string }[] =
+      Array.isArray(extraCharges) ? extraCharges : [];
+    const chargesTotal = chargesArr.reduce((s, c) => s + (Number(c.amount) || 0), 0);
+    const finalAmount = Math.max(0, baseAmount + extraFee + chargesTotal - discount);
+
+    await db.execute(sql`
+      UPDATE bookings SET
+        status = 'completed',
+        service_fee = ${extraFee},
+        extra_charges = ${JSON.stringify(chargesArr)},
+        final_amount = ${finalAmount}
+      WHERE id = ${req.params.id}
+    `);
+
+    const updated = await db.select().from(bookingsTable).where(eq(bookingsTable.id, req.params.id)).limit(1);
+    const enriched = await enrichBooking(updated[0]);
+    res.json(enriched);
+  } catch (err) {
+    req.log.error({ err }, "Complete job error");
     res.status(500).json({ error: "Internal server error" });
   }
 });
