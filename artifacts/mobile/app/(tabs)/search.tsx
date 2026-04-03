@@ -42,7 +42,8 @@ const POPULAR = [
   { q: "Amritsar",      icon: "location-outline", lib: "ion",  cat: "location" },
 ];
 
-const DISTRICTS: { name: string; emoji: string }[] = [
+/* Static fallback — shown when DB has no location data yet */
+const DISTRICTS_FALLBACK: { name: string; emoji: string }[] = [
   { name: "Ludhiana",         emoji: "🏙️" },
   { name: "Amritsar",         emoji: "🕌" },
   { name: "Jalandhar",        emoji: "🌆" },
@@ -64,6 +65,32 @@ const DISTRICTS: { name: string; emoji: string }[] = [
   { name: "Nabha",            emoji: "🌿" },
   { name: "Abohar",           emoji: "🌵" },
 ];
+
+/* Emoji lookup — extended to cover all sign-up districts + common towns */
+const DISTRICT_EMOJI: Record<string, string> = {
+  "Amritsar": "🕌",   "Barnala": "🌾",   "Bathinda": "⚡",
+  "Faridkot": "🏡",   "Fatehgarh Sahib": "🏛️", "Fazilka": "🌵",
+  "Ferozepur": "🏞️", "Gurdaspur": "🌿",  "Hoshiarpur": "🌿",
+  "Jalandhar": "🌆",  "Kapurthala": "🕌", "Ludhiana": "🏙️",
+  "Malerkotla": "🌙", "Mansa": "🌾",     "Moga": "🌻",
+  "Mohali": "🏢",     "Pathankot": "🏔️", "Patiala": "🏛️",
+  "Rupnagar (Ropar)": "💧", "SAS Nagar (Mohali)": "🏢",
+  "Sangrur": "🌾",   "Shaheed Bhagat Singh Nagar (Nawanshahr)": "🌿",
+  "Sri Muktsar Sahib": "🏵️", "Tarn Taran": "🌊",
+  /* common towns */
+  "Khanna": "🏭",    "Phagwara": "🌆",  "Zirakpur": "🏙️",
+  "Rajpura": "🛣️",  "Nabha": "🌿",     "Abohar": "🌵",
+  "Batala": "🌆",    "Anandpur Sahib": "🕊️", "Sirhind": "🏯",
+  "Malout": "🌾",    "Sunam": "🌻",     "Dasuya": "🌿",
+  "Nakodar": "🌾",   "Zira": "🌾",      "Dhuri": "🌻",
+};
+
+function districtEmoji(name: string): string {
+  if (DISTRICT_EMOJI[name]) return DISTRICT_EMOJI[name];
+  /* fallback by first word */
+  const first = name.split(" ")[0];
+  return DISTRICT_EMOJI[first] ?? "📍";
+}
 
 interface SuggestionItem {
   id: string;
@@ -134,6 +161,7 @@ export default function SearchScreen() {
   const [maxPrice, setMaxPrice] = useState("");
   const [minRating, setMinRating] = useState<number | null>(null);
   const [showFilters, setShowFilters] = useState(false);
+  const [liveDistricts, setLiveDistricts] = useState<{ name: string }[]>([]);
 
   const inputRef = useRef<TextInput>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -143,6 +171,12 @@ export default function SearchScreen() {
 
   useEffect(() => {
     loadRecentSearches();
+    /* Fetch live districts/cities from the DB (users + listings location fields) */
+    get("/search/locations")
+      .then((d: { districts: { name: string; count: number }[] }) => {
+        if (d?.districts?.length) setLiveDistricts(d.districts);
+      })
+      .catch(() => {/* silently use fallback */});
   }, []);
 
   useEffect(() => {
@@ -558,13 +592,13 @@ export default function SearchScreen() {
                   keyboardShouldPersistTaps="handled"
                   contentContainerStyle={styles.districtScroll}
                 >
-                  {DISTRICTS.map(d => (
+                  {(liveDistricts.length ? liveDistricts : DISTRICTS_FALLBACK).map(d => (
                     <Pressable
                       key={d.name}
                       style={({ pressed }) => [styles.districtChip, pressed && { opacity: 0.7 }]}
                       onPress={() => commitSearch(d.name)}
                     >
-                      <Text style={styles.districtEmoji}>{d.emoji}</Text>
+                      <Text style={styles.districtEmoji}>{"emoji" in d ? (d as any).emoji : districtEmoji(d.name)}</Text>
                       <Text style={styles.districtChipText}>{d.name}</Text>
                     </Pressable>
                   ))}
@@ -667,13 +701,13 @@ export default function SearchScreen() {
                   showsHorizontalScrollIndicator={false}
                   contentContainerStyle={styles.districtScrollIdle}
                 >
-                  {DISTRICTS.map(d => (
+                  {(liveDistricts.length ? liveDistricts : DISTRICTS_FALLBACK).map(d => (
                     <Pressable
                       key={d.name}
                       style={({ pressed }) => [styles.districtCardIdle, pressed && { opacity: 0.8 }]}
                       onPress={() => commitSearch(d.name)}
                     >
-                      <Text style={styles.districtCardEmoji}>{d.emoji}</Text>
+                      <Text style={styles.districtCardEmoji}>{"emoji" in d ? (d as any).emoji : districtEmoji(d.name)}</Text>
                       <Text style={styles.districtCardName}>{d.name}</Text>
                     </Pressable>
                   ))}

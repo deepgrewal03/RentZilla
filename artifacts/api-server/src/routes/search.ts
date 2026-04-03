@@ -167,4 +167,48 @@ router.get("/popular", async (_req: Request, res: Response) => {
   }
 });
 
+/* ── GET /search/locations ──────────────────────────────────────────────────
+   Returns distinct districts + cities/towns parsed from the `location` field
+   of users and listings. Format stored is "City, District" (from sign-up).  */
+router.get("/locations", async (_req: Request, res: Response) => {
+  try {
+    const [userRows, listingRows] = await Promise.all([
+      db.selectDistinct({ location: usersTable.location }).from(usersTable)
+        .where(sql`${usersTable.location} IS NOT NULL AND TRIM(${usersTable.location}) != ''`),
+      db.selectDistinct({ location: listingsTable.location }).from(listingsTable)
+        .where(sql`${listingsTable.location} IS NOT NULL AND TRIM(${listingsTable.location}) != ''`),
+    ]);
+
+    const allLocations = [
+      ...userRows.map(r => r.location),
+      ...listingRows.map(r => r.location),
+    ].filter(Boolean) as string[];
+
+    const districtCount: Record<string, number> = {};
+    const citySet = new Set<string>();
+
+    for (const loc of allLocations) {
+      const parts = loc.split(",").map(p => p.trim()).filter(Boolean);
+      if (parts.length >= 2) {
+        const district = parts[parts.length - 1];
+        const city    = parts[0];
+        districtCount[district] = (districtCount[district] || 0) + 1;
+        citySet.add(city);
+      } else if (parts.length === 1) {
+        districtCount[parts[0]] = (districtCount[parts[0]] || 0) + 1;
+      }
+    }
+
+    const districts = Object.entries(districtCount)
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .map(([name, count]) => ({ name, count }));
+
+    const cities = [...citySet].sort();
+
+    res.json({ districts, cities });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch locations" });
+  }
+});
+
 export default router;
