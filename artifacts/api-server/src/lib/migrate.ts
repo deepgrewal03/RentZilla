@@ -372,6 +372,21 @@ export async function runMigrations() {
     await db.execute(sql.raw(stmt));
   }
 
+  // ── Add in_progress to booking_status enum (if it exists as an enum type) ──────
+  // Silently ignored when the status column is plain TEXT (dev environment).
+  try {
+    await db.execute(sql.raw(`ALTER TYPE booking_status ADD VALUE IF NOT EXISTS 'in_progress'`));
+  } catch (_) { /* enum type doesn't exist in this env — safe to ignore */ }
+
+  // ── Service fee + extra charges on bookings ───────────────────────────────────
+  const jobColumns = [
+    `ALTER TABLE bookings ADD COLUMN IF NOT EXISTS service_fee NUMERIC(10,2) NOT NULL DEFAULT 0`,
+    `ALTER TABLE bookings ADD COLUMN IF NOT EXISTS extra_charges TEXT`,
+  ];
+  for (const stmt of jobColumns) {
+    await db.execute(sql.raw(stmt));
+  }
+
   // ── Pricing service-type rules (per service type within a subcategory) ────────
   await db.execute(sql.raw(`
     CREATE TABLE IF NOT EXISTS pricing_service_type_rules (
