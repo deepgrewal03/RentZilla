@@ -30,16 +30,39 @@ const RECENT_KEY = "rz_recent_searches";
 const MAX_RECENT = 8;
 
 const POPULAR = [
-  { q: "Swift Car",      icon: "car-outline",         lib: "ion",  cat: "cars" },
-  { q: "Tractor",        icon: "tractor",              lib: "mci",  cat: "equipment" },
-  { q: "Plumbing",       icon: "water-outline",        lib: "ion",  cat: "services" },
-  { q: "Electrician",    icon: "flash-outline",        lib: "ion",  cat: "services" },
-  { q: "Beauty",         icon: "sparkles-outline",     lib: "ion",  cat: "services" },
-  { q: "Painter",        icon: "brush-outline",        lib: "ion",  cat: "services" },
-  { q: "Toyota Innova",  icon: "car-outline",          lib: "ion",  cat: "cars" },
-  { q: "Harvester",      icon: "tractor",              lib: "mci",  cat: "equipment" },
-  { q: "Carpenter",      icon: "hammer-outline",       lib: "ion",  cat: "services" },
-  { q: "Ludhiana",       icon: "location-outline",     lib: "ion",  cat: "location" },
+  { q: "Tractor",       icon: "tractor",          lib: "mci",  cat: "equipment" },
+  { q: "Plumbing",      icon: "water-outline",    lib: "ion",  cat: "services" },
+  { q: "Electrician",   icon: "flash-outline",    lib: "ion",  cat: "services" },
+  { q: "Beauty",        icon: "sparkles-outline", lib: "ion",  cat: "services" },
+  { q: "Painter",       icon: "brush-outline",    lib: "ion",  cat: "services" },
+  { q: "Harvester",     icon: "tractor",          lib: "mci",  cat: "equipment" },
+  { q: "Carpenter",     icon: "hammer-outline",   lib: "ion",  cat: "services" },
+  { q: "JCB",           icon: "construct-outline",lib: "ion",  cat: "equipment" },
+  { q: "Ludhiana",      icon: "location-outline", lib: "ion",  cat: "location" },
+  { q: "Amritsar",      icon: "location-outline", lib: "ion",  cat: "location" },
+];
+
+const DISTRICTS: { name: string; emoji: string }[] = [
+  { name: "Ludhiana",         emoji: "🏙️" },
+  { name: "Amritsar",         emoji: "🕌" },
+  { name: "Jalandhar",        emoji: "🌆" },
+  { name: "Patiala",          emoji: "🏛️" },
+  { name: "Bathinda",         emoji: "⚡" },
+  { name: "Mohali",           emoji: "🏢" },
+  { name: "Pathankot",        emoji: "🏔️" },
+  { name: "Hoshiarpur",       emoji: "🌿" },
+  { name: "Gurdaspur",        emoji: "🌾" },
+  { name: "Firozpur",         emoji: "🏞️" },
+  { name: "Moga",             emoji: "🌻" },
+  { name: "Sangrur",          emoji: "🌾" },
+  { name: "Faridkot",         emoji: "🏡" },
+  { name: "Kapurthala",       emoji: "🕌" },
+  { name: "Khanna",           emoji: "🏭" },
+  { name: "Phagwara",         emoji: "🌆" },
+  { name: "Zirakpur",         emoji: "🏙️" },
+  { name: "Rajpura",          emoji: "🛣️" },
+  { name: "Nabha",            emoji: "🌿" },
+  { name: "Abohar",           emoji: "🌵" },
 ];
 
 interface SuggestionItem {
@@ -292,7 +315,7 @@ export default function SearchScreen() {
               onFocus={onFocus}
               onBlur={onBlur}
               onSubmitEditing={() => commitSearch(query)}
-              placeholder="Search cars, services, or locations..."
+              placeholder="District, service, provider name..."
               placeholderTextColor={C.textTertiary}
               returnKeyType="search"
               autoFocus={!!initialQ}
@@ -521,6 +544,34 @@ export default function SearchScreen() {
                 </View>
               </>
             )}
+
+            {/* Districts quick-pick — always visible when focused + no text */}
+            {(showPopular || showRecent) && (
+              <>
+                <View style={styles.groupHeader}>
+                  <Ionicons name="location-outline" size={13} color="#10B981" />
+                  <Text style={[styles.groupLabel, { color: "#10B981" }]}>Browse by District / City</Text>
+                </View>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  keyboardShouldPersistTaps="handled"
+                  contentContainerStyle={styles.districtScroll}
+                >
+                  {DISTRICTS.map(d => (
+                    <Pressable
+                      key={d.name}
+                      style={({ pressed }) => [styles.districtChip, pressed && { opacity: 0.7 }]}
+                      onPress={() => commitSearch(d.name)}
+                    >
+                      <Text style={styles.districtEmoji}>{d.emoji}</Text>
+                      <Text style={styles.districtChipText}>{d.name}</Text>
+                    </Pressable>
+                  ))}
+                </ScrollView>
+                <View style={{ height: 8 }} />
+              </>
+            )}
           </ScrollView>
         </Animated.View>
       )}
@@ -556,7 +607,7 @@ export default function SearchScreen() {
                   Try different keywords or browse categories below
                 </Text>
                 <View style={styles.quickTips}>
-                  {["Tractor", "Plumber", "Swift"].map(tip => (
+                  {["Tractor", "Plumber", "Ludhiana"].map(tip => (
                     <Pressable key={tip} style={styles.tipChip} onPress={() => commitSearch(tip)}>
                       <Text style={styles.tipChipText}>{tip}</Text>
                     </Pressable>
@@ -603,6 +654,30 @@ export default function SearchScreen() {
                     <Text style={styles.popularCardText}>{p.q}</Text>
                   </Pressable>
                 ))}
+              </View>
+
+              {/* Districts section */}
+              <View style={styles.districtSection}>
+                <View style={styles.districtSectionHeader}>
+                  <Ionicons name="location" size={16} color="#10B981" />
+                  <Text style={styles.districtSectionTitle}>Browse by District / City</Text>
+                </View>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.districtScrollIdle}
+                >
+                  {DISTRICTS.map(d => (
+                    <Pressable
+                      key={d.name}
+                      style={({ pressed }) => [styles.districtCardIdle, pressed && { opacity: 0.8 }]}
+                      onPress={() => commitSearch(d.name)}
+                    >
+                      <Text style={styles.districtCardEmoji}>{d.emoji}</Text>
+                      <Text style={styles.districtCardName}>{d.name}</Text>
+                    </Pressable>
+                  ))}
+                </ScrollView>
               </View>
             </View>
           )
@@ -1031,4 +1106,32 @@ const styles = StyleSheet.create({
     color: C.text,
     textAlign: "center",
   },
+
+  /* ── District chips in dropdown ── */
+  districtScroll: { paddingHorizontal: 12, paddingBottom: 4, gap: 8, flexDirection: "row" },
+  districtChip: {
+    flexDirection: "row", alignItems: "center", gap: 5,
+    backgroundColor: "#E8F5EE", borderRadius: 20,
+    paddingHorizontal: 12, paddingVertical: 7,
+    borderWidth: 1, borderColor: "#C6E6D5",
+  },
+  districtEmoji: { fontSize: 13 },
+  districtChipText: { fontSize: 12, fontWeight: "600", fontFamily: "Inter_600SemiBold", color: "#059669" },
+
+  /* ── District section in idle view ── */
+  districtSection: { marginTop: 12 },
+  districtSectionHeader: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 10 },
+  districtSectionTitle: { fontSize: 15, fontWeight: "700", fontFamily: "Inter_700Bold", color: C.text },
+  districtScrollIdle: { gap: 8, paddingBottom: 4, flexDirection: "row" },
+  districtCardIdle: {
+    alignItems: "center", gap: 4,
+    backgroundColor: "#fff", borderRadius: 14,
+    paddingHorizontal: 14, paddingVertical: 12,
+    borderWidth: 1, borderColor: C.border,
+    shadowColor: "#000", shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05, shadowRadius: 4, elevation: 2,
+    minWidth: 80,
+  },
+  districtCardEmoji: { fontSize: 20 },
+  districtCardName: { fontSize: 11, fontWeight: "600", fontFamily: "Inter_600SemiBold", color: C.text, textAlign: "center" },
 });
