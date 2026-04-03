@@ -97,7 +97,7 @@ export default function NewBookingScreen() {
 
   // ── Service fee + extra charges ────────────────────────────────────────────
   const [serviceFee, setServiceFee] = useState("");
-  const [extraCharges, setExtraCharges] = useState<{ id: string; label: string; amount: string }[]>([]);
+  const [extraCharges, setExtraCharges] = useState<{ id: string; label: string; amount: string; description: string }[]>([]);
 
   // ── Promo code state ───────────────────────────────────────────────────────
   const [promoCode, setPromoCode] = useState("");
@@ -288,7 +288,7 @@ export default function NewBookingScreen() {
     try {
       const cleanedExtraCharges = extraCharges
         .filter(c => c.label.trim() && parseFloat(c.amount) > 0)
-        .map(c => ({ label: c.label.trim(), amount: parseFloat(c.amount) }));
+        .map(c => ({ label: c.label.trim(), amount: parseFloat(c.amount), description: c.description.trim() || undefined }));
       const result = await post<{ id: string }>("/bookings", {
         listingId: id,
         bookingDate: selectedDate,
@@ -576,44 +576,63 @@ export default function NewBookingScreen() {
         />
         <View style={styles.extraFeeWrap}>
           {extraCharges.map((charge, idx) => (
-            <View key={charge.id} style={styles.extraChargeRow}>
-              <TextInput
-                style={[styles.feeInput, styles.extraChargeLabel]}
-                value={charge.label}
-                onChangeText={v => {
-                  const updated = [...extraCharges];
-                  updated[idx] = { ...updated[idx], label: v };
-                  setExtraCharges(updated);
-                }}
-                placeholder="Description (e.g. Travel)"
-                placeholderTextColor={C.textTertiary}
-              />
-              <View style={styles.extraChargeAmtWrap}>
-                <Text style={styles.feeRupee}>₹</Text>
+            <View key={charge.id} style={styles.extraChargeCard}>
+              {/* Row 1: label + amount + remove */}
+              <View style={styles.extraChargeRow}>
                 <TextInput
-                  style={[styles.feeInput, { flex: 1 }]}
-                  value={charge.amount}
+                  style={[styles.feeInput, styles.extraChargeLabel]}
+                  value={charge.label}
                   onChangeText={v => {
                     const updated = [...extraCharges];
-                    updated[idx] = { ...updated[idx], amount: v.replace(/[^0-9.]/g, "") };
+                    updated[idx] = { ...updated[idx], label: v };
                     setExtraCharges(updated);
                   }}
-                  placeholder="0"
+                  placeholder="Charge name (e.g. Travel)"
                   placeholderTextColor={C.textTertiary}
-                  keyboardType="decimal-pad"
+                />
+                <View style={styles.extraChargeAmtWrap}>
+                  <Text style={styles.feeRupee}>₹</Text>
+                  <TextInput
+                    style={[styles.feeInput, { flex: 1 }]}
+                    value={charge.amount}
+                    onChangeText={v => {
+                      const updated = [...extraCharges];
+                      updated[idx] = { ...updated[idx], amount: v.replace(/[^0-9.]/g, "") };
+                      setExtraCharges(updated);
+                    }}
+                    placeholder="0"
+                    placeholderTextColor={C.textTertiary}
+                    keyboardType="decimal-pad"
+                  />
+                </View>
+                <Pressable
+                  onPress={() => setExtraCharges(extraCharges.filter((_, i) => i !== idx))}
+                  style={styles.extraChargeRemove}
+                  hitSlop={8}
+                >
+                  <Ionicons name="close-circle" size={20} color={RED} />
+                </Pressable>
+              </View>
+              {/* Row 2: description */}
+              <View style={styles.extraChargeDescRow}>
+                <Ionicons name="document-text-outline" size={13} color={C.textTertiary} style={{ marginTop: 2 }} />
+                <TextInput
+                  style={styles.extraChargeDesc}
+                  value={charge.description}
+                  onChangeText={v => {
+                    const updated = [...extraCharges];
+                    updated[idx] = { ...updated[idx], description: v };
+                    setExtraCharges(updated);
+                  }}
+                  placeholder="Description (optional, e.g. 50km round trip)"
+                  placeholderTextColor={C.textTertiary}
+                  multiline
                 />
               </View>
-              <Pressable
-                onPress={() => setExtraCharges(extraCharges.filter((_, i) => i !== idx))}
-                style={styles.extraChargeRemove}
-                hitSlop={8}
-              >
-                <Ionicons name="close-circle" size={20} color={RED} />
-              </Pressable>
             </View>
           ))}
           <Pressable
-            onPress={() => setExtraCharges([...extraCharges, { id: Date.now().toString(), label: "", amount: "" }])}
+            onPress={() => setExtraCharges([...extraCharges, { id: Date.now().toString(), label: "", amount: "", description: "" }])}
             style={styles.addChargeBtn}
           >
             <Ionicons name="add-circle-outline" size={18} color={ORANGE} />
@@ -790,9 +809,16 @@ export default function NewBookingScreen() {
           {/* Extra charges rows */}
           {extraCharges.filter(c => c.label.trim() && parseFloat(c.amount) > 0).map((c, i) => (
             <View key={i} style={styles.summaryRow}>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                <Ionicons name="add-circle-outline" size={13} color={ORANGE} />
-                <Text style={styles.summaryLabel}> {c.label}</Text>
+              <View style={{ flex: 1, marginRight: 8 }}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                  <Ionicons name="add-circle-outline" size={13} color={ORANGE} />
+                  <Text style={styles.summaryLabel}>{c.label}</Text>
+                </View>
+                {c.description.trim() ? (
+                  <Text style={{ fontSize: 11, color: C.textTertiary, fontFamily: "Inter_400Regular", marginTop: 1, marginLeft: 17 }} numberOfLines={2}>
+                    {c.description}
+                  </Text>
+                ) : null}
               </View>
               <Text style={styles.summaryValue}>₹{(parseFloat(c.amount) || 0).toLocaleString("en-IN")}</Text>
             </View>
@@ -1016,10 +1042,23 @@ const styles = StyleSheet.create({
     flex: 1, paddingVertical: 12, fontSize: 15,
     fontFamily: "Inter_500Medium", color: "#2C2C2C",
   },
+  extraChargeCard: {
+    backgroundColor: "#fff", borderRadius: 12, borderWidth: 1, borderColor: "#E8E8E8",
+    overflow: "hidden",
+  },
   extraChargeRow: {
     flexDirection: "row", alignItems: "center", gap: 8,
-    backgroundColor: "#fff", borderRadius: 12, borderWidth: 1, borderColor: "#E8E8E8",
     paddingHorizontal: 14, paddingVertical: 2,
+  },
+  extraChargeDescRow: {
+    flexDirection: "row", alignItems: "flex-start", gap: 6,
+    paddingHorizontal: 14, paddingBottom: 10,
+    borderTopWidth: 1, borderTopColor: "#F0F0F0",
+    paddingTop: 8,
+  },
+  extraChargeDesc: {
+    flex: 1, fontSize: 13, fontFamily: "Inter_400Regular",
+    color: "#2C2C2C", paddingTop: 0, minHeight: 18,
   },
   extraChargeLabel: { flex: 2 },
   extraChargeAmtWrap: { flexDirection: "row", alignItems: "center", flex: 1.2 },
