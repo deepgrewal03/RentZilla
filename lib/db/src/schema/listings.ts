@@ -20,6 +20,8 @@ export const listingsTable = pgTable("listings", {
   operatorIncluded: boolean("operator_included").default(false),
   fuelIncluded: boolean("fuel_included").default(false),
   deliveryCharges: real("delivery_charges"),
+  engineSize: real("engine_size"),
+  vehicleType: text("vehicle_type"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

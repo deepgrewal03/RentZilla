@@ -113,7 +113,7 @@ router.post("/", authMiddleware, async (req: Request, res: Response) => {
   try {
     const userId = (req as Request & { userId: string }).userId;
     const { category, subcategory, title, description, price, priceUnit, images, location, isAvailable,
-            operatorIncluded, fuelIncluded, deliveryCharges } = req.body;
+            operatorIncluded, fuelIncluded, deliveryCharges, engineSize, vehicleType } = req.body;
 
     const listing = {
       id: generateId(),
@@ -130,6 +130,8 @@ router.post("/", authMiddleware, async (req: Request, res: Response) => {
       operatorIncluded: operatorIncluded === true,
       fuelIncluded: fuelIncluded === true,
       deliveryCharges: deliveryCharges != null ? Number(deliveryCharges) : null,
+      engineSize: engineSize != null ? Number(engineSize) : null,
+      vehicleType: vehicleType || null,
     };
 
     const inserted = await db.insert(listingsTable).values(listing).returning();
@@ -146,6 +148,7 @@ router.put("/:id", authMiddleware, async (req: Request, res: Response) => {
     const {
       category, subcategory, title, description, price, priceUnit,
       images, location, isAvailable, operatorIncluded, fuelIncluded, deliveryCharges,
+      engineSize, vehicleType,
     } = req.body;
 
     const updated = await db.update(listingsTable)
@@ -155,6 +158,8 @@ router.put("/:id", authMiddleware, async (req: Request, res: Response) => {
         ...(operatorIncluded !== undefined && { operatorIncluded: operatorIncluded === true }),
         ...(fuelIncluded !== undefined && { fuelIncluded: fuelIncluded === true }),
         ...(deliveryCharges !== undefined && { deliveryCharges: deliveryCharges != null ? Number(deliveryCharges) : null }),
+        ...(engineSize !== undefined && { engineSize: engineSize != null ? Number(engineSize) : null }),
+        ...(vehicleType !== undefined && { vehicleType: vehicleType || null }),
       })
       .where(eq(listingsTable.id, req.params.id))
       .returning();

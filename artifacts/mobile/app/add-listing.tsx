@@ -31,7 +31,7 @@ const CATEGORIES: { id: Category; label: string }[] = [
 ];
 
 const SUBCATEGORIES: Record<Category, string[]> = {
-  cars: ["Sedan", "SUV", "Truck", "Van", "Tempo"],
+  cars: ["Sedan", "Hatchback", "SUV"],
   equipment: [
     "Tractor", "Harvester", "Rotavator", "Sprayer", "Plough", "Cultivator",
     "JCB", "Excavator", "Bulldozer", "Poclain", "Rock Breaker", "Wheel Loader", "Chhota Hathi",
@@ -39,6 +39,23 @@ const SUBCATEGORIES: Record<Category, string[]> = {
   ],
   services: ["Plumbing", "Electrician", "Beauty", "Carpenter", "Painter", "AC Repair"],
 };
+
+// Engine sizes: 0.8L → 3.0L in 0.1 steps
+const ENGINE_SIZES = Array.from({ length: 23 }, (_, i) =>
+  Math.round((0.8 + i * 0.1) * 10) / 10
+);
+
+function engineToVehicleType(size: number): string {
+  if (size <= 1.6) return "Car";
+  if (size <= 2.4) return "SUV";
+  return "Van";
+}
+
+function engineToTier(size: number): { label: string; color: string; bg: string } {
+  if (size <= 1.6) return { label: "Economical",  color: "#FF7A18", bg: "#FFF4EC" };
+  if (size <= 2.4) return { label: "Comfortable", color: "#7C3AED", bg: "#F5F3FF" };
+  return                  { label: "Luxurious",   color: "#EC4899", bg: "#FDF2F8" };
+}
 
 const EARTH_MOVER_TYPES = new Set([
   "JCB", "Excavator", "Bulldozer", "Poclain", "Rock Breaker", "Wheel Loader", "Chhota Hathi",
@@ -71,6 +88,8 @@ export default function AddListingScreen() {
   const [fuelIncluded, setFuelIncluded] = useState(false);
   const [deliveryCharges, setDeliveryCharges] = useState("");
   const [expectedPrice, setExpectedPrice] = useState("");
+  const [engineSize, setEngineSize] = useState<number | null>(null);
+  const [showEnginePicker, setShowEnginePicker] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const isEarthMover = category === "equipment" && EARTH_MOVER_TYPES.has(subcategory);
@@ -80,6 +99,10 @@ export default function AddListingScreen() {
   async function handleSave() {
     if (!title.trim() || !expectedPrice || !location) {
       Alert.alert("Missing Info", "Please fill in title, your expected rate, and location.");
+      return;
+    }
+    if (category === "cars" && engineSize === null) {
+      Alert.alert("Missing Info", "Please select the engine size for your car.");
       return;
     }
     setSaving(true);
@@ -98,6 +121,10 @@ export default function AddListingScreen() {
           operatorIncluded,
           fuelIncluded,
           deliveryCharges: deliveryCharges ? Number(deliveryCharges) : null,
+        }),
+        ...(category === "cars" && engineSize !== null && {
+          engineSize,
+          vehicleType: engineToVehicleType(engineSize),
         }),
       });
 
@@ -150,7 +177,7 @@ export default function AddListingScreen() {
               {CATEGORIES.map((c) => (
                 <Pressable
                   key={c.id}
-                  onPress={() => { setCategory(c.id); setSubcategory(""); }}
+                  onPress={() => { setCategory(c.id); setSubcategory(""); setEngineSize(null); setShowEnginePicker(false); }}
                   style={[styles.optionBtn, category === c.id && styles.optionBtnActive]}
                 >
                   <Text style={[styles.optionText, category === c.id && styles.optionTextActive]}>{c.label}</Text>
@@ -174,6 +201,57 @@ export default function AddListingScreen() {
               ))}
             </ScrollView>
           </View>
+
+          {/* Engine Size — cars only */}
+          {category === "cars" && (
+            <View style={styles.section}>
+              <Text style={styles.fieldLabel}>Engine Size *</Text>
+              <Pressable
+                onPress={() => setShowEnginePicker((v) => !v)}
+                style={styles.dropdownBtn}
+              >
+                <Text style={engineSize ? styles.dropdownValue : styles.dropdownPlaceholder}>
+                  {engineSize ? `${engineSize}L` : "Select engine size"}
+                </Text>
+                <Ionicons
+                  name={showEnginePicker ? "chevron-up" : "chevron-down"}
+                  size={16}
+                  color={C.textSecondary}
+                />
+              </Pressable>
+
+              {showEnginePicker && (
+                <View style={styles.dropdownList}>
+                  {ENGINE_SIZES.map((s) => (
+                    <Pressable
+                      key={s}
+                      onPress={() => { setEngineSize(s); setShowEnginePicker(false); }}
+                      style={[styles.dropdownItem, engineSize === s && styles.dropdownItemActive]}
+                    >
+                      <Text style={[styles.dropdownItemText, engineSize === s && { color: "#FF7A18", fontFamily: "Inter_700Bold" }]}>
+                        {s.toFixed(1)}L
+                      </Text>
+                      <Text style={styles.dropdownItemHint}>
+                        {engineToTier(s).label}
+                      </Text>
+                      {engineSize === s && (
+                        <Ionicons name="checkmark-circle" size={16} color="#FF7A18" />
+                      )}
+                    </Pressable>
+                  ))}
+                </View>
+              )}
+
+              {engineSize !== null && (
+                <View style={[styles.tierBadge, { backgroundColor: engineToTier(engineSize).bg }]}>
+                  <Ionicons name="car-sport-outline" size={15} color={engineToTier(engineSize).color} />
+                  <Text style={[styles.tierLabel, { color: engineToTier(engineSize).color }]}>
+                    Listed under: {engineToTier(engineSize).label}
+                  </Text>
+                </View>
+              )}
+            </View>
+          )}
 
           {/* Title */}
           <View style={styles.section}>
@@ -434,6 +512,74 @@ const styles = StyleSheet.create({
   unitBtnActive: { backgroundColor: C.tint, borderColor: C.tint },
   unitText: { fontSize: 12, fontWeight: "600", fontFamily: "Inter_600SemiBold", color: C.text },
   unitTextActive: { color: "#fff" },
+  dropdownBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: C.backgroundSecondary,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: C.border,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+  },
+  dropdownValue: {
+    fontSize: 15,
+    fontFamily: "Inter_600SemiBold",
+    color: C.text,
+  },
+  dropdownPlaceholder: {
+    fontSize: 15,
+    fontFamily: "Inter_400Regular",
+    color: C.textTertiary,
+  },
+  dropdownList: {
+    marginTop: 4,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: C.border,
+    backgroundColor: C.backgroundSecondary,
+    overflow: "hidden",
+  },
+  dropdownItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    borderBottomWidth: 1,
+    borderBottomColor: C.border,
+  },
+  dropdownItemActive: {
+    backgroundColor: "#FFF4EC",
+  },
+  dropdownItemText: {
+    fontSize: 14,
+    fontFamily: "Inter_500Medium",
+    color: C.text,
+    width: 48,
+  },
+  dropdownItemHint: {
+    flex: 1,
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    color: C.textSecondary,
+    marginLeft: 8,
+  },
+  tierBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 10,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    borderWidth: 1,
+    borderColor: "transparent",
+  },
+  tierLabel: {
+    fontSize: 13,
+    fontFamily: "Inter_700Bold",
+  },
   earthMoverBanner: {
     flexDirection: "row",
     alignItems: "center",

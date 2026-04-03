@@ -372,6 +372,15 @@ export async function runMigrations() {
     await db.execute(sql.raw(stmt));
   }
 
+  // ── Engine size + vehicle type on listings ────────────────────────────────────
+  const listingEngineColumns = [
+    `ALTER TABLE listings ADD COLUMN IF NOT EXISTS engine_size REAL`,
+    `ALTER TABLE listings ADD COLUMN IF NOT EXISTS vehicle_type TEXT`,
+  ];
+  for (const stmt of listingEngineColumns) {
+    await db.execute(sql.raw(stmt));
+  }
+
   // ── Add in_progress to booking_status enum (if it exists as an enum type) ──────
   // Silently ignored when the status column is plain TEXT (dev environment).
   try {
