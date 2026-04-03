@@ -2,12 +2,18 @@ import { Router, type IRouter, type Request, type Response } from "express";
 import { db } from "@workspace/db";
 import { bookingsTable, listingsTable, usersTable } from "@workspace/db";
 import { eq, or, and } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 import { authMiddleware } from "./users.js";
 
 const router: IRouter = Router();
 
 function generateId(): string {
   return Date.now().toString() + Math.random().toString(36).substr(2, 9);
+}
+
+function toRows<T = any>(result: any): T[] {
+  if (Array.isArray(result)) return result as T[];
+  return (result?.rows ?? []) as T[];
 }
 
 const TIME_SLOTS = [
@@ -27,6 +33,7 @@ async function enrichBooking(booking: typeof bookingsTable.$inferSelect) {
   const listing = await db.select().from(listingsTable).where(eq(listingsTable.id, booking.listingId)).limit(1);
   const customer = await db.select().from(usersTable).where(eq(usersTable.id, booking.customerId)).limit(1);
 
+  const b = booking as any;
   return {
     id: booking.id,
     customerId: booking.customerId,
@@ -45,9 +52,18 @@ async function enrichBooking(booking: typeof bookingsTable.$inferSelect) {
     notes: booking.notes,
     bookingDate: booking.bookingDate,
     timeSlot: booking.timeSlot,
-    serviceType: (booking as any).serviceType || null,
+    timeSlots: b.time_slots ? safeParseJson(b.time_slots, []) : null,
+    serviceType: b.serviceType || b.service_type || null,
+    serviceTypes: b.service_types ? safeParseJson(b.service_types, []) : null,
+    promoCode: b.promo_code || null,
+    discountAmount: Number(b.discount_amount || 0),
+    finalAmount: Number(b.final_amount || 0) || Number(booking.totalAmount),
     createdAt: booking.createdAt.toISOString(),
   };
+}
+
+function safeParseJson(str: string, fallback: any) {
+  try { return JSON.parse(str); } catch { return fallback; }
 }
 
 router.get("/", authMiddleware, async (req: Request, res: Response) => {
@@ -70,6 +86,7 @@ router.get("/", authMiddleware, async (req: Request, res: Response) => {
   }
 });
 
+// ── GET /bookings/availability ─────────────────────────────────────────────────
 router.get("/availability", async (req: Request, res: Response) => {
   try {
     const { listingId, date } = req.query;
@@ -88,14 +105,24 @@ router.get("/availability", async (req: Request, res: Response) => {
         )
       );
 
-    const bookedSlots = existing
-      .filter((b) => b.status !== "cancelled")
-      .map((b) => b.timeSlot)
-      .filter(Boolean) as string[];
+    const activeBookings = existing.filter((b) => b.status !== "cancelled");
+
+    // Collect all booked slots from both single-slot and multi-slot bookings
+    const bookedSlots = new Set<string>();
+    for (const b of activeBookings) {
+      const bany = b as any;
+      // Old single-slot bookings
+      if (b.timeSlot) bookedSlots.add(b.timeSlot);
+      // New multi-slot bookings
+      if (bany.time_slots) {
+        const slots = safeParseJson(bany.time_slots, []) as string[];
+        slots.forEach(s => bookedSlots.add(s));
+      }
+    }
 
     const slots = TIME_SLOTS.map((slot) => ({
       slot,
-      available: !bookedSlots.includes(slot),
+      available: !bookedSlots.has(slot),
     }));
 
     res.json({ date, slots });
@@ -105,20 +132,101 @@ router.get("/availability", async (req: Request, res: Response) => {
   }
 });
 
+// ── POST /bookings/validate-promo ─────────────────────────────────────────────
+router.post("/validate-promo", authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const { code, amount } = req.body;
+    if (!code) { res.status(400).json({ error: "code is required" }); return; }
+    if (!amount || Number(amount) <= 0) { res.status(400).json({ error: "amount is required" }); return; }
+
+    const rows = toRows(await db.execute(sql`
+      SELECT * FROM promo_codes WHERE UPPER(code) = UPPER(${code}) LIMIT 1
+    `));
+
+    if (rows.length === 0) {
+      res.json({ valid: false, message: "Invalid promo code" });
+      return;
+    }
+
+    const promo = rows[0];
+
+    if (!promo.is_active) {
+      res.json({ valid: false, message: "This promo code is no longer active" });
+      return;
+    }
+
+    if (promo.expires_at && new Date(promo.expires_at) < new Date()) {
+      res.json({ valid: false, message: "This promo code has expired" });
+      return;
+    }
+
+    if (Number(promo.used_count) >= Number(promo.max_uses)) {
+      res.json({ valid: false, message: "This promo code has reached its usage limit" });
+      return;
+    }
+
+    const orderAmount = Number(amount);
+    if (orderAmount < Number(promo.min_order)) {
+      res.json({
+        valid: false,
+        message: `Minimum order of ₹${Number(promo.min_order).toLocaleString("en-IN")} required for this code`,
+      });
+      return;
+    }
+
+    let discount = 0;
+    if (promo.type === "percent") {
+      discount = Math.round(orderAmount * Number(promo.value) / 100);
+    } else {
+      discount = Math.min(Number(promo.value), orderAmount);
+    }
+
+    res.json({
+      valid: true,
+      code: promo.code,
+      type: promo.type,
+      value: Number(promo.value),
+      discount,
+      finalAmount: Math.max(0, orderAmount - discount),
+      description: promo.description || null,
+      message: promo.type === "percent"
+        ? `${promo.value}% off applied — you save ₹${discount.toLocaleString("en-IN")}`
+        : `Flat ₹${discount.toLocaleString("en-IN")} off applied`,
+    });
+  } catch (err) {
+    req.log.error({ err }, "Validate promo error");
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ── POST /bookings ─────────────────────────────────────────────────────────────
 router.post("/", authMiddleware, async (req: Request, res: Response) => {
   try {
     const userId = (req as Request & { userId: string }).userId;
-    const { listingId, startDate, endDate, notes, bookingDate, timeSlot, serviceType } = req.body;
+    const {
+      listingId, startDate, endDate, notes,
+      bookingDate, timeSlot, timeSlots,
+      serviceType, serviceTypes,
+      promoCode,
+    } = req.body;
 
     const listings = await db.select().from(listingsTable).where(eq(listingsTable.id, listingId)).limit(1);
     if (listings.length === 0) {
       res.status(404).json({ error: "Listing not found" });
       return;
     }
-
     const listing = listings[0];
 
-    if (bookingDate && timeSlot) {
+    // Normalise slot arrays
+    const slotsArray: string[] = Array.isArray(timeSlots) && timeSlots.length > 0
+      ? timeSlots
+      : timeSlot ? [timeSlot] : [];
+
+    const servicesArray: string[] = Array.isArray(serviceTypes) && serviceTypes.length > 0
+      ? serviceTypes
+      : serviceType ? [serviceType] : [];
+
+    if (bookingDate && slotsArray.length > 0) {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       const selected = new Date(bookingDate);
@@ -127,27 +235,72 @@ router.post("/", authMiddleware, async (req: Request, res: Response) => {
         return;
       }
 
-      if (!TIME_SLOTS.includes(timeSlot)) {
-        res.status(400).json({ error: "Invalid time slot" });
-        return;
+      // Validate every slot
+      for (const slot of slotsArray) {
+        if (!TIME_SLOTS.includes(slot)) {
+          res.status(400).json({ error: `Invalid time slot: ${slot}` });
+          return;
+        }
       }
 
-      const conflict = await db
+      // Conflict check — fetch all active bookings for this listing+date
+      const existing = await db
         .select()
         .from(bookingsTable)
         .where(
           and(
             eq(bookingsTable.listingId, listingId),
-            eq(bookingsTable.bookingDate as any, bookingDate),
-            eq(bookingsTable.timeSlot as any, timeSlot)
+            eq(bookingsTable.bookingDate as any, bookingDate)
           )
         );
-
-      const activeConflict = conflict.filter((b) => b.status !== "cancelled");
-      if (activeConflict.length > 0) {
-        res.status(409).json({ error: "This time slot is already booked. Please choose another." });
+      const active = existing.filter((b) => b.status !== "cancelled");
+      const occupiedSlots = new Set<string>();
+      for (const b of active) {
+        const bany = b as any;
+        if (b.timeSlot) occupiedSlots.add(b.timeSlot);
+        if (bany.time_slots) {
+          const parsed = safeParseJson(bany.time_slots, []) as string[];
+          parsed.forEach(s => occupiedSlots.add(s));
+        }
+      }
+      const conflicting = slotsArray.filter(s => occupiedSlots.has(s));
+      if (conflicting.length > 0) {
+        res.status(409).json({
+          error: `The following time slots are already booked: ${conflicting.join(", ")}. Please choose others.`,
+        });
         return;
       }
+
+      // Calculate base price
+      const hours = slotsArray.length;
+      const baseAmount = Number(listing.price) * hours;
+
+      // Apply promo code if provided
+      let discountAmount = 0;
+      let appliedPromo: string | null = null;
+      if (promoCode) {
+        const promoRows = toRows(await db.execute(sql`
+          SELECT * FROM promo_codes WHERE UPPER(code) = UPPER(${promoCode}) AND is_active = TRUE LIMIT 1
+        `));
+        if (promoRows.length > 0) {
+          const promo = promoRows[0];
+          const notExpired = !promo.expires_at || new Date(promo.expires_at) >= new Date();
+          const hasUses = Number(promo.used_count) < Number(promo.max_uses);
+          const meetsMin = baseAmount >= Number(promo.min_order);
+          if (notExpired && hasUses && meetsMin) {
+            discountAmount = promo.type === "percent"
+              ? Math.round(baseAmount * Number(promo.value) / 100)
+              : Math.min(Number(promo.value), baseAmount);
+            appliedPromo = promoRows[0].code;
+            // Increment used_count
+            await db.execute(sql`
+              UPDATE promo_codes SET used_count = used_count + 1 WHERE id = ${promo.id}
+            `);
+          }
+        }
+      }
+
+      const finalAmount = Math.max(0, baseAmount - discountAmount);
 
       const booking = {
         id: generateId(),
@@ -157,24 +310,70 @@ router.post("/", authMiddleware, async (req: Request, res: Response) => {
         startDate: bookingDate,
         endDate: bookingDate,
         totalDays: 1,
-        totalAmount: listing.price,
+        totalAmount: baseAmount,
         status: "pending" as const,
         paymentStatus: "pending" as const,
         notes: notes || null,
         bookingDate,
-        timeSlot,
-        serviceType: serviceType || null,
+        timeSlot: slotsArray[0], // first slot for backward compat
+        serviceType: servicesArray[0] || null,
       } as any;
 
+      // Store extended fields via raw SQL since ORM schema may not include them yet
       const inserted = await db.insert(bookingsTable).values(booking).returning();
+      const bookingId = inserted[0].id;
+
+      // Update extended columns
+      await db.execute(sql`
+        UPDATE bookings SET
+          time_slots = ${JSON.stringify(slotsArray)},
+          service_types = ${JSON.stringify(servicesArray)},
+          promo_code = ${appliedPromo},
+          discount_amount = ${discountAmount},
+          final_amount = ${finalAmount}
+        WHERE id = ${bookingId}
+      `);
+
       const enriched = await enrichBooking(inserted[0]);
-      res.status(201).json(enriched);
+      return res.status(201).json({
+        ...enriched,
+        timeSlots: slotsArray,
+        serviceTypes: servicesArray,
+        promoCode: appliedPromo,
+        discountAmount,
+        finalAmount,
+        totalAmount: baseAmount,
+      });
     } else {
+      // Legacy date-range booking
       const start = new Date(startDate);
       const end = new Date(endDate);
       const diffTime = Math.abs(end.getTime() - start.getTime());
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) || 1;
-      const totalAmount = listing.price * diffDays;
+      const baseAmount = Number(listing.price) * diffDays;
+
+      let discountAmount = 0;
+      let appliedPromo: string | null = null;
+      if (promoCode) {
+        const promoRows = toRows(await db.execute(sql`
+          SELECT * FROM promo_codes WHERE UPPER(code) = UPPER(${promoCode}) AND is_active = TRUE LIMIT 1
+        `));
+        if (promoRows.length > 0) {
+          const promo = promoRows[0];
+          const notExpired = !promo.expires_at || new Date(promo.expires_at) >= new Date();
+          const hasUses = Number(promo.used_count) < Number(promo.max_uses);
+          const meetsMin = baseAmount >= Number(promo.min_order);
+          if (notExpired && hasUses && meetsMin) {
+            discountAmount = promo.type === "percent"
+              ? Math.round(baseAmount * Number(promo.value) / 100)
+              : Math.min(Number(promo.value), baseAmount);
+            appliedPromo = promo.code;
+            await db.execute(sql`UPDATE promo_codes SET used_count = used_count + 1 WHERE id = ${promo.id}`);
+          }
+        }
+      }
+
+      const finalAmount = Math.max(0, baseAmount - discountAmount);
 
       const booking = {
         id: generateId(),
@@ -184,18 +383,36 @@ router.post("/", authMiddleware, async (req: Request, res: Response) => {
         startDate,
         endDate,
         totalDays: diffDays,
-        totalAmount,
+        totalAmount: baseAmount,
         status: "pending" as const,
         paymentStatus: "pending" as const,
         notes: notes || null,
         bookingDate: bookingDate || null,
         timeSlot: timeSlot || null,
-        serviceType: serviceType || null,
+        serviceType: servicesArray[0] || serviceType || null,
       } as any;
 
       const inserted = await db.insert(bookingsTable).values(booking).returning();
+      const bookingId = inserted[0].id;
+
+      await db.execute(sql`
+        UPDATE bookings SET
+          service_types = ${JSON.stringify(servicesArray)},
+          promo_code = ${appliedPromo},
+          discount_amount = ${discountAmount},
+          final_amount = ${finalAmount}
+        WHERE id = ${bookingId}
+      `);
+
       const enriched = await enrichBooking(inserted[0]);
-      res.status(201).json(enriched);
+      return res.status(201).json({
+        ...enriched,
+        serviceTypes: servicesArray,
+        promoCode: appliedPromo,
+        discountAmount,
+        finalAmount,
+        totalAmount: baseAmount,
+      });
     }
   } catch (err) {
     req.log.error({ err }, "Create booking error");

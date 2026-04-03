@@ -26,6 +26,8 @@ import { Listing } from "@/types";
 const C = Colors.light;
 const ORANGE = "#FF7A18";
 const ORANGE2 = "#FF9F43";
+const GREEN = "#22C55E";
+const RED = "#EF4444";
 const SPRING = { useNativeDriver: false, tension: 300, friction: 14 };
 
 function generateDays(count = 14): { date: Date; label: string; day: string; iso: string }[] {
@@ -57,9 +59,14 @@ function getCategoryAccent(category: string) {
   return { bg: "#FFF3E9", fg: "#FF7A18" };
 }
 
-interface SlotInfo {
-  slot: string;
-  available: boolean;
+interface SlotInfo { slot: string; available: boolean; }
+interface PricingResult {
+  found: boolean; customer_price: number; provider_payout: number;
+  app_commission: number; commission_percent: number; security_deposit: number;
+}
+interface PromoResult {
+  valid: boolean; code?: string; type?: string; value?: number;
+  discount?: number; finalAmount?: number; message: string; description?: string;
 }
 
 export default function NewBookingScreen() {
@@ -71,48 +78,48 @@ export default function NewBookingScreen() {
 
   const [listing, setListing] = useState<Listing | null>(null);
   const [listingLoading, setListingLoading] = useState(true);
-
   const [selectedDate, setSelectedDate] = useState(DAYS[0].iso);
   const [slots, setSlots] = useState<SlotInfo[]>([]);
   const [slotsLoading, setSlotsLoading] = useState(false);
-
   const [serviceTypes, setServiceTypes] = useState<string[]>([]);
-  const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
-  const [selectedService, setSelectedService] = useState<string | null>(null);
-  const [notes, setNotes] = useState("");
-  const [submitting, setSubmitting] = useState(false);
 
-  // ── Dynamic pricing from admin rules ────────────────────────────────────────
-  interface PricingResult {
-    found: boolean;
-    customer_price: number;
-    provider_payout: number;
-    app_commission: number;
-    commission_percent: number;
-    security_deposit: number;
-  }
+  // ── Multi-select state ─────────────────────────────────────────────────────
+  const [selectedSlots, setSelectedSlots] = useState<string[]>([]);
+  const [selectedServices, setSelectedServices] = useState<string[]>([]);
+
+  // ── Notes ──────────────────────────────────────────────────────────────────
+  const [notes, setNotes] = useState("");
+
+  // ── Promo code state ───────────────────────────────────────────────────────
+  const [promoCode, setPromoCode] = useState("");
+  const [promoLoading, setPromoLoading] = useState(false);
+  const [promoResult, setPromoResult] = useState<PromoResult | null>(null);
+  const [promoApplied, setPromoApplied] = useState(false);
+
+  // ── Pricing ────────────────────────────────────────────────────────────────
   const [pricingResult, setPricingResult] = useState<PricingResult | null>(null);
   const [pricingLoading, setPricingLoading] = useState(false);
-
+  const [submitting, setSubmitting] = useState(false);
   const confirmScale = useRef(new Animated.Value(1)).current;
 
-  useEffect(() => {
-    loadListing();
-  }, [id]);
+  useEffect(() => { loadListing(); }, [id]);
+  useEffect(() => { if (listing) loadSlots(); }, [selectedDate, listing]);
 
+  // Reset promo when price changes (slots added/removed)
   useEffect(() => {
-    if (listing) loadSlots();
-  }, [selectedDate, listing]);
+    if (promoApplied) {
+      setPromoResult(null);
+      setPromoApplied(false);
+    }
+  }, [selectedSlots.length]);
 
   async function loadListing() {
     try {
       const data = await get<Listing>(`/listings/${id}`);
       setListing(data);
-
-      // Fetch service types + admin pricing in parallel
       const [svcData] = await Promise.all([
         get<{ serviceTypes: string[] }>(`/listings/${id}/service-types`),
-        fetchPricing(data), // fetch pricing right after we know category/subcategory
+        fetchPricing(data),
       ]);
       setServiceTypes(svcData.serviceTypes || []);
     } catch {
@@ -126,16 +133,12 @@ export default function NewBookingScreen() {
     setPricingLoading(true);
     try {
       const params = new URLSearchParams({
-        category: l.category,
-        subcategory: l.subcategory,
-        hours: "1",
-        days: "1",
-        distance_km: "0",
+        category: l.category, subcategory: l.subcategory,
+        hours: "1", days: "1", distance_km: "0",
       });
       const result = await get<PricingResult>(`/pricing/calculate?${params.toString()}`);
       setPricingResult(result);
     } catch {
-      // silent — fallback to listing.price
     } finally {
       setPricingLoading(false);
     }
@@ -144,10 +147,10 @@ export default function NewBookingScreen() {
   async function loadSlots() {
     if (!id || !selectedDate) return;
     setSlotsLoading(true);
+    setSelectedSlots([]);
     try {
       const data = await get<{ slots: SlotInfo[] }>(`/bookings/availability?listingId=${id}&date=${selectedDate}`);
       setSlots(data.slots || []);
-      setSelectedSlot(null);
     } catch {
       setSlots([]);
     } finally {
@@ -158,26 +161,67 @@ export default function NewBookingScreen() {
   const handleDateSelect = useCallback((iso: string) => {
     Haptics.selectionAsync();
     setSelectedDate(iso);
-    setSelectedSlot(null);
+    setSelectedSlots([]);
   }, []);
 
-  const handleSlotSelect = useCallback((slot: string) => {
+  const toggleSlot = useCallback((slot: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setSelectedSlot(slot);
+    setSelectedSlots(prev => {
+      if (prev.includes(slot)) return prev.filter(s => s !== slot);
+      return [...prev, slot];
+    });
   }, []);
 
-  const handleServiceSelect = useCallback((svc: string) => {
+  const toggleService = useCallback((svc: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setSelectedService(svc);
+    setSelectedServices(prev => {
+      if (prev.includes(svc)) return prev.filter(s => s !== svc);
+      return [...prev, svc];
+    });
   }, []);
+
+  async function applyPromo() {
+    if (!promoCode.trim()) return;
+    if (!listing) return;
+    const hours = Math.max(1, selectedSlots.length);
+    const basePrice = pricingResult?.found ? pricingResult.customer_price : listing.price;
+    const amount = basePrice * hours;
+
+    setPromoLoading(true);
+    setPromoResult(null);
+    try {
+      const result = await post<PromoResult>("/bookings/validate-promo", {
+        code: promoCode.trim(),
+        amount,
+      });
+      setPromoResult(result);
+      setPromoApplied(result.valid);
+      if (result.valid) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      } else {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      }
+    } catch {
+      setPromoResult({ valid: false, message: "Could not validate promo code. Try again." });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    } finally {
+      setPromoLoading(false);
+    }
+  }
+
+  function clearPromo() {
+    setPromoCode("");
+    setPromoResult(null);
+    setPromoApplied(false);
+  }
 
   async function handleConfirm() {
-    if (!selectedSlot) {
-      Alert.alert("Select Time Slot", "Please choose a time slot to continue.");
+    if (selectedSlots.length === 0) {
+      Alert.alert("Select Time Slots", "Please choose at least one time slot to continue.");
       return;
     }
-    if (!selectedService) {
-      Alert.alert("Select Service Type", "Please select the type of service you need.");
+    if (serviceTypes.length > 0 && selectedServices.length === 0) {
+      Alert.alert("Select Service Type", "Please select at least one service type.");
       return;
     }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -190,19 +234,24 @@ export default function NewBookingScreen() {
       const result = await post<{ id: string }>("/bookings", {
         listingId: id,
         bookingDate: selectedDate,
-        timeSlot: selectedSlot,
-        serviceType: selectedService,
+        timeSlots: selectedSlots,
+        serviceTypes: selectedServices,
         notes: notes.trim() || undefined,
+        promoCode: promoApplied ? promoCode.trim() : undefined,
       });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      const slotLabel = selectedSlots.length === 1
+        ? selectedSlots[0]
+        : `${selectedSlots.length} slots (${selectedSlots.length} hr${selectedSlots.length > 1 ? "s" : ""})`;
       Alert.alert(
         "Booking Confirmed!",
-        `Your booking for ${listing?.title} on ${selectedDate} at ${selectedSlot} has been placed successfully.`,
+        `Your booking for ${listing?.title} on ${selectedDate} at ${slotLabel} has been placed successfully.`,
         [{ text: "View Booking", onPress: () => router.replace({ pathname: "/booking/[id]", params: { id: result.id } }) }]
       );
     } catch (e: any) {
-      const msg = e?.message?.includes("409")
-        ? "This time slot is already booked. Please choose another."
+      const raw = e?.message || "";
+      const msg = raw.includes("409") || raw.includes("already booked")
+        ? "One or more of the selected time slots is already booked. Please pick different times."
         : "Could not place booking. Please try again.";
       Alert.alert("Booking Failed", msg);
     } finally {
@@ -218,7 +267,6 @@ export default function NewBookingScreen() {
       </View>
     );
   }
-
   if (!listing) {
     return (
       <View style={styles.loadRoot}>
@@ -233,19 +281,19 @@ export default function NewBookingScreen() {
 
   const accent = getCategoryAccent(listing.category);
   const hasImg = listing.images && listing.images.length > 0;
-
-  // Use admin-calculated price if found; fall back to listing.price
   const adminPrice  = pricingResult?.found ? pricingResult.customer_price : null;
-  const displayPrice = adminPrice ?? listing.price;
-  const priceLabel = listing.priceUnit === "per_hour"
-    ? `₹${displayPrice.toLocaleString("en-IN")}/hr × 1 hour`
-    : `₹${displayPrice.toLocaleString("en-IN")}/day × 1 day`;
+  const unitPrice   = adminPrice ?? listing.price;
+  const hours       = Math.max(1, selectedSlots.length);
+  const baseTotal   = unitPrice * (selectedSlots.length > 0 ? selectedSlots.length : 1);
+  const discount    = promoApplied && promoResult?.valid ? (promoResult.discount ?? 0) : 0;
+  const finalTotal  = Math.max(0, baseTotal - discount);
+
+  const priceUnit = listing.priceUnit === "per_hour" ? "hr" : "day";
 
   return (
     <View style={styles.root}>
       <StatusBar style="light" />
 
-      {/* Header */}
       <LinearGradient
         colors={[ORANGE, ORANGE2]}
         start={{ x: 0, y: 0 }}
@@ -293,10 +341,8 @@ export default function NewBookingScreen() {
               <Text style={styles.listingLocation} numberOfLines={1}>{listing.location}</Text>
             </View>
             <Text style={styles.listingPrice}>
-              ₹{listing.price.toLocaleString("en-IN")}
-              <Text style={styles.listingPriceUnit}>
-                {listing.priceUnit === "per_hour" ? "/hr" : "/day"}
-              </Text>
+              ₹{unitPrice.toLocaleString("en-IN")}
+              <Text style={styles.listingPriceUnit}>/{priceUnit}</Text>
             </Text>
           </View>
         </View>
@@ -304,25 +350,16 @@ export default function NewBookingScreen() {
         {/* ── STEP 1: Date ── */}
         <SectionLabel step={1} label="Select Date" />
         <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.dateScroll}
-          contentContainerStyle={styles.dateScrollContent}
+          horizontal showsHorizontalScrollIndicator={false}
+          style={styles.dateScroll} contentContainerStyle={styles.dateScrollContent}
         >
           {DAYS.map((d) => {
             const isSelected = d.iso === selectedDate;
             return (
-              <Pressable
-                key={d.iso}
-                onPress={() => handleDateSelect(d.iso)}
-                style={[styles.dateTile, isSelected && styles.dateTileSelected]}
-              >
-                <Text style={[styles.dateTileDay, isSelected && styles.dateTileDaySelected]}>
-                  {d.day}
-                </Text>
-                <Text style={[styles.dateTileNum, isSelected && styles.dateTileNumSelected]}>
-                  {d.date.getDate()}
-                </Text>
+              <Pressable key={d.iso} onPress={() => handleDateSelect(d.iso)}
+                style={[styles.dateTile, isSelected && styles.dateTileSelected]}>
+                <Text style={[styles.dateTileDay, isSelected && styles.dateTileDaySelected]}>{d.day}</Text>
+                <Text style={[styles.dateTileNum, isSelected && styles.dateTileNumSelected]}>{d.date.getDate()}</Text>
                 <Text style={[styles.dateTileMon, isSelected && styles.dateTileMonSelected]}>
                   {["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][d.date.getMonth()]}
                 </Text>
@@ -331,8 +368,14 @@ export default function NewBookingScreen() {
           })}
         </ScrollView>
 
-        {/* ── STEP 2: Time Slot ── */}
-        <SectionLabel step={2} label="Select Time Slot" sub="1-hour slots · 8 AM to 6 PM" />
+        {/* ── STEP 2: Time Slots (multi-select) ── */}
+        <SectionLabel
+          step={2}
+          label="Select Time Slots"
+          sub={selectedSlots.length > 0
+            ? `${selectedSlots.length} slot${selectedSlots.length > 1 ? "s" : ""} selected · ${selectedSlots.length} hr${selectedSlots.length > 1 ? "s" : ""}`
+            : "Tap multiple slots to book more hours"}
+        />
         {slotsLoading ? (
           <View style={styles.slotsLoader}>
             <ActivityIndicator size="small" color={ORANGE} />
@@ -341,11 +384,11 @@ export default function NewBookingScreen() {
         ) : (
           <View style={styles.slotGrid}>
             {slots.map((s) => {
-              const isSelected = selectedSlot === s.slot;
+              const isSelected = selectedSlots.includes(s.slot);
               return (
                 <Pressable
                   key={s.slot}
-                  onPress={() => s.available && handleSlotSelect(s.slot)}
+                  onPress={() => s.available && toggleSlot(s.slot)}
                   disabled={!s.available}
                   style={[
                     styles.slotTile,
@@ -354,17 +397,15 @@ export default function NewBookingScreen() {
                   ]}
                 >
                   <Ionicons
-                    name={isSelected ? "radio-button-on" : s.available ? "radio-button-off" : "close-circle"}
+                    name={isSelected ? "checkbox" : s.available ? "square-outline" : "close-circle"}
                     size={15}
                     color={isSelected ? "#fff" : !s.available ? "#ccc" : C.textSecondary}
                   />
-                  <Text
-                    style={[
-                      styles.slotText,
-                      isSelected && styles.slotTextSelected,
-                      !s.available && styles.slotTextBooked,
-                    ]}
-                  >
+                  <Text style={[
+                    styles.slotText,
+                    isSelected && styles.slotTextSelected,
+                    !s.available && styles.slotTextBooked,
+                  ]}>
                     {s.slot}
                   </Text>
                   {!s.available && (
@@ -383,37 +424,49 @@ export default function NewBookingScreen() {
           </View>
         )}
 
-        {/* ── STEP 3: Service Type ── */}
-        <SectionLabel step={3} label="Select Service Type" sub="Choose what kind of service you need" />
-        <View style={styles.serviceList}>
-          {serviceTypes.map((svc, idx) => {
-            const isSelected = selectedService === svc;
-            return (
-              <Pressable
-                key={svc}
-                onPress={() => handleServiceSelect(svc)}
-                style={[styles.serviceTile, isSelected && styles.serviceTileSelected]}
-              >
-                <View style={[styles.serviceNum, isSelected && styles.serviceNumSelected]}>
-                  <Text style={[styles.serviceNumText, isSelected && styles.serviceNumTextSelected]}>
-                    {idx + 1}
-                  </Text>
-                </View>
-                <Text style={[styles.serviceText, isSelected && styles.serviceTextSelected]}>
-                  {svc}
-                </Text>
-                <Ionicons
-                  name={isSelected ? "checkmark-circle" : "ellipse-outline"}
-                  size={20}
-                  color={isSelected ? ORANGE : C.textTertiary}
-                />
-              </Pressable>
-            );
-          })}
-        </View>
+        {/* ── STEP 3: Service Type (multi-select) ── */}
+        {serviceTypes.length > 0 && (
+          <>
+            <SectionLabel
+              step={3}
+              label="Select Service Types"
+              sub={selectedServices.length > 0
+                ? `${selectedServices.length} selected`
+                : "Pick one or more service types"}
+            />
+            <View style={styles.serviceList}>
+              {serviceTypes.map((svc, idx) => {
+                const isSelected = selectedServices.includes(svc);
+                return (
+                  <Pressable
+                    key={svc}
+                    onPress={() => toggleService(svc)}
+                    style={[styles.serviceTile, isSelected && styles.serviceTileSelected]}
+                  >
+                    <View style={[styles.serviceNum, isSelected && styles.serviceNumSelected]}>
+                      <Text style={[styles.serviceNumText, isSelected && styles.serviceNumTextSelected]}>
+                        {idx + 1}
+                      </Text>
+                    </View>
+                    <Text style={[styles.serviceText, isSelected && styles.serviceTextSelected]}>{svc}</Text>
+                    <Ionicons
+                      name={isSelected ? "checkbox" : "square-outline"}
+                      size={20}
+                      color={isSelected ? ORANGE : C.textTertiary}
+                    />
+                  </Pressable>
+                );
+              })}
+            </View>
+          </>
+        )}
 
         {/* ── STEP 4: Notes ── */}
-        <SectionLabel step={4} label="Additional Notes" sub="Optional — any special requirements?" />
+        <SectionLabel
+          step={serviceTypes.length > 0 ? 4 : 3}
+          label="Additional Notes"
+          sub="Optional — any special requirements?"
+        />
         <View style={styles.notesWrap}>
           <TextInput
             style={styles.notesInput}
@@ -421,10 +474,73 @@ export default function NewBookingScreen() {
             onChangeText={setNotes}
             placeholder="e.g. Need delivery by morning, prefer 2-person operator..."
             placeholderTextColor={C.textTertiary}
-            multiline
-            numberOfLines={3}
-            textAlignVertical="top"
+            multiline numberOfLines={3} textAlignVertical="top"
           />
+        </View>
+
+        {/* ── STEP 5: Promo Code ── */}
+        <SectionLabel
+          step={serviceTypes.length > 0 ? 5 : 4}
+          label="Promo Code"
+          sub="Have a coupon? Enter it below"
+        />
+        <View style={styles.promoWrap}>
+          <View style={[
+            styles.promoRow,
+            promoResult?.valid === true && styles.promoRowValid,
+            promoResult?.valid === false && styles.promoRowInvalid,
+          ]}>
+            <Ionicons
+              name="pricetag-outline"
+              size={18}
+              color={promoResult?.valid === true ? GREEN : promoResult?.valid === false ? RED : ORANGE}
+              style={{ marginLeft: 12 }}
+            />
+            <TextInput
+              style={styles.promoInput}
+              value={promoCode}
+              onChangeText={(t) => {
+                setPromoCode(t.toUpperCase());
+                if (promoApplied) { setPromoResult(null); setPromoApplied(false); }
+              }}
+              placeholder="ENTER CODE"
+              placeholderTextColor={C.textTertiary}
+              autoCapitalize="characters"
+              editable={!promoApplied}
+              returnKeyType="done"
+              onSubmitEditing={applyPromo}
+            />
+            {promoApplied ? (
+              <Pressable onPress={clearPromo} style={styles.promoClearBtn}>
+                <Ionicons name="close-circle" size={18} color={RED} />
+                <Text style={[styles.promoActionText, { color: RED }]}>Remove</Text>
+              </Pressable>
+            ) : (
+              <Pressable
+                onPress={applyPromo}
+                disabled={promoLoading || !promoCode.trim()}
+                style={[styles.promoApplyBtn, (!promoCode.trim()) && styles.promoApplyBtnDisabled]}
+              >
+                {promoLoading ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.promoApplyText}>Apply</Text>
+                )}
+              </Pressable>
+            )}
+          </View>
+          {promoResult && (
+            <View style={[styles.promoMessage, promoResult.valid ? styles.promoMessageValid : styles.promoMessageInvalid]}>
+              <Ionicons
+                name={promoResult.valid ? "checkmark-circle" : "close-circle"}
+                size={14}
+                color={promoResult.valid ? GREEN : RED}
+              />
+              <Text style={[styles.promoMessageText, { color: promoResult.valid ? GREEN : RED }]}>
+                {promoResult.message}
+              </Text>
+            </View>
+          )}
         </View>
 
         {/* ── Price Summary ── */}
@@ -438,24 +554,30 @@ export default function NewBookingScreen() {
             )}
           </View>
 
+          {/* Base price row */}
           <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>{listing.subcategory || listing.title}</Text>
-            <Text style={styles.summaryValue}>{priceLabel}</Text>
+            <Text style={styles.summaryLabel}>
+              {listing.subcategory || listing.title}
+              {selectedSlots.length > 0 ? ` × ${selectedSlots.length} hr${selectedSlots.length > 1 ? "s" : ""}` : ` × 1 ${priceUnit}`}
+            </Text>
+            <Text style={styles.summaryValue}>
+              ₹{(unitPrice * (selectedSlots.length || 1)).toLocaleString("en-IN")}
+            </Text>
           </View>
 
-          {/* Admin breakdown — show commission and deposit if available */}
+          {/* Admin breakdown */}
           {pricingResult?.found && (
             <>
               <View style={styles.summaryRow}>
                 <Text style={styles.summaryLabel}>Platform commission ({pricingResult.commission_percent}%)</Text>
                 <Text style={[styles.summaryValue, { color: "#AEAEAE" }]}>
-                  ₹{pricingResult.app_commission.toLocaleString("en-IN")}
+                  ₹{(pricingResult.app_commission * (selectedSlots.length || 1)).toLocaleString("en-IN")}
                 </Text>
               </View>
               <View style={styles.summaryRow}>
                 <Text style={styles.summaryLabel}>Provider payout</Text>
-                <Text style={[styles.summaryValue, { color: "#22C55E" }]}>
-                  ₹{pricingResult.provider_payout.toLocaleString("en-IN")}
+                <Text style={[styles.summaryValue, { color: GREEN }]}>
+                  ₹{(pricingResult.provider_payout * (selectedSlots.length || 1)).toLocaleString("en-IN")}
                 </Text>
               </View>
               {pricingResult.security_deposit > 0 && (
@@ -469,10 +591,13 @@ export default function NewBookingScreen() {
             </>
           )}
 
-          {selectedService && (
+          {/* Selected info rows */}
+          {selectedServices.length > 0 && (
             <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Service type</Text>
-              <Text style={styles.summaryValue}>{selectedService}</Text>
+              <Text style={styles.summaryLabel}>Service{selectedServices.length > 1 ? "s" : ""}</Text>
+              <Text style={[styles.summaryValue, { maxWidth: 180 }]} numberOfLines={2}>
+                {selectedServices.join(", ")}
+              </Text>
             </View>
           )}
           {selectedDate && (
@@ -483,10 +608,28 @@ export default function NewBookingScreen() {
               </Text>
             </View>
           )}
-          {selectedSlot && (
+          {selectedSlots.length > 0 && (
             <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Time</Text>
-              <Text style={styles.summaryValue}>{selectedSlot}</Text>
+              <Text style={styles.summaryLabel}>Time slot{selectedSlots.length > 1 ? "s" : ""}</Text>
+              <Text style={[styles.summaryValue, { maxWidth: 180 }]} numberOfLines={3}>
+                {selectedSlots.join("\n")}
+              </Text>
+            </View>
+          )}
+
+          {/* Discount row */}
+          {promoApplied && discount > 0 && (
+            <View style={[styles.summaryRow, styles.discountRow]}>
+              <View style={styles.discountLabel}>
+                <Ionicons name="pricetag" size={13} color={GREEN} />
+                <Text style={[styles.summaryLabel, { color: GREEN }]}>
+                  {" "}Promo ({promoResult?.code})
+                  {promoResult?.type === "percent" ? ` -${promoResult.value}%` : ""}
+                </Text>
+              </View>
+              <Text style={[styles.summaryValue, { color: GREEN }]}>
+                -₹{discount.toLocaleString("en-IN")}
+              </Text>
             </View>
           )}
 
@@ -496,30 +639,28 @@ export default function NewBookingScreen() {
             {pricingLoading ? (
               <ActivityIndicator size="small" color={ORANGE} />
             ) : (
-              <Text style={styles.summaryTotalValue}>
-                ₹{displayPrice.toLocaleString("en-IN")}
-              </Text>
+              <View style={styles.totalAmountCol}>
+                {promoApplied && discount > 0 && (
+                  <Text style={styles.originalPrice}>₹{baseTotal.toLocaleString("en-IN")}</Text>
+                )}
+                <Text style={[styles.summaryTotalValue, promoApplied && discount > 0 && { color: GREEN }]}>
+                  ₹{finalTotal.toLocaleString("en-IN")}
+                </Text>
+              </View>
             )}
           </View>
           {!pricingResult?.found && (
-            <Text style={[styles.summaryNote, { color: "#AEAEAE" }]}>
-              Price from provider listing
-            </Text>
+            <Text style={[styles.summaryNote, { color: "#AEAEAE" }]}>Price from provider listing</Text>
           )}
           <Text style={styles.summaryNote}>Payment will be collected after confirmation</Text>
         </View>
 
         {/* ── Confirm Button ── */}
         <Animated.View style={[styles.confirmWrap, { transform: [{ scale: confirmScale }] }]}>
-          <Pressable
-            onPress={handleConfirm}
-            disabled={submitting}
-            style={styles.confirmPress}
-          >
+          <Pressable onPress={handleConfirm} disabled={submitting} style={styles.confirmPress}>
             <LinearGradient
               colors={[ORANGE, ORANGE2]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
+              start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
               style={styles.confirmBtn}
             >
               {submitting ? (
@@ -528,7 +669,11 @@ export default function NewBookingScreen() {
                 <>
                   <Ionicons name="checkmark-circle-outline" size={22} color="#fff" />
                   <Text style={styles.confirmText}>Confirm Booking</Text>
-                  <Ionicons name="arrow-forward" size={18} color="rgba(255,255,255,0.8)" />
+                  {selectedSlots.length > 0 && (
+                    <View style={styles.confirmBadge}>
+                      <Text style={styles.confirmBadgeText}>{selectedSlots.length} hr{selectedSlots.length > 1 ? "s" : ""}</Text>
+                    </View>
+                  )}
                 </>
               )}
             </LinearGradient>
@@ -547,7 +692,7 @@ function SectionLabel({ step, label, sub }: { step: number; label: string; sub?:
       <View style={secStyles.stepCircle}>
         <Text style={secStyles.stepNum}>{step}</Text>
       </View>
-      <View>
+      <View style={{ flex: 1 }}>
         <Text style={secStyles.label}>{label}</Text>
         {sub && <Text style={secStyles.sub}>{sub}</Text>}
       </View>
@@ -557,39 +702,16 @@ function SectionLabel({ step, label, sub }: { step: number; label: string; sub?:
 
 const secStyles = StyleSheet.create({
   wrap: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    marginHorizontal: 20,
-    marginTop: 22,
-    marginBottom: 10,
+    flexDirection: "row", alignItems: "center", gap: 10,
+    marginHorizontal: 20, marginTop: 22, marginBottom: 10,
   },
   stepCircle: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: ORANGE,
-    alignItems: "center",
-    justifyContent: "center",
+    width: 26, height: 26, borderRadius: 13,
+    backgroundColor: ORANGE, alignItems: "center", justifyContent: "center",
   },
-  stepNum: {
-    color: "#fff",
-    fontSize: 13,
-    fontWeight: "700",
-    fontFamily: "Inter_700Bold",
-  },
-  label: {
-    fontSize: 15,
-    fontWeight: "700",
-    fontFamily: "Inter_700Bold",
-    color: "#2C2C2C",
-  },
-  sub: {
-    fontSize: 11,
-    color: "#AEAEAE",
-    fontFamily: "Inter_400Regular",
-    marginTop: 1,
-  },
+  stepNum: { color: "#fff", fontSize: 13, fontWeight: "700", fontFamily: "Inter_700Bold" },
+  label: { fontSize: 15, fontWeight: "700", fontFamily: "Inter_700Bold", color: "#2C2C2C" },
+  sub: { fontSize: 11, color: "#AEAEAE", fontFamily: "Inter_400Regular", marginTop: 1 },
 });
 
 const styles = StyleSheet.create({
@@ -600,16 +722,12 @@ const styles = StyleSheet.create({
   backLinkText: { color: "#fff", fontWeight: "700", fontFamily: "Inter_700Bold" },
 
   header: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingBottom: 16,
-    gap: 12,
+    flexDirection: "row", alignItems: "center",
+    paddingHorizontal: 16, paddingBottom: 16, gap: 12,
   },
   backBtn: {
     width: 36, height: 36, borderRadius: 18,
-    backgroundColor: "rgba(255,255,255,0.2)",
-    alignItems: "center", justifyContent: "center",
+    backgroundColor: "rgba(255,255,255,0.2)", alignItems: "center", justifyContent: "center",
   },
   headerCenter: { flex: 1 },
   headerTitle: { fontSize: 18, fontWeight: "700", fontFamily: "Inter_700Bold", color: "#fff" },
@@ -620,163 +738,162 @@ const styles = StyleSheet.create({
   scrollContent: { paddingBottom: 20 },
 
   listingCard: {
-    flexDirection: "row",
-    backgroundColor: "#fff",
-    marginHorizontal: 20,
-    marginTop: 18,
-    borderRadius: 16,
-    overflow: "hidden",
-    borderWidth: 1,
-    borderColor: "#EAEAEA",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 10,
-    elevation: 3,
+    flexDirection: "row", backgroundColor: "#fff",
+    marginHorizontal: 20, marginTop: 18, borderRadius: 16,
+    overflow: "hidden", borderWidth: 1, borderColor: "#EAEAEA",
+    shadowColor: "#000", shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06, shadowRadius: 6, elevation: 2,
   },
-  listingImg: { width: 100, height: 100 },
-  listingImgInner: { width: 100, height: 100 },
+  listingImg: { width: 90, height: 90 },
+  listingImgInner: { width: 90, height: 90 },
   listingImgPlaceholder: { alignItems: "center", justifyContent: "center" },
   listingInfo: { flex: 1, padding: 12, gap: 4 },
   catChip: {
-    alignSelf: "flex-start",
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
+    alignSelf: "flex-start", paddingHorizontal: 8, paddingVertical: 2,
+    borderRadius: 6, marginBottom: 2,
   },
-  catChipText: { fontSize: 10, fontWeight: "700", fontFamily: "Inter_700Bold", textTransform: "capitalize" },
-  listingTitle: { fontSize: 14, fontWeight: "700", fontFamily: "Inter_700Bold", color: "#2C2C2C", lineHeight: 19 },
+  catChipText: { fontSize: 10, fontWeight: "600", fontFamily: "Inter_600SemiBold" },
+  listingTitle: { fontSize: 13, fontWeight: "700", fontFamily: "Inter_700Bold", color: "#2C2C2C" },
   listingMeta: { flexDirection: "row", alignItems: "center", gap: 3 },
-  listingLocation: { fontSize: 11, color: "#AEAEAE", fontFamily: "Inter_400Regular", flex: 1 },
+  listingLocation: { fontSize: 11, color: "#7A7A7A", fontFamily: "Inter_400Regular", flex: 1 },
   listingPrice: { fontSize: 15, fontWeight: "700", fontFamily: "Inter_700Bold", color: ORANGE, marginTop: 2 },
-  listingPriceUnit: { fontSize: 11, fontWeight: "400", fontFamily: "Inter_400Regular", color: "#AEAEAE" },
+  listingPriceUnit: { fontSize: 11, color: "#AEAEAE", fontWeight: "400", fontFamily: "Inter_400Regular" },
 
-  dateScroll: { marginTop: 0 },
-  dateScrollContent: { paddingHorizontal: 20, gap: 10 },
+  dateScroll: { marginTop: 2 },
+  dateScrollContent: { paddingHorizontal: 20, gap: 10, paddingVertical: 4 },
   dateTile: {
-    width: 62,
-    paddingVertical: 12,
-    borderRadius: 14,
-    backgroundColor: "#fff",
-    alignItems: "center",
-    borderWidth: 1.5,
-    borderColor: "#EAEAEA",
-    gap: 2,
+    width: 60, paddingVertical: 10, borderRadius: 14,
+    alignItems: "center", backgroundColor: "#fff",
+    borderWidth: 1.5, borderColor: "#E8E8E8",
   },
   dateTileSelected: { backgroundColor: ORANGE, borderColor: ORANGE },
-  dateTileDay: { fontSize: 10, fontWeight: "600", fontFamily: "Inter_600SemiBold", color: "#AEAEAE" },
+  dateTileDay: { fontSize: 10, color: "#AEAEAE", fontFamily: "Inter_400Regular" },
   dateTileDaySelected: { color: "rgba(255,255,255,0.85)" },
-  dateTileNum: { fontSize: 20, fontWeight: "700", fontFamily: "Inter_700Bold", color: "#2C2C2C" },
+  dateTileNum: { fontSize: 20, fontWeight: "700", fontFamily: "Inter_700Bold", color: "#2C2C2C", marginVertical: 2 },
   dateTileNumSelected: { color: "#fff" },
-  dateTileMon: { fontSize: 10, fontWeight: "500", fontFamily: "Inter_500Medium", color: "#AEAEAE" },
+  dateTileMon: { fontSize: 10, color: "#7A7A7A", fontFamily: "Inter_400Regular" },
   dateTileMonSelected: { color: "rgba(255,255,255,0.85)" },
 
-  slotsLoader: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 20, paddingVertical: 16 },
-  slotsLoaderText: { fontSize: 13, color: "#AEAEAE", fontFamily: "Inter_400Regular" },
+  slotsLoader: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 20, paddingVertical: 12 },
+  slotsLoaderText: { color: "#7A7A7A", fontSize: 13, fontFamily: "Inter_400Regular" },
 
-  slotGrid: { paddingHorizontal: 20, gap: 8 },
+  slotGrid: { flexDirection: "row", flexWrap: "wrap", paddingHorizontal: 20, gap: 8 },
   slotTile: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: "#EAEAEA",
+    flexDirection: "row", alignItems: "center", gap: 6,
+    paddingHorizontal: 10, paddingVertical: 9, borderRadius: 10,
+    backgroundColor: "#fff", borderWidth: 1.5, borderColor: "#E8E8E8",
+    minWidth: "45%",
   },
   slotTileSelected: { backgroundColor: ORANGE, borderColor: ORANGE },
-  slotTileBooked: { backgroundColor: "#F8F8F8", borderColor: "#EAEAEA", opacity: 0.7 },
-  slotText: { flex: 1, fontSize: 14, fontWeight: "600", fontFamily: "Inter_600SemiBold", color: "#2C2C2C" },
-  slotTextSelected: { color: "#fff" },
-  slotTextBooked: { color: "#CBCBCB" },
+  slotTileBooked: { backgroundColor: "#F9F9F9", borderColor: "#EAEAEA", opacity: 0.6 },
+  slotText: { flex: 1, fontSize: 12, fontFamily: "Inter_400Regular", color: "#2C2C2C" },
+  slotTextSelected: { color: "#fff", fontFamily: "Inter_600SemiBold" },
+  slotTextBooked: { color: "#AEAEAE" },
   slotBookedBadge: {
-    backgroundColor: "#EF444422",
-    borderRadius: 6,
-    paddingHorizontal: 7,
-    paddingVertical: 2,
+    backgroundColor: "#F0F0F0", paddingHorizontal: 5, paddingVertical: 2, borderRadius: 4,
   },
-  slotBookedText: { fontSize: 10, fontWeight: "700", fontFamily: "Inter_700Bold", color: "#EF4444" },
-  noSlotsWrap: { alignItems: "center", paddingVertical: 20 },
-  noSlotsText: { fontSize: 14, color: "#AEAEAE", fontFamily: "Inter_400Regular" },
+  slotBookedText: { fontSize: 9, color: "#AEAEAE", fontFamily: "Inter_400Regular" },
+  noSlotsWrap: { paddingVertical: 16, alignItems: "center", width: "100%" },
+  noSlotsText: { color: "#AEAEAE", fontSize: 13, fontFamily: "Inter_400Regular" },
 
   serviceList: { paddingHorizontal: 20, gap: 8 },
   serviceTile: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    paddingVertical: 13,
-    paddingHorizontal: 14,
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: "#EAEAEA",
+    flexDirection: "row", alignItems: "center", gap: 12, padding: 14,
+    backgroundColor: "#fff", borderRadius: 12, borderWidth: 1.5, borderColor: "#E8E8E8",
   },
-  serviceTileSelected: { borderColor: ORANGE, backgroundColor: "#FFF8F4" },
+  serviceTileSelected: { borderColor: ORANGE, backgroundColor: "#FFF5ED" },
   serviceNum: {
-    width: 26, height: 26, borderRadius: 13,
-    backgroundColor: "#F0F0F0",
+    width: 26, height: 26, borderRadius: 13, backgroundColor: "#F0F0F0",
     alignItems: "center", justifyContent: "center",
   },
-  serviceNumSelected: { backgroundColor: ORANGE },
-  serviceNumText: { fontSize: 12, fontWeight: "700", fontFamily: "Inter_700Bold", color: "#AEAEAE" },
-  serviceNumTextSelected: { color: "#fff" },
-  serviceText: { flex: 1, fontSize: 14, fontWeight: "500", fontFamily: "Inter_500Medium", color: "#2C2C2C" },
-  serviceTextSelected: { color: ORANGE, fontFamily: "Inter_600SemiBold" },
+  serviceNumSelected: { backgroundColor: `${ORANGE}22` },
+  serviceNumText: { fontSize: 12, fontWeight: "700", fontFamily: "Inter_700Bold", color: "#7A7A7A" },
+  serviceNumTextSelected: { color: ORANGE },
+  serviceText: { flex: 1, fontSize: 14, fontFamily: "Inter_400Regular", color: "#2C2C2C" },
+  serviceTextSelected: { fontFamily: "Inter_600SemiBold", color: "#2C2C2C" },
 
   notesWrap: { marginHorizontal: 20 },
   notesInput: {
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: "#EAEAEA",
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 14,
-    fontFamily: "Inter_400Regular",
-    color: "#2C2C2C",
-    minHeight: 80,
-    textAlignVertical: "top",
+    backgroundColor: "#fff", borderRadius: 12, padding: 14,
+    fontSize: 14, fontFamily: "Inter_400Regular", color: "#2C2C2C",
+    borderWidth: 1, borderColor: "#E8E8E8", minHeight: 80,
   },
 
-  summaryCard: {
-    marginHorizontal: 20,
-    marginTop: 20,
-    backgroundColor: "#fff",
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: "#EAEAEA",
-    padding: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
-    gap: 10,
+  // Promo code
+  promoWrap: { marginHorizontal: 20, gap: 8 },
+  promoRow: {
+    flexDirection: "row", alignItems: "center", gap: 8,
+    backgroundColor: "#fff", borderRadius: 12, borderWidth: 1.5,
+    borderColor: "#E8E8E8", overflow: "hidden",
   },
-  summaryHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 2 },
+  promoRowValid: { borderColor: GREEN },
+  promoRowInvalid: { borderColor: RED },
+  promoInput: {
+    flex: 1, paddingVertical: 14, paddingHorizontal: 8,
+    fontSize: 14, fontFamily: "Inter_600SemiBold", color: "#2C2C2C",
+    letterSpacing: 1.5,
+  },
+  promoApplyBtn: {
+    backgroundColor: ORANGE, paddingHorizontal: 18, paddingVertical: 14,
+    alignItems: "center", justifyContent: "center",
+  },
+  promoApplyBtnDisabled: { backgroundColor: "#DCDCDC" },
+  promoApplyText: { color: "#fff", fontWeight: "700", fontFamily: "Inter_700Bold", fontSize: 13 },
+  promoClearBtn: {
+    flexDirection: "row", alignItems: "center", gap: 4,
+    paddingHorizontal: 12, paddingVertical: 14,
+  },
+  promoActionText: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
+  promoMessage: {
+    flexDirection: "row", alignItems: "center", gap: 6,
+    paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8,
+  },
+  promoMessageValid: { backgroundColor: "#F0FDF4" },
+  promoMessageInvalid: { backgroundColor: "#FEF2F2" },
+  promoMessageText: { fontSize: 12, fontFamily: "Inter_400Regular", flex: 1 },
+
+  summaryCard: {
+    backgroundColor: "#fff", marginHorizontal: 20, marginTop: 20,
+    borderRadius: 16, padding: 18, borderWidth: 1, borderColor: "#EAEAEA",
+    shadowColor: "#000", shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05, shadowRadius: 6, elevation: 2,
+  },
+  summaryHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 14 },
   summaryTitle: { fontSize: 15, fontWeight: "700", fontFamily: "Inter_700Bold", color: "#2C2C2C" },
-  adminPriceBadge: { backgroundColor: "#FFF3E9", borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2, borderWidth: 1, borderColor: `${ORANGE}40` },
-  adminPriceBadgeText: { fontSize: 10, fontWeight: "700", fontFamily: "Inter_700Bold", color: ORANGE },
-  summaryRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", gap: 10 },
+  adminPriceBadge: {
+    backgroundColor: "#FFF3E9", paddingHorizontal: 8, paddingVertical: 3,
+    borderRadius: 6, borderWidth: 1, borderColor: `${ORANGE}30`,
+  },
+  adminPriceBadgeText: { fontSize: 10, color: ORANGE, fontFamily: "Inter_600SemiBold" },
+
+  summaryRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 },
   summaryLabel: { fontSize: 13, color: "#7A7A7A", fontFamily: "Inter_400Regular", flex: 1 },
-  summaryValue: { fontSize: 13, fontWeight: "500", fontFamily: "Inter_500Medium", color: "#2C2C2C", textAlign: "right", flex: 1.5 },
-  summaryDivider: { height: 1, backgroundColor: "#EAEAEA", marginVertical: 4 },
+  summaryValue: { fontSize: 13, fontWeight: "600", fontFamily: "Inter_600SemiBold", color: "#2C2C2C", textAlign: "right" },
+
+  discountRow: {
+    backgroundColor: "#F0FDF4", marginHorizontal: -4, paddingHorizontal: 10,
+    paddingVertical: 8, borderRadius: 8, marginBottom: 10,
+  },
+  discountLabel: { flexDirection: "row", alignItems: "center", flex: 1 },
+
+  summaryDivider: { height: 1, backgroundColor: "#F0F0F0", marginVertical: 12 },
   summaryTotal: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   summaryTotalLabel: { fontSize: 15, fontWeight: "700", fontFamily: "Inter_700Bold", color: "#2C2C2C" },
-  summaryTotalValue: { fontSize: 18, fontWeight: "700", fontFamily: "Inter_700Bold", color: ORANGE },
-  summaryNote: { fontSize: 11, color: "#AEAEAE", fontFamily: "Inter_400Regular", textAlign: "center" },
+  summaryTotalValue: { fontSize: 22, fontWeight: "700", fontFamily: "Inter_700Bold", color: ORANGE },
+  totalAmountCol: { alignItems: "flex-end", gap: 2 },
+  originalPrice: { fontSize: 13, color: "#AEAEAE", fontFamily: "Inter_400Regular", textDecorationLine: "line-through" },
+  summaryNote: { fontSize: 11, color: "#AEAEAE", fontFamily: "Inter_400Regular", marginTop: 6, textAlign: "center" },
 
   confirmWrap: { marginHorizontal: 20, marginTop: 20 },
   confirmPress: { borderRadius: 16, overflow: "hidden" },
   confirmBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 10,
-    paddingVertical: 16,
-    borderRadius: 16,
+    flexDirection: "row", alignItems: "center", justifyContent: "center",
+    paddingVertical: 16, gap: 10,
   },
-  confirmText: { fontSize: 16, fontWeight: "700", fontFamily: "Inter_700Bold", color: "#fff" },
+  confirmText: { color: "#fff", fontSize: 16, fontWeight: "700", fontFamily: "Inter_700Bold" },
+  confirmBadge: {
+    backgroundColor: "rgba(255,255,255,0.25)", paddingHorizontal: 8,
+    paddingVertical: 3, borderRadius: 8,
+  },
+  confirmBadgeText: { color: "#fff", fontSize: 11, fontFamily: "Inter_600SemiBold" },
 });

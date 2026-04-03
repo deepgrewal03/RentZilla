@@ -850,4 +850,93 @@ const platformSettings = { baseFare: 50, perKmRate: 12, surgeMultiplier: 1.0, co
 router.get("/settings", adminMiddleware, (_req, res) => res.json(platformSettings));
 router.patch("/settings", adminMiddleware, (req, res) => { Object.assign(platformSettings, req.body); res.json({ success: true, settings: platformSettings }); });
 
+// ── Promo Codes ───────────────────────────────────────────────────────────────
+function promoRows(result: any) {
+  if (Array.isArray(result)) return result;
+  return result?.rows ?? [];
+}
+
+router.get("/promo-codes", adminMiddleware, async (req: Request, res: Response) => {
+  try {
+    const rows = promoRows(await db.execute(sql`
+      SELECT * FROM promo_codes ORDER BY created_at DESC
+    `));
+    res.json(rows);
+  } catch (err) {
+    req.log.error({ err }, "Get promo codes error");
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.post("/promo-codes", adminMiddleware, async (req: Request, res: Response) => {
+  try {
+    const { code, type, value, minOrder, maxUses, description, expiresAt } = req.body;
+    const adminId = (req as any).adminId || "admin";
+    if (!code || !type || value == null) {
+      res.status(400).json({ error: "code, type, and value are required" });
+      return;
+    }
+    if (!["percent", "fixed"].includes(type)) {
+      res.status(400).json({ error: "type must be 'percent' or 'fixed'" });
+      return;
+    }
+    if (type === "percent" && (Number(value) < 1 || Number(value) > 100)) {
+      res.status(400).json({ error: "Percent value must be between 1 and 100" });
+      return;
+    }
+    const id = Date.now().toString() + Math.random().toString(36).substr(2, 6);
+    await db.execute(sql`
+      INSERT INTO promo_codes (id, code, type, value, min_order, max_uses, description, expires_at, created_by)
+      VALUES (
+        ${id}, ${code.toUpperCase()}, ${type}, ${Number(value)},
+        ${Number(minOrder || 0)}, ${Number(maxUses || 100)},
+        ${description || null},
+        ${expiresAt ? new Date(expiresAt) : null},
+        ${adminId}
+      )
+    `);
+    const rows = promoRows(await db.execute(sql`SELECT * FROM promo_codes WHERE id = ${id}`));
+    res.status(201).json(rows[0]);
+  } catch (err: any) {
+    if (err?.message?.includes("unique") || err?.code === "23505") {
+      res.status(409).json({ error: "A promo code with this name already exists" });
+      return;
+    }
+    req.log.error({ err }, "Create promo code error");
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.patch("/promo-codes/:id", adminMiddleware, async (req: Request, res: Response) => {
+  try {
+    const { isActive, maxUses, expiresAt, description, value, minOrder } = req.body;
+    await db.execute(sql`
+      UPDATE promo_codes SET
+        is_active = COALESCE(${isActive != null ? isActive : null}, is_active),
+        max_uses = COALESCE(${maxUses != null ? Number(maxUses) : null}, max_uses),
+        expires_at = COALESCE(${expiresAt !== undefined ? (expiresAt ? new Date(expiresAt) : null) : undefined}, expires_at),
+        description = COALESCE(${description !== undefined ? description : null}, description),
+        value = COALESCE(${value != null ? Number(value) : null}, value),
+        min_order = COALESCE(${minOrder != null ? Number(minOrder) : null}, min_order)
+      WHERE id = ${req.params.id}
+    `);
+    const rows = promoRows(await db.execute(sql`SELECT * FROM promo_codes WHERE id = ${req.params.id}`));
+    if (rows.length === 0) { res.status(404).json({ error: "Promo code not found" }); return; }
+    res.json(rows[0]);
+  } catch (err) {
+    req.log.error({ err }, "Update promo code error");
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.delete("/promo-codes/:id", adminMiddleware, async (req: Request, res: Response) => {
+  try {
+    await db.execute(sql`DELETE FROM promo_codes WHERE id = ${req.params.id}`);
+    res.json({ success: true });
+  } catch (err) {
+    req.log.error({ err }, "Delete promo code error");
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 export default router;

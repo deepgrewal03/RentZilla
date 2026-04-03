@@ -342,6 +342,36 @@ export async function runMigrations() {
     )
   `));
 
+  // ── Promo codes ───────────────────────────────────────────────────────────────
+  await db.execute(sql.raw(`
+    CREATE TABLE IF NOT EXISTS promo_codes (
+      id TEXT PRIMARY KEY,
+      code TEXT NOT NULL UNIQUE,
+      type TEXT NOT NULL DEFAULT 'percent',
+      value NUMERIC(10,2) NOT NULL DEFAULT 0,
+      min_order NUMERIC(10,2) NOT NULL DEFAULT 0,
+      max_uses INTEGER NOT NULL DEFAULT 100,
+      used_count INTEGER NOT NULL DEFAULT 0,
+      is_active BOOLEAN NOT NULL DEFAULT TRUE,
+      description TEXT,
+      expires_at TIMESTAMP,
+      created_by TEXT,
+      created_at TIMESTAMP NOT NULL DEFAULT NOW()
+    )
+  `));
+
+  // ── Extra booking columns for multi-slot + promo support ──────────────────────
+  const bookingExtras = [
+    `ALTER TABLE bookings ADD COLUMN IF NOT EXISTS time_slots TEXT`,
+    `ALTER TABLE bookings ADD COLUMN IF NOT EXISTS service_types TEXT`,
+    `ALTER TABLE bookings ADD COLUMN IF NOT EXISTS promo_code TEXT`,
+    `ALTER TABLE bookings ADD COLUMN IF NOT EXISTS discount_amount NUMERIC(10,2) NOT NULL DEFAULT 0`,
+    `ALTER TABLE bookings ADD COLUMN IF NOT EXISTS final_amount NUMERIC(10,2) NOT NULL DEFAULT 0`,
+  ];
+  for (const stmt of bookingExtras) {
+    await db.execute(sql.raw(stmt));
+  }
+
   // ── Pricing service-type rules (per service type within a subcategory) ────────
   await db.execute(sql.raw(`
     CREATE TABLE IF NOT EXISTS pricing_service_type_rules (

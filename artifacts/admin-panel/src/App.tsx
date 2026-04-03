@@ -15,6 +15,7 @@ import Notifications from "@/pages/Notifications";
 import AdminLogs from "@/pages/AdminLogs";
 import Pricing from "@/pages/Pricing";
 import ProviderPrices from "@/pages/ProviderPrices";
+import PromoCodes from "@/pages/PromoCodes";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -38,6 +39,7 @@ function ProtectedRoutes() {
         <Route path="/logs" component={AdminLogs} />
         <Route path="/pricing" component={Pricing} />
         <Route path="/provider-prices" component={ProviderPrices} />
+        <Route path="/promo-codes" component={PromoCodes} />
         <Route path="/settings" component={Settings} />
         <Route component={NotFound} />
       </Switch>
