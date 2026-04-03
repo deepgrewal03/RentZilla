@@ -538,6 +538,18 @@ export default function NewBookingScreen() {
         </View>
 
         {/* ── Price Summary ── */}
+        {(selectedSlots.length === 0 || (serviceTypes.length > 0 && selectedServices.length === 0)) && (
+          <View style={styles.pricePlaceholder}>
+            <Ionicons name="calculator-outline" size={28} color={ORANGE} style={{ marginBottom: 8 }} />
+            <Text style={styles.pricePlaceholderTitle}>Select to see pricing</Text>
+            <Text style={styles.pricePlaceholderSub}>
+              {selectedSlots.length === 0
+                ? "Choose time slots above to calculate the total"
+                : "Pick a service type above to calculate the total"}
+            </Text>
+          </View>
+        )}
+        {selectedSlots.length > 0 && (serviceTypes.length === 0 || selectedServices.length > 0) && (
         <View style={styles.summaryCard}>
           <View style={styles.summaryHeader}>
             <Text style={styles.summaryTitle}>Price Summary</Text>
@@ -648,6 +660,7 @@ export default function NewBookingScreen() {
           )}
           <Text style={styles.summaryNote}>Payment will be collected after confirmation</Text>
         </View>
+        )}
 
         {/* ── Confirm Button ── */}
         <Animated.View style={[styles.confirmWrap, { transform: [{ scale: confirmScale }] }]}>
@@ -845,6 +858,21 @@ const styles = StyleSheet.create({
   promoMessageValid: { backgroundColor: "#F0FDF4" },
   promoMessageInvalid: { backgroundColor: "#FEF2F2" },
   promoMessageText: { fontSize: 12, fontFamily: "Inter_400Regular", flex: 1 },
+
+  pricePlaceholder: {
+    marginHorizontal: 20, marginTop: 20, borderRadius: 16,
+    backgroundColor: "#FFF8F2", borderWidth: 1.5, borderColor: `${ORANGE}25`,
+    borderStyle: "dashed", paddingVertical: 28, paddingHorizontal: 20,
+    alignItems: "center",
+  },
+  pricePlaceholderTitle: {
+    fontSize: 14, fontWeight: "700", fontFamily: "Inter_700Bold",
+    color: "#2C2C2C", marginBottom: 6,
+  },
+  pricePlaceholderSub: {
+    fontSize: 12, fontFamily: "Inter_400Regular",
+    color: "#7A7A7A", textAlign: "center", lineHeight: 18,
+  },
 
   summaryCard: {
     backgroundColor: "#fff", marginHorizontal: 20, marginTop: 20,
