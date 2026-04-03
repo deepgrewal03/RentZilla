@@ -55,6 +55,7 @@ const CODE_REGEX = /\b([A-Z0-9]{4,20})\b/g;
 function extractCodes(message: string): string[] {
   const codes: string[] = [];
   let match: RegExpExecArray | null;
+  CODE_REGEX.lastIndex = 0;
   while ((match = CODE_REGEX.exec(message)) !== null) {
     if (!/^\d+$/.test(match[1])) codes.push(match[1]);
   }
@@ -75,32 +76,38 @@ function notifIcon(title: string): { name: keyof typeof Ionicons.glyphMap; color
 
 const SPRING = { useNativeDriver: false, tension: 340, friction: 12 };
 
+/* ── view state: "none" | "list" | "detail"
+   We use a SINGLE Modal so there is never more than one open at once.
+   Stacking two Modals simultaneously breaks in published / production builds. */
+type ViewState = "none" | "list" | "detail";
+
 export function NotificationBell() {
   const { get, put } = useApi();
   const { t, language } = useLang();
   const insets = useSafeAreaInsets();
-  const [open, setOpen] = useState(false);
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [selected, setSelected] = useState<Notification | null>(null);
-  const [copied, setCopied] = useState<string | null>(null);
   const isWeb = Platform.OS === "web";
 
-  const bellScale = useRef(new Animated.Value(1)).current;
-  const detailSlide = useRef(new Animated.Value(40)).current;
+  const [view, setView]                     = useState<ViewState>("none");
+  const [notifications, setNotifications]   = useState<Notification[]>([]);
+  const [selected, setSelected]             = useState<Notification | null>(null);
+  const [copied, setCopied]                 = useState<string | null>(null);
+
+  const bellScale    = useRef(new Animated.Value(1)).current;
+  const detailSlide  = useRef(new Animated.Value(40)).current;
   const detailOpacity = useRef(new Animated.Value(0)).current;
 
   const unreadCount = notifications.filter((n) => !n.isRead).length;
+  const topPad      = isWeb ? 67 : insets.top;
+  const isPa        = language === "pa";
 
-  useEffect(() => {
-    fetchNotifications();
-  }, []);
+  useEffect(() => { fetchNotifications(); }, []);
 
   async function fetchNotifications() {
     try {
       const data = await get<Notification[]>("/notifications");
       setNotifications(data);
     } catch {
-      // ignore — user may not be authenticated yet
+      /* ignore — user may not be authenticated yet */
     }
   }
 
@@ -127,8 +134,8 @@ export function NotificationBell() {
       Animated.spring(bellScale, { toValue: 1.12, ...SPRING, tension: 260, friction: 7 }),
       Animated.spring(bellScale, { toValue: 1, ...SPRING }),
     ]).start();
-    setOpen(true);
     fetchNotifications();
+    setView("list");
   }
 
   function openDetail(n: Notification) {
@@ -137,6 +144,8 @@ export function NotificationBell() {
     setCopied(null);
     detailSlide.setValue(40);
     detailOpacity.setValue(0);
+    /* Switch to detail view within the SAME modal */
+    setView("detail");
     Animated.parallel([
       Animated.spring(detailSlide, { toValue: 0, ...SPRING, tension: 280, friction: 20 }),
       Animated.timing(detailOpacity, { toValue: 1, duration: 180, useNativeDriver: false }),
@@ -153,7 +162,14 @@ export function NotificationBell() {
         await markOneRead(selected.id);
       }
       setSelected(null);
+      /* go back to list panel after marking read */
+      setView("list");
     });
+  }
+
+  function closeAll() {
+    setView("none");
+    setSelected(null);
   }
 
   async function copyText(text: string, label: string) {
@@ -163,11 +179,9 @@ export function NotificationBell() {
     setTimeout(() => setCopied(null), 2000);
   }
 
-  const topPad = isWeb ? 67 : insets.top;
-  const isPa = language === "pa";
-
   return (
     <>
+      {/* ── Bell button ── */}
       <Pressable onPress={openPanel}>
         <Animated.View style={[styles.bellBtn, { transform: [{ scale: bellScale }] }]}>
           <Ionicons name="notifications-outline" size={22} color="#fff" />
@@ -179,143 +193,151 @@ export function NotificationBell() {
         </Animated.View>
       </Pressable>
 
-      {/* ── Notification List Panel ── */}
-      {open && (
-        <Modal visible transparent animationType="none" onRequestClose={() => setOpen(false)}>
-          <Pressable style={styles.modalOverlay} onPress={() => setOpen(false)} />
-          <Animated.View style={[styles.panel, { top: topPad + 56 }]}>
-            <View style={styles.panelHeader}>
-              <Text style={styles.panelTitle}>{t.notifications}</Text>
-              {unreadCount > 0 && (
-                <Pressable onPress={markAllRead}>
-                  <Text style={styles.markAllText}>{t.markAllRead}</Text>
-                </Pressable>
-              )}
-            </View>
-
-            <ScrollView style={styles.panelList} showsVerticalScrollIndicator={false}>
-              {notifications.length === 0 ? (
-                <View style={styles.emptyBox}>
-                  <Ionicons name="notifications-off-outline" size={36} color={C.textTertiary} />
-                  <Text style={styles.emptyText}>{t.noNotifications}</Text>
-                </View>
-              ) : (
-                notifications.map((n) => {
-                  const icon = notifIcon(n.title);
-                  return (
-                    <Pressable
-                      key={n.id}
-                      style={({ pressed }) => [
-                        styles.notifItem,
-                        !n.isRead && styles.notifUnread,
-                        pressed && styles.notifPressed,
-                      ]}
-                      onPress={() => openDetail(n)}
-                    >
-                      <View style={[styles.notifIconWrap, { backgroundColor: icon.bg }]}>
-                        <Ionicons name={icon.name} size={16} color={icon.color} />
-                      </View>
-                      <View style={{ flex: 1 }}>
-                        <View style={styles.notifTitleRow}>
-                          <Text style={styles.notifTitle} numberOfLines={1}>{n.title}</Text>
-                          {!n.isRead && <View style={styles.unreadDot} />}
-                        </View>
-                        <Text style={styles.notifMsg} numberOfLines={2}>{n.message}</Text>
-                        <Text style={styles.notifTime}>{timeAgo(n.createdAt, isPa)}</Text>
-                      </View>
-                      <Ionicons name="chevron-forward" size={14} color={C.textTertiary} />
-                    </Pressable>
-                  );
-                })
-              )}
-              <View style={{ height: 16 }} />
-            </ScrollView>
-          </Animated.View>
-        </Modal>
-      )}
-
-      {/* ── Notification Detail Popup ── */}
-      {selected && (
-        <Modal visible transparent animationType="none" onRequestClose={closeDetail}>
-          <Pressable style={styles.detailOverlay} onPress={closeDetail} />
-          <View style={styles.detailCenterWrap} pointerEvents="box-none">
-            <Animated.View
-              style={[
-                styles.detailCard,
-                {
-                  opacity: detailOpacity,
-                  transform: [{ translateY: detailSlide }],
-                },
-              ]}
-            >
-              {/* Icon */}
-              {(() => {
-                const icon = notifIcon(selected.title);
-                return (
-                  <View style={[styles.detailIconCircle, { backgroundColor: icon.bg }]}>
-                    <Ionicons name={icon.name} size={32} color={icon.color} />
-                  </View>
-                );
-              })()}
-
-              {/* Header */}
-              <Text style={styles.detailTitle}>{selected.title}</Text>
-              <Text style={styles.detailDate}>{fullDate(selected.createdAt)}</Text>
-
-              {/* Message */}
-              <View style={styles.detailMsgBox}>
-                <Text style={styles.detailMsg}>{selected.message}</Text>
+      {/* ── Single Modal — switches between list and detail views ── */}
+      <Modal
+        visible={view !== "none"}
+        transparent
+        animationType="none"
+        onRequestClose={view === "detail" ? closeDetail : closeAll}
+      >
+        {/* ── LIST VIEW ── */}
+        {view === "list" && (
+          <>
+            <Pressable style={styles.modalOverlay} onPress={closeAll} />
+            <Animated.View style={[styles.panel, { top: topPad + 56 }]}>
+              <View style={styles.panelHeader}>
+                <Text style={styles.panelTitle}>{t.notifications}</Text>
+                {unreadCount > 0 && (
+                  <Pressable onPress={markAllRead}>
+                    <Text style={styles.markAllText}>{t.markAllRead}</Text>
+                  </Pressable>
+                )}
               </View>
 
-              {/* Detected codes — copy chips */}
-              {extractCodes(selected.message).map((code) => (
-                <Pressable
-                  key={code}
-                  style={styles.codeChip}
-                  onPress={() => copyText(code, code)}
-                >
-                  <View style={styles.codeChipLeft}>
-                    <Ionicons name="pricetag" size={14} color={ORANGE} />
-                    <Text style={styles.codeChipCode}>{code}</Text>
+              <ScrollView style={styles.panelList} showsVerticalScrollIndicator={false}>
+                {notifications.length === 0 ? (
+                  <View style={styles.emptyBox}>
+                    <Ionicons name="notifications-off-outline" size={36} color={C.textTertiary} />
+                    <Text style={styles.emptyText}>{t.noNotifications}</Text>
                   </View>
-                  <View style={styles.codeChipCopy}>
-                    <Ionicons
-                      name={copied === code ? "checkmark" : "copy-outline"}
-                      size={14}
-                      color={copied === code ? "#059669" : ORANGE}
-                    />
-                    <Text style={[styles.codeChipCopyText, copied === code && { color: "#059669" }]}>
-                      {copied === code ? "Copied!" : "Tap to copy"}
-                    </Text>
-                  </View>
-                </Pressable>
-              ))}
-
-              {/* Copy full message button */}
-              <Pressable
-                style={styles.copyMsgBtn}
-                onPress={() => copyText(selected.message, "__msg")}
-              >
-                <Ionicons
-                  name={copied === "__msg" ? "checkmark-circle" : "copy-outline"}
-                  size={16}
-                  color={copied === "__msg" ? "#059669" : C.textSecondary}
-                />
-                <Text style={[styles.copyMsgText, copied === "__msg" && { color: "#059669" }]}>
-                  {copied === "__msg" ? "Copied to clipboard!" : "Copy message"}
-                </Text>
-              </Pressable>
-
-              {/* Close / mark as read */}
-              <Pressable style={styles.closeBtn} onPress={closeDetail}>
-                <Text style={styles.closeBtnText}>
-                  {selected.isRead ? "Close" : "Mark as Read & Close"}
-                </Text>
-              </Pressable>
+                ) : (
+                  notifications.map((n) => {
+                    const icon = notifIcon(n.title);
+                    return (
+                      <Pressable
+                        key={n.id}
+                        style={({ pressed }) => [
+                          styles.notifItem,
+                          !n.isRead && styles.notifUnread,
+                          pressed && styles.notifPressed,
+                        ]}
+                        onPress={() => openDetail(n)}
+                      >
+                        <View style={[styles.notifIconWrap, { backgroundColor: icon.bg }]}>
+                          <Ionicons name={icon.name} size={16} color={icon.color} />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <View style={styles.notifTitleRow}>
+                            <Text style={styles.notifTitle} numberOfLines={1}>{n.title}</Text>
+                            {!n.isRead && <View style={styles.unreadDot} />}
+                          </View>
+                          <Text style={styles.notifMsg} numberOfLines={2}>{n.message}</Text>
+                          <Text style={styles.notifTime}>{timeAgo(n.createdAt, isPa)}</Text>
+                        </View>
+                        <Ionicons name="chevron-forward" size={14} color={C.textTertiary} />
+                      </Pressable>
+                    );
+                  })
+                )}
+                <View style={{ height: 16 }} />
+              </ScrollView>
             </Animated.View>
-          </View>
-        </Modal>
-      )}
+          </>
+        )}
+
+        {/* ── DETAIL VIEW ── */}
+        {view === "detail" && selected && (
+          <>
+            <Pressable style={styles.detailOverlay} onPress={closeDetail} />
+            <View style={styles.detailCenterWrap} pointerEvents="box-none">
+              <Animated.View
+                style={[
+                  styles.detailCard,
+                  {
+                    opacity: detailOpacity,
+                    transform: [{ translateY: detailSlide }],
+                  },
+                ]}
+              >
+                {/* Icon */}
+                {(() => {
+                  const icon = notifIcon(selected.title);
+                  return (
+                    <View style={[styles.detailIconCircle, { backgroundColor: icon.bg }]}>
+                      <Ionicons name={icon.name} size={32} color={icon.color} />
+                    </View>
+                  );
+                })()}
+
+                {/* Header */}
+                <Text style={styles.detailTitle}>{selected.title}</Text>
+                <Text style={styles.detailDate}>{fullDate(selected.createdAt)}</Text>
+
+                {/* Message */}
+                <View style={styles.detailMsgBox}>
+                  <Text style={styles.detailMsg}>{selected.message}</Text>
+                </View>
+
+                {/* Detected promo codes */}
+                {extractCodes(selected.message).map((code) => (
+                  <Pressable
+                    key={code}
+                    style={styles.codeChip}
+                    onPress={() => copyText(code, code)}
+                  >
+                    <View style={styles.codeChipLeft}>
+                      <Ionicons name="pricetag" size={14} color={ORANGE} />
+                      <Text style={styles.codeChipCode}>{code}</Text>
+                    </View>
+                    <View style={styles.codeChipCopy}>
+                      <Ionicons
+                        name={copied === code ? "checkmark" : "copy-outline"}
+                        size={14}
+                        color={copied === code ? "#059669" : ORANGE}
+                      />
+                      <Text style={[styles.codeChipCopyText, copied === code && { color: "#059669" }]}>
+                        {copied === code ? "Copied!" : "Tap to copy"}
+                      </Text>
+                    </View>
+                  </Pressable>
+                ))}
+
+                {/* Copy full message */}
+                <Pressable
+                  style={styles.copyMsgBtn}
+                  onPress={() => copyText(selected.message, "__msg")}
+                >
+                  <Ionicons
+                    name={copied === "__msg" ? "checkmark-circle" : "copy-outline"}
+                    size={16}
+                    color={copied === "__msg" ? "#059669" : C.textSecondary}
+                  />
+                  <Text style={[styles.copyMsgText, copied === "__msg" && { color: "#059669" }]}>
+                    {copied === "__msg" ? "Copied to clipboard!" : "Copy message"}
+                  </Text>
+                </Pressable>
+
+                {/* Close */}
+                <Pressable style={styles.closeBtn} onPress={closeDetail}>
+                  <Text style={styles.closeBtnText}>
+                    {selected.isRead ? "Close" : "Mark as Read & Close"}
+                  </Text>
+                </Pressable>
+              </Animated.View>
+            </View>
+          </>
+        )}
+      </Modal>
     </>
   );
 }
