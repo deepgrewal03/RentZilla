@@ -43,7 +43,6 @@ export default function BookingDetailScreen() {
   const [submitting, setSubmitting] = useState(false);
 
   // ── Provider: open/complete job ────────────────────────────────────────────
-  const [showCompletePanel, setShowCompletePanel] = useState(false);
   const [providerServiceFee, setProviderServiceFee] = useState("");
   const [providerExtraCharges, setProviderExtraCharges] = useState<
     { id: string; label: string; amount: string; description: string }[]
@@ -289,92 +288,6 @@ export default function BookingDetailScreen() {
           </View>
         )}
 
-        {/* ── Provider: Complete Job Panel ────────────────────────────────── */}
-        {isProvider && booking.status === "in_progress" && showCompletePanel && (
-          <View style={styles.completePanel}>
-            <Text style={styles.completePanelTitle}>Complete Job & Add Charges</Text>
-            <Text style={styles.completePanelSub}>Optionally add a service fee or extra charges before marking as complete.</Text>
-
-            {/* Service Fee */}
-            <Text style={styles.completeFieldLabel}>Service Fee</Text>
-            <View style={styles.completeInputRow}>
-              <Text style={styles.completeRupee}>₹</Text>
-              <TextInput
-                style={styles.completeInput}
-                value={providerServiceFee}
-                onChangeText={v => setProviderServiceFee(v.replace(/[^0-9.]/g, ""))}
-                placeholder="0"
-                placeholderTextColor={C.textTertiary}
-                keyboardType="decimal-pad"
-              />
-            </View>
-
-            {/* Extra Charges */}
-            <Text style={[styles.completeFieldLabel, { marginTop: 12 }]}>Other Charges</Text>
-            {providerExtraCharges.map((charge, idx) => (
-              <View key={charge.id} style={styles.extraCard}>
-                <View style={styles.extraTopRow}>
-                  <TextInput
-                    style={[styles.completeInput, { flex: 2 }]}
-                    value={charge.label}
-                    onChangeText={v => { const u = [...providerExtraCharges]; u[idx] = { ...u[idx], label: v }; setProviderExtraCharges(u); }}
-                    placeholder="Charge name"
-                    placeholderTextColor={C.textTertiary}
-                  />
-                  <View style={styles.completeInputRow}>
-                    <Text style={styles.completeRupee}>₹</Text>
-                    <TextInput
-                      style={[styles.completeInput, { flex: 1 }]}
-                      value={charge.amount}
-                      onChangeText={v => { const u = [...providerExtraCharges]; u[idx] = { ...u[idx], amount: v.replace(/[^0-9.]/g, "") }; setProviderExtraCharges(u); }}
-                      placeholder="0"
-                      placeholderTextColor={C.textTertiary}
-                      keyboardType="decimal-pad"
-                    />
-                  </View>
-                  <Pressable onPress={() => setProviderExtraCharges(providerExtraCharges.filter((_, i) => i !== idx))} hitSlop={8}>
-                    <Ionicons name="close-circle" size={20} color="#DC2626" />
-                  </Pressable>
-                </View>
-                <View style={styles.extraDescRow}>
-                  <Ionicons name="document-text-outline" size={13} color={C.textTertiary} />
-                  <TextInput
-                    style={styles.extraDescInput}
-                    value={charge.description}
-                    onChangeText={v => { const u = [...providerExtraCharges]; u[idx] = { ...u[idx], description: v }; setProviderExtraCharges(u); }}
-                    placeholder="Description (optional)"
-                    placeholderTextColor={C.textTertiary}
-                    multiline
-                  />
-                </View>
-              </View>
-            ))}
-            <Pressable
-              onPress={() => setProviderExtraCharges([...providerExtraCharges, { id: Date.now().toString(), label: "", amount: "", description: "" }])}
-              style={styles.addExtraBtn}
-            >
-              <Ionicons name="add-circle-outline" size={16} color={C.tint} />
-              <Text style={styles.addExtraBtnText}>Add Charge</Text>
-            </Pressable>
-
-            {/* Action buttons */}
-            <View style={styles.completePanelBtns}>
-              <Pressable onPress={() => setShowCompletePanel(false)} style={styles.completeCancelBtn}>
-                <Text style={styles.completeCancelBtnText}>Cancel</Text>
-              </Pressable>
-              <Pressable onPress={completeJob} disabled={completing} style={styles.completeConfirmBtn}>
-                {completing ? (
-                  <ActivityIndicator color="#fff" size="small" />
-                ) : (
-                  <>
-                    <Ionicons name="checkmark-circle-outline" size={18} color="#fff" />
-                    <Text style={styles.completeConfirmBtnText}>Mark as Complete</Text>
-                  </>
-                )}
-              </Pressable>
-            </View>
-          </View>
-        )}
 
         {/* Actions */}
         <View style={styles.actions}>
@@ -406,11 +319,90 @@ export default function BookingDetailScreen() {
               <Text style={styles.openJobBtnText}>Open Job</Text>
             </Pressable>
           )}
-          {isProvider && booking.status === "in_progress" && !showCompletePanel && (
-            <Pressable onPress={() => setShowCompletePanel(true)} style={styles.completeJobBtn}>
-              <Ionicons name="checkmark-done-circle-outline" size={20} color="#fff" />
-              <Text style={styles.completeJobBtnText}>Complete Job</Text>
-            </Pressable>
+
+          {/* ── In-progress: charges panel always visible ── */}
+          {isProvider && booking.status === "in_progress" && (
+            <View style={styles.completePanel}>
+              <View style={styles.completePanelHeader}>
+                <Ionicons name="receipt-outline" size={18} color={C.tint} />
+                <Text style={styles.completePanelTitle}>Complete Job & Add Charges</Text>
+              </View>
+              <Text style={styles.completePanelSub}>Add any service fee or extra charges before marking complete.</Text>
+
+              {/* Service Fee */}
+              <Text style={styles.completeFieldLabel}>Service Fee (optional)</Text>
+              <View style={styles.completeInputRow}>
+                <Text style={styles.completeRupee}>₹</Text>
+                <TextInput
+                  style={styles.completeInput}
+                  value={providerServiceFee}
+                  onChangeText={v => setProviderServiceFee(v.replace(/[^0-9.]/g, ""))}
+                  placeholder="0"
+                  placeholderTextColor={C.textTertiary}
+                  keyboardType="decimal-pad"
+                />
+              </View>
+
+              {/* Extra Charges */}
+              <Text style={[styles.completeFieldLabel, { marginTop: 14 }]}>Other Charges</Text>
+              {providerExtraCharges.map((charge, idx) => (
+                <View key={charge.id} style={styles.extraCard}>
+                  <View style={styles.extraTopRow}>
+                    <TextInput
+                      style={[styles.completeInput, { flex: 2 }]}
+                      value={charge.label}
+                      onChangeText={v => { const u = [...providerExtraCharges]; u[idx] = { ...u[idx], label: v }; setProviderExtraCharges(u); }}
+                      placeholder="Charge name"
+                      placeholderTextColor={C.textTertiary}
+                    />
+                    <View style={styles.completeInputRow}>
+                      <Text style={styles.completeRupee}>₹</Text>
+                      <TextInput
+                        style={[styles.completeInput, { flex: 1 }]}
+                        value={charge.amount}
+                        onChangeText={v => { const u = [...providerExtraCharges]; u[idx] = { ...u[idx], amount: v.replace(/[^0-9.]/g, "") }; setProviderExtraCharges(u); }}
+                        placeholder="0"
+                        placeholderTextColor={C.textTertiary}
+                        keyboardType="decimal-pad"
+                      />
+                    </View>
+                    <Pressable onPress={() => setProviderExtraCharges(providerExtraCharges.filter((_, i) => i !== idx))} hitSlop={8}>
+                      <Ionicons name="close-circle" size={20} color="#DC2626" />
+                    </Pressable>
+                  </View>
+                  <View style={styles.extraDescRow}>
+                    <Ionicons name="document-text-outline" size={13} color={C.textTertiary} />
+                    <TextInput
+                      style={styles.extraDescInput}
+                      value={charge.description}
+                      onChangeText={v => { const u = [...providerExtraCharges]; u[idx] = { ...u[idx], description: v }; setProviderExtraCharges(u); }}
+                      placeholder="Description (optional)"
+                      placeholderTextColor={C.textTertiary}
+                      multiline
+                    />
+                  </View>
+                </View>
+              ))}
+
+              <Pressable
+                onPress={() => setProviderExtraCharges([...providerExtraCharges, { id: Date.now().toString(), label: "", amount: "", description: "" }])}
+                style={styles.addExtraBtn}
+              >
+                <Ionicons name="add-circle-outline" size={16} color={C.tint} />
+                <Text style={styles.addExtraBtnText}>Add Another Charge</Text>
+              </Pressable>
+
+              <Pressable onPress={completeJob} disabled={completing} style={styles.completeConfirmBtn}>
+                {completing ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <>
+                    <Ionicons name="checkmark-circle-outline" size={20} color="#fff" />
+                    <Text style={styles.completeConfirmBtnText}>Mark as Complete</Text>
+                  </>
+                )}
+              </Pressable>
+            </View>
           )}
 
           {/* Cancel (both roles, only if not yet started) */}
@@ -597,7 +589,8 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff", borderRadius: 16, padding: 18,
     borderWidth: 1, borderColor: "#E8E8E8",
   },
-  completePanelTitle: { fontSize: 16, fontFamily: "Inter_700Bold", color: "#2C2C2C", marginBottom: 4 },
+  completePanelHeader: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 6 },
+  completePanelTitle: { fontSize: 16, fontFamily: "Inter_700Bold", color: "#2C2C2C" },
   completePanelSub: { fontSize: 13, fontFamily: "Inter_400Regular", color: C.textSecondary, marginBottom: 14 },
   completeFieldLabel: { fontSize: 13, fontFamily: "Inter_600SemiBold", color: "#2C2C2C", marginBottom: 6 },
   completeInputRow: {
