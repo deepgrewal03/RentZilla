@@ -297,7 +297,7 @@ export default function NewBookingScreen() {
       Alert.alert(
         "Booking Confirmed!",
         `Your booking for ${listing?.title} on ${selectedDate} at ${slotLabel} has been placed successfully.`,
-        [{ text: "View Booking", onPress: () => router.replace({ pathname: "/booking/[id]", params: { id: result.id } }) }]
+        [{ text: "OK", onPress: () => router.replace("/(tabs)/") }]
       );
     } catch (e: any) {
       const raw = e?.message || "";
