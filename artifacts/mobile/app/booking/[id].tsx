@@ -192,17 +192,7 @@ export default function BookingDetailScreen() {
           ) : (
             <InfoRow icon="time-outline" label="Duration" value={`${booking.totalDays} day${booking.totalDays > 1 ? "s" : ""}`} />
           )}
-          <InfoRow icon="cash-outline" label="Base Amount" value={`₹${(booking as any).totalAmount?.toLocaleString("en-IN") ?? "—"}`} />
-          {(booking as any).serviceFee > 0 && (
-            <InfoRow icon="shield-checkmark-outline" label="Service Fee" value={`₹${(booking as any).serviceFee.toLocaleString("en-IN")}`} />
-          )}
-          {Array.isArray((booking as any).extraCharges) && (booking as any).extraCharges.map((c: any, i: number) => (
-            <InfoRow key={i} icon="add-circle-outline" label={c.label || "Extra Charge"} value={`₹${Number(c.amount).toLocaleString("en-IN")}`} sub={c.description || undefined} />
-          ))}
-          {(booking as any).discountAmount > 0 && (
-            <InfoRow icon="pricetag-outline" label={`Promo${(booking as any).promoCode ? ` (${(booking as any).promoCode})` : ""}`} value={`-₹${(booking as any).discountAmount.toLocaleString("en-IN")}`} />
-          )}
-          <InfoRow icon="wallet-outline" label="Total Payable" value={`₹${((booking as any).finalAmount || (booking as any).totalAmount || 0).toLocaleString("en-IN")}`} highlight />
+          <InfoRow icon="cash-outline" label="Total Amount" value={`₹${booking.totalAmount.toLocaleString("en-IN")}`} highlight />
           <InfoRow icon="card-outline" label="Payment" value={booking.paymentStatus.charAt(0).toUpperCase() + booking.paymentStatus.slice(1)} />
           {isCustomer ? (
             <InfoRow icon="person-outline" label="Provider" value={`${booking.customerName || "Provider"}`} />
@@ -272,17 +262,14 @@ export default function BookingDetailScreen() {
   );
 }
 
-function InfoRow({ icon, label, value, highlight, sub }: { icon: string; label: string; value: string; highlight?: boolean; sub?: string }) {
+function InfoRow({ icon, label, value, highlight }: { icon: string; label: string; value: string; highlight?: boolean }) {
   const C = Colors.light;
   return (
     <View style={infoStyles.row}>
       <View style={infoStyles.iconWrap}>
         <Ionicons name={icon as keyof typeof Ionicons.glyphMap} size={18} color={C.textSecondary} />
       </View>
-      <View style={{ flex: 1 }}>
-        <Text style={infoStyles.label}>{label}</Text>
-        {sub ? <Text style={infoStyles.sub}>{sub}</Text> : null}
-      </View>
+      <Text style={infoStyles.label}>{label}</Text>
       <Text style={[infoStyles.value, highlight && { color: C.tint, fontFamily: "Inter_700Bold" }]}>{value}</Text>
     </View>
   );
@@ -298,8 +285,7 @@ const infoStyles = StyleSheet.create({
     gap: 12,
   },
   iconWrap: { width: 32, alignItems: "center" },
-  label: { fontSize: 14, color: Colors.light.textSecondary, fontFamily: "Inter_400Regular" },
-  sub: { fontSize: 11, color: Colors.light.textTertiary, fontFamily: "Inter_400Regular", marginTop: 2 },
+  label: { flex: 1, fontSize: 14, color: Colors.light.textSecondary, fontFamily: "Inter_400Regular" },
   value: { fontSize: 14, fontWeight: "600", fontFamily: "Inter_600SemiBold", color: Colors.light.text },
 });
 

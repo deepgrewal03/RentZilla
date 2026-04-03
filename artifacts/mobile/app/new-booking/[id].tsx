@@ -95,10 +95,6 @@ export default function NewBookingScreen() {
   // ── Notes ──────────────────────────────────────────────────────────────────
   const [notes, setNotes] = useState("");
 
-  // ── Service fee + extra charges ────────────────────────────────────────────
-  const [serviceFee, setServiceFee] = useState("");
-  const [extraCharges, setExtraCharges] = useState<{ id: string; label: string; amount: string; description: string }[]>([]);
-
   // ── Promo code state ───────────────────────────────────────────────────────
   const [promoCode, setPromoCode] = useState("");
   const [promoLoading, setPromoLoading] = useState(false);
@@ -286,9 +282,6 @@ export default function NewBookingScreen() {
     ]).start();
     setSubmitting(true);
     try {
-      const cleanedExtraCharges = extraCharges
-        .filter(c => c.label.trim() && parseFloat(c.amount) > 0)
-        .map(c => ({ label: c.label.trim(), amount: parseFloat(c.amount), description: c.description.trim() || undefined }));
       const result = await post<{ id: string }>("/bookings", {
         listingId: id,
         bookingDate: selectedDate,
@@ -296,8 +289,6 @@ export default function NewBookingScreen() {
         serviceTypes: selectedServices,
         notes: notes.trim() || undefined,
         promoCode: promoApplied ? promoCode.trim() : undefined,
-        serviceFee: serviceFeeNum > 0 ? serviceFeeNum : undefined,
-        extraCharges: cleanedExtraCharges.length > 0 ? cleanedExtraCharges : undefined,
       });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       const slotLabel = selectedSlots.length === 1
@@ -349,9 +340,7 @@ export default function NewBookingScreen() {
     ? pricingResult.customer_price
     : listing.price * Math.max(1, selectedSlots.length);
   const discount   = promoApplied && promoResult?.valid ? (promoResult.discount ?? 0) : 0;
-  const serviceFeeNum = parseFloat(serviceFee) || 0;
-  const extraChargesTotal = extraCharges.reduce((s, c) => s + (parseFloat(c.amount) || 0), 0);
-  const finalTotal = Math.max(0, baseTotal + serviceFeeNum + extraChargesTotal - discount);
+  const finalTotal = Math.max(0, baseTotal - discount);
 
   return (
     <View style={styles.root}>
@@ -549,100 +538,9 @@ export default function NewBookingScreen() {
           />
         </View>
 
-        {/* ── Service Fee & Extra Charges ── */}
+        {/* ── STEP 5: Promo Code ── */}
         <SectionLabel
           step={serviceTypes.length > 0 ? 5 : 4}
-          label="Service Fee"
-          sub="Any additional service fee to include?"
-        />
-        <View style={styles.extraFeeWrap}>
-          <View style={styles.feeInputRow}>
-            <Text style={styles.feeRupee}>₹</Text>
-            <TextInput
-              style={styles.feeInput}
-              value={serviceFee}
-              onChangeText={v => setServiceFee(v.replace(/[^0-9.]/g, ""))}
-              placeholder="0"
-              placeholderTextColor={C.textTertiary}
-              keyboardType="decimal-pad"
-            />
-          </View>
-        </View>
-
-        <SectionLabel
-          step={serviceTypes.length > 0 ? 6 : 5}
-          label="Other Charges"
-          sub="Add any extra costs (materials, travel, etc.)"
-        />
-        <View style={styles.extraFeeWrap}>
-          {extraCharges.map((charge, idx) => (
-            <View key={charge.id} style={styles.extraChargeCard}>
-              {/* Row 1: label + amount + remove */}
-              <View style={styles.extraChargeRow}>
-                <TextInput
-                  style={[styles.feeInput, styles.extraChargeLabel]}
-                  value={charge.label}
-                  onChangeText={v => {
-                    const updated = [...extraCharges];
-                    updated[idx] = { ...updated[idx], label: v };
-                    setExtraCharges(updated);
-                  }}
-                  placeholder="Charge name (e.g. Travel)"
-                  placeholderTextColor={C.textTertiary}
-                />
-                <View style={styles.extraChargeAmtWrap}>
-                  <Text style={styles.feeRupee}>₹</Text>
-                  <TextInput
-                    style={[styles.feeInput, { flex: 1 }]}
-                    value={charge.amount}
-                    onChangeText={v => {
-                      const updated = [...extraCharges];
-                      updated[idx] = { ...updated[idx], amount: v.replace(/[^0-9.]/g, "") };
-                      setExtraCharges(updated);
-                    }}
-                    placeholder="0"
-                    placeholderTextColor={C.textTertiary}
-                    keyboardType="decimal-pad"
-                  />
-                </View>
-                <Pressable
-                  onPress={() => setExtraCharges(extraCharges.filter((_, i) => i !== idx))}
-                  style={styles.extraChargeRemove}
-                  hitSlop={8}
-                >
-                  <Ionicons name="close-circle" size={20} color={RED} />
-                </Pressable>
-              </View>
-              {/* Row 2: description */}
-              <View style={styles.extraChargeDescRow}>
-                <Ionicons name="document-text-outline" size={13} color={C.textTertiary} style={{ marginTop: 2 }} />
-                <TextInput
-                  style={styles.extraChargeDesc}
-                  value={charge.description}
-                  onChangeText={v => {
-                    const updated = [...extraCharges];
-                    updated[idx] = { ...updated[idx], description: v };
-                    setExtraCharges(updated);
-                  }}
-                  placeholder="Description (optional, e.g. 50km round trip)"
-                  placeholderTextColor={C.textTertiary}
-                  multiline
-                />
-              </View>
-            </View>
-          ))}
-          <Pressable
-            onPress={() => setExtraCharges([...extraCharges, { id: Date.now().toString(), label: "", amount: "", description: "" }])}
-            style={styles.addChargeBtn}
-          >
-            <Ionicons name="add-circle-outline" size={18} color={ORANGE} />
-            <Text style={styles.addChargeBtnText}>Add Charge</Text>
-          </Pressable>
-        </View>
-
-        {/* ── Promo Code ── */}
-        <SectionLabel
-          step={serviceTypes.length > 0 ? 7 : 6}
           label="Promo Code"
           sub="Have a coupon? Enter it below"
         />
@@ -794,35 +692,6 @@ export default function NewBookingScreen() {
               </Text>
             </View>
           )}
-
-          {/* Service fee row */}
-          {serviceFeeNum > 0 && (
-            <View style={styles.summaryRow}>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                <Ionicons name="shield-checkmark-outline" size={13} color={ORANGE} />
-                <Text style={styles.summaryLabel}> Service Fee</Text>
-              </View>
-              <Text style={styles.summaryValue}>₹{serviceFeeNum.toLocaleString("en-IN")}</Text>
-            </View>
-          )}
-
-          {/* Extra charges rows */}
-          {extraCharges.filter(c => c.label.trim() && parseFloat(c.amount) > 0).map((c, i) => (
-            <View key={i} style={styles.summaryRow}>
-              <View style={{ flex: 1, marginRight: 8 }}>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                  <Ionicons name="add-circle-outline" size={13} color={ORANGE} />
-                  <Text style={styles.summaryLabel}>{c.label}</Text>
-                </View>
-                {c.description.trim() ? (
-                  <Text style={{ fontSize: 11, color: C.textTertiary, fontFamily: "Inter_400Regular", marginTop: 1, marginLeft: 17 }} numberOfLines={2}>
-                    {c.description}
-                  </Text>
-                ) : null}
-              </View>
-              <Text style={styles.summaryValue}>₹{(parseFloat(c.amount) || 0).toLocaleString("en-IN")}</Text>
-            </View>
-          ))}
 
           {/* Discount row */}
           {promoApplied && discount > 0 && (
@@ -1029,47 +898,6 @@ const styles = StyleSheet.create({
     fontSize: 14, fontFamily: "Inter_400Regular", color: "#2C2C2C",
     borderWidth: 1, borderColor: "#E8E8E8", minHeight: 80,
   },
-
-  // Service fee & extra charges
-  extraFeeWrap: { marginHorizontal: 20, gap: 8 },
-  feeInputRow: {
-    flexDirection: "row", alignItems: "center",
-    backgroundColor: "#fff", borderRadius: 12, borderWidth: 1, borderColor: "#E8E8E8",
-    paddingHorizontal: 14, paddingVertical: 2,
-  },
-  feeRupee: { fontSize: 16, color: ORANGE, fontFamily: "Inter_600SemiBold", marginRight: 4 },
-  feeInput: {
-    flex: 1, paddingVertical: 12, fontSize: 15,
-    fontFamily: "Inter_500Medium", color: "#2C2C2C",
-  },
-  extraChargeCard: {
-    backgroundColor: "#fff", borderRadius: 12, borderWidth: 1, borderColor: "#E8E8E8",
-    overflow: "hidden",
-  },
-  extraChargeRow: {
-    flexDirection: "row", alignItems: "center", gap: 8,
-    paddingHorizontal: 14, paddingVertical: 2,
-  },
-  extraChargeDescRow: {
-    flexDirection: "row", alignItems: "flex-start", gap: 6,
-    paddingHorizontal: 14, paddingBottom: 10,
-    borderTopWidth: 1, borderTopColor: "#F0F0F0",
-    paddingTop: 8,
-  },
-  extraChargeDesc: {
-    flex: 1, fontSize: 13, fontFamily: "Inter_400Regular",
-    color: "#2C2C2C", paddingTop: 0, minHeight: 18,
-  },
-  extraChargeLabel: { flex: 2 },
-  extraChargeAmtWrap: { flexDirection: "row", alignItems: "center", flex: 1.2 },
-  extraChargeRemove: { padding: 4 },
-  addChargeBtn: {
-    flexDirection: "row", alignItems: "center", gap: 6,
-    paddingVertical: 10, paddingHorizontal: 14,
-    backgroundColor: ORANGE + "15", borderRadius: 10,
-    alignSelf: "flex-start",
-  },
-  addChargeBtnText: { color: ORANGE, fontSize: 13, fontFamily: "Inter_600SemiBold" },
 
   // Promo code
   promoWrap: { marginHorizontal: 20, gap: 8 },

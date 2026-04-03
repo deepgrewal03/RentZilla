@@ -57,8 +57,6 @@ async function enrichBooking(booking: typeof bookingsTable.$inferSelect) {
     serviceTypes: b.service_types ? safeParseJson(b.service_types, []) : null,
     promoCode: b.promo_code || null,
     discountAmount: Number(b.discount_amount || 0),
-    serviceFee: Number(b.service_fee || 0),
-    extraCharges: b.extra_charges ? safeParseJson(b.extra_charges, []) : [],
     finalAmount: Number(b.final_amount || 0) || Number(booking.totalAmount),
     createdAt: booking.createdAt.toISOString(),
   };
@@ -209,7 +207,7 @@ router.post("/", authMiddleware, async (req: Request, res: Response) => {
       listingId, startDate, endDate, notes,
       bookingDate, timeSlot, timeSlots,
       serviceType, serviceTypes,
-      promoCode, serviceFee, extraCharges,
+      promoCode,
     } = req.body;
 
     const listings = await db.select().from(listingsTable).where(eq(listingsTable.id, listingId)).limit(1);
@@ -302,10 +300,7 @@ router.post("/", authMiddleware, async (req: Request, res: Response) => {
         }
       }
 
-      const extraFee = Number(serviceFee) || 0;
-      const extraChargesArr: { label: string; amount: number }[] = Array.isArray(extraCharges) ? extraCharges : [];
-      const extraChargesTotal = extraChargesArr.reduce((s, c) => s + (Number(c.amount) || 0), 0);
-      const finalAmount = Math.max(0, baseAmount + extraFee + extraChargesTotal - discountAmount);
+      const finalAmount = Math.max(0, baseAmount - discountAmount);
 
       const booking = {
         id: generateId(),
@@ -335,8 +330,6 @@ router.post("/", authMiddleware, async (req: Request, res: Response) => {
           service_types = ${JSON.stringify(servicesArray)},
           promo_code = ${appliedPromo},
           discount_amount = ${discountAmount},
-          service_fee = ${extraFee},
-          extra_charges = ${JSON.stringify(extraChargesArr)},
           final_amount = ${finalAmount}
         WHERE id = ${bookingId}
       `);
@@ -348,8 +341,6 @@ router.post("/", authMiddleware, async (req: Request, res: Response) => {
         serviceTypes: servicesArray,
         promoCode: appliedPromo,
         discountAmount,
-        serviceFee: extraFee,
-        extraCharges: extraChargesArr,
         finalAmount,
         totalAmount: baseAmount,
       });
@@ -382,10 +373,7 @@ router.post("/", authMiddleware, async (req: Request, res: Response) => {
         }
       }
 
-      const extraFee2 = Number(serviceFee) || 0;
-      const extraChargesArr2: { label: string; amount: number }[] = Array.isArray(extraCharges) ? extraCharges : [];
-      const extraChargesTotal2 = extraChargesArr2.reduce((s, c) => s + (Number(c.amount) || 0), 0);
-      const finalAmount = Math.max(0, baseAmount + extraFee2 + extraChargesTotal2 - discountAmount);
+      const finalAmount = Math.max(0, baseAmount - discountAmount);
 
       const booking = {
         id: generateId(),
@@ -412,8 +400,6 @@ router.post("/", authMiddleware, async (req: Request, res: Response) => {
           service_types = ${JSON.stringify(servicesArray)},
           promo_code = ${appliedPromo},
           discount_amount = ${discountAmount},
-          service_fee = ${extraFee2},
-          extra_charges = ${JSON.stringify(extraChargesArr2)},
           final_amount = ${finalAmount}
         WHERE id = ${bookingId}
       `);
@@ -424,8 +410,6 @@ router.post("/", authMiddleware, async (req: Request, res: Response) => {
         serviceTypes: servicesArray,
         promoCode: appliedPromo,
         discountAmount,
-        serviceFee: extraFee2,
-        extraCharges: extraChargesArr2,
         finalAmount,
         totalAmount: baseAmount,
       });
