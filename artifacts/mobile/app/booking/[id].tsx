@@ -128,24 +128,6 @@ export default function BookingDetailScreen() {
     }
   }
 
-  async function openJob() {
-    if (!booking) return;
-    Alert.alert("Open Job", "Mark this job as in progress?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Open Job",
-        onPress: async () => {
-          try {
-            const data = await post<Booking>(`/bookings/${booking.id}/open-job`, {});
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            setBooking(data as any);
-          } catch (e: any) {
-            Alert.alert("Error", e?.message || "Could not open job.");
-          }
-        },
-      },
-    ]);
-  }
 
   async function completeJob() {
     if (!booking) return;
@@ -160,7 +142,6 @@ export default function BookingDetailScreen() {
       });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setBooking(data as any);
-      setShowCompletePanel(false);
       Alert.alert("Job Completed", "The booking has been marked as completed and the final amount has been updated.");
     } catch (e: any) {
       Alert.alert("Error", e?.message || "Could not complete job.");
@@ -312,16 +293,8 @@ export default function BookingDetailScreen() {
             )
           )}
 
-          {/* Provider actions */}
-          {isProvider && booking.status === "confirmed" && (
-            <Pressable onPress={openJob} style={styles.openJobBtn}>
-              <Ionicons name="play-circle-outline" size={20} color="#fff" />
-              <Text style={styles.openJobBtnText}>Open Job</Text>
-            </Pressable>
-          )}
-
-          {/* ── In-progress: charges panel always visible ── */}
-          {isProvider && booking.status === "in_progress" && (
+          {/* ── Provider: charges panel shown for confirmed & in-progress ── */}
+          {isProvider && (booking.status === "confirmed" || booking.status === "in_progress") && (
             <View style={styles.completePanel}>
               <View style={styles.completePanelHeader}>
                 <Ionicons name="receipt-outline" size={18} color={C.tint} />

@@ -490,7 +490,7 @@ router.post("/:id/complete-job", authMiddleware, async (req: Request, res: Respo
     if (rows.length === 0) { res.status(404).json({ error: "Booking not found" }); return; }
     const b = rows[0];
     if (b.provider_id !== userId) { res.status(403).json({ error: "Not your booking" }); return; }
-    if (b.status !== "in_progress") { res.status(400).json({ error: "Job must be opened first" }); return; }
+    if (b.status !== "in_progress" && b.status !== "confirmed") { res.status(400).json({ error: "Booking must be confirmed or in progress" }); return; }
 
     const baseAmount = Number(b.total_amount || 0);
     const discount = Number(b.discount_amount || 0);

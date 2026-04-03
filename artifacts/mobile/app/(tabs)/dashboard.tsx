@@ -536,7 +536,7 @@ export default function DashboardScreen() {
           ) : (
             recentBookings.filter((b) => b.status !== "pending").slice(0, 6).map((b) => {
               const needsAction = b.status === "confirmed" || b.status === "in_progress";
-              const actionLabel = b.status === "confirmed" ? "Tap to open job" : b.status === "in_progress" ? "Tap to complete job" : null;
+              const actionLabel = needsAction ? "Tap to complete job" : null;
               return (
                 <Pressable
                   key={b.id}
