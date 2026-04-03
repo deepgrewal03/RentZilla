@@ -234,6 +234,59 @@ router.post("/admin/service-type-rules", adminMiddleware, async (req: Request, r
   }
 });
 
+// ── GET /pricing/service-types — public: list service types + prices for a subcategory ──
+// Used by the mobile booking screen to show available service types with prices.
+router.get("/service-types", async (req: Request, res: Response) => {
+  noCache(res);
+  const { category, subcategory } = req.query as any;
+  if (!subcategory) { res.status(400).json({ error: "subcategory is required" }); return; }
+
+  const serviceTypeList = SERVICE_TYPE_MAP[subcategory] ?? [];
+
+  try {
+    // Fetch any admin-set prices for these service types
+    const rows = category && subcategory ? toRows(await db.execute(sql`
+      SELECT service_type, base_fee, hourly_rate, daily_rate, km_rate,
+             operator_fee, fuel_fee, material_fee, urgency_fee, delivery_fee,
+             platform_fee, commission_percent, security_deposit
+      FROM pricing_service_type_rules
+      WHERE category = ${category} AND subcategory = ${subcategory}
+    `)) : [];
+
+    const priceMap: Record<string, any> = {};
+    for (const r of rows) {
+      const isEquipment = category === "equipment";
+      let estimatedPrice = 0;
+      if (isEquipment) {
+        estimatedPrice = Number(r.daily_rate) + Number(r.delivery_fee) + Number(r.fuel_fee) + Number(r.operator_fee) + Number(r.platform_fee);
+      } else {
+        estimatedPrice = Number(r.base_fee) + Number(r.hourly_rate) + Number(r.material_fee) + Number(r.platform_fee);
+      }
+      priceMap[r.service_type] = {
+        hasPrice: true,
+        estimatedPrice: Math.round(estimatedPrice),
+        commission_percent: Number(r.commission_percent),
+        base_fee: Number(r.base_fee),
+        hourly_rate: Number(r.hourly_rate),
+        daily_rate: Number(r.daily_rate),
+      };
+    }
+
+    const result = serviceTypeList.map(st => ({
+      name: st,
+      ...(priceMap[st] ?? { hasPrice: false, estimatedPrice: 0 }),
+    }));
+
+    res.json({ subcategory, category: category ?? null, serviceTypes: result });
+  } catch (e: any) {
+    // On error still return service types without prices
+    res.json({
+      subcategory, category: category ?? null,
+      serviceTypes: serviceTypeList.map(st => ({ name: st, hasPrice: false, estimatedPrice: 0 })),
+    });
+  }
+});
+
 // ── GET /pricing/rides — public: per-vehicle pricing for the Cars tab ─────────
 // Returns base fare + per-km rate for each vehicle type (Bike/Auto/Car/SUV/Van)
 // from pricing_rules (category='cars'). Falls back to defaults if no rule set.

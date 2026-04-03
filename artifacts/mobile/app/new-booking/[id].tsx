@@ -69,6 +69,9 @@ interface PromoResult {
   valid: boolean; code?: string; type?: string; value?: number;
   discount?: number; finalAmount?: number; message: string; description?: string;
 }
+interface ServiceTypePriceInfo {
+  name: string; hasPrice: boolean; estimatedPrice: number;
+}
 
 export default function NewBookingScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -83,6 +86,7 @@ export default function NewBookingScreen() {
   const [slots, setSlots] = useState<SlotInfo[]>([]);
   const [slotsLoading, setSlotsLoading] = useState(false);
   const [serviceTypes, setServiceTypes] = useState<string[]>([]);
+  const [serviceTypePrices, setServiceTypePrices] = useState<ServiceTypePriceInfo[]>([]);
 
   // ── Multi-select state ─────────────────────────────────────────────────────
   const [selectedSlots, setSelectedSlots] = useState<string[]>([]);
@@ -118,18 +122,31 @@ export default function NewBookingScreen() {
     try {
       const data = await get<Listing>(`/listings/${id}`);
       setListing(data);
-      const [svcData] = await Promise.all([
-        get<{ serviceTypes: string[] }>(`/listings/${id}/service-types`),
-        fetchPricing(data),
-      ]);
-      setServiceTypes(svcData.serviceTypes || []);
+      const svcData = await get<{ serviceTypes: string[] }>(`/listings/${id}/service-types`);
+      const types = svcData.serviceTypes || [];
+      setServiceTypes(types);
+
+      if (types.length === 0) {
+        // No service types — fetch pricing immediately with category/subcategory
+        await fetchPricing(data, undefined);
+      } else if (data.category && data.subcategory) {
+        // Fetch per-service-type prices to show inline in the selection list
+        try {
+          const priceData = await get<{ serviceTypes: ServiceTypePriceInfo[] }>(
+            `/pricing/service-types?category=${encodeURIComponent(data.category)}&subcategory=${encodeURIComponent(data.subcategory)}`
+          );
+          setServiceTypePrices(priceData.serviceTypes || []);
+        } catch {
+          // Show service types without prices if this fails
+        }
+      }
     } catch {
     } finally {
       setListingLoading(false);
     }
   }
 
-  async function fetchPricing(l: Listing) {
+  async function fetchPricing(l: Listing, serviceType: string | undefined) {
     if (!l.category || !l.subcategory) return;
     setPricingLoading(true);
     try {
@@ -137,6 +154,7 @@ export default function NewBookingScreen() {
         category: l.category, subcategory: l.subcategory,
         hours: "1", days: "1", distance_km: "0",
       });
+      if (serviceType) params.set("service_type", serviceType);
       const result = await get<PricingResult>(`/pricing/calculate?${params.toString()}`);
       setPricingResult(result);
     } catch {
@@ -144,6 +162,20 @@ export default function NewBookingScreen() {
       setPricingLoading(false);
     }
   }
+
+  // Re-fetch pricing whenever the primary selected service type changes
+  useEffect(() => {
+    if (!listing) return;
+    if (serviceTypes.length === 0) return;
+    const primary = selectedServices[0];
+    if (primary) {
+      fetchPricing(listing, primary);
+    } else {
+      // No service type selected yet — clear pricing so placeholder shows
+      setPricingResult(null);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedServices[0]]);
 
   async function loadSlots() {
     if (!id || !selectedDate) return;
@@ -436,6 +468,7 @@ export default function NewBookingScreen() {
             <View style={styles.serviceList}>
               {serviceTypes.map((svc, idx) => {
                 const isSelected = selectedServices.includes(svc);
+                const priceInfo = serviceTypePrices.find(p => p.name === svc);
                 return (
                   <Pressable
                     key={svc}
@@ -447,7 +480,14 @@ export default function NewBookingScreen() {
                         {idx + 1}
                       </Text>
                     </View>
-                    <Text style={[styles.serviceText, isSelected && styles.serviceTextSelected]}>{svc}</Text>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.serviceText, isSelected && styles.serviceTextSelected]}>{svc}</Text>
+                      {priceInfo?.hasPrice && priceInfo.estimatedPrice > 0 && (
+                        <Text style={[styles.servicePriceTag, isSelected && styles.servicePriceTagSelected]}>
+                          from ₹{priceInfo.estimatedPrice.toLocaleString("en-IN")}
+                        </Text>
+                      )}
+                    </View>
                     <Ionicons
                       name={isSelected ? "checkbox" : "square-outline"}
                       size={20}
@@ -822,8 +862,10 @@ const styles = StyleSheet.create({
   serviceNumSelected: { backgroundColor: `${ORANGE}22` },
   serviceNumText: { fontSize: 12, fontWeight: "700", fontFamily: "Inter_700Bold", color: "#7A7A7A" },
   serviceNumTextSelected: { color: ORANGE },
-  serviceText: { flex: 1, fontSize: 14, fontFamily: "Inter_400Regular", color: "#2C2C2C" },
+  serviceText: { fontSize: 14, fontFamily: "Inter_400Regular", color: "#2C2C2C" },
   serviceTextSelected: { fontFamily: "Inter_600SemiBold", color: "#2C2C2C" },
+  servicePriceTag: { fontSize: 11, fontFamily: "Inter_500Medium", color: "#7A7A7A", marginTop: 2 },
+  servicePriceTagSelected: { color: ORANGE, fontFamily: "Inter_600SemiBold" },
 
   notesWrap: { marginHorizontal: 20 },
   notesInput: {

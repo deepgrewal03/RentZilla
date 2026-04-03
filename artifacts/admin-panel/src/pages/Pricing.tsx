@@ -6,7 +6,7 @@ import {
   BadgePercent, ChevronDown, Save, RefreshCw,
   IndianRupee, Truck, Wrench, Clock, Fuel, UserCog,
   Package, Zap, AlertCircle, TrendingUp, Wallet, HandCoins,
-  Layers, Tag, CheckCircle2,
+  Tag, CheckCircle2,
 } from "lucide-react";
 
 // ── Static subcategory lists ──────────────────────────────────────────────────
@@ -31,12 +31,10 @@ const CATEGORY_LABELS: Record<string, string> = {
   equipment: "Equipment",
 };
 
-type PricingMode = "subcategory" | "service_type";
-
 // ── Default zero rule ─────────────────────────────────────────────────────────
-function defaultRule(category: string, subcategory: string, service_type?: string) {
+function defaultRule(category: string, subcategory: string, service_type: string) {
   return {
-    category, subcategory, service_type: service_type ?? "",
+    category, subcategory, service_type,
     base_fee: 0, hourly_rate: 0, daily_rate: 0, km_rate: 0,
     operator_fee: 0, fuel_fee: 0, material_fee: 0, urgency_fee: 0,
     delivery_fee: 0, platform_fee: 0, commission_percent: 10,
@@ -183,29 +181,51 @@ export default function Pricing() {
 
   const [category, setCategory] = useState("services");
   const [subcategory, setSubcategory] = useState(SUBCATEGORIES["services"][0]);
-  const [mode, setMode] = useState<PricingMode>("subcategory");
   const [serviceType, setServiceType] = useState("");
-  const [form, setForm] = useState<any>(defaultRule("services", SUBCATEGORIES["services"][0]));
+  const [form, setForm] = useState<any>(defaultRule("services", SUBCATEGORIES["services"][0], ""));
   const [dirty, setDirty] = useState(false);
 
   // ── Data queries ──────────────────────────────────────────────────────────
-  const { data: allRules = [], isLoading } = useQuery<any[]>({
-    queryKey: ["pricing-rules"],
-    queryFn: () => api.get("/pricing/admin/rules"),
-  });
-
-  const { data: serviceTypesData } = useQuery<{ serviceTypes: string[] }>({
+  const { data: serviceTypesData, isLoading: stLoading } = useQuery<{ serviceTypes: string[] }>({
     queryKey: ["pricing-service-types", subcategory],
     queryFn: () => api.get(`/pricing/admin/service-types?subcategory=${encodeURIComponent(subcategory)}`),
     enabled: !!subcategory,
   });
   const serviceTypes = serviceTypesData?.serviceTypes ?? [];
 
-  const { data: stRules = [] } = useQuery<any[]>({
+  const { data: stRules = [], isLoading: rulesLoading } = useQuery<any[]>({
     queryKey: ["pricing-service-type-rules", category, subcategory],
     queryFn: () => api.get(`/pricing/admin/service-type-rules?category=${category}&subcategory=${encodeURIComponent(subcategory)}`),
     enabled: !!category && !!subcategory,
   });
+
+  const isLoading = stLoading || rulesLoading;
+
+  // ── Auto-select first service type when subcategory changes ───────────────
+  useEffect(() => {
+    if (serviceTypes.length > 0) {
+      const first = serviceTypes[0];
+      setServiceType(first);
+      const existing = stRules.find((r: any) => r.service_type === first);
+      setForm(existing ? { ...existing } : defaultRule(category, subcategory, first));
+      setDirty(false);
+    } else {
+      setServiceType("");
+      setForm(defaultRule(category, subcategory, ""));
+      setDirty(false);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [subcategory, serviceTypes.length]);
+
+  // Sync form when stRules load for the current service type
+  useEffect(() => {
+    if (serviceType) {
+      const existing = stRules.find((r: any) => r.service_type === serviceType);
+      setForm(existing ? { ...existing } : defaultRule(category, subcategory, serviceType));
+      setDirty(false);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stRules]);
 
   // ── Category / subcategory change ─────────────────────────────────────────
   function handleCategoryChange(cat: string) {
@@ -213,20 +233,12 @@ export default function Pricing() {
     const firstSub = SUBCATEGORIES[cat][0];
     setSubcategory(firstSub);
     setServiceType("");
-    setMode("subcategory");
-    loadSubcategoryRule(cat, firstSub, allRules);
+    setDirty(false);
   }
 
   function handleSubcategoryChange(sub: string) {
     setSubcategory(sub);
     setServiceType("");
-    setMode("subcategory");
-    loadSubcategoryRule(category, sub, allRules);
-  }
-
-  function loadSubcategoryRule(cat: string, sub: string, rules: any[]) {
-    const existing = rules.find((r: any) => r.category === cat && r.subcategory === sub);
-    setForm(existing ? { ...existing } : defaultRule(cat, sub));
     setDirty(false);
   }
 
@@ -238,55 +250,12 @@ export default function Pricing() {
     setDirty(false);
   }
 
-  function handleModeChange(m: PricingMode) {
-    setMode(m);
-    setDirty(false);
-    if (m === "subcategory") {
-      setServiceType("");
-      loadSubcategoryRule(category, subcategory, allRules);
-    } else {
-      // Pre-select first service type
-      const firstSt = serviceTypes[0] ?? "";
-      setServiceType(firstSt);
-      if (firstSt) {
-        const existing = stRules.find((r: any) => r.service_type === firstSt);
-        setForm(existing ? { ...existing } : defaultRule(category, subcategory, firstSt));
-      }
-    }
-  }
-
-  // Sync form when allRules / stRules load
-  useEffect(() => {
-    if (mode === "subcategory") {
-      loadSubcategoryRule(category, subcategory, allRules);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allRules]);
-
-  useEffect(() => {
-    if (mode === "service_type" && serviceType) {
-      const existing = stRules.find((r: any) => r.service_type === serviceType);
-      setForm(existing ? { ...existing } : defaultRule(category, subcategory, serviceType));
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stRules]);
-
   function setField(key: string, value: number) {
     setForm((f: any) => ({ ...f, [key]: value }));
     setDirty(true);
   }
 
-  // ── Save mutations ────────────────────────────────────────────────────────
-  const saveSubcategoryMutation = useMutation({
-    mutationFn: (data: any) => api.post("/pricing/admin/rules", data),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["pricing-rules"] });
-      toast({ title: "Saved!", description: `Subcategory pricing for ${subcategory} updated.` });
-      setDirty(false);
-    },
-    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
-  });
-
+  // ── Save mutation ─────────────────────────────────────────────────────────
   const saveServiceTypeMutation = useMutation({
     mutationFn: (data: any) => api.post("/pricing/admin/service-type-rules", data),
     onSuccess: () => {
@@ -298,20 +267,18 @@ export default function Pricing() {
   });
 
   function handleSave() {
-    if (mode === "subcategory") {
-      saveSubcategoryMutation.mutate(form);
-    } else {
-      saveServiceTypeMutation.mutate({ ...form, service_type: serviceType });
-    }
+    if (!serviceType) return;
+    saveServiceTypeMutation.mutate({ ...form, service_type: serviceType });
   }
 
-  const isSaving = saveSubcategoryMutation.isPending || saveServiceTypeMutation.isPending;
+  const isSaving = saveServiceTypeMutation.isPending;
   const isEquipment = category === "equipment";
   const subcategoryOptions = SUBCATEGORIES[category].map(s => ({ value: s, label: s }));
   const categoryOptions = Object.entries(CATEGORY_LABELS).map(([k, v]) => ({ value: k, label: v }));
   const serviceTypeOptions = serviceTypes.map(s => ({ value: s, label: s }));
 
-  const configuredCount = (cat: string) => allRules.filter((r: any) => r.category === cat).length;
+  const configuredCount = stRules.length;
+  const totalCount = serviceTypes.length;
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
@@ -323,7 +290,7 @@ export default function Pricing() {
           </div>
           <div>
             <h1 className="text-2xl font-black text-gray-900">Pricing & Commission</h1>
-            <p className="text-sm text-gray-500 mt-0.5">Set subcategory pricing and per-service-type overrides</p>
+            <p className="text-sm text-gray-500 mt-0.5">Set prices per service type — shown directly to customers during booking</p>
           </div>
         </div>
         {isLoading && <RefreshCw size={18} className="text-orange-400 animate-spin" />}
@@ -332,9 +299,6 @@ export default function Pricing() {
       {/* Category stat cards */}
       <div className="grid grid-cols-3 gap-4">
         {Object.entries(CATEGORY_LABELS).map(([cat, label]) => {
-          const count = configuredCount(cat);
-          const total = SUBCATEGORIES[cat].length;
-          const pct = Math.round((count / total) * 100);
           const icons: Record<string, any> = { services: Wrench, professions: UserCog, equipment: Package };
           const Icon = icons[cat];
           return (
@@ -353,14 +317,8 @@ export default function Pricing() {
                 </div>
                 <div>
                   <p className="text-sm font-bold text-gray-900">{label}</p>
-                  <p className="text-xs text-gray-400">{count}/{total} configured</p>
+                  <p className="text-xs text-gray-400">{SUBCATEGORIES[cat].length} subcategories</p>
                 </div>
-              </div>
-              <div className="w-full bg-gray-100 rounded-full h-1.5">
-                <div
-                  className="bg-gradient-to-r from-orange-400 to-amber-400 h-1.5 rounded-full transition-all"
-                  style={{ width: `${pct}%` }}
-                />
               </div>
             </button>
           );
@@ -372,66 +330,48 @@ export default function Pricing() {
         {/* Left: selectors + form */}
         <div className="lg:col-span-2 space-y-5">
 
-          {/* Category + Subcategory selectors */}
+          {/* Category + Subcategory + Service Type selectors */}
           <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <Dropdown label="Category" value={category} options={categoryOptions} onChange={handleCategoryChange} />
               <Dropdown label="Subcategory" value={subcategory} options={subcategoryOptions} onChange={handleSubcategoryChange} />
             </div>
 
-            {/* Mode switcher */}
+            {/* Service Type Selector — always visible */}
             <div>
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Pricing Level</p>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => handleModeChange("subcategory")}
-                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border-2 transition-all ${
-                    mode === "subcategory"
-                      ? "bg-orange-50 border-orange-400 text-orange-700"
-                      : "bg-gray-50 border-gray-200 text-gray-500 hover:border-orange-200"
-                  }`}
-                >
-                  <Layers size={15} />
-                  Subcategory Pricing
-                </button>
-                <button
-                  onClick={() => handleModeChange("service_type")}
-                  disabled={serviceTypes.length === 0}
-                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border-2 transition-all ${
-                    mode === "service_type"
-                      ? "bg-orange-50 border-orange-400 text-orange-700"
-                      : "bg-gray-50 border-gray-200 text-gray-500 hover:border-orange-200"
-                  } disabled:opacity-40 disabled:cursor-not-allowed`}
-                >
-                  <Tag size={15} />
-                  Per Service Type
-                  {stRules.length > 0 && (
-                    <span className="bg-green-100 text-green-700 text-xs font-bold px-1.5 py-0.5 rounded-full">
-                      {stRules.length}
-                    </span>
-                  )}
-                </button>
-              </div>
-            </div>
-
-            {/* Service type dropdown — only when in service_type mode */}
-            {mode === "service_type" && (
-              <div>
-                <Dropdown
-                  label="Service Type"
-                  value={serviceType}
-                  options={serviceTypeOptions}
-                  onChange={handleServiceTypeChange}
-                  placeholder="— Select a service type —"
-                />
-                {serviceType && (
-                  <p className="mt-2 text-xs text-gray-500">
-                    Setting price for <span className="font-semibold text-orange-600">{serviceType}</span> under <span className="font-semibold">{subcategory}</span>.
-                    If not set, the subcategory price applies.
-                  </p>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Service Type</label>
+                {configuredCount > 0 && (
+                  <span className="text-xs bg-green-100 text-green-700 font-bold px-2 py-0.5 rounded-full">
+                    {configuredCount}/{totalCount} configured
+                  </span>
                 )}
               </div>
-            )}
+              <div className="relative">
+                <select
+                  value={serviceType}
+                  onChange={e => handleServiceTypeChange(e.target.value)}
+                  className="w-full appearance-none bg-white border-2 border-orange-400 rounded-xl px-4 py-3 text-sm font-semibold text-gray-800 outline-none focus:border-orange-500 cursor-pointer pr-10"
+                >
+                  <option value="">— Select a service type —</option>
+                  {serviceTypes.map(s => {
+                    const isSet = stRules.some((r: any) => r.service_type === s);
+                    return (
+                      <option key={s} value={s}>
+                        {isSet ? "✓ " : ""}{s}
+                      </option>
+                    );
+                  })}
+                </select>
+                <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-orange-400 pointer-events-none" />
+              </div>
+              {serviceType && (
+                <p className="mt-2 text-xs text-gray-500">
+                  Setting price for <span className="font-semibold text-orange-600">{serviceType}</span> under <span className="font-semibold">{subcategory}</span>.
+                  {" "}This price will be shown to customers when they select this service type during booking.
+                </p>
+              )}
+            </div>
 
             {/* Formula explanation */}
             <div className="bg-orange-50 border border-orange-100 rounded-xl px-4 py-3">
@@ -447,18 +387,15 @@ export default function Pricing() {
             </div>
           </div>
 
-          {/* Pricing fields — only when a service type is chosen in service_type mode */}
-          {(mode === "subcategory" || (mode === "service_type" && serviceType)) && (
+          {/* Pricing fields — only when a service type is selected */}
+          {serviceType ? (
             <>
               <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
                 <h3 className="text-sm font-bold text-gray-900 mb-1 flex items-center gap-2">
                   <IndianRupee size={16} className="text-orange-500" />
-                  {mode === "service_type" ? `Pricing — ${serviceType}` : (isEquipment ? "Equipment Pricing" : "Service Pricing")}
+                  Pricing — {serviceType}
                 </h3>
-                {mode === "service_type" && (
-                  <p className="text-xs text-gray-400 mb-4">Override pricing for this specific service type only</p>
-                )}
-                {mode === "subcategory" && <div className="mb-4" />}
+                <p className="text-xs text-gray-400 mb-4">Set the price for this specific service type under <strong>{subcategory}</strong></p>
                 <div className="grid grid-cols-2 gap-3">
                   {isEquipment ? (
                     <>
@@ -509,7 +446,7 @@ export default function Pricing() {
               {/* Save button */}
               <button
                 onClick={handleSave}
-                disabled={isSaving}
+                disabled={isSaving || !dirty}
                 className={`w-full flex items-center justify-center gap-2.5 py-4 rounded-2xl font-bold text-sm transition-all shadow-lg ${
                   dirty
                     ? "bg-gradient-to-r from-orange-500 to-amber-400 text-white shadow-orange-200 hover:shadow-orange-300 hover:from-orange-600 hover:to-amber-500 active:scale-[0.98]"
@@ -517,21 +454,16 @@ export default function Pricing() {
                 }`}
               >
                 {isSaving ? <RefreshCw size={16} className="animate-spin" /> : <Save size={16} />}
-                {isSaving ? "Saving..." : dirty
-                  ? (mode === "service_type" ? `Save "${serviceType}" Pricing` : "Save Pricing Rule")
-                  : "No Changes"
-                }
+                {isSaving ? "Saving..." : dirty ? `Save Pricing — "${serviceType}"` : "No Changes"}
               </button>
             </>
-          )}
-
-          {/* Prompt when no service type selected */}
-          {mode === "service_type" && !serviceType && (
+          ) : (
+            /* Prompt when no service type selected */
             <div className="bg-white rounded-2xl p-8 shadow-sm border border-dashed border-orange-200 flex flex-col items-center gap-3 text-center">
               <Tag size={32} className="text-orange-300" />
               <p className="text-sm font-semibold text-gray-600">Select a service type above</p>
               <p className="text-xs text-gray-400">
-                Pick a specific service type to configure its individual pricing. If not set, the subcategory price is used.
+                Choose a specific service type to configure its pricing. The price will be shown to customers during booking.
               </p>
             </div>
           )}
@@ -540,119 +472,82 @@ export default function Pricing() {
         {/* Right: preview + configured rules */}
         <div className="space-y-5">
           {/* Live preview */}
-          {(mode === "subcategory" || (mode === "service_type" && serviceType)) && (
-            <PreviewCard rule={form} category={category} />
-          )}
+          {serviceType && <PreviewCard rule={form} category={category} />}
 
-          {/* Configured subcategory rules */}
+          {/* Configured service type rules */}
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-            <div className="px-4 py-3 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
-              <p className="text-xs font-bold text-gray-700 uppercase tracking-wide">
-                Subcategory Rules — {CATEGORY_LABELS[category]}
+            <div className="px-4 py-3 border-b border-gray-100 bg-orange-50">
+              <p className="text-xs font-bold text-orange-700 uppercase tracking-wide">
+                Configured — {subcategory}
               </p>
             </div>
-            <div className="divide-y divide-gray-50 max-h-64 overflow-y-auto">
-              {allRules
-                .filter((r: any) => r.category === category)
-                .map((r: any) => {
-                  const isSelected = r.subcategory === subcategory && mode === "subcategory";
-                  return (
-                    <button
-                      key={r.subcategory}
-                      onClick={() => handleSubcategoryChange(r.subcategory)}
-                      className={`w-full flex items-center justify-between px-4 py-3 text-left transition-colors ${
-                        isSelected ? "bg-orange-50" : "hover:bg-gray-50"
-                      }`}
-                    >
-                      <div>
-                        <p className={`text-sm font-semibold ${isSelected ? "text-orange-600" : "text-gray-800"}`}>
-                          {r.subcategory}
-                        </p>
-                        <p className="text-xs text-gray-400 mt-0.5">{Number(r.commission_percent)}% commission</p>
-                      </div>
-                      <CheckCircle2 size={15} className={isSelected ? "text-orange-400" : "text-green-400"} />
-                    </button>
-                  );
-                })
-              }
-              {allRules.filter((r: any) => r.category === category).length === 0 && (
+            <div className="divide-y divide-gray-50 max-h-72 overflow-y-auto">
+              {stRules.length > 0 ? stRules.map((r: any) => {
+                const isSelected = r.service_type === serviceType;
+                const price = isEquipment
+                  ? Number(r.daily_rate) + Number(r.delivery_fee) + Number(r.fuel_fee) + Number(r.operator_fee) + Number(r.platform_fee)
+                  : Number(r.base_fee) + Number(r.hourly_rate) + Number(r.platform_fee);
+                return (
+                  <button
+                    key={r.service_type}
+                    onClick={() => handleServiceTypeChange(r.service_type)}
+                    className={`w-full flex items-center justify-between px-4 py-3 text-left transition-colors ${
+                      isSelected ? "bg-orange-50" : "hover:bg-gray-50"
+                    }`}
+                  >
+                    <div>
+                      <p className={`text-sm font-semibold ${isSelected ? "text-orange-600" : "text-gray-800"}`}>
+                        {r.service_type}
+                      </p>
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        ₹{price > 0 ? price.toLocaleString("en-IN") : "0"} · {Number(r.commission_percent)}% commission
+                      </p>
+                    </div>
+                    <CheckCircle2 size={15} className={isSelected ? "text-orange-400" : "text-green-400"} />
+                  </button>
+                );
+              }) : (
                 <div className="flex flex-col items-center justify-center py-6 text-gray-400">
-                  <BadgePercent size={24} className="mb-1.5 text-gray-200" />
-                  <p className="text-xs font-medium">No rules set yet</p>
+                  <Tag size={24} className="mb-1.5 text-gray-200" />
+                  <p className="text-xs font-medium">No service types configured yet</p>
                 </div>
               )}
             </div>
           </div>
 
-          {/* Service type rules for current subcategory */}
-          {stRules.length > 0 && (
+          {/* Not yet configured */}
+          {serviceTypes.length > 0 && (
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-              <div className="px-4 py-3 border-b border-gray-100 bg-orange-50">
-                <p className="text-xs font-bold text-orange-700 uppercase tracking-wide">
-                  Service Type Overrides — {subcategory}
-                </p>
+              <div className="px-4 py-3 border-b border-gray-100 bg-gray-50">
+                <p className="text-xs font-bold text-gray-700 uppercase tracking-wide">Pending Setup</p>
               </div>
-              <div className="divide-y divide-gray-50 max-h-56 overflow-y-auto">
-                {stRules.map((r: any) => {
-                  const isSelected = r.service_type === serviceType && mode === "service_type";
-                  const price = Number(r.base_fee) + Number(r.hourly_rate) + Number(r.platform_fee);
-                  return (
+              <div className="divide-y divide-gray-50 max-h-48 overflow-y-auto">
+                {serviceTypes
+                  .filter(st => !stRules.some((r: any) => r.service_type === st))
+                  .map(st => (
                     <button
-                      key={r.service_type}
-                      onClick={() => { setMode("service_type"); handleServiceTypeChange(r.service_type); }}
-                      className={`w-full flex items-center justify-between px-4 py-3 text-left transition-colors ${
-                        isSelected ? "bg-orange-50" : "hover:bg-gray-50"
+                      key={st}
+                      onClick={() => handleServiceTypeChange(st)}
+                      className={`w-full flex items-center justify-between px-4 py-2.5 text-left hover:bg-gray-50 transition-colors ${
+                        serviceType === st ? "bg-orange-50" : ""
                       }`}
                     >
-                      <div>
-                        <p className={`text-sm font-semibold ${isSelected ? "text-orange-600" : "text-gray-800"}`}>
-                          {r.service_type}
-                        </p>
-                        <p className="text-xs text-gray-400 mt-0.5">
-                          ₹{price > 0 ? price.toLocaleString("en-IN") : "0"} · {Number(r.commission_percent)}%
-                        </p>
-                      </div>
-                      <Tag size={13} className={isSelected ? "text-orange-400" : "text-gray-300"} />
+                      <span className="text-sm text-gray-500">{st}</span>
+                      <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full font-medium">
+                        Not set
+                      </span>
                     </button>
-                  );
-                })}
+                  ))
+                }
+                {serviceTypes.every(st => stRules.some((r: any) => r.service_type === st)) && (
+                  <div className="flex items-center justify-center gap-2 py-6 text-green-500">
+                    <CheckCircle2 size={15} />
+                    <p className="text-xs font-semibold">All service types configured!</p>
+                  </div>
+                )}
               </div>
             </div>
           )}
-
-          {/* Pending setup */}
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-            <div className="px-4 py-3 border-b border-gray-100 bg-gray-50">
-              <p className="text-xs font-bold text-gray-700 uppercase tracking-wide">Pending Setup</p>
-            </div>
-            <div className="divide-y divide-gray-50 max-h-48 overflow-y-auto">
-              {SUBCATEGORIES[category]
-                .filter(sub => !allRules.some((r: any) => r.category === category && r.subcategory === sub))
-                .map(sub => (
-                  <button
-                    key={sub}
-                    onClick={() => handleSubcategoryChange(sub)}
-                    className={`w-full flex items-center justify-between px-4 py-2.5 text-left hover:bg-gray-50 transition-colors ${
-                      subcategory === sub ? "bg-orange-50" : ""
-                    }`}
-                  >
-                    <span className="text-sm text-gray-500">{sub}</span>
-                    <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full font-medium">
-                      Not set
-                    </span>
-                  </button>
-                ))
-              }
-              {SUBCATEGORIES[category].every(sub =>
-                allRules.some((r: any) => r.category === category && r.subcategory === sub)
-              ) && (
-                <div className="flex items-center justify-center gap-2 py-6 text-green-500">
-                  <CheckCircle2 size={15} />
-                  <p className="text-xs font-semibold">All subcategories configured!</p>
-                </div>
-              )}
-            </div>
-          </div>
         </div>
       </div>
     </div>
