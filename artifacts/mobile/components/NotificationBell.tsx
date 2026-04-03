@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import * as Clipboard from "expo-clipboard";
 import * as Haptics from "expo-haptics";
 import React, { useEffect, useRef, useState } from "react";
 import {
@@ -18,6 +19,7 @@ import { useLang } from "@/context/LanguageContext";
 import { useApi } from "@/hooks/useApi";
 
 const C = Colors.light;
+const ORANGE = "#FF7A18";
 
 interface Notification {
   id: string;
@@ -41,6 +43,36 @@ function timeAgo(dateStr: string, isPa: boolean) {
   return `${Math.floor(diff / 86400)}d ago`;
 }
 
+function fullDate(dateStr: string) {
+  return new Date(dateStr).toLocaleString("en-IN", {
+    dateStyle: "long",
+    timeStyle: "short",
+  });
+}
+
+const CODE_REGEX = /\b([A-Z0-9]{4,20})\b/g;
+
+function extractCodes(message: string): string[] {
+  const codes: string[] = [];
+  let match: RegExpExecArray | null;
+  while ((match = CODE_REGEX.exec(message)) !== null) {
+    if (!/^\d+$/.test(match[1])) codes.push(match[1]);
+  }
+  return [...new Set(codes)];
+}
+
+function notifIcon(title: string): { name: keyof typeof Ionicons.glyphMap; color: string; bg: string } {
+  const t = title.toLowerCase();
+  if (t.includes("confirm") || t.includes("approved")) return { name: "checkmark-circle", color: "#059669", bg: "#D1FAE5" };
+  if (t.includes("cancel") || t.includes("reject")) return { name: "close-circle", color: "#DC2626", bg: "#FEE2E2" };
+  if (t.includes("promo") || t.includes("offer") || t.includes("discount") || t.includes("code")) return { name: "pricetag", color: ORANGE, bg: "#FFF3E9" };
+  if (t.includes("message") || t.includes("chat")) return { name: "chatbubble-ellipses", color: "#3B82F6", bg: "#EFF6FF" };
+  if (t.includes("book")) return { name: "calendar", color: "#7C3AED", bg: "#EDE9FE" };
+  if (t.includes("payment") || t.includes("paid")) return { name: "cash", color: "#059669", bg: "#D1FAE5" };
+  if (t.includes("document") || t.includes("verif")) return { name: "shield-checkmark", color: "#2563EB", bg: "#DBEAFE" };
+  return { name: "notifications", color: ORANGE, bg: "#FFF3E9" };
+}
+
 const SPRING = { useNativeDriver: false, tension: 340, friction: 12 };
 
 export function NotificationBell() {
@@ -49,9 +81,13 @@ export function NotificationBell() {
   const insets = useSafeAreaInsets();
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [selected, setSelected] = useState<Notification | null>(null);
+  const [copied, setCopied] = useState<string | null>(null);
   const isWeb = Platform.OS === "web";
 
   const bellScale = useRef(new Animated.Value(1)).current;
+  const detailSlide = useRef(new Animated.Value(40)).current;
+  const detailOpacity = useRef(new Animated.Value(0)).current;
 
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 
@@ -75,16 +111,56 @@ export function NotificationBell() {
     } catch {}
   }
 
+  async function markOneRead(id: string) {
+    try {
+      await put(`/notifications/${id}/read`, {});
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === id ? { ...n, isRead: true } : n))
+      );
+    } catch {}
+  }
+
   function openPanel() {
     Haptics.selectionAsync();
-    // Bell bounce on tap
     Animated.sequence([
       Animated.spring(bellScale, { toValue: 0.82, ...SPRING, tension: 420 }),
       Animated.spring(bellScale, { toValue: 1.12, ...SPRING, tension: 260, friction: 7 }),
-      Animated.spring(bellScale, { toValue: 1,    ...SPRING }),
+      Animated.spring(bellScale, { toValue: 1, ...SPRING }),
     ]).start();
     setOpen(true);
     fetchNotifications();
+  }
+
+  function openDetail(n: Notification) {
+    Haptics.selectionAsync();
+    setSelected(n);
+    setCopied(null);
+    detailSlide.setValue(40);
+    detailOpacity.setValue(0);
+    Animated.parallel([
+      Animated.spring(detailSlide, { toValue: 0, ...SPRING, tension: 280, friction: 20 }),
+      Animated.timing(detailOpacity, { toValue: 1, duration: 180, useNativeDriver: false }),
+    ]).start();
+  }
+
+  async function closeDetail() {
+    if (!selected) return;
+    Animated.parallel([
+      Animated.timing(detailSlide, { toValue: 30, duration: 160, useNativeDriver: false }),
+      Animated.timing(detailOpacity, { toValue: 0, duration: 160, useNativeDriver: false }),
+    ]).start(async () => {
+      if (selected && !selected.isRead) {
+        await markOneRead(selected.id);
+      }
+      setSelected(null);
+    });
+  }
+
+  async function copyText(text: string, label: string) {
+    await Clipboard.setStringAsync(text);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    setCopied(label);
+    setTimeout(() => setCopied(null), 2000);
   }
 
   const topPad = isWeb ? 67 : insets.top;
@@ -103,6 +179,7 @@ export function NotificationBell() {
         </Animated.View>
       </Pressable>
 
+      {/* ── Notification List Panel ── */}
       {open && (
         <Modal visible transparent animationType="none" onRequestClose={() => setOpen(false)}>
           <Pressable style={styles.modalOverlay} onPress={() => setOpen(false)} />
@@ -123,20 +200,120 @@ export function NotificationBell() {
                   <Text style={styles.emptyText}>{t.noNotifications}</Text>
                 </View>
               ) : (
-                notifications.map((n) => (
-                  <View key={n.id} style={[styles.notifItem, !n.isRead && styles.notifUnread]}>
-                    <View style={[styles.notifDot, n.isRead && styles.notifDotRead]} />
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.notifTitle}>{n.title}</Text>
-                      <Text style={styles.notifMsg}>{n.message}</Text>
-                      <Text style={styles.notifTime}>{timeAgo(n.createdAt, isPa)}</Text>
-                    </View>
-                  </View>
-                ))
+                notifications.map((n) => {
+                  const icon = notifIcon(n.title);
+                  return (
+                    <Pressable
+                      key={n.id}
+                      style={({ pressed }) => [
+                        styles.notifItem,
+                        !n.isRead && styles.notifUnread,
+                        pressed && styles.notifPressed,
+                      ]}
+                      onPress={() => openDetail(n)}
+                    >
+                      <View style={[styles.notifIconWrap, { backgroundColor: icon.bg }]}>
+                        <Ionicons name={icon.name} size={16} color={icon.color} />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <View style={styles.notifTitleRow}>
+                          <Text style={styles.notifTitle} numberOfLines={1}>{n.title}</Text>
+                          {!n.isRead && <View style={styles.unreadDot} />}
+                        </View>
+                        <Text style={styles.notifMsg} numberOfLines={2}>{n.message}</Text>
+                        <Text style={styles.notifTime}>{timeAgo(n.createdAt, isPa)}</Text>
+                      </View>
+                      <Ionicons name="chevron-forward" size={14} color={C.textTertiary} />
+                    </Pressable>
+                  );
+                })
               )}
               <View style={{ height: 16 }} />
             </ScrollView>
           </Animated.View>
+        </Modal>
+      )}
+
+      {/* ── Notification Detail Popup ── */}
+      {selected && (
+        <Modal visible transparent animationType="none" onRequestClose={closeDetail}>
+          <Pressable style={styles.detailOverlay} onPress={closeDetail} />
+          <View style={styles.detailCenterWrap} pointerEvents="box-none">
+            <Animated.View
+              style={[
+                styles.detailCard,
+                {
+                  opacity: detailOpacity,
+                  transform: [{ translateY: detailSlide }],
+                },
+              ]}
+            >
+              {/* Icon */}
+              {(() => {
+                const icon = notifIcon(selected.title);
+                return (
+                  <View style={[styles.detailIconCircle, { backgroundColor: icon.bg }]}>
+                    <Ionicons name={icon.name} size={32} color={icon.color} />
+                  </View>
+                );
+              })()}
+
+              {/* Header */}
+              <Text style={styles.detailTitle}>{selected.title}</Text>
+              <Text style={styles.detailDate}>{fullDate(selected.createdAt)}</Text>
+
+              {/* Message */}
+              <View style={styles.detailMsgBox}>
+                <Text style={styles.detailMsg}>{selected.message}</Text>
+              </View>
+
+              {/* Detected codes — copy chips */}
+              {extractCodes(selected.message).map((code) => (
+                <Pressable
+                  key={code}
+                  style={styles.codeChip}
+                  onPress={() => copyText(code, code)}
+                >
+                  <View style={styles.codeChipLeft}>
+                    <Ionicons name="pricetag" size={14} color={ORANGE} />
+                    <Text style={styles.codeChipCode}>{code}</Text>
+                  </View>
+                  <View style={styles.codeChipCopy}>
+                    <Ionicons
+                      name={copied === code ? "checkmark" : "copy-outline"}
+                      size={14}
+                      color={copied === code ? "#059669" : ORANGE}
+                    />
+                    <Text style={[styles.codeChipCopyText, copied === code && { color: "#059669" }]}>
+                      {copied === code ? "Copied!" : "Tap to copy"}
+                    </Text>
+                  </View>
+                </Pressable>
+              ))}
+
+              {/* Copy full message button */}
+              <Pressable
+                style={styles.copyMsgBtn}
+                onPress={() => copyText(selected.message, "__msg")}
+              >
+                <Ionicons
+                  name={copied === "__msg" ? "checkmark-circle" : "copy-outline"}
+                  size={16}
+                  color={copied === "__msg" ? "#059669" : C.textSecondary}
+                />
+                <Text style={[styles.copyMsgText, copied === "__msg" && { color: "#059669" }]}>
+                  {copied === "__msg" ? "Copied to clipboard!" : "Copy message"}
+                </Text>
+              </Pressable>
+
+              {/* Close / mark as read */}
+              <Pressable style={styles.closeBtn} onPress={closeDetail}>
+                <Text style={styles.closeBtnText}>
+                  {selected.isRead ? "Close" : "Mark as Read & Close"}
+                </Text>
+              </Pressable>
+            </Animated.View>
+          </View>
         </Modal>
       )}
     </>
@@ -159,46 +336,100 @@ const styles = StyleSheet.create({
     borderWidth: 1.5, borderColor: C.navy,
   },
   badgeText: { color: "#fff", fontSize: 9, fontWeight: "700", fontFamily: "Inter_700Bold" },
+
   modalOverlay: { ...StyleSheet.absoluteFillObject },
   panel: {
-    position: "absolute",
-    right: 12,
-    width: 320,
-    maxHeight: 420,
-    backgroundColor: "#fff",
-    borderRadius: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.18,
-    shadowRadius: 24,
-    elevation: 20,
-    overflow: "hidden",
+    position: "absolute", right: 12, width: 320, maxHeight: 440,
+    backgroundColor: "#fff", borderRadius: 16,
+    shadowColor: "#000", shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.18, shadowRadius: 24, elevation: 20, overflow: "hidden",
   },
   panelHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: C.borderLight,
+    flexDirection: "row", justifyContent: "space-between", alignItems: "center",
+    padding: 16, borderBottomWidth: 1, borderBottomColor: C.borderLight,
   },
   panelTitle: { fontSize: 16, fontWeight: "700", fontFamily: "Inter_700Bold", color: C.text },
   markAllText: { fontSize: 12, color: C.tint, fontFamily: "Inter_500Medium" },
   panelList: { flex: 1 },
   emptyBox: { alignItems: "center", padding: 32, gap: 8 },
   emptyText: { fontSize: 14, color: C.textTertiary, fontFamily: "Inter_400Regular" },
+
   notifItem: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 10,
-    padding: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: C.borderLight,
+    flexDirection: "row", alignItems: "center", gap: 10,
+    padding: 14, borderBottomWidth: 1, borderBottomColor: C.borderLight,
   },
-  notifUnread: { backgroundColor: `${C.tint}06` },
-  notifDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: C.tint, marginTop: 5 },
-  notifDotRead: { backgroundColor: C.borderLight },
-  notifTitle: { fontSize: 14, fontWeight: "600", fontFamily: "Inter_600SemiBold", color: C.text },
-  notifMsg: { fontSize: 12, color: C.textSecondary, fontFamily: "Inter_400Regular", lineHeight: 18, marginTop: 2 },
-  notifTime: { fontSize: 11, color: C.textTertiary, fontFamily: "Inter_400Regular", marginTop: 4 },
+  notifUnread: { backgroundColor: `${ORANGE}08` },
+  notifPressed: { backgroundColor: `${ORANGE}14` },
+  notifIconWrap: {
+    width: 36, height: 36, borderRadius: 18,
+    alignItems: "center", justifyContent: "center", flexShrink: 0,
+  },
+  notifTitleRow: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 2 },
+  notifTitle: { fontSize: 13, fontWeight: "600", fontFamily: "Inter_600SemiBold", color: C.text, flex: 1 },
+  unreadDot: { width: 7, height: 7, borderRadius: 3.5, backgroundColor: ORANGE, flexShrink: 0 },
+  notifMsg: { fontSize: 12, color: C.textSecondary, fontFamily: "Inter_400Regular", lineHeight: 17 },
+  notifTime: { fontSize: 11, color: C.textTertiary, fontFamily: "Inter_400Regular", marginTop: 3 },
+
+  /* ── Detail popup ── */
+  detailOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.45)" },
+  detailCenterWrap: {
+    flex: 1, alignItems: "center", justifyContent: "center",
+    paddingHorizontal: 24,
+  },
+  detailCard: {
+    width: "100%", maxWidth: 360,
+    backgroundColor: "#fff", borderRadius: 20,
+    padding: 24, alignItems: "center",
+    shadowColor: "#000", shadowOffset: { width: 0, height: 16 },
+    shadowOpacity: 0.22, shadowRadius: 32, elevation: 30,
+  },
+  detailIconCircle: {
+    width: 68, height: 68, borderRadius: 34,
+    alignItems: "center", justifyContent: "center", marginBottom: 16,
+  },
+  detailTitle: {
+    fontSize: 18, fontWeight: "700", fontFamily: "Inter_700Bold",
+    color: C.text, textAlign: "center", marginBottom: 4,
+  },
+  detailDate: {
+    fontSize: 12, color: C.textTertiary, fontFamily: "Inter_400Regular",
+    marginBottom: 16,
+  },
+  detailMsgBox: {
+    width: "100%", backgroundColor: "#F8F9FA", borderRadius: 12,
+    padding: 14, marginBottom: 14,
+  },
+  detailMsg: {
+    fontSize: 14, color: C.text, fontFamily: "Inter_400Regular",
+    lineHeight: 22, textAlign: "center",
+  },
+
+  codeChip: {
+    width: "100%", flexDirection: "row", alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#FFF3E9", borderRadius: 10,
+    borderWidth: 1.5, borderColor: `${ORANGE}30`,
+    paddingHorizontal: 14, paddingVertical: 10,
+    marginBottom: 8,
+  },
+  codeChipLeft: { flexDirection: "row", alignItems: "center", gap: 8 },
+  codeChipCode: {
+    fontSize: 16, fontWeight: "700", fontFamily: "Inter_700Bold",
+    color: ORANGE, letterSpacing: 2,
+  },
+  codeChipCopy: { flexDirection: "row", alignItems: "center", gap: 4 },
+  codeChipCopyText: { fontSize: 12, color: ORANGE, fontFamily: "Inter_500Medium" },
+
+  copyMsgBtn: {
+    flexDirection: "row", alignItems: "center", gap: 6,
+    paddingVertical: 8, marginBottom: 16,
+  },
+  copyMsgText: { fontSize: 13, color: C.textSecondary, fontFamily: "Inter_400Regular" },
+
+  closeBtn: {
+    width: "100%", backgroundColor: ORANGE,
+    borderRadius: 12, paddingVertical: 14,
+    alignItems: "center",
+  },
+  closeBtnText: { color: "#fff", fontSize: 15, fontWeight: "700", fontFamily: "Inter_700Bold" },
 });
