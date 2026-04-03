@@ -12,6 +12,7 @@ import {
   ActivityIndicator,
   Alert,
   Animated,
+  KeyboardAvoidingView,
   Modal,
   Platform,
   Pressable,
@@ -377,7 +378,8 @@ export default function ProfileScreen() {
         </Pressable>
       </LinearGradient>
 
-      <ScrollView style={styles.scroll} contentInsetAdjustmentBehavior="automatic" showsVerticalScrollIndicator={false}>
+      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1 }}>
+      <ScrollView style={styles.scroll} contentInsetAdjustmentBehavior="automatic" showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
 
         {/* ─── Avatar & Info ─── */}
         <View style={styles.profileCard}>
@@ -502,6 +504,7 @@ export default function ProfileScreen() {
 
         <View style={{ height: isWeb ? 34 : 100 }} />
       </ScrollView>
+      </KeyboardAvoidingView>
 
       {/* ─── Photo Menu Modal ─── */}
       <Modal

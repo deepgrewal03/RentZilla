@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   Alert,
   Animated,
+  KeyboardAvoidingView,
   Platform,
   Pressable,
   ScrollView,
@@ -259,7 +260,8 @@ export default function BecomeProviderScreen() {
 
       <StepBar step={step} />
 
-      <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1 }}>
+      <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
 
         {/* ── Step 1: Intro ── */}
         {step === "intro" && (
@@ -583,6 +585,7 @@ export default function BecomeProviderScreen() {
 
         <View style={{ height: botPad + 24 }} />
       </ScrollView>
+      </KeyboardAvoidingView>
     </View>
   );
 }

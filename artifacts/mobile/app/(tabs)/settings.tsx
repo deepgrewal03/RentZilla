@@ -4,7 +4,7 @@ import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useEffect, useState } from "react";
 import {
-  ActivityIndicator, Alert, Modal, Platform, Pressable,
+  ActivityIndicator, Alert, KeyboardAvoidingView, Modal, Platform, Pressable,
   ScrollView, StyleSheet, Switch, Text, TextInput, View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -541,7 +541,8 @@ export default function SettingsTab() {
         <Text style={ss.headerTitle}>Settings</Text>
       </View>
 
-      <ScrollView style={ss.scroll} showsVerticalScrollIndicator={false}>
+      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1 }}>
+      <ScrollView style={ss.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
 
         {/* ── Profile card ── */}
         <View style={ss.profileCard}>
@@ -844,6 +845,7 @@ export default function SettingsTab() {
           <Text style={ss.footerText}>Made with ❤️ for Punjab</Text>
         </View>
       </ScrollView>
+      </KeyboardAvoidingView>
 
       {/* ── Modals ── */}
       <BlockedUsersModal visible={showBlockedModal} onClose={() => setShowBlockedModal(false)} api={api} />

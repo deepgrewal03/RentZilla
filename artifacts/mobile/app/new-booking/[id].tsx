@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   Alert,
   Animated,
+  KeyboardAvoidingView,
   Platform,
   Pressable,
   ScrollView,
@@ -310,6 +311,10 @@ export default function NewBookingScreen() {
         </View>
       </LinearGradient>
 
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={{ flex: 1 }}
+      >
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
@@ -689,6 +694,7 @@ export default function NewBookingScreen() {
 
         <View style={{ height: isWeb ? 30 : 50 }} />
       </ScrollView>
+      </KeyboardAvoidingView>
     </View>
   );
 }
