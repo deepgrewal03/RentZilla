@@ -56,9 +56,9 @@ interface RideRequest {
 }
 
 const VEHICLE_TYPES = [
-  { id: "Car",   icon: "🚗", label: "Car",   tagline: "Comfortable", color: ORANGE },
-  { id: "SUV",   icon: "🚙", label: "SUV",   tagline: "Spacious",    color: PURPLE },
-  { id: "Van",   icon: "🚐", label: "Van",   tagline: "Group",       color: "#EC4899" },
+  { id: "Car",   icon: "🚗", label: "Economical",  tagline: "", color: ORANGE },
+  { id: "SUV",   icon: "🚙", label: "Comfortable", tagline: "", color: PURPLE },
+  { id: "Van",   icon: "🚐", label: "Luxurious",   tagline: "", color: "#EC4899" },
 ];
 
 const DEFAULT_PRICING: Record<string, { baseFare: number; perKm: number }> = {
@@ -162,7 +162,6 @@ function VehicleCard({ v, selected, estimate, onPress, distanceKm, pricing }: {
       )}
       <Text style={styles.vehicleEmoji}>{v.icon}</Text>
       <Text style={[styles.vehicleName, selected && { color: v.color }]}>{v.label}</Text>
-      <Text style={styles.vehicleTagline}>{v.tagline}</Text>
       {fare != null ? (
         <Text style={[styles.vehicleFare, selected && { color: v.color }]}>₹{fare}</Text>
       ) : (
