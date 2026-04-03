@@ -444,9 +444,9 @@ export default function SearchScreen() {
                             <Text style={styles.suggSub} numberOfLines={1}>{item.subtitle}</Text>
                           </View>
                           {item.type === "listing" && (
-                            <Text style={styles.suggPrice}>
-                              ₹{item.price ? Math.round(item.price).toLocaleString("en-IN") : "—"}
-                            </Text>
+                            <View style={styles.suggPriceChip}>
+                              <Text style={styles.suggPriceChipText}>Get Quote</Text>
+                            </View>
                           )}
                         </Pressable>
                       ))}
@@ -851,8 +851,15 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_400Regular",
     marginTop: 2,
   },
-  suggPrice: {
-    fontSize: 13,
+  suggPriceChip: {
+    backgroundColor: `${ORANGE}18`,
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    alignSelf: "flex-start",
+  },
+  suggPriceChipText: {
+    fontSize: 11,
     fontWeight: "700",
     fontFamily: "Inter_700Bold",
     color: ORANGE,

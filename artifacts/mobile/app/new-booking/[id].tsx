@@ -288,8 +288,6 @@ export default function NewBookingScreen() {
   const discount    = promoApplied && promoResult?.valid ? (promoResult.discount ?? 0) : 0;
   const finalTotal  = Math.max(0, baseTotal - discount);
 
-  const priceUnit = listing.priceUnit === "per_hour" ? "hr" : "day";
-
   return (
     <View style={styles.root}>
       <StatusBar style="light" />
@@ -340,10 +338,6 @@ export default function NewBookingScreen() {
               <Ionicons name="location-outline" size={12} color={C.textTertiary} />
               <Text style={styles.listingLocation} numberOfLines={1}>{listing.location}</Text>
             </View>
-            <Text style={styles.listingPrice}>
-              ₹{unitPrice.toLocaleString("en-IN")}
-              <Text style={styles.listingPriceUnit}>/{priceUnit}</Text>
-            </Text>
           </View>
         </View>
 
@@ -558,7 +552,7 @@ export default function NewBookingScreen() {
           <View style={styles.summaryRow}>
             <Text style={styles.summaryLabel}>
               {listing.subcategory || listing.title}
-              {selectedSlots.length > 0 ? ` × ${selectedSlots.length} hr${selectedSlots.length > 1 ? "s" : ""}` : ` × 1 ${priceUnit}`}
+              {selectedSlots.length > 0 ? ` × ${selectedSlots.length} hr${selectedSlots.length > 1 ? "s" : ""}` : ` × 1 ${listing.priceUnit === "per_hour" ? "hr" : "day"}`}
             </Text>
             <Text style={styles.summaryValue}>
               ₹{(unitPrice * (selectedSlots.length || 1)).toLocaleString("en-IN")}
