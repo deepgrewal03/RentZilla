@@ -75,11 +75,29 @@ export default function SignInScreen() {
         >
           {/* Brand */}
           <View style={styles.brand}>
-            {/* Purple mirrored R Z logo */}
-            <View style={styles.logoCircle}>
-              <View style={styles.logoLetters}>
-                <Text style={[styles.logoLetter, { transform: [{ scaleX: -1 }] }]}>R</Text>
-                <Text style={[styles.logoLetter, { transform: [{ scaleX: -1 }] }]}>Z</Text>
+            {/* Stylised RZ logo mark */}
+            <View style={styles.logoWrap}>
+              {/* Outer glow halo */}
+              <View style={styles.logoHalo} />
+              {/* White badge */}
+              <View style={styles.logoBadge}>
+                {/* Top accent strip */}
+                <LinearGradient
+                  colors={["#FF7A18", "#FF9F43"]}
+                  start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                  style={styles.logoAccentBar}
+                />
+                {/* Monogram */}
+                <View style={styles.logoLetters}>
+                  <Text style={[styles.logoLetter, { transform: [{ scaleX: -1 }] }]}>R</Text>
+                  <Text style={styles.logoLetter}>Z</Text>
+                </View>
+                {/* Bottom dot row */}
+                <View style={styles.logoDots}>
+                  {[0,1,2].map(i => (
+                    <View key={i} style={styles.logoDot} />
+                  ))}
+                </View>
               </View>
             </View>
             <Text style={styles.appName}>{t.appName}</Text>
@@ -183,23 +201,53 @@ const styles = StyleSheet.create({
   langToggleText: { color: "#fff", fontSize: 13, fontWeight: "600", fontFamily: "Inter_600SemiBold" },
   scroll: { paddingHorizontal: 20, paddingBottom: 40 },
   brand: { alignItems: "center", marginBottom: 32, gap: 10 },
-  logoCircle: {
-    width: 76, height: 76, borderRadius: 22,
-    backgroundColor: "#C4B5FD",
-    borderWidth: 2, borderColor: "#A78BFA",
+  logoWrap: { width: 120, height: 120, alignItems: "center", justifyContent: "center", marginBottom: 4 },
+  logoHalo: {
+    position: "absolute",
+    width: 120, height: 120, borderRadius: 32,
+    backgroundColor: "rgba(255,255,255,0.18)",
+    borderWidth: 1.5, borderColor: "rgba(255,255,255,0.35)",
+  },
+  logoBadge: {
+    width: 96, height: 96, borderRadius: 26,
+    backgroundColor: "#fff",
     alignItems: "center", justifyContent: "center",
+    overflow: "hidden",
+    shadowColor: "#C0390A",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.35,
+    shadowRadius: 18,
+    elevation: 16,
+  },
+  logoAccentBar: {
+    position: "absolute",
+    top: 0, left: 0, right: 0,
+    height: 5,
+    borderTopLeftRadius: 26,
+    borderTopRightRadius: 26,
   },
   logoLetters: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
+    gap: 1,
+    marginTop: 4,
   },
   logoLetter: {
-    fontSize: 28,
+    fontSize: 36,
     fontWeight: "800",
     fontFamily: "Inter_700Bold",
     color: "#FF7A18",
-    letterSpacing: -1,
+    letterSpacing: -2,
+  },
+  logoDots: {
+    flexDirection: "row",
+    gap: 4,
+    marginTop: 6,
+  },
+  logoDot: {
+    width: 5, height: 5, borderRadius: 3,
+    backgroundColor: "#FF9F43",
+    opacity: 0.7,
   },
   appName: { fontSize: 34, fontWeight: "700", fontFamily: "Inter_700Bold", color: "#fff", letterSpacing: -0.5 },
   tagline: { fontSize: 13, color: "rgba(255,255,255,0.6)", fontFamily: "Inter_400Regular", textAlign: "center" },
