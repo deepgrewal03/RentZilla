@@ -189,7 +189,15 @@ export default function BookingDetailScreen() {
         {/* Hero */}
         <View style={styles.hero}>
           {booking.listingImage ? (
-            <Image source={{ uri: booking.listingImage }} style={styles.heroImage} contentFit="cover" />
+            <View>
+              <Image source={{ uri: booking.listingImage }} style={styles.heroImage} contentFit="cover" />
+              {booking.listingCategory === "cars" && (
+                <View style={styles.frontViewBadge}>
+                  <Ionicons name="car-outline" size={12} color="#fff" />
+                  <Text style={styles.frontViewText}>Front View · Number Plate</Text>
+                </View>
+              )}
+            </View>
           ) : (
             <View style={[styles.heroImage, styles.heroPlaceholder]}>
               <Ionicons name="cube-outline" size={40} color={C.textTertiary} />
@@ -456,6 +464,13 @@ const styles = StyleSheet.create({
   },
   heroImage: { width: "100%", height: 160 },
   heroPlaceholder: { backgroundColor: C.backgroundTertiary, alignItems: "center", justifyContent: "center" },
+  frontViewBadge: {
+    position: "absolute", bottom: 8, left: 10,
+    flexDirection: "row", alignItems: "center", gap: 5,
+    backgroundColor: "rgba(0,0,0,0.62)", borderRadius: 8,
+    paddingHorizontal: 9, paddingVertical: 4,
+  },
+  frontViewText: { fontSize: 11, fontFamily: "Inter_600SemiBold", color: "#fff" },
   heroInfo: {
     flexDirection: "row",
     justifyContent: "space-between",

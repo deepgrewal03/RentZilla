@@ -42,6 +42,7 @@ async function enrichBooking(booking: typeof bookingsTable.$inferSelect) {
     providerId: booking.providerId,
     listingId: booking.listingId,
     listingTitle: listing[0]?.title || "Listing",
+    listingCategory: listing[0]?.category || null,
     listingImage: ((listing[0]?.images as string[]) || [])[0] || null,
     startDate: booking.startDate,
     endDate: booking.endDate,

@@ -35,6 +35,7 @@ export interface Booking {
   providerId: string;
   listingId: string;
   listingTitle: string | null;
+  listingCategory: string | null;
   listingImage: string | null;
   startDate: string;
   endDate: string;
