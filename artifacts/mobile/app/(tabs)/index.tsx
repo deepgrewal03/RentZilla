@@ -387,8 +387,15 @@ const styles = StyleSheet.create({
   locText: { fontSize: 12, color: "rgba(255,255,255,0.85)", fontFamily: "Inter_400Regular" },
   headerActions: { flexDirection: "row", alignItems: "center", gap: 8 },
   bellStack: { alignItems: "center", gap: 3 },
-  goldCoin: { alignItems: "center", justifyContent: "center" },
-  goldCoinText: { fontSize: 13, lineHeight: 14 },
+  goldCoin: {
+    alignItems: "center", justifyContent: "center",
+    marginTop: 6,
+    backgroundColor: "#1A1A0D", borderRadius: 12,
+    width: 24, height: 24,
+    borderWidth: 1.5, borderColor: "#F5C518",
+    shadowColor: "#F5C518", shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.7, shadowRadius: 4, elevation: 4,
+  },
+  goldCoinText: { fontSize: 12, lineHeight: 13 },
   langPill: {
     backgroundColor: "rgba(255,255,255,0.2)", borderRadius: 12,
     paddingHorizontal: 10, paddingVertical: 5,
