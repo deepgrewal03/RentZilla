@@ -619,60 +619,31 @@ export default function NewBookingScreen() {
         <View style={styles.summaryCard}>
           <View style={styles.summaryHeader}>
             <Text style={styles.summaryTitle}>Price Summary</Text>
-            {pricingResult?.found && (
-              <View style={styles.adminPriceBadge}>
-                <Text style={styles.adminPriceBadgeText}>Admin Rates</Text>
-              </View>
-            )}
           </View>
 
           {/* Base price row */}
           <View style={styles.summaryRow}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.summaryLabel}>
-                {listing.subcategory || listing.title}
-                {selectedSlots.length > 1
-                  ? listing.category === "equipment"
-                    ? ` × ${selectedSlots.length} days`
-                    : ` × ${selectedSlots.length} hrs`
-                  : ""}
-              </Text>
-              {listing.priceUnit === "per_day" && (
-                <Text style={styles.perHourNote}>
-                  ₹{listing.price.toLocaleString("en-IN")}/day
-                  {" · "}₹{Math.round(listing.price / 8).toLocaleString("en-IN")}/hr equivalent
-                </Text>
-              )}
-            </View>
+            <Text style={styles.summaryLabel}>
+              {listing.subcategory || listing.title}
+              {selectedSlots.length > 1
+                ? listing.category === "equipment"
+                  ? ` × ${selectedSlots.length} days`
+                  : ` × ${selectedSlots.length} hrs`
+                : ""}
+            </Text>
             <Text style={styles.summaryValue}>
               ₹{baseTotal.toLocaleString("en-IN")}
             </Text>
           </View>
 
-          {/* Admin breakdown */}
-          {pricingResult?.found && (
-            <>
-              <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>Platform commission ({pricingResult.commission_percent}%)</Text>
-                <Text style={[styles.summaryValue, { color: "#AEAEAE" }]}>
-                  ₹{pricingResult.app_commission.toLocaleString("en-IN")}
-                </Text>
-              </View>
-              <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>Provider payout</Text>
-                <Text style={[styles.summaryValue, { color: GREEN }]}>
-                  ₹{pricingResult.provider_payout.toLocaleString("en-IN")}
-                </Text>
-              </View>
-              {pricingResult.security_deposit > 0 && (
-                <View style={styles.summaryRow}>
-                  <Text style={styles.summaryLabel}>Security deposit (refundable)</Text>
-                  <Text style={styles.summaryValue}>
-                    ₹{pricingResult.security_deposit.toLocaleString("en-IN")}
-                  </Text>
-                </View>
-              )}
-            </>
+          {/* Security deposit (refundable) — shown to customer when applicable */}
+          {pricingResult?.found && pricingResult.security_deposit > 0 && (
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>Security deposit (refundable)</Text>
+              <Text style={styles.summaryValue}>
+                ₹{pricingResult.security_deposit.toLocaleString("en-IN")}
+              </Text>
+            </View>
           )}
 
           {/* Selected info rows */}
@@ -963,15 +934,8 @@ const styles = StyleSheet.create({
   },
   summaryHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 14 },
   summaryTitle: { fontSize: 15, fontWeight: "700", fontFamily: "Inter_700Bold", color: "#2C2C2C" },
-  adminPriceBadge: {
-    backgroundColor: "#FFF3E9", paddingHorizontal: 8, paddingVertical: 3,
-    borderRadius: 6, borderWidth: 1, borderColor: `${ORANGE}30`,
-  },
-  adminPriceBadgeText: { fontSize: 10, color: ORANGE, fontFamily: "Inter_600SemiBold" },
-
   summaryRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 },
   summaryLabel: { fontSize: 13, color: "#7A7A7A", fontFamily: "Inter_400Regular", flex: 1 },
-  perHourNote: { fontSize: 11, color: "#FF7A18", fontFamily: "Inter_400Regular", marginTop: 2 },
   summaryValue: { fontSize: 13, fontWeight: "600", fontFamily: "Inter_600SemiBold", color: "#2C2C2C", textAlign: "right" },
 
   discountRow: {
