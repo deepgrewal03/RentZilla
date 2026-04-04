@@ -20,6 +20,11 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Colors from "@/constants/colors";
 import { useApi } from "@/hooks/useApi";
 
+type PayMethod = {
+  id: string; type: string; label: string; maskedDisplay: string;
+  isDefault: boolean; createdAt: string;
+};
+
 const C = Colors.light;
 const ORANGE  = "#FF7A18";
 const ORANGE2 = "#FF9F43";
@@ -60,8 +65,12 @@ const STATUS_COLORS: Record<string, string> = {
   failed:     "#EF4444",
 };
 
+const TYPE_ICON: Record<string, string> = {
+  upi: "phone-portrait-outline", card: "card-outline", bank: "business-outline",
+};
+
 export default function ProviderWalletScreen() {
-  const { get, post } = useApi();
+  const { get, post, put, del } = useApi();
   const insets = useSafeAreaInsets();
   const isWeb = Platform.OS === "web";
   const topPad = isWeb ? 67 : insets.top;
@@ -71,6 +80,20 @@ export default function ProviderWalletScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState<"transactions" | "payouts">("transactions");
 
+  // Payment methods
+  const [methods, setMethods] = useState<PayMethod[]>([]);
+  const [showAddMethod, setShowAddMethod] = useState(false);
+  const [addType, setAddType] = useState<"upi" | "card" | "bank">("upi");
+  const [addLabel, setAddLabel] = useState("");
+  const [addUpi, setAddUpi] = useState("");
+  const [addCard, setAddCard] = useState("");
+  const [addCardName, setAddCardName] = useState("");
+  const [addCardExpiry, setAddCardExpiry] = useState("");
+  const [addBank, setAddBank] = useState("");
+  const [addAccount, setAddAccount] = useState("");
+  const [addIfsc, setAddIfsc] = useState("");
+  const [addingMethod, setAddingMethod] = useState(false);
+
   // Payout fields
   const [payoutUpi, setPayoutUpi] = useState("");
   const [payoutAmount, setPayoutAmount] = useState("");
@@ -79,11 +102,56 @@ export default function ProviderWalletScreen() {
 
   async function fetchWallet() {
     try {
-      const data = await get<ProviderWallet>("/wallet/provider");
+      const [data, methodData] = await Promise.all([
+        get<ProviderWallet>("/wallet/provider"),
+        get<{ methods: PayMethod[] }>("/wallet/payment-methods").catch(() => ({ methods: [] })),
+      ]);
       setWallet(data);
-      if (data.upiId) setPayoutUpi(data.upiId);
+      setMethods(methodData.methods || []);
+      const defMethod = methodData.methods?.find(m => m.isDefault && m.type === "upi");
+      if (defMethod) setPayoutUpi(defMethod.maskedDisplay);
+      else if (data.upiId) setPayoutUpi(data.upiId);
     } catch { /* ignore */ }
     finally { setLoading(false); setRefreshing(false); }
+  }
+
+  async function handleAddMethod() {
+    if (!addLabel.trim()) { Alert.alert("Label required"); return; }
+    if (addType === "upi" && !addUpi.trim()) { Alert.alert("UPI ID required"); return; }
+    if (addType === "card" && addCard.replace(/\s/g, "").length < 12) { Alert.alert("Valid card number required"); return; }
+    if (addType === "bank" && (!addAccount.trim() || !addIfsc.trim())) { Alert.alert("Account number and IFSC required"); return; }
+    setAddingMethod(true);
+    try {
+      const payload: Record<string, string> = { type: addType, label: addLabel.trim() };
+      if (addType === "upi") payload.upiId = addUpi.trim();
+      if (addType === "card") { payload.cardNumber = addCard.replace(/\s/g, ""); payload.cardName = addCardName; payload.cardExpiry = addCardExpiry; }
+      if (addType === "bank") { payload.bankName = addBank; payload.accountNumber = addAccount; payload.ifsc = addIfsc; }
+      await post("/wallet/payment-methods", payload);
+      Alert.alert("Method saved!", "Encrypted and stored securely (AES-256).");
+      setShowAddMethod(false);
+      setAddLabel(""); setAddUpi(""); setAddCard(""); setAddCardName("");
+      setAddCardExpiry(""); setAddBank(""); setAddAccount(""); setAddIfsc("");
+      fetchWallet();
+    } catch (e: any) {
+      Alert.alert("Error", e?.message || "Could not save method.");
+    } finally { setAddingMethod(false); }
+  }
+
+  async function handleDeleteMethod(id: string) {
+    Alert.alert("Remove method?", "This payout method will be removed.",
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Remove", style: "destructive", onPress: async () => {
+          try { await del(`/wallet/payment-methods/${id}`); fetchWallet(); }
+          catch { Alert.alert("Error", "Could not remove method."); }
+        }},
+      ]
+    );
+  }
+
+  async function handleSetDefault(id: string) {
+    try { await put(`/wallet/payment-methods/${id}/default`, {}); fetchWallet(); }
+    catch { Alert.alert("Error", "Could not set default."); }
   }
 
   useEffect(() => { fetchWallet(); }, []);
@@ -214,6 +282,111 @@ export default function ProviderWalletScreen() {
                 </View>
               </View>
             </LinearGradient>
+
+            {/* ── Payout Methods Section ── */}
+            <View style={s.sectionRow}>
+              <Text style={s.sectionTitle}>Payout Methods</Text>
+              <Pressable onPress={() => setShowAddMethod(v => !v)} style={s.sectionAction}>
+                <Ionicons name="add" size={16} color={ORANGE} />
+                <Text style={s.sectionActionText}>Add</Text>
+              </Pressable>
+            </View>
+
+            {methods.length === 0 && !showAddMethod && (
+              <Pressable style={s.emptyMethods} onPress={() => setShowAddMethod(true)}>
+                <Ionicons name="card-outline" size={26} color={C.textTertiary} />
+                <Text style={s.emptyMethodsText}>No payout methods saved</Text>
+                <Text style={s.emptyMethodsSub}>Add UPI to receive payouts instantly</Text>
+              </Pressable>
+            )}
+
+            {methods.map(m => (
+              <View key={m.id} style={s.methodRow}>
+                <View style={s.methodIconWrap}>
+                  <Ionicons name={TYPE_ICON[m.type] as any} size={17} color={ORANGE} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={s.methodLabel}>{m.label}</Text>
+                  <Text style={s.methodMasked}>{m.maskedDisplay}</Text>
+                </View>
+                {m.isDefault
+                  ? <View style={s.defaultBadge}><Text style={s.defaultBadgeText}>Default</Text></View>
+                  : <Pressable onPress={() => handleSetDefault(m.id)} hitSlop={8}><Text style={s.setDefaultText}>Set default</Text></Pressable>
+                }
+                <Pressable onPress={() => handleDeleteMethod(m.id)} hitSlop={8} style={{ marginLeft: 8 }}>
+                  <Ionicons name="trash-outline" size={15} color="#EF4444" />
+                </Pressable>
+              </View>
+            ))}
+
+            {showAddMethod && (
+              <View style={s.card}>
+                <Text style={[s.cardTitle, { marginBottom: 12 }]}>Add Payout Method</Text>
+                {/* Type Tabs */}
+                <View style={s.typeTabs}>
+                  {(["upi", "card", "bank"] as const).map(t => (
+                    <Pressable key={t} style={[s.typeTab, addType === t && s.typeTabActive]} onPress={() => setAddType(t)}>
+                      <Ionicons name={TYPE_ICON[t] as any} size={14} color={addType === t ? ORANGE : C.textSecondary} />
+                      <Text style={[s.typeTabText, addType === t && { color: ORANGE }]}>
+                        {t === "upi" ? "UPI" : t === "card" ? "Card" : "Bank"}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+                <Text style={s.fieldLabel}>Label / Nickname</Text>
+                <TextInput style={s.input} value={addLabel} onChangeText={setAddLabel}
+                  placeholder={addType === "upi" ? "e.g. My PhonePe" : addType === "card" ? "e.g. SBI Debit" : "e.g. HDFC Savings"}
+                  placeholderTextColor={C.textTertiary} />
+                {addType === "upi" && (
+                  <>
+                    <Text style={s.fieldLabel}>UPI ID</Text>
+                    <TextInput style={s.input} value={addUpi} onChangeText={setAddUpi}
+                      placeholder="name@upi or phone@paytm" placeholderTextColor={C.textTertiary}
+                      autoCapitalize="none" keyboardType="email-address" />
+                  </>
+                )}
+                {addType === "card" && (
+                  <>
+                    <Text style={s.fieldLabel}>Card Number</Text>
+                    <TextInput style={s.input} value={addCard} onChangeText={setAddCard}
+                      placeholder="•••• •••• •••• 1234" placeholderTextColor={C.textTertiary} keyboardType="number-pad" maxLength={19} />
+                    <Text style={s.fieldLabel}>Cardholder Name</Text>
+                    <TextInput style={s.input} value={addCardName} onChangeText={setAddCardName}
+                      placeholder="Name on card" placeholderTextColor={C.textTertiary} autoCapitalize="words" />
+                    <Text style={s.fieldLabel}>Expiry (MM/YY)</Text>
+                    <TextInput style={s.input} value={addCardExpiry} onChangeText={setAddCardExpiry}
+                      placeholder="MM/YY" placeholderTextColor={C.textTertiary} maxLength={5} keyboardType="number-pad" />
+                  </>
+                )}
+                {addType === "bank" && (
+                  <>
+                    <Text style={s.fieldLabel}>Bank Name</Text>
+                    <TextInput style={s.input} value={addBank} onChangeText={setAddBank} placeholder="State Bank of India" placeholderTextColor={C.textTertiary} />
+                    <Text style={s.fieldLabel}>Account Number</Text>
+                    <TextInput style={s.input} value={addAccount} onChangeText={setAddAccount} placeholder="Account number" placeholderTextColor={C.textTertiary} keyboardType="number-pad" />
+                    <Text style={s.fieldLabel}>IFSC Code</Text>
+                    <TextInput style={s.input} value={addIfsc} onChangeText={t => setAddIfsc(t.toUpperCase())} placeholder="SBIN0001234" placeholderTextColor={C.textTertiary} autoCapitalize="characters" />
+                  </>
+                )}
+                <View style={s.securityNote}>
+                  <Ionicons name="lock-closed" size={12} color="#6366F1" />
+                  <Text style={s.securityNoteText}>Details encrypted with AES-256-GCM. Card numbers never displayed again.</Text>
+                </View>
+                <View style={{ flexDirection: "row", gap: 10, marginTop: 14 }}>
+                  <Pressable style={s.cancelBtn} onPress={() => setShowAddMethod(false)}>
+                    <Text style={s.cancelBtnText}>Cancel</Text>
+                  </Pressable>
+                  <Pressable style={[s.saveBtn, addingMethod && { opacity: 0.6 }]} onPress={handleAddMethod} disabled={addingMethod}>
+                    {addingMethod ? <ActivityIndicator color="#fff" size="small" /> : (
+                      <>
+                        <Ionicons name="shield-checkmark" size={15} color="#fff" />
+                        <Text style={s.saveBtnText}>Save Securely</Text>
+                      </>
+                    )}
+                  </Pressable>
+                </View>
+              </View>
+            )}
 
             {/* Instant Payout Panel */}
             <View style={s.card}>
@@ -392,4 +565,29 @@ const s = StyleSheet.create({
   emptyWrap: { alignItems: "center", paddingVertical: 36, gap: 8 },
   emptyText: { fontSize: 15, fontFamily: "Inter_600SemiBold", color: C.textSecondary },
   emptySub: { fontSize: 12, fontFamily: "Inter_400Regular", color: C.textTertiary },
+
+  sectionRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8 },
+  sectionTitle: { fontSize: 14, fontFamily: "Inter_700Bold", color: "#2C2C2C" },
+  sectionAction: { flexDirection: "row", alignItems: "center", gap: 4 },
+  sectionActionText: { fontSize: 13, fontFamily: "Inter_600SemiBold", color: ORANGE },
+  emptyMethods: { marginHorizontal: 16, marginBottom: 8, alignItems: "center", paddingVertical: 18, borderWidth: 1.5, borderColor: "#E5E7EB", borderStyle: "dashed", borderRadius: 14, gap: 4 },
+  emptyMethodsText: { fontSize: 13, fontFamily: "Inter_500Medium", color: C.textSecondary },
+  emptyMethodsSub: { fontSize: 11, fontFamily: "Inter_400Regular", color: C.textTertiary },
+  methodRow: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 16, paddingVertical: 11, backgroundColor: "#fff", marginHorizontal: 16, marginBottom: 6, borderRadius: 12 },
+  methodIconWrap: { width: 36, height: 36, borderRadius: 18, backgroundColor: ORANGE + "15", justifyContent: "center", alignItems: "center" },
+  methodLabel: { fontSize: 13, fontFamily: "Inter_600SemiBold", color: "#2C2C2C" },
+  methodMasked: { fontSize: 11, fontFamily: "Inter_400Regular", color: C.textSecondary, marginTop: 1 },
+  defaultBadge: { backgroundColor: ORANGE + "18", borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 },
+  defaultBadgeText: { fontSize: 10, fontFamily: "Inter_600SemiBold", color: ORANGE },
+  setDefaultText: { fontSize: 11, fontFamily: "Inter_500Medium", color: C.textSecondary },
+  typeTabs: { flexDirection: "row", gap: 8, marginBottom: 12 },
+  typeTab: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5, paddingVertical: 9, borderRadius: 10, borderWidth: 1.5, borderColor: "#E5E7EB" },
+  typeTabActive: { borderColor: ORANGE, backgroundColor: ORANGE + "10" },
+  typeTabText: { fontSize: 12, fontFamily: "Inter_600SemiBold", color: C.textSecondary },
+  securityNote: { flexDirection: "row", alignItems: "flex-start", gap: 6, backgroundColor: "#EEF2FF", borderRadius: 10, padding: 10, marginTop: 6 },
+  securityNoteText: { flex: 1, fontSize: 11, fontFamily: "Inter_400Regular", color: "#4338CA", lineHeight: 15 },
+  cancelBtn: { flex: 1, paddingVertical: 12, borderRadius: 12, borderWidth: 1.5, borderColor: "#E5E7EB", alignItems: "center" },
+  cancelBtnText: { fontSize: 13, fontFamily: "Inter_600SemiBold", color: C.textSecondary },
+  saveBtn: { flex: 2, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 12, borderRadius: 12, backgroundColor: ORANGE },
+  saveBtnText: { fontSize: 13, fontFamily: "Inter_700Bold", color: "#fff" },
 });

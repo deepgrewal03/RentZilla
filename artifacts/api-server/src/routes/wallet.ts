@@ -262,6 +262,95 @@ router.post("/provider/payout/schedule", authMiddleware, async (req: Request, re
   }
 });
 
+// ── GET /wallet/payment-methods — user's saved payment methods ────────────
+router.get("/payment-methods", authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as AR).userId;
+    const rows = toRows(await db.execute(sql.raw(`
+      SELECT id, type, label, masked_display, is_default, created_at
+      FROM user_payment_methods WHERE user_id = '${userId}'
+      ORDER BY is_default DESC, created_at DESC
+    `)));
+    res.json({ methods: rows.map(m => ({ id: m.id, type: m.type, label: m.label, maskedDisplay: m.masked_display, isDefault: m.is_default, createdAt: m.created_at })) });
+  } catch (err) {
+    req.log.error({ err }, "Get payment methods error");
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ── POST /wallet/payment-methods — add payment method (details AES-256-GCM encrypted) ──
+router.post("/payment-methods", authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const { encryptPayment } = await import("../lib/crypto.js");
+    const userId = (req as AR).userId;
+    const { type, label, upiId, cardNumber, cardName, cardExpiry, bankName, accountNumber, ifsc } = req.body;
+
+    if (!type || !label) { res.status(400).json({ error: "type and label required" }); return; }
+
+    let plainDetails: Record<string, string> = {};
+    let maskedDisplay = "";
+
+    if (type === "upi") {
+      if (!upiId?.trim()) { res.status(400).json({ error: "upiId required for UPI" }); return; }
+      plainDetails = { upiId: upiId.trim() };
+      maskedDisplay = upiId.trim();
+    } else if (type === "card") {
+      if (!cardNumber || cardNumber.length < 12) { res.status(400).json({ error: "Valid card number required" }); return; }
+      const last4 = String(cardNumber).replace(/\s/g, "").slice(-4);
+      plainDetails = { cardNumber: String(cardNumber).replace(/\s/g, ""), cardName: cardName || "", cardExpiry: cardExpiry || "" };
+      maskedDisplay = `•••• •••• •••• ${last4}${cardName ? ` · ${cardName}` : ""}`;
+    } else if (type === "bank") {
+      if (!accountNumber || !ifsc) { res.status(400).json({ error: "accountNumber and ifsc required" }); return; }
+      const last4 = String(accountNumber).slice(-4);
+      plainDetails = { bankName: bankName || "", accountNumber: String(accountNumber), ifsc: ifsc.trim().toUpperCase() };
+      maskedDisplay = `${bankName || "Bank"} •••• ${last4} · ${ifsc.trim().toUpperCase()}`;
+    } else {
+      res.status(400).json({ error: "type must be upi, card, or bank" }); return;
+    }
+
+    const encryptedDetails = encryptPayment(JSON.stringify(plainDetails));
+    const id = `pm${Date.now()}${Math.random().toString(36).slice(2, 5)}`;
+    const safeLabel = String(label).replace(/'/g, "''");
+    const safeMasked = maskedDisplay.replace(/'/g, "''");
+
+    const isFirst = toRows(await db.execute(sql.raw(`SELECT COUNT(*) as c FROM user_payment_methods WHERE user_id = '${userId}'`)));
+    const makeDefault = Number(isFirst[0]?.c || 0) === 0;
+
+    await db.execute(sql.raw(`
+      INSERT INTO user_payment_methods (id, user_id, type, label, encrypted_details, masked_display, is_default)
+      VALUES ('${id}', '${userId}', '${type}', '${safeLabel}', '${encryptedDetails}', '${safeMasked}', ${makeDefault})
+    `));
+
+    res.json({ success: true, id, maskedDisplay, isDefault: makeDefault });
+  } catch (err) {
+    req.log.error({ err }, "Add payment method error");
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ── PUT /wallet/payment-methods/:id/default — set as default ─────────────
+router.put("/payment-methods/:id/default", authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as AR).userId;
+    await db.execute(sql.raw(`UPDATE user_payment_methods SET is_default = FALSE WHERE user_id = '${userId}'`));
+    await db.execute(sql.raw(`UPDATE user_payment_methods SET is_default = TRUE WHERE id = '${req.params.id}' AND user_id = '${userId}'`));
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ── DELETE /wallet/payment-methods/:id ───────────────────────────────────
+router.delete("/payment-methods/:id", authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as AR).userId;
+    await db.execute(sql.raw(`DELETE FROM user_payment_methods WHERE id = '${req.params.id}' AND user_id = '${userId}'`));
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 // ── GET /wallet/admin/transactions — all wallet transactions with filters ──
 router.get("/admin/transactions", authMiddleware, async (req: Request, res: Response) => {
   try {

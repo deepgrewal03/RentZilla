@@ -454,6 +454,19 @@ export async function runMigrations() {
   `));
 
   await db.execute(sql.raw(`
+    CREATE TABLE IF NOT EXISTS user_payment_methods (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      type TEXT NOT NULL,
+      label TEXT NOT NULL,
+      encrypted_details TEXT NOT NULL,
+      masked_display TEXT NOT NULL,
+      is_default BOOLEAN NOT NULL DEFAULT FALSE,
+      created_at TIMESTAMP NOT NULL DEFAULT NOW()
+    )
+  `));
+
+  await db.execute(sql.raw(`
     CREATE TABLE IF NOT EXISTS platform_payment_methods (
       id TEXT PRIMARY KEY,
       type TEXT NOT NULL,
