@@ -93,16 +93,6 @@ export default function BookingDetailScreen() {
     ]);
   }
 
-  async function simulatePay() {
-    if (!booking) return;
-    try {
-      await put(`/bookings/${booking.id}`, { status: "confirmed", paymentStatus: "paid" });
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      Alert.alert("Payment Success", "Your booking is now confirmed!");
-      loadBooking();
-    } catch {}
-  }
-
   async function submitReview() {
     if (!booking) return;
     setSubmitting(true);
@@ -284,12 +274,6 @@ export default function BookingDetailScreen() {
         {/* Actions */}
         <View style={styles.actions}>
           {/* Customer actions */}
-          {isCustomer && booking.status === "pending" && (
-            <Pressable onPress={simulatePay} style={styles.payBtn}>
-              <Ionicons name="card-outline" size={18} color="#fff" />
-              <Text style={styles.payBtnText}>Pay via UPI (Mock)</Text>
-            </Pressable>
-          )}
           {isCustomer && booking.status === "completed" && !showReview && (
             hasReview ? (
               <View style={styles.reviewedBadge}>
@@ -520,16 +504,6 @@ const styles = StyleSheet.create({
   submitReviewBtn: { flex: 2, backgroundColor: C.tint, borderRadius: 12, paddingVertical: 12, alignItems: "center", justifyContent: "center" },
   submitReviewText: { fontSize: 14, fontWeight: "700", fontFamily: "Inter_700Bold", color: "#fff" },
   actions: { marginHorizontal: 20, marginTop: 16, gap: 10 },
-  payBtn: {
-    backgroundColor: "#22C55E",
-    borderRadius: 14,
-    paddingVertical: 14,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-  },
-  payBtnText: { color: "#fff", fontSize: 16, fontWeight: "700", fontFamily: "Inter_700Bold" },
   reviewBtn: {
     borderWidth: 2,
     borderColor: C.tint,
