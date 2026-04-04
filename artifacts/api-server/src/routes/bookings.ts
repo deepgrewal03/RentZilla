@@ -303,7 +303,18 @@ router.post("/", authMiddleware, async (req: Request, res: Response) => {
         }
       }
 
-      const finalAmount = Math.max(0, baseAmount - discountAmount);
+      // Apply Gold Membership 4% discount (on post-promo subtotal)
+      let goldDiscountAmount = 0;
+      let goldDiscountApplied = false;
+      const subtotalAfterPromo = Math.max(0, baseAmount - discountAmount);
+      const customerGoldRows = toRows(await db.execute(sql`SELECT is_gold_member FROM users WHERE id = ${userId} LIMIT 1`));
+      if (customerGoldRows[0]?.is_gold_member) {
+        goldDiscountAmount = Math.round(subtotalAfterPromo * 0.04 * 100) / 100;
+        goldDiscountApplied = true;
+      }
+
+      const totalDiscount = discountAmount + goldDiscountAmount;
+      const finalAmount = Math.max(0, baseAmount - totalDiscount);
 
       const booking = {
         id: generateId(),
@@ -332,10 +343,20 @@ router.post("/", authMiddleware, async (req: Request, res: Response) => {
           time_slots = ${JSON.stringify(slotsArray)},
           service_types = ${JSON.stringify(servicesArray)},
           promo_code = ${appliedPromo},
-          discount_amount = ${discountAmount},
-          final_amount = ${finalAmount}
+          discount_amount = ${totalDiscount},
+          final_amount = ${finalAmount},
+          gold_discount_applied = ${goldDiscountApplied},
+          gold_discount_amount = ${goldDiscountAmount}
         WHERE id = ${bookingId}
       `);
+
+      // Track savings in user profile
+      if (goldDiscountApplied && goldDiscountAmount > 0) {
+        await db.execute(sql.raw(`
+          UPDATE users SET total_membership_savings = total_membership_savings + ${goldDiscountAmount}
+          WHERE id = '${userId}'
+        `));
+      }
 
       const enriched = await enrichBooking(inserted[0]);
       return res.status(201).json({
@@ -343,7 +364,10 @@ router.post("/", authMiddleware, async (req: Request, res: Response) => {
         timeSlots: slotsArray,
         serviceTypes: servicesArray,
         promoCode: appliedPromo,
-        discountAmount,
+        discountAmount: totalDiscount,
+        promoDiscountAmount: discountAmount,
+        goldDiscountAmount,
+        goldDiscountApplied,
         finalAmount,
         totalAmount: baseAmount,
       });
@@ -376,7 +400,18 @@ router.post("/", authMiddleware, async (req: Request, res: Response) => {
         }
       }
 
-      const finalAmount = Math.max(0, baseAmount - discountAmount);
+      // Apply Gold Membership 4% discount (on post-promo subtotal)
+      let goldDiscountAmount2 = 0;
+      let goldDiscountApplied2 = false;
+      const subtotalAfterPromo2 = Math.max(0, baseAmount - discountAmount);
+      const custGoldRows2 = toRows(await db.execute(sql`SELECT is_gold_member FROM users WHERE id = ${userId} LIMIT 1`));
+      if (custGoldRows2[0]?.is_gold_member) {
+        goldDiscountAmount2 = Math.round(subtotalAfterPromo2 * 0.04 * 100) / 100;
+        goldDiscountApplied2 = true;
+      }
+
+      const totalDiscount2 = discountAmount + goldDiscountAmount2;
+      const finalAmount = Math.max(0, baseAmount - totalDiscount2);
 
       const booking = {
         id: generateId(),
@@ -402,17 +437,29 @@ router.post("/", authMiddleware, async (req: Request, res: Response) => {
         UPDATE bookings SET
           service_types = ${JSON.stringify(servicesArray)},
           promo_code = ${appliedPromo},
-          discount_amount = ${discountAmount},
-          final_amount = ${finalAmount}
+          discount_amount = ${totalDiscount2},
+          final_amount = ${finalAmount},
+          gold_discount_applied = ${goldDiscountApplied2},
+          gold_discount_amount = ${goldDiscountAmount2}
         WHERE id = ${bookingId}
       `);
+
+      if (goldDiscountApplied2 && goldDiscountAmount2 > 0) {
+        await db.execute(sql.raw(`
+          UPDATE users SET total_membership_savings = total_membership_savings + ${goldDiscountAmount2}
+          WHERE id = '${userId}'
+        `));
+      }
 
       const enriched = await enrichBooking(inserted[0]);
       return res.status(201).json({
         ...enriched,
         serviceTypes: servicesArray,
         promoCode: appliedPromo,
-        discountAmount,
+        discountAmount: totalDiscount2,
+        promoDiscountAmount: discountAmount,
+        goldDiscountAmount: goldDiscountAmount2,
+        goldDiscountApplied: goldDiscountApplied2,
         finalAmount,
         totalAmount: baseAmount,
       });

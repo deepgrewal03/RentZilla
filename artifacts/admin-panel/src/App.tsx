@@ -17,6 +17,7 @@ import Pricing from "@/pages/Pricing";
 import ProviderPrices from "@/pages/ProviderPrices";
 import PromoCodes from "@/pages/PromoCodes";
 import PlatformWallet from "@/pages/PlatformWallet";
+import GoldAnalytics from "@/pages/GoldAnalytics";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -42,6 +43,7 @@ function ProtectedRoutes() {
         <Route path="/provider-prices" component={ProviderPrices} />
         <Route path="/promo-codes" component={PromoCodes} />
         <Route path="/platform-wallet" component={PlatformWallet} />
+        <Route path="/gold-analytics" component={GoldAnalytics} />
         <Route path="/settings" component={Settings} />
         <Route component={NotFound} />
       </Switch>

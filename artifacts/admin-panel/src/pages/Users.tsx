@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import {
   Search, UserX, UserCheck, RefreshCw, ChevronLeft, ChevronRight,
-  X, Phone, Mail, MapPin, Calendar, Package, CalendarDays, Shield,
+  X, Phone, Mail, MapPin, Calendar, Package, CalendarDays, Shield, Trophy,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -11,6 +11,7 @@ interface User {
   id: string; name: string; email: string | null; phone: string;
   role: string; location: string | null; isAdmin: boolean;
   isSuspended: boolean; adminNotes: string | null; createdAt: string;
+  isGoldMember?: boolean;
 }
 
 const ROLE_COLOR: Record<string, string> = {
@@ -288,7 +289,10 @@ export default function Users() {
                         {u.name?.[0]?.toUpperCase() || "?"}
                       </div>
                       <div>
-                        <div className="text-sm font-semibold text-gray-900 group-hover:text-orange-600 transition-colors">{u.name || "—"}</div>
+                        <div className="flex items-center gap-1">
+                          <span className="text-sm font-semibold text-gray-900 group-hover:text-orange-600 transition-colors">{u.name || "—"}</span>
+                          {u.isGoldMember && <Trophy size={12} className="text-yellow-500 flex-shrink-0" title="Gold Member" />}
+                        </div>
                         {u.isAdmin && <div className="text-xs text-orange-500 font-medium">Admin</div>}
                       </div>
                     </div>

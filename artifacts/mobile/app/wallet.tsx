@@ -27,11 +27,12 @@ type PayMethod = {
 };
 
 const TX_ICONS: Record<string, { icon: string; color: string; label: string }> = {
-  topup:   { icon: "arrow-down-circle",  color: "#22C55E", label: "Top-up"  },
-  earning: { icon: "cash",               color: "#22C55E", label: "Earning" },
-  payment: { icon: "arrow-up-circle",    color: "#EF4444", label: "Payment" },
-  payout:  { icon: "send",              color: "#6366F1", label: "Payout"  },
-  refund:  { icon: "refresh-circle",    color: "#F59E0B", label: "Refund"  },
+  topup:          { icon: "arrow-down-circle",  color: "#22C55E", label: "Top-up"  },
+  earning:        { icon: "cash",               color: "#22C55E", label: "Earning" },
+  payment:        { icon: "arrow-up-circle",    color: "#EF4444", label: "Payment" },
+  payout:         { icon: "send",              color: "#6366F1", label: "Payout"  },
+  refund:         { icon: "refresh-circle",    color: "#F59E0B", label: "Refund"  },
+  gold_membership:{ icon: "trophy",            color: "#F5C518", label: "Gold Membership" },
 };
 
 const TYPE_ICON: Record<string, string> = {
@@ -49,6 +50,8 @@ export default function WalletScreen() {
   const [methods, setMethods] = useState<PayMethod[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [isGoldMember, setIsGoldMember] = useState(false);
+  const [goldSaved, setGoldSaved] = useState(0);
 
   // Top-up sheet
   const [showTopup, setShowTopup] = useState(false);
@@ -71,13 +74,16 @@ export default function WalletScreen() {
 
   async function fetchWallet() {
     try {
-      const [walletData, methodData] = await Promise.all([
+      const [walletData, methodData, goldData] = await Promise.all([
         get<{ balance: number; transactions: WalletTx[] }>("/wallet"),
         get<{ methods: PayMethod[] }>("/wallet/payment-methods").catch(() => ({ methods: [] })),
+        get<{ isGoldMember: boolean; totalSaved: number }>("/membership/status").catch(() => ({ isGoldMember: false, totalSaved: 0 })),
       ]);
       setBalance(walletData.balance || 0);
       setTransactions(walletData.transactions || []);
       setMethods(methodData.methods || []);
+      setIsGoldMember(Boolean(goldData.isGoldMember));
+      setGoldSaved(Number(goldData.totalSaved || 0));
       const def = methodData.methods?.find(m => m.isDefault);
       if (def && !selectedMethodId) setSelectedMethodId(def.id);
     } catch { /* ignore */ }
@@ -239,6 +245,26 @@ export default function WalletScreen() {
                 </View>
               </View>
             </LinearGradient>
+
+            {/* Gold Membership Banner */}
+            <Pressable style={[s.goldBanner, isGoldMember && s.goldBannerActive]}
+              onPress={() => router.push("/gold-membership")}>
+              <View style={s.goldBannerLeft}>
+                <Ionicons name="trophy" size={22} color="#F5C518" />
+                {isGoldMember ? (
+                  <View>
+                    <Text style={s.goldBannerTitle}>Gold Member ✦</Text>
+                    {goldSaved > 0 && <Text style={s.goldBannerSub}>Total saved: ₹{goldSaved.toFixed(2)}</Text>}
+                  </View>
+                ) : (
+                  <View>
+                    <Text style={s.goldBannerTitle}>Go Gold — ₹2.49</Text>
+                    <Text style={s.goldBannerSub}>Get 4% off every booking, lifetime</Text>
+                  </View>
+                )}
+              </View>
+              <Ionicons name="chevron-forward" size={16} color="#F5C518" />
+            </Pressable>
 
             {/* Add Money Button */}
             <Pressable style={s.topupBtn} onPress={() => setShowTopup(v => !v)}>
@@ -553,4 +579,15 @@ const s = StyleSheet.create({
   emptyWrap: { alignItems: "center", paddingVertical: 40, gap: 8 },
   emptyText: { fontSize: 15, fontFamily: "Inter_600SemiBold", color: C.textSecondary },
   emptySub: { fontSize: 13, fontFamily: "Inter_400Regular", color: C.textTertiary },
+
+  goldBanner: {
+    marginHorizontal: 16, marginBottom: 10, backgroundColor: "#1A1A0D",
+    borderRadius: 14, padding: 14, flexDirection: "row", alignItems: "center",
+    justifyContent: "space-between", borderWidth: 1.5, borderColor: "#F5C518",
+    elevation: 3, shadowColor: "#F5C518", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 6,
+  },
+  goldBannerActive: { backgroundColor: "#12120A", borderColor: "#FFE066" },
+  goldBannerLeft: { flexDirection: "row", alignItems: "center", gap: 12, flex: 1 },
+  goldBannerTitle: { fontSize: 14, fontFamily: "Inter_700Bold", color: "#F5C518" },
+  goldBannerSub: { fontSize: 11, fontFamily: "Inter_400Regular", color: "#B8A040", marginTop: 1 },
 });

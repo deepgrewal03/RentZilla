@@ -20,6 +20,7 @@ import pricingRouter from "./pricing.js";
 import mapsRouter from "./maps.js";
 import earthMoversRouter from "./earth-movers.js";
 import walletRouter from "./wallet.js";
+import membershipRouter from "./membership.js";
 
 const router: IRouter = Router();
 
@@ -44,5 +45,6 @@ router.use("/pricing", pricingRouter);
 router.use("/maps", mapsRouter);
 router.use("/equipment/earth-movers", earthMoversRouter);
 router.use("/wallet", walletRouter);
+router.use("/membership", membershipRouter);
 
 export default router;

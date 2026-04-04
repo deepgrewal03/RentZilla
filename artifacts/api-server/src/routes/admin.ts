@@ -167,16 +167,28 @@ router.get("/users", adminMiddleware, async (req: Request, res: Response) => {
   try {
     const { role, q, page = "1", limit = "20" } = req.query as Record<string, string>;
     const offset = (parseInt(page) - 1) * parseInt(limit);
-    let query = db.select().from(usersTable).$dynamic();
-    if (role) query = query.where(eq(usersTable.role, role as any));
-    if (q) query = query.where(sql`(${usersTable.name} ILIKE ${'%'+q+'%'} OR ${usersTable.email} ILIKE ${'%'+q+'%'} OR ${usersTable.phone} ILIKE ${'%'+q+'%'})`);
-    const users = await query.orderBy(desc(usersTable.createdAt)).limit(parseInt(limit)).offset(offset);
-    const totalR = await db.select({ c: count() }).from(usersTable);
+    const whereParts: string[] = [];
+    if (role) whereParts.push(`role = '${role.replace(/'/g, "''")}'`);
+    if (q) {
+      const sq = q.replace(/'/g, "''");
+      whereParts.push(`(name ILIKE '%${sq}%' OR email ILIKE '%${sq}%' OR phone ILIKE '%${sq}%')`);
+    }
+    const where = whereParts.length ? `WHERE ${whereParts.join(" AND ")}` : "";
+    const users = toRows(await db.execute(sql.raw(`
+      SELECT id, name, first_name, last_name, phone, email, role, location,
+             is_admin, is_suspended, admin_notes, created_at,
+             COALESCE(is_gold_member, FALSE) as is_gold_member
+      FROM users ${where}
+      ORDER BY created_at DESC LIMIT ${parseInt(limit)} OFFSET ${offset}
+    `)));
+    const totalR = toRows(await db.execute(sql.raw(`SELECT COUNT(*) as c FROM users ${where}`)));
     res.json({
-      users: users.map(u => ({
-        id: u.id, name: u.name || `${u.firstName || ""} ${u.lastName || ""}`.trim() || u.phone,
+      users: users.map((u: any) => ({
+        id: u.id, name: u.name || `${u.first_name || ""} ${u.last_name || ""}`.trim() || u.phone,
         email: u.email, phone: u.phone, role: u.role, location: u.location,
-        isAdmin: u.isAdmin, isSuspended: u.isSuspended, adminNotes: u.adminNotes, createdAt: u.createdAt.toISOString(),
+        isAdmin: Boolean(u.is_admin), isSuspended: Boolean(u.is_suspended),
+        adminNotes: u.admin_notes, createdAt: u.created_at,
+        isGoldMember: Boolean(u.is_gold_member),
       })),
       total: Number(totalR[0]?.c ?? 0), page: parseInt(page), limit: parseInt(limit),
     });
@@ -935,6 +947,49 @@ router.delete("/promo-codes/:id", adminMiddleware, async (req: Request, res: Res
     res.json({ success: true });
   } catch (err) {
     req.log.error({ err }, "Delete promo code error");
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ── GET /admin/gold-analytics — Gold Membership analytics ────────────────────
+router.get("/gold-analytics", adminMiddleware, async (req: Request, res: Response) => {
+  try {
+    const memberCount = toRows(await db.execute(sql.raw(`SELECT COUNT(*) as cnt FROM users WHERE is_gold_member = TRUE`)));
+    const totalRevenue = toRows(await db.execute(sql.raw(`SELECT COALESCE(SUM(amount), 0) as total FROM gold_purchases WHERE status = 'completed'`)));
+    const todayRevenue = toRows(await db.execute(sql.raw(`SELECT COALESCE(SUM(amount), 0) as total FROM gold_purchases WHERE status = 'completed' AND DATE(created_at) = CURRENT_DATE`)));
+    const monthRevenue = toRows(await db.execute(sql.raw(`SELECT COALESCE(SUM(amount), 0) as total FROM gold_purchases WHERE status = 'completed' AND DATE_TRUNC('month', created_at) = DATE_TRUNC('month', CURRENT_DATE)`)));
+    const totalSavings = toRows(await db.execute(sql.raw(`SELECT COALESCE(SUM(total_membership_savings), 0) as total FROM users WHERE is_gold_member = TRUE`)));
+    const goldBookings = toRows(await db.execute(sql.raw(`SELECT COUNT(*) as cnt, COALESCE(SUM(gold_discount_amount), 0) as total_saved FROM bookings WHERE gold_discount_applied = TRUE`)));
+    const recentMembers = toRows(await db.execute(sql.raw(`
+      SELECT u.id, u.name, u.email, u.gold_activated_at, u.total_membership_savings
+      FROM users u WHERE u.is_gold_member = TRUE
+      ORDER BY u.gold_activated_at DESC LIMIT 10
+    `)));
+    const recentPurchases = toRows(await db.execute(sql.raw(`
+      SELECT gp.id, gp.amount, gp.created_at, u.name, u.email
+      FROM gold_purchases gp JOIN users u ON u.id = gp.user_id
+      ORDER BY gp.created_at DESC LIMIT 20
+    `)));
+
+    res.json({
+      memberCount: Number(memberCount[0]?.cnt || 0),
+      totalRevenue: Number(totalRevenue[0]?.total || 0),
+      todayRevenue: Number(todayRevenue[0]?.total || 0),
+      monthRevenue: Number(monthRevenue[0]?.total || 0),
+      totalSavingsGiven: Number(totalSavings[0]?.total || 0),
+      goldBookingCount: Number(goldBookings[0]?.cnt || 0),
+      goldBookingSavingsTotal: Number(goldBookings[0]?.total_saved || 0),
+      recentMembers: recentMembers.map(u => ({
+        id: u.id, name: u.name, email: u.email,
+        activatedAt: u.gold_activated_at, totalSaved: Number(u.total_membership_savings || 0),
+      })),
+      recentPurchases: recentPurchases.map(p => ({
+        id: p.id, amount: Number(p.amount), createdAt: p.created_at,
+        userName: p.name, userEmail: p.email,
+      })),
+    });
+  } catch (err) {
+    req.log.error({ err }, "Gold analytics error");
     res.status(500).json({ error: "Internal server error" });
   }
 });

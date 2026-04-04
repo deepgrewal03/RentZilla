@@ -1,0 +1,237 @@
+Build a complete production-ready ONE-TIME Gold Membership system for the RentZilla app.
+
+APP STACK:
+- React Native Expo frontend
+- Node.js + Express backend
+- MongoDB / Firestore
+- Stripe one-time payments
+- existing customer wallet + booking flow
+- existing admin wallet / revenue dashboard
+- must work in production after Expo publish
+
+GOAL:
+Create a GOLD LIFETIME membership customers can buy ONCE for ₹2.49.
+
+BENEFITS:
+- 4% discount on every booking forever
+- works on cars, bikes, earthmovers, tools, transport, services
+- premium Gold badge on customer profile
+- Gold badge visible in admin panel
+- Gold purchase amount must reflect in admin wallet instantly
+- total Gold revenue analytics
+- premium attractive conversion UI
+
+---------------------------------------------------
+PAYMENT + ADMIN WALLET FLOW
+---------------------------------------------------
+
+Flow:
+Customer buys Gold → payment success → ₹2.49 moves directly to RentZilla admin wallet → activate Gold badge → save revenue logs
+
+IMPORTANT:
+- add ₹2.49 to admin wallet balance
+- mark transaction type = gold_membership_sale
+- show in admin revenue dashboard
+- include in daily/monthly analytics
+- separate from booking revenue
+
+Example:
+adminWallet.balance += 2.49
+adminWallet.goldMembershipRevenue += 2.49
+
+---------------------------------------------------
+BACKEND APIs
+---------------------------------------------------
+
+POST /api/membership/purchase
+- create Stripe one-time payment
+- on success:
+   1) activate customer Gold
+   2) add money to admin wallet
+   3) create revenue transaction
+   4) enable Gold badge
+   5) push success notification
+
+GET /api/membership/status
+Returns:
+- isGoldMember
+- badgeVisible
+- activatedAt
+- totalSaved
+- purchaseAmount
+
+GET /api/admin/gold-analytics
+Returns:
+- totalGoldMembers
+- todayGoldSales
+- monthlyGoldRevenue
+- totalLifetimeGoldRevenue
+- totalDiscountGiven
+
+---------------------------------------------------
+DATABASE STRUCTURE
+---------------------------------------------------
+
+users
+- isGoldMember
+- membershipType = lifetime
+- membershipActivatedAt
+- totalMembershipSavings
+- goldPurchaseTransactionId
+- goldBadgeVisible
+- badgeLabel = GOLD MEMBER
+
+adminWallet
+- totalBalance
+- bookingRevenue
+- commissionRevenue
+- goldMembershipRevenue
+- lastUpdated
+
+adminTransactions
+- type = gold_membership_sale
+- userId
+- amount = 2.49
+- transactionId
+- createdAt
+
+goldPurchases
+- userId
+- purchaseAmount = 2.49
+- paymentStatus
+- transactionId
+- createdAt
+
+---------------------------------------------------
+CUSTOMER BADGE SYSTEM
+---------------------------------------------------
+
+Create a premium GOLD badge system.
+
+CUSTOMER SIDE:
+Show badge in:
+- profile page
+- wallet screen
+- booking checkout
+- booking history
+- invoice PDF
+- reviews section
+- referral screen
+
+Badge style:
+- gold crown icon
+- glowing border
+- black + gold chip
+- animated shine effect
+Text:
+"GOLD MEMBER ✨"
+
+---------------------------------------------------
+ADMIN PANEL BADGE SYSTEM
+---------------------------------------------------
+
+In admin panel user management:
+Show Gold badge beside customer name.
+
+Example:
+Rohit Sharma   [GOLD MEMBER ✨]
+
+VISIBLE IN:
+- customer list
+- booking details
+- payment history
+- dispute panel
+- support tickets
+- loyalty analytics
+- CRM dashboard
+
+ADMIN FILTER:
+Add filter:
+- All users
+- Gold members only
+- Non-members
+
+---------------------------------------------------
+BOOKING DISCOUNT ENGINE
+---------------------------------------------------
+
+During checkout:
+1. detect Gold membership
+2. auto apply 4% discount
+3. show "Gold savings applied"
+4. track savings analytics
+5. update totalMembershipSavings
+
+Example:
+Booking = ₹5,000
+Discount = ₹200
+Final = ₹4,800
+
+---------------------------------------------------
+FRONTEND GOLD SCREEN UI
+---------------------------------------------------
+
+Create premium screen:
+- dark luxury black theme
+- glowing gold card
+- premium crown
+- confetti unlock success
+- live savings preview
+- big CTA:
+   "Unlock Lifetime Gold for ₹2.49"
+
+SOCIAL PROOF:
+"Trusted by 10,000+ smart renters"
+
+FOMO:
+"Gold members recover ₹2.49 in their first booking"
+
+---------------------------------------------------
+ADMIN DASHBOARD ANALYTICS
+---------------------------------------------------
+
+Create Gold analytics widgets:
+1. Total Gold Revenue
+2. Gold Members Count
+3. Discounts Given
+4. Top Gold Customers
+5. Conversion Rate
+6. Repeat Booking Lift
+
+Use:
+- animated cards
+- line charts
+- monthly graph
+- growth percentage
+
+---------------------------------------------------
+NOTIFICATIONS
+---------------------------------------------------
+
+Customer:
+- Gold unlocked successfully
+- You saved ₹X
+- exclusive Gold offer
+
+Admin:
+- new Gold member joined
+- today's Gold revenue update
+- Gold conversion milestone alert
+
+---------------------------------------------------
+RETURN EVERYTHING
+---------------------------------------------------
+
+Return:
+1. Gold schema
+2. Stripe payment setup
+3. admin wallet integration
+4. revenue transaction logs
+5. customer badge UI
+6. admin badge UI
+7. admin analytics dashboard
+8. discount engine
+9. restore membership logic
+10. conversion optimization UI
+11. notifications
+12. production deployment notes

@@ -13,6 +13,7 @@ A full-stack mobile app where users can:
 - **Notifications**: In-app notification centre with unread badge
 - **Ride-Booking (Cars tab)**: Uber-style ride booking with fare estimation, real-time status tracking, and a driver mode for providers
 - **Wallet System**: Customer wallet (top-up via UPI/card/net banking, transaction history); Provider wallet (auto-credited on job completion after 15% platform commission, instant UPI payout, weekly payout scheduler, payout history)
+- **Gold Membership**: One-time ₹2.49 lifetime purchase from wallet; 4% automatic discount on every booking; gold badge in wallet + profile; admin analytics dashboard with member count, revenue, savings given
 
 Punjab-specific UX: "Sat Sri Akal" greeting, INR (₹) pricing, Punjab India location context, Ludhiana/Amritsar/Patiala cities.
 
