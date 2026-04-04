@@ -21,6 +21,8 @@ import mapsRouter from "./maps.js";
 import earthMoversRouter from "./earth-movers.js";
 import walletRouter from "./wallet.js";
 import membershipRouter from "./membership.js";
+import wheelRouter from "./wheel.js";
+import promosRouter from "./promos.js";
 
 const router: IRouter = Router();
 
@@ -46,5 +48,7 @@ router.use("/maps", mapsRouter);
 router.use("/equipment/earth-movers", earthMoversRouter);
 router.use("/wallet", walletRouter);
 router.use("/membership", membershipRouter);
+router.use("/wheel", wheelRouter);
+router.use("/promos", promosRouter);
 
 export default router;

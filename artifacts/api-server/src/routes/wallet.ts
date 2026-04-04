@@ -546,7 +546,8 @@ router.get("/admin/summary", authMiddleware, async (req: Request, res: Response)
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
 
-    const [totalCommission, monthCommission, totalPayouts, pendingPayouts, topProviders] = await Promise.all([
+    const [totalCommission, monthCommission, totalPayouts, pendingPayouts, topProviders,
+           spinRevenue, monthSpinRevenue] = await Promise.all([
       db.execute(sql.raw(`SELECT COALESCE(SUM(commission_amount), 0) as total FROM bookings WHERE status = 'completed'`)),
       db.execute(sql.raw(`SELECT COALESCE(SUM(commission_amount), 0) as total FROM bookings WHERE status = 'completed' AND created_at >= '${monthStart}'`)),
       db.execute(sql.raw(`SELECT COALESCE(SUM(amount), 0) as total FROM payouts WHERE status IN ('completed', 'processing')`)),
@@ -560,6 +561,8 @@ router.get("/admin/summary", authMiddleware, async (req: Request, res: Response)
         GROUP BY u.id, u.name, u.email
         ORDER BY earnings DESC LIMIT 10
       `)),
+      db.execute(sql.raw(`SELECT COALESCE(SUM(payment_amount), 0) as total FROM wheel_spins WHERE spin_type = 'paid'`)),
+      db.execute(sql.raw(`SELECT COALESCE(SUM(payment_amount), 0) as total FROM wheel_spins WHERE spin_type = 'paid' AND created_at >= '${monthStart}'`)),
     ]);
 
     res.json({
@@ -567,6 +570,8 @@ router.get("/admin/summary", authMiddleware, async (req: Request, res: Response)
       monthCommission: Number(toRows(monthCommission)[0]?.total || 0),
       totalPayouts: Number(toRows(totalPayouts)[0]?.total || 0),
       pendingPayouts: Number(toRows(pendingPayouts)[0]?.total || 0),
+      spinRevenue: Number(toRows(spinRevenue)[0]?.total || 0),
+      monthSpinRevenue: Number(toRows(monthSpinRevenue)[0]?.total || 0),
       topProviders: toRows(topProviders).map(p => ({
         name: p.name,
         email: p.email,

@@ -16,6 +16,8 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import WheelModal from "@/components/WheelModal";
 import { ListingCard } from "@/components/ListingCard";
 import { ListingCardSkeleton } from "@/components/SkeletonLoader";
 import { NotificationBell } from "@/components/NotificationBell";
@@ -51,9 +53,29 @@ export default function HomeScreen() {
   const [selectedSubcat, setSelectedSubcat]   = useState<string>("");
   const [drawerOpen, setDrawerOpen]           = useState(false);
   const [isGoldMember, setIsGoldMember]       = useState(true); // start true to avoid flash
+  const [wheelVisible,  setWheelVisible]      = useState(false);
+  const [vaultCount,    setVaultCount]        = useState(0);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const inProviderMode = isPureProvider || (isBoth && activeMode === "provider");
+
+  // Auto-show wheel once per day
+  useEffect(() => {
+    if (!user || inProviderMode) return;
+    (async () => {
+      try {
+        const raw = await AsyncStorage.getItem("wheelShownAt");
+        const last = raw ? Number(raw) : 0;
+        const hoursElapsed = (Date.now() - last) / 3600000;
+        if (hoursElapsed >= 24) {
+          setTimeout(() => {
+            setWheelVisible(true);
+            AsyncStorage.setItem("wheelShownAt", String(Date.now()));
+          }, 1800);
+        }
+      } catch { /* ignore */ }
+    })();
+  }, [user, inProviderMode]);
 
   useEffect(() => {
     Animated.timing(fadeAnim, { toValue: 1, duration: 300, useNativeDriver: false }).start();
@@ -76,11 +98,13 @@ export default function HomeScreen() {
         params.push(`excludeProviderId=${encodeURIComponent(user.id)}`);
       }
       if (params.length) path += "?" + params.join("&");
-      const [data, goldData] = await Promise.all([
+      const [data, goldData, vaultData] = await Promise.all([
         get<Listing[]>(path),
         get<{ isGoldMember: boolean }>("/membership/status").catch(() => ({ isGoldMember: true })),
+        get<{ promos: { id: string }[] }>("/promos/vault").catch(() => ({ promos: [] })),
       ]);
       setIsGoldMember(Boolean(goldData.isGoldMember));
+      setVaultCount((vaultData.promos || []).length);
       // Cars are exclusively for ride-booking via the Cars tab — never show them here
       setListings(data.filter((l: Listing) => l.category !== "cars"));
     } catch { }
@@ -226,6 +250,40 @@ export default function HomeScreen() {
           </Pressable>
         )}
 
+        {/* ─── Wheel of Fortune banner ─── */}
+        {!inProviderMode && (
+          <View style={styles.wheelRow}>
+            <Pressable
+              onPress={() => setWheelVisible(true)}
+              style={styles.wheelBanner}
+            >
+              <LinearGradient
+                colors={["#6C3AFF", "#9D6FFF", "#C084FC"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.wheelBannerGrad}
+              >
+                <Text style={{ fontSize: 22 }}>🎡</Text>
+                <View style={styles.wheelBannerTexts}>
+                  <Text style={styles.wheelBannerTitle}>Spin & Win Discounts</Text>
+                  <Text style={styles.wheelBannerSub}>1 free spin daily · up to 30% OFF</Text>
+                </View>
+                <View style={styles.wheelBannerCta}>
+                  <Text style={styles.wheelBannerCtaTxt}>Spin</Text>
+                  <Ionicons name="chevron-forward" size={12} color="#fff" />
+                </View>
+              </LinearGradient>
+            </Pressable>
+
+            {vaultCount > 0 && (
+              <Pressable onPress={() => router.push("/promo-vault")} style={styles.vaultBtn}>
+                <Ionicons name="gift" size={16} color="#6C3AFF" />
+                <Text style={styles.vaultBtnTxt}>{vaultCount}</Text>
+              </Pressable>
+            )}
+          </View>
+        )}
+
         {/* ─── Equipment chips ─── */}
         <View style={[styles.sectionHeader, { marginTop: 12 }]}>
           <Text style={styles.sectionTitle}>{isPa ? "ਮਸ਼ੀਨਰੀ" : "Equipment"}</Text>
@@ -361,6 +419,9 @@ export default function HomeScreen() {
           </LinearGradient>
         </Pressable>
       )}
+
+      {/* Wheel of Fortune Modal */}
+      <WheelModal visible={wheelVisible} onClose={() => { setWheelVisible(false); fetchListings(); }} />
     </View>
   );
 }
@@ -396,6 +457,18 @@ const styles = StyleSheet.create({
     shadowColor: "#F5C518", shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.7, shadowRadius: 4, elevation: 4,
   },
   goldCoinText: { fontSize: 12, lineHeight: 13 },
+
+  // Wheel of Fortune banner
+  wheelRow:       { flexDirection: "row", alignItems: "center", gap: 8, marginHorizontal: 16, marginTop: 8, marginBottom: 4 },
+  wheelBanner:    { flex: 1, borderRadius: 16, overflow: "hidden", shadowColor: "#6C3AFF", shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.4, shadowRadius: 8, elevation: 5 },
+  wheelBannerGrad:{ flexDirection: "row", alignItems: "center", paddingVertical: 12, paddingHorizontal: 14, gap: 10 },
+  wheelBannerTexts: { flex: 1 },
+  wheelBannerTitle: { fontSize: 13, fontWeight: "800", fontFamily: "Inter_700Bold", color: "#fff" },
+  wheelBannerSub:   { fontSize: 11, color: "rgba(255,255,255,0.85)", fontFamily: "Inter_400Regular", marginTop: 1 },
+  wheelBannerCta:   { flexDirection: "row", alignItems: "center", gap: 2, backgroundColor: "rgba(255,255,255,0.22)", borderRadius: 20, paddingHorizontal: 10, paddingVertical: 5 },
+  wheelBannerCtaTxt: { fontSize: 12, fontWeight: "700", fontFamily: "Inter_700Bold", color: "#fff" },
+  vaultBtn:  { width: 44, height: 44, borderRadius: 22, backgroundColor: "#F3E8FF", borderWidth: 1.5, borderColor: "#9D6FFF", alignItems: "center", justifyContent: "center" },
+  vaultBtnTxt: { fontSize: 10, fontWeight: "800", fontFamily: "Inter_700Bold", color: "#6C3AFF", marginTop: 1 },
   langPill: {
     backgroundColor: "rgba(255,255,255,0.2)", borderRadius: 12,
     paddingHorizontal: 10, paddingVertical: 5,

@@ -41,6 +41,7 @@ function RootLayoutNav() {
       <Stack.Screen name="add-listing" options={{ presentation: "modal" }} />
       <Stack.Screen name="new-booking/[id]" options={{ presentation: "card", animation: "slide_from_bottom" }} />
       <Stack.Screen name="provider/[id]" options={{ presentation: "card" }} />
+      <Stack.Screen name="promo-vault" options={{ presentation: "card", animation: "slide_from_right" }} />
     </Stack>
   );
 }

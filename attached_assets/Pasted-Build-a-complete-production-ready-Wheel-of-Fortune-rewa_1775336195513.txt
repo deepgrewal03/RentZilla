@@ -1,0 +1,231 @@
+Build a complete production-ready Wheel of Fortune reward + paid extra spin system for the RentZilla customer app.
+
+APP STACK:
+- React Native Expo frontend
+- Node.js + Express backend
+- MongoDB / Firestore
+- existing customer wallet
+- existing Gold membership
+- existing promo engine
+- existing admin wallet
+- existing checkout flow
+- must work after Expo publish
+
+GOAL:
+When app starts and customer is logged in:
+- auto show Wheel of Fortune popup on home screen
+- 1 free spin per day
+- extra spins available at ₹0.99 per spin
+- extra spin payment must go to admin wallet
+- reward discount promo into promo vault
+- integrate with Gold membership + promo stacking rules
+
+---------------------------------------------------
+WHEEL DESIGN REQUIREMENTS
+---------------------------------------------------
+
+Create a premium 7-partition wheel.
+
+Partitions:
+1. 5% of first ₹100 = ₹5 off
+2. 10% of first ₹100 = ₹10 off
+3. 15% of first ₹100 = ₹15 off
+4. 20% of first ₹100 = ₹20 off
+5. 25% of first ₹100 = ₹25 off
+6. 30% of first ₹100 = ₹30 off
+7. Better luck next time
+
+VISUAL:
+- 7 equal rainbow partitions
+- light rainbow shades only
+- soft premium colors
+- smooth glow ring
+- center SPIN / STOP button
+- shine animation
+- confetti on win
+- mobile optimized
+- luxury premium style
+
+---------------------------------------------------
+SPIN ACCESS LOGIC
+---------------------------------------------------
+
+RULES:
+- 1 FREE spin every 24 hours
+- after free spin is used:
+   show "Buy Extra Spin ₹0.99"
+- unlimited extra spins allowed
+- each extra spin = ₹0.99
+- payment:
+   wallet first
+   saved payment method fallback
+- extra spin usable instantly after payment
+- log free vs paid spins separately
+
+UI BUTTONS:
+- Free Spin
+- Buy Extra Spin ₹0.99
+- Stop Wheel
+
+---------------------------------------------------
+PAID EXTRA SPIN PAYMENT FLOW
+---------------------------------------------------
+
+FLOW:
+Customer taps extra spin
+→ charge ₹0.99
+→ payment success
+→ increment extra spin balance
+→ add ₹0.99 to admin wallet
+→ allow immediate spin
+
+IMPORTANT:
+- reflect ₹0.99 instantly in admin wallet
+- transaction type = paid_spin
+- separate from booking revenue
+- include in admin analytics
+- payment retries if failed
+
+Example:
+adminWallet.totalBalance += 0.99
+adminWallet.spinRevenue += 0.99
+
+---------------------------------------------------
+DATABASE STRUCTURE
+---------------------------------------------------
+
+wheelSpins
+- userId
+- spinType = free | paid
+- reward
+- discountValue
+- paymentAmount
+- createdAt
+
+adminWallet
+- totalBalance
+- bookingRevenue
+- goldRevenue
+- spinRevenue
+- lastUpdated
+
+adminTransactions
+- type = paid_spin
+- userId
+- amount = 0.99
+- createdAt
+
+promoVault
+- userId
+- promos[]
+- type = wheel | referral | festive
+- discountValue
+- expiryDate
+- isUsed
+
+---------------------------------------------------
+PROMO CART + STACKING RULES
+---------------------------------------------------
+
+MAX ACTIVE DISCOUNTS = 2
+
+RULE 1:
+Non-Gold customer:
+- use any 2 promos
+- remaining saved in vault
+
+RULE 2:
+Gold customer:
+- Gold auto uses 1 slot
+- choose 1 more promo from vault
+- others remain saved
+
+RULE 3:
+If user owns many wheel rewards:
+- best discount suggestions first
+- manual selection allowed
+- expired auto removed
+
+---------------------------------------------------
+BACKEND APIs
+---------------------------------------------------
+
+POST /api/wheel/free-spin
+- validate daily free spin
+- generate reward
+- save to promo vault
+
+POST /api/wheel/buy-spin
+- charge ₹0.99
+- add admin revenue
+- unlock immediate paid spin
+
+POST /api/wheel/paid-spin
+- consume paid spin
+- generate reward
+- save to vault
+
+GET /api/promos/cart
+GET /api/wheel/history
+POST /api/promos/select
+
+---------------------------------------------------
+ADMIN CONTROL PANEL
+---------------------------------------------------
+
+Admin controls:
+- free spin limit
+- paid spin price
+- probability weights
+- better luck frequency
+- max reward cap
+- festive jackpot days
+
+Analytics cards:
+1. total spins today
+2. paid spins revenue
+3. free spins count
+4. rewards distributed
+5. revenue lift
+6. repeat user lift
+7. Gold member spin usage
+
+---------------------------------------------------
+FRONTEND SCREENS
+---------------------------------------------------
+
+Create:
+1. Wheel popup modal
+2. Buy extra spin sheet
+3. Promo vault screen
+4. Checkout promo selector
+5. Spin reward history
+6. Paid spin analytics badge
+
+---------------------------------------------------
+CONVERSION PSYCHOLOGY
+---------------------------------------------------
+
+Add:
+- "1 free spin daily"
+- "Need another spin? Just ₹0.99"
+- streak rewards
+- festive jackpot day
+- Gold users better odds
+- countdown till next free spin
+
+---------------------------------------------------
+RETURN EVERYTHING
+---------------------------------------------------
+
+Return:
+1. wheel UI
+2. free spin engine
+3. paid spin payment flow
+4. admin wallet integration
+5. promo vault schema
+6. stacking engine
+7. checkout UI
+8. admin analytics
+9. confetti animations
+10. production deployment notes

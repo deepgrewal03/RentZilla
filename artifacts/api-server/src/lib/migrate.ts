@@ -514,5 +514,44 @@ export async function runMigrations() {
     await db.execute(sql.raw(stmt));
   }
 
+  // ── Wheel of Fortune ─────────────────────────────────────────────────────────
+  await db.execute(sql.raw(`
+    CREATE TABLE IF NOT EXISTS wheel_spins (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      spin_type TEXT NOT NULL DEFAULT 'free',
+      reward_label TEXT,
+      discount_value NUMERIC(5,2) NOT NULL DEFAULT 0,
+      payment_amount NUMERIC(10,2) NOT NULL DEFAULT 0,
+      segment_index INTEGER NOT NULL DEFAULT 6,
+      created_at TIMESTAMP NOT NULL DEFAULT NOW()
+    )
+  `));
+
+  await db.execute(sql.raw(`
+    CREATE TABLE IF NOT EXISTS promo_vault (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      type TEXT NOT NULL DEFAULT 'wheel',
+      discount_value NUMERIC(5,2) NOT NULL DEFAULT 0,
+      discount_type TEXT NOT NULL DEFAULT 'percent',
+      description TEXT,
+      expiry_date TIMESTAMP,
+      spin_id TEXT,
+      is_used BOOLEAN NOT NULL DEFAULT FALSE,
+      is_expired BOOLEAN NOT NULL DEFAULT FALSE,
+      used_at TIMESTAMP,
+      created_at TIMESTAMP NOT NULL DEFAULT NOW()
+    )
+  `));
+
+  const wheelAlters = [
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS free_spin_last_used TIMESTAMP`,
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS paid_spin_balance INTEGER NOT NULL DEFAULT 0`,
+  ];
+  for (const stmt of wheelAlters) {
+    await db.execute(sql.raw(stmt));
+  }
+
   logger.info("Database migrations complete.");
 }

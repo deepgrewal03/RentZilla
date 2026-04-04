@@ -994,4 +994,43 @@ router.get("/gold-analytics", adminMiddleware, async (req: Request, res: Respons
   }
 });
 
+// ── GET /admin/wheel-analytics — Wheel of Fortune analytics ──────────────────
+router.get("/wheel-analytics", adminMiddleware, async (req: Request, res: Response) => {
+  try {
+    const [totalSpins, todaySpins, paidSpins, freeSpins, spinRevenue, todayRevenue,
+           rewardsGiven, recentSpins] = await Promise.all([
+      db.execute(sql.raw(`SELECT COUNT(*) as cnt FROM wheel_spins`)),
+      db.execute(sql.raw(`SELECT COUNT(*) as cnt FROM wheel_spins WHERE DATE(created_at) = CURRENT_DATE`)),
+      db.execute(sql.raw(`SELECT COUNT(*) as cnt FROM wheel_spins WHERE spin_type = 'paid'`)),
+      db.execute(sql.raw(`SELECT COUNT(*) as cnt FROM wheel_spins WHERE spin_type = 'free'`)),
+      db.execute(sql.raw(`SELECT COALESCE(SUM(payment_amount), 0) as total FROM wheel_spins WHERE spin_type = 'paid'`)),
+      db.execute(sql.raw(`SELECT COALESCE(SUM(payment_amount), 0) as total FROM wheel_spins WHERE spin_type = 'paid' AND DATE(created_at) = CURRENT_DATE`)),
+      db.execute(sql.raw(`SELECT COUNT(*) as cnt FROM wheel_spins WHERE discount_value > 0`)),
+      db.execute(sql.raw(`
+        SELECT ws.*, u.name as user_name, u.email as user_email
+        FROM wheel_spins ws JOIN users u ON u.id = ws.user_id
+        ORDER BY ws.created_at DESC LIMIT 20
+      `)),
+    ]);
+    res.json({
+      totalSpins: Number(toRows(totalSpins)[0]?.cnt || 0),
+      todaySpins: Number(toRows(todaySpins)[0]?.cnt || 0),
+      paidSpins: Number(toRows(paidSpins)[0]?.cnt || 0),
+      freeSpins: Number(toRows(freeSpins)[0]?.cnt || 0),
+      spinRevenue: Number(toRows(spinRevenue)[0]?.total || 0),
+      todayRevenue: Number(toRows(todayRevenue)[0]?.total || 0),
+      rewardsGiven: Number(toRows(rewardsGiven)[0]?.cnt || 0),
+      recentSpins: toRows(recentSpins).map(s => ({
+        id: s.id, spinType: s.spin_type, rewardLabel: s.reward_label,
+        discountValue: Number(s.discount_value || 0),
+        paymentAmount: Number(s.payment_amount || 0),
+        userName: s.user_name, userEmail: s.user_email, createdAt: s.created_at,
+      })),
+    });
+  } catch (err) {
+    req.log.error({ err }, "Wheel analytics error");
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 export default router;
