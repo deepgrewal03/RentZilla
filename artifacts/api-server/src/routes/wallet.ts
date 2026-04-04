@@ -262,6 +262,191 @@ router.post("/provider/payout/schedule", authMiddleware, async (req: Request, re
   }
 });
 
+// ── GET /wallet/admin/transactions — all wallet transactions with filters ──
+router.get("/admin/transactions", authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as AR).userId;
+    const adminCheck = toRows(await db.execute(sql.raw(`SELECT is_admin FROM users WHERE id = '${userId}' LIMIT 1`)));
+    if (!adminCheck[0]?.is_admin) { res.status(403).json({ error: "Admin only" }); return; }
+
+    const page = Math.max(1, parseInt(String(req.query.page || "1")));
+    const limit = Math.min(50, Math.max(1, parseInt(String(req.query.limit || "20"))));
+    const offset = (page - 1) * limit;
+    const status = String(req.query.status || "");
+    const type = String(req.query.type || "");
+    const search = String(req.query.search || "").replace(/'/g, "''");
+
+    let where = "1=1";
+    if (status) where += ` AND wt.status = '${status}'`;
+    if (type) where += ` AND wt.type = '${type}'`;
+    if (search) where += ` AND (u.name ILIKE '%${search}%' OR u.email ILIKE '%${search}%')`;
+
+    const [txRows, countRow] = await Promise.all([
+      db.execute(sql.raw(`
+        SELECT wt.*, u.name as user_name, u.email as user_email, u.role as user_role
+        FROM wallet_transactions wt
+        JOIN users u ON u.id = wt.user_id
+        WHERE ${where}
+        ORDER BY wt.created_at DESC
+        LIMIT ${limit} OFFSET ${offset}
+      `)),
+      db.execute(sql.raw(`
+        SELECT COUNT(*) as total
+        FROM wallet_transactions wt
+        JOIN users u ON u.id = wt.user_id
+        WHERE ${where}
+      `)),
+    ]);
+
+    res.json({
+      transactions: toRows(txRows).map(t => ({
+        id: t.id, userId: t.user_id, userName: t.user_name, userEmail: t.user_email,
+        userRole: t.user_role, type: t.type, amount: Number(t.amount),
+        balanceAfter: Number(t.balance_after), referenceId: t.reference_id,
+        referenceType: t.reference_type, description: t.description,
+        status: t.status, createdAt: t.created_at,
+      })),
+      total: Number(toRows(countRow)[0]?.total || 0),
+      page, limit,
+    });
+  } catch (err) {
+    req.log.error({ err }, "Admin transactions error");
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ── GET /wallet/admin/upcoming-bookings — future bookings + expected commission ──
+router.get("/admin/upcoming-bookings", authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as AR).userId;
+    const adminCheck = toRows(await db.execute(sql.raw(`SELECT is_admin FROM users WHERE id = '${userId}' LIMIT 1`)));
+    if (!adminCheck[0]?.is_admin) { res.status(403).json({ error: "Admin only" }); return; }
+
+    const rows = toRows(await db.execute(sql.raw(`
+      SELECT b.*, l.title as listing_title, l.category,
+             uc.name as customer_name, up.name as provider_name,
+             ROUND(b.total_amount * 0.15, 2) as expected_commission
+      FROM bookings b
+      LEFT JOIN listings l ON l.id = b.listing_id
+      LEFT JOIN users uc ON uc.id = b.customer_id
+      LEFT JOIN users up ON up.id = b.provider_id
+      WHERE b.booking_date >= CURRENT_DATE AND b.status NOT IN ('cancelled', 'completed')
+      ORDER BY b.booking_date ASC
+      LIMIT 100
+    `)));
+
+    res.json({
+      bookings: rows.map(b => ({
+        id: b.id, listingTitle: b.listing_title, category: b.category,
+        customerName: b.customer_name, providerName: b.provider_name,
+        bookingDate: b.booking_date, status: b.status,
+        totalAmount: Number(b.total_amount), expectedCommission: Number(b.expected_commission || 0),
+        createdAt: b.created_at,
+      })),
+      totalExpectedCommission: rows.reduce((s, b) => s + Number(b.expected_commission || 0), 0),
+    });
+  } catch (err) {
+    req.log.error({ err }, "Admin upcoming bookings error");
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ── POST /wallet/admin/refund — issue refund to customer or provider ─────────
+router.post("/admin/refund", authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as AR).userId;
+    const adminCheck = toRows(await db.execute(sql.raw(`SELECT is_admin FROM users WHERE id = '${userId}' LIMIT 1`)));
+    if (!adminCheck[0]?.is_admin) { res.status(403).json({ error: "Admin only" }); return; }
+
+    const { targetUserId, bookingId, amount, reason } = req.body;
+    const amt = Number(amount);
+    if (!targetUserId || amt <= 0) { res.status(400).json({ error: "targetUserId and amount > 0 required" }); return; }
+
+    const targetUser = toRows(await db.execute(sql.raw(`SELECT id, name, wallet_balance FROM users WHERE id = '${targetUserId}' LIMIT 1`)));
+    if (!targetUser.length) { res.status(404).json({ error: "User not found" }); return; }
+
+    const walletRow = toRows(await db.execute(sql.raw(`
+      UPDATE users SET wallet_balance = wallet_balance + ${amt}
+      WHERE id = '${targetUserId}' RETURNING wallet_balance
+    `)));
+    const newBalance = Number(walletRow[0]?.wallet_balance || 0);
+
+    const txId = `rfnd${Date.now()}${Math.random().toString(36).slice(2, 5)}`;
+    const safeReason = (reason || "Admin refund").replace(/'/g, "''");
+    await db.execute(sql.raw(`
+      INSERT INTO wallet_transactions
+        (id, user_id, type, amount, balance_after, reference_id, reference_type, description, status)
+      VALUES (
+        '${txId}', '${targetUserId}', 'refund', ${amt}, ${newBalance},
+        '${bookingId || txId}', 'refund', '${safeReason}', 'completed'
+      )
+    `));
+
+    if (bookingId) {
+      await db.execute(sql.raw(`
+        UPDATE bookings SET payment_status = 'refunded' WHERE id = '${bookingId}'
+      `));
+    }
+
+    res.json({ success: true, txId, newBalance, refundedTo: targetUser[0].name, amount: amt });
+  } catch (err) {
+    req.log.error({ err }, "Admin refund error");
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ── GET /wallet/admin/payment-methods — get platform payment methods ─────────
+router.get("/admin/payment-methods", authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as AR).userId;
+    const adminCheck = toRows(await db.execute(sql.raw(`SELECT is_admin FROM users WHERE id = '${userId}' LIMIT 1`)));
+    if (!adminCheck[0]?.is_admin) { res.status(403).json({ error: "Admin only" }); return; }
+
+    const rows = toRows(await db.execute(sql.raw(`SELECT * FROM platform_payment_methods ORDER BY created_at DESC`)));
+    res.json({ methods: rows.map(m => ({ id: m.id, type: m.type, label: m.label, details: JSON.parse(m.details || "{}"), isActive: m.is_active, createdAt: m.created_at })) });
+  } catch (err) {
+    req.log.error({ err }, "Admin payment methods get error");
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ── POST /wallet/admin/payment-methods — add/update platform payment method ──
+router.post("/admin/payment-methods", authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as AR).userId;
+    const adminCheck = toRows(await db.execute(sql.raw(`SELECT is_admin FROM users WHERE id = '${userId}' LIMIT 1`)));
+    if (!adminCheck[0]?.is_admin) { res.status(403).json({ error: "Admin only" }); return; }
+
+    const { type, label, details } = req.body;
+    if (!type || !label) { res.status(400).json({ error: "type and label required" }); return; }
+    const id = `pm${Date.now()}${Math.random().toString(36).slice(2, 5)}`;
+    const safeLabel = String(label).replace(/'/g, "''");
+    const safeDetails = JSON.stringify(details || {}).replace(/'/g, "''");
+
+    await db.execute(sql.raw(`
+      INSERT INTO platform_payment_methods (id, type, label, details)
+      VALUES ('${id}', '${type}', '${safeLabel}', '${safeDetails}')
+    `));
+    res.json({ success: true, id });
+  } catch (err) {
+    req.log.error({ err }, "Admin payment methods post error");
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ── DELETE /wallet/admin/payment-methods/:id — remove payment method ─────────
+router.delete("/admin/payment-methods/:id", authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as AR).userId;
+    const adminCheck = toRows(await db.execute(sql.raw(`SELECT is_admin FROM users WHERE id = '${userId}' LIMIT 1`)));
+    if (!adminCheck[0]?.is_admin) { res.status(403).json({ error: "Admin only" }); return; }
+    await db.execute(sql.raw(`DELETE FROM platform_payment_methods WHERE id = '${req.params.id}'`));
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 // ── GET /wallet/admin/summary — admin commission overview ──────────────────
 router.get("/admin/summary", authMiddleware, async (req: Request, res: Response) => {
   try {

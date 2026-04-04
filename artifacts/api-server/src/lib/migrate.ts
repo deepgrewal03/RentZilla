@@ -453,6 +453,17 @@ export async function runMigrations() {
     )
   `));
 
+  await db.execute(sql.raw(`
+    CREATE TABLE IF NOT EXISTS platform_payment_methods (
+      id TEXT PRIMARY KEY,
+      type TEXT NOT NULL,
+      label TEXT NOT NULL,
+      details TEXT NOT NULL DEFAULT '{}',
+      is_active BOOLEAN NOT NULL DEFAULT TRUE,
+      created_at TIMESTAMP NOT NULL DEFAULT NOW()
+    )
+  `));
+
   const walletAlters = [
     `ALTER TABLE users ADD COLUMN IF NOT EXISTS wallet_balance NUMERIC(10,2) NOT NULL DEFAULT 0`,
     `ALTER TABLE users ADD COLUMN IF NOT EXISTS payout_preference TEXT NOT NULL DEFAULT 'wallet'`,
@@ -460,6 +471,7 @@ export async function runMigrations() {
     `ALTER TABLE bookings ADD COLUMN IF NOT EXISTS commission_amount NUMERIC(10,2) NOT NULL DEFAULT 0`,
     `ALTER TABLE bookings ADD COLUMN IF NOT EXISTS provider_earning NUMERIC(10,2) NOT NULL DEFAULT 0`,
     `ALTER TABLE bookings ADD COLUMN IF NOT EXISTS commission_rate NUMERIC(5,2) NOT NULL DEFAULT 15`,
+    `ALTER TABLE wallet_transactions ADD COLUMN IF NOT EXISTS reference_type TEXT`,
   ];
   for (const stmt of walletAlters) {
     await db.execute(sql.raw(stmt));

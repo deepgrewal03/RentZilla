@@ -7,7 +7,7 @@ import {
   LayoutDashboard, Users, Package, CalendarDays, FileCheck,
   AlertTriangle, Settings, LogOut, Menu, X, Bell, ChevronRight,
   Shield, Activity, Calendar, UserPlus, FileText, Flag,
-  CheckCheck, ExternalLink, BadgePercent, CircleDollarSign, Tag,
+  CheckCheck, ExternalLink, BadgePercent, CircleDollarSign, Tag, Wallet,
 } from "lucide-react";
 
 const NAV = [
@@ -22,6 +22,7 @@ const NAV = [
   { path: "/pricing", label: "Pricing & Commission", icon: BadgePercent },
   { path: "/provider-prices", label: "Provider Prices", icon: CircleDollarSign },
   { path: "/promo-codes", label: "Promo Codes", icon: Tag },
+  { path: "/platform-wallet", label: "Platform Wallet", icon: Wallet },
   { path: "/settings", label: "Settings", icon: Settings },
 ];
 
