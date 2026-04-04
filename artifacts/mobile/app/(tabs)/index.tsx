@@ -50,6 +50,7 @@ export default function HomeScreen() {
   const [selectedCategory, setSelectedCategory] = useState<Category | "all">("all");
   const [selectedSubcat, setSelectedSubcat]   = useState<string>("");
   const [drawerOpen, setDrawerOpen]           = useState(false);
+  const [isGoldMember, setIsGoldMember]       = useState(true); // start true to avoid flash
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const inProviderMode = isPureProvider || (isBoth && activeMode === "provider");
@@ -75,7 +76,11 @@ export default function HomeScreen() {
         params.push(`excludeProviderId=${encodeURIComponent(user.id)}`);
       }
       if (params.length) path += "?" + params.join("&");
-      const data = await get<Listing[]>(path);
+      const [data, goldData] = await Promise.all([
+        get<Listing[]>(path),
+        get<{ isGoldMember: boolean }>("/membership/status").catch(() => ({ isGoldMember: true })),
+      ]);
+      setIsGoldMember(Boolean(goldData.isGoldMember));
       // Cars are exclusively for ride-booking via the Cars tab — never show them here
       setListings(data.filter((l: Listing) => l.category !== "cars"));
     } catch { }
@@ -185,6 +190,35 @@ export default function HomeScreen() {
         }
         showsVerticalScrollIndicator={false}
       >
+        {/* ─── Gold Membership Reminder (non-members only) ─── */}
+        {!inProviderMode && !isGoldMember && (
+          <Pressable
+            onPress={() => router.push("/gold-membership")}
+            style={styles.goldBanner}
+          >
+            <LinearGradient
+              colors={["#B8860B", "#F5C518", "#FFE066", "#F5C518"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.goldBannerGrad}
+            >
+              <View style={styles.goldBannerLeft}>
+                <View style={styles.goldIconWrap}>
+                  <Ionicons name="trophy" size={20} color="#1A1A0D" />
+                </View>
+                <View style={styles.goldBannerTexts}>
+                  <Text style={styles.goldBannerTitle}>Unlock Gold — only ₹2.49</Text>
+                  <Text style={styles.goldBannerSub}>4% off every booking, forever. One-time.</Text>
+                </View>
+              </View>
+              <View style={styles.goldBannerCta}>
+                <Text style={styles.goldBannerCtaText}>Unlock</Text>
+                <Ionicons name="chevron-forward" size={13} color="#1A1A0D" />
+              </View>
+            </LinearGradient>
+          </Pressable>
+        )}
+
         {/* ─── Equipment chips ─── */}
         <View style={[styles.sectionHeader, { marginTop: 12 }]}>
           <Text style={styles.sectionTitle}>{isPa ? "ਮਸ਼ੀਨਰੀ" : "Equipment"}</Text>
@@ -503,4 +537,27 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.45, shadowRadius: 10, elevation: 8,
   },
   fabGrad: { flex: 1, alignItems: "center", justifyContent: "center" },
+
+  // Gold membership banner
+  goldBanner: {
+    marginHorizontal: 16, marginTop: 14, marginBottom: 4, borderRadius: 16, overflow: "hidden",
+    shadowColor: "#F5C518", shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.4, shadowRadius: 8, elevation: 5,
+  },
+  goldBannerGrad: {
+    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+    paddingVertical: 13, paddingHorizontal: 14,
+  },
+  goldBannerLeft: { flexDirection: "row", alignItems: "center", gap: 10, flex: 1 },
+  goldIconWrap: {
+    width: 36, height: 36, borderRadius: 18,
+    backgroundColor: "rgba(0,0,0,0.18)", alignItems: "center", justifyContent: "center",
+  },
+  goldBannerTexts: { flex: 1 },
+  goldBannerTitle: { fontSize: 13, fontWeight: "800", fontFamily: "Inter_700Bold", color: "#1A1A0D" },
+  goldBannerSub: { fontSize: 11, fontFamily: "Inter_400Regular", color: "#3D2F00", marginTop: 1 },
+  goldBannerCta: {
+    flexDirection: "row", alignItems: "center", gap: 2,
+    backgroundColor: "rgba(0,0,0,0.18)", borderRadius: 20, paddingHorizontal: 10, paddingVertical: 5,
+  },
+  goldBannerCtaText: { fontSize: 12, fontWeight: "700", fontFamily: "Inter_700Bold", color: "#1A1A0D" },
 });
