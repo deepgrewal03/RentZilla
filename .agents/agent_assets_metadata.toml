@@ -1,5 +1,4 @@
 uploads = []
-outputs = []
 
 [[generated]]
 id = "bNI-9jJXLnssJgIUOD3oM"
@@ -12,3 +11,9 @@ id = "g-jj6Ti5Z6QdEIKVLCvRP"
 uri = "file://artifacts/mobile/assets/images/splash-icon.png"
 type = "image"
 title = "generated_image"
+
+[[outputs]]
+id = "EaCukmMXpNPpTQII20DKk"
+uri = "file://artifacts/mobile/assets/images/icon.png"
+type = "image"
+title = "RentZilla App Icon"
