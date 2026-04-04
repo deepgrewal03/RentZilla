@@ -90,7 +90,7 @@ export default function SignInScreen() {
                 {/* Monogram */}
                 <View style={styles.logoLetters}>
                   <Text style={[styles.logoLetter, { transform: [{ scaleX: -1 }] }]}>R</Text>
-                  <Text style={styles.logoLetter}>Z</Text>
+                  <Text style={[styles.logoLetter, { transform: [{ scaleX: -1 }] }]}>Z</Text>
                 </View>
                 {/* Bottom dot row */}
                 <View style={styles.logoDots}>
