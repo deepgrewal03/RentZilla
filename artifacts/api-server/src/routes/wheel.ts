@@ -38,12 +38,15 @@ router.get("/status", authMiddleware, async (req: Request, res: Response) => {
     if (!rows.length) { res.status(404).json({ error: "User not found" }); return; }
     const u = rows[0];
     const lastUsed = u.free_spin_last_used ? new Date(u.free_spin_last_used) : null;
-    const hoursElapsed = lastUsed ? (Date.now() - lastUsed.getTime()) / 3600000 : 999;
-    const canFreeSpin = hoursElapsed >= 24;
+    const todayUTC = new Date().toISOString().slice(0, 10); // "YYYY-MM-DD"
+    const lastUsedDay = lastUsed ? lastUsed.toISOString().slice(0, 10) : null;
+    const canFreeSpin = lastUsedDay !== todayUTC; // resets when calendar date changes
+    // next free = start of tomorrow UTC
+    const tomorrowMidnight = new Date(); tomorrowMidnight.setUTCHours(24, 0, 0, 0);
     res.json({
       canFreeSpin,
-      nextFreeSpinAt: (!canFreeSpin && lastUsed) ? new Date(lastUsed.getTime() + 24 * 3600000).toISOString() : null,
-      hoursUntilFree: canFreeSpin ? 0 : Math.ceil(24 - hoursElapsed),
+      nextFreeSpinAt: !canFreeSpin ? tomorrowMidnight.toISOString() : null,
+      hoursUntilFree: canFreeSpin ? 0 : Math.ceil((tomorrowMidnight.getTime() - Date.now()) / 3600000),
       paidSpinBalance: Number(u.paid_spin_balance || 0),
       paidSpinPrice: PAID_SPIN_PRICE,
       isGoldMember: Boolean(u.is_gold_member),
@@ -64,14 +67,15 @@ router.post("/free-spin", authMiddleware, async (req: Request, res: Response) =>
     if (!rows.length) { res.status(404).json({ error: "User not found" }); return; }
     const u = rows[0];
     const lastUsed = u.free_spin_last_used ? new Date(u.free_spin_last_used) : null;
-    const hoursElapsed = lastUsed ? (Date.now() - lastUsed.getTime()) / 3600000 : 999;
-    if (hoursElapsed < 24) {
-      const nextAt = new Date(lastUsed!.getTime() + 24 * 3600000);
+    const todayUTC = new Date().toISOString().slice(0, 10);
+    const lastUsedDay = lastUsed ? lastUsed.toISOString().slice(0, 10) : null;
+    if (lastUsedDay === todayUTC) {
+      const tomorrowMidnight = new Date(); tomorrowMidnight.setUTCHours(24, 0, 0, 0);
       res.status(400).json({
-        error: "Free spin not yet available",
+        error: "Free spin already used today. Come back tomorrow!",
         code: "SPIN_NOT_READY",
-        nextFreeSpinAt: nextAt.toISOString(),
-        hoursUntilFree: Math.ceil(24 - hoursElapsed),
+        nextFreeSpinAt: tomorrowMidnight.toISOString(),
+        hoursUntilFree: Math.ceil((tomorrowMidnight.getTime() - Date.now()) / 3600000),
       });
       return;
     }

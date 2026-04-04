@@ -24,7 +24,7 @@ const SEGMENTS = [
   { label: "20% OFF",   discount: 20, type: "discount", fill: "#C8F5C8", stroke: "#48C748", text: "#1A5A1A" },
   { label: "25% OFF",   discount: 25, type: "discount", fill: "#BFF0FF", stroke: "#2ECBF5", text: "#0A5A75" },
   { label: "30% OFF",   discount: 30, type: "discount", fill: "#E0D0FF", stroke: "#9D6FFF", text: "#3D0099" },
-  { label: "Better\nLuck", discount: 0, type: "none",  fill: "#F2F2F2", stroke: "#C8C8C8", text: "#666666" },
+  { label: "Better\nLuck\nNext Time", discount: 0, type: "none",  fill: "#F2F2F2", stroke: "#C8C8C8", text: "#666666" },
 ];
 
 function segPath(i: number): string {
@@ -122,8 +122,9 @@ export default function WheelModal({ visible, onClose }: Props) {
   }
 
   function doSpin(segIndex: number) {
-    // Compute target: segment i lands at pointer = (2i+1)*180/7 mod 360
-    const target = (2 * segIndex + 1) * 180 / N;
+    // To land segment i at the top pointer, rotate wheel by (360 - (2i+1)*180/N)
+    // because rotating CW by X moves what was at (360-X) to the top.
+    const target = 360 - (2 * segIndex + 1) * 180 / N;
     let delta = target - (curAngle.current % 360);
     if (delta <= 0) delta += 360;
     const finalAngle = curAngle.current + delta + 5 * 360;
@@ -170,13 +171,6 @@ export default function WheelModal({ visible, onClose }: Props) {
     } finally {
       setBuying(false);
     }
-  }
-
-  function formatCountdown(iso: string): string {
-    const ms = new Date(iso).getTime() - Date.now();
-    if (ms <= 0) return "now";
-    const h = Math.floor(ms / 3600000), m = Math.floor((ms % 3600000) / 60000);
-    return h > 0 ? `${h}h ${m}m` : `${m}m`;
   }
 
   const canSpin    = status?.canFreeSpin || (status?.paidSpinBalance ?? 0) > 0;
@@ -229,9 +223,7 @@ export default function WheelModal({ visible, onClose }: Props) {
                     ) : (
                       <View style={[s.badge, { backgroundColor: "#FFF3E0", borderColor: "#FFB74D" }]}>
                         <Ionicons name="time-outline" size={13} color="#7A3D00" />
-                        <Text style={[s.badgeTxt, { color: "#7A3D00" }]}>
-                          Next free in {status.nextFreeSpinAt ? formatCountdown(status.nextFreeSpinAt) : `${status.hoursUntilFree}h`}
-                        </Text>
+                        <Text style={[s.badgeTxt, { color: "#7A3D00" }]}>Free again tomorrow</Text>
                       </View>
                     )}
                     {(status.paidSpinBalance ?? 0) > 0 && (
@@ -262,41 +254,25 @@ export default function WheelModal({ visible, onClose }: Props) {
                       {SEGMENTS.map((seg, i) => {
                         const tp = textPos(i);
                         const lines = seg.label.split("\n");
+                        const lh = 8;
+                        const topY = tp.y - ((lines.length - 1) * lh) / 2;
                         return (
                           <G key={i}>
                             <Path d={segPath(i)} fill={seg.fill} stroke={seg.stroke} strokeWidth={1.5} />
-                            {lines.length === 1 ? (
+                            {lines.map((line, li) => (
                               <SvgText
-                                x={tp.x} y={tp.y}
+                                key={li}
+                                x={tp.x} y={topY + li * lh}
                                 fill={seg.text}
-                                fontSize={i === 6 ? 9.5 : 11}
+                                fontSize={lines.length === 1 ? 11 : lines.length === 2 ? 9.5 : 8}
                                 fontWeight="800"
                                 textAnchor="middle"
                                 alignmentBaseline="middle"
                                 transform={`rotate(${tp.rot.toFixed(1)}, ${tp.x.toFixed(1)}, ${tp.y.toFixed(1)})`}
                               >
-                                {seg.label}
+                                {line}
                               </SvgText>
-                            ) : (
-                              <>
-                                <SvgText
-                                  x={tp.x} y={tp.y - 6}
-                                  fill={seg.text} fontSize={9.5} fontWeight="800"
-                                  textAnchor="middle" alignmentBaseline="middle"
-                                  transform={`rotate(${tp.rot.toFixed(1)}, ${tp.x.toFixed(1)}, ${tp.y.toFixed(1)})`}
-                                >
-                                  {lines[0]}
-                                </SvgText>
-                                <SvgText
-                                  x={tp.x} y={tp.y + 6}
-                                  fill={seg.text} fontSize={9.5} fontWeight="800"
-                                  textAnchor="middle" alignmentBaseline="middle"
-                                  transform={`rotate(${tp.rot.toFixed(1)}, ${tp.x.toFixed(1)}, ${tp.y.toFixed(1)})`}
-                                >
-                                  {lines[1]}
-                                </SvgText>
-                              </>
-                            )}
+                            ))}
                           </G>
                         );
                       })}
@@ -331,8 +307,8 @@ export default function WheelModal({ visible, onClose }: Props) {
                     ) : (
                       <>
                         <Text style={{ fontSize: 28 }}>😔</Text>
-                        <Text style={s.resultLoseTitle}>Better luck next time!</Text>
-                        <Text style={s.resultLoseSub}>Free spin resets in 24 hours</Text>
+                        <Text style={s.resultLoseTitle}>Better Luck Next Time!</Text>
+                        <Text style={s.resultLoseSub}>Your free spin resets tomorrow. Try a paid spin!</Text>
                       </>
                     )}
                   </View>
