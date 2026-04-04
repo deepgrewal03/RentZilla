@@ -19,6 +19,7 @@ import adminRouter from "./admin.js";
 import pricingRouter from "./pricing.js";
 import mapsRouter from "./maps.js";
 import earthMoversRouter from "./earth-movers.js";
+import walletRouter from "./wallet.js";
 
 const router: IRouter = Router();
 
@@ -42,5 +43,6 @@ router.use("/admin", adminRouter);
 router.use("/pricing", pricingRouter);
 router.use("/maps", mapsRouter);
 router.use("/equipment/earth-movers", earthMoversRouter);
+router.use("/wallet", walletRouter);
 
 export default router;

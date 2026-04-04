@@ -421,5 +421,49 @@ export async function runMigrations() {
     )
   `));
 
+  // ── Wallet & commission system ─────────────────────────────────────────────
+  await db.execute(sql.raw(`
+    CREATE TABLE IF NOT EXISTS wallet_transactions (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      type TEXT NOT NULL,
+      amount NUMERIC(10,2) NOT NULL,
+      balance_after NUMERIC(10,2) NOT NULL DEFAULT 0,
+      reference_id TEXT,
+      reference_type TEXT,
+      description TEXT,
+      status TEXT NOT NULL DEFAULT 'completed',
+      created_at TIMESTAMP NOT NULL DEFAULT NOW()
+    )
+  `));
+
+  await db.execute(sql.raw(`
+    CREATE TABLE IF NOT EXISTS payouts (
+      id TEXT PRIMARY KEY,
+      provider_id TEXT NOT NULL,
+      amount NUMERIC(10,2) NOT NULL,
+      method TEXT NOT NULL DEFAULT 'instant',
+      bank_ref TEXT,
+      upi_id TEXT,
+      status TEXT NOT NULL DEFAULT 'pending',
+      scheduled_at TIMESTAMP,
+      processed_at TIMESTAMP,
+      notes TEXT,
+      created_at TIMESTAMP NOT NULL DEFAULT NOW()
+    )
+  `));
+
+  const walletAlters = [
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS wallet_balance NUMERIC(10,2) NOT NULL DEFAULT 0`,
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS payout_preference TEXT NOT NULL DEFAULT 'wallet'`,
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS upi_id TEXT`,
+    `ALTER TABLE bookings ADD COLUMN IF NOT EXISTS commission_amount NUMERIC(10,2) NOT NULL DEFAULT 0`,
+    `ALTER TABLE bookings ADD COLUMN IF NOT EXISTS provider_earning NUMERIC(10,2) NOT NULL DEFAULT 0`,
+    `ALTER TABLE bookings ADD COLUMN IF NOT EXISTS commission_rate NUMERIC(5,2) NOT NULL DEFAULT 15`,
+  ];
+  for (const stmt of walletAlters) {
+    await db.execute(sql.raw(stmt));
+  }
+
   logger.info("Database migrations complete.");
 }

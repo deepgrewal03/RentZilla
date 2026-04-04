@@ -12,6 +12,7 @@ A full-stack mobile app where users can:
 - **Favourites**: Save listings to a personal favourites list
 - **Notifications**: In-app notification centre with unread badge
 - **Ride-Booking (Cars tab)**: Uber-style ride booking with fare estimation, real-time status tracking, and a driver mode for providers
+- **Wallet System**: Customer wallet (top-up via UPI/card/net banking, transaction history); Provider wallet (auto-credited on job completion after 15% platform commission, instant UPI payout, weekly payout scheduler, payout history)
 
 Punjab-specific UX: "Sat Sri Akal" greeting, INR (₹) pricing, Punjab India location context, Ludhiana/Amritsar/Patiala cities.
 

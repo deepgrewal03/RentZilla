@@ -466,8 +466,13 @@ export default function ProfileScreen() {
         <View style={styles.menuCard}>
           <Text style={styles.menuSection}>Activity</Text>
           <MenuItem icon="heart-outline" label="Favourites" color="#FF3B5C" onPress={() => router.push("/(tabs)/favorites")} />
-          {user.role === "provider" && (
-            <MenuItem icon="list-outline" label="My Listings" color="#22C55E" onPress={() => router.push("/(tabs)/dashboard")} />
+          {user.role === "provider" ? (
+            <>
+              <MenuItem icon="list-outline" label="My Listings" color="#22C55E" onPress={() => router.push("/(tabs)/dashboard")} />
+              <MenuItem icon="wallet-outline" label="Earnings & Wallet" color="#6366F1" onPress={() => router.push("/provider-wallet" as any)} />
+            </>
+          ) : (
+            <MenuItem icon="wallet-outline" label="My Wallet" color="#FF7A18" onPress={() => router.push("/wallet" as any)} />
           )}
         </View>
 

@@ -480,7 +480,7 @@ router.post("/:id/open-job", authMiddleware, async (req: Request, res: Response)
   }
 });
 
-// ── POST /bookings/:id/complete-job (provider marks job done + adds charges) ──
+// ── POST /bookings/:id/complete-job (provider marks job done + commission split) ──
 router.post("/:id/complete-job", authMiddleware, async (req: Request, res: Response) => {
   try {
     const userId = (req as Request & { userId: string }).userId;
@@ -490,8 +490,11 @@ router.post("/:id/complete-job", authMiddleware, async (req: Request, res: Respo
     if (rows.length === 0) { res.status(404).json({ error: "Booking not found" }); return; }
     const b = rows[0];
     if (b.provider_id !== userId) { res.status(403).json({ error: "Not your booking" }); return; }
-    if (b.status !== "in_progress" && b.status !== "confirmed") { res.status(400).json({ error: "Booking must be confirmed or in progress" }); return; }
+    if (b.status !== "in_progress" && b.status !== "confirmed") {
+      res.status(400).json({ error: "Booking must be confirmed or in progress" }); return;
+    }
 
+    // ── Amount calculation ─────────────────────────────────────────────────
     const baseAmount = Number(b.total_amount || 0);
     const discount = Number(b.discount_amount || 0);
     const extraFee = Number(serviceFee) || 0;
@@ -500,18 +503,57 @@ router.post("/:id/complete-job", authMiddleware, async (req: Request, res: Respo
     const chargesTotal = chargesArr.reduce((s, c) => s + (Number(c.amount) || 0), 0);
     const finalAmount = Math.max(0, baseAmount + extraFee + chargesTotal - discount);
 
+    // ── Commission calculation — use pricing_rules if available, else 15% ──
+    let commissionRate = 15;
+    try {
+      const priceRule = toRows(await db.execute(sql`
+        SELECT commission_percent FROM pricing_rules
+        WHERE category = ${b.service_type || "General"} LIMIT 1
+      `));
+      if (priceRule.length && Number(priceRule[0].commission_percent) > 0) {
+        commissionRate = Number(priceRule[0].commission_percent);
+      }
+    } catch { /* use default */ }
+
+    const commissionAmount = Math.round((finalAmount * commissionRate / 100) * 100) / 100;
+    const providerEarning = Math.max(0, finalAmount - commissionAmount);
+
+    // ── Update booking ─────────────────────────────────────────────────────
     await db.execute(sql`
       UPDATE bookings SET
         status = 'completed',
         service_fee = ${extraFee},
         extra_charges = ${JSON.stringify(chargesArr)},
-        final_amount = ${finalAmount}
+        final_amount = ${finalAmount},
+        commission_amount = ${commissionAmount},
+        commission_rate = ${commissionRate},
+        provider_earning = ${providerEarning}
       WHERE id = ${req.params.id}
+    `);
+
+    // ── Credit provider wallet (atomic update) ─────────────────────────────
+    const walletUpdated = toRows(await db.execute(sql`
+      UPDATE users SET wallet_balance = wallet_balance + ${providerEarning}
+      WHERE id = ${userId} RETURNING wallet_balance
+    `));
+    const newProviderBalance = Number(walletUpdated[0]?.wallet_balance || 0);
+
+    // ── Record wallet transaction for provider ─────────────────────────────
+    const txId = `${Date.now()}${Math.random().toString(36).slice(2, 6)}`;
+    await db.execute(sql`
+      INSERT INTO wallet_transactions
+        (id, user_id, type, amount, balance_after, reference_id, reference_type, description, status)
+      VALUES (
+        ${txId}, ${userId}, 'earning', ${providerEarning}, ${newProviderBalance},
+        ${req.params.id}, 'booking',
+        ${'Booking earning (after ' + commissionRate + '% platform commission)'},
+        'completed'
+      )
     `);
 
     const updated = await db.select().from(bookingsTable).where(eq(bookingsTable.id, req.params.id)).limit(1);
     const enriched = await enrichBooking(updated[0]);
-    res.json(enriched);
+    res.json({ ...enriched, commissionAmount, commissionRate, providerEarning, newProviderBalance });
   } catch (err) {
     req.log.error({ err }, "Complete job error");
     res.status(500).json({ error: "Internal server error" });

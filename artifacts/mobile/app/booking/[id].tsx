@@ -235,6 +235,12 @@ export default function BookingDetailScreen() {
           )}
           <InfoRow icon="wallet-outline" label="Total Payable" value={`₹${Number(bAny.finalAmount || booking.totalAmount).toLocaleString("en-IN")}`} highlight />
           <InfoRow icon="card-outline" label="Payment" value={booking.paymentStatus.charAt(0).toUpperCase() + booking.paymentStatus.slice(1)} />
+          {isProvider && booking.status === "completed" && Number(bAny.providerEarning) > 0 && (
+            <>
+              <InfoRow icon="pie-chart-outline" label={`Platform Commission (${Number(bAny.commissionRate || 15)}%)`} value={`₹${Number(bAny.commissionAmount || 0).toLocaleString("en-IN")}`} />
+              <InfoRow icon="cash-outline" label="Your Earning (credited to wallet)" value={`₹${Number(bAny.providerEarning).toLocaleString("en-IN")}`} highlight />
+            </>
+          )}
           {isCustomer ? (
             <InfoRow icon="person-outline" label="Provider" value={`${booking.customerName || "Provider"}`} />
           ) : (
