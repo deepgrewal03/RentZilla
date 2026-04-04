@@ -628,14 +628,22 @@ export default function NewBookingScreen() {
 
           {/* Base price row */}
           <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>
-              {listing.subcategory || listing.title}
-              {selectedSlots.length > 0
-                ? listing.category === "equipment"
-                  ? ` × ${selectedSlots.length} day${selectedSlots.length > 1 ? "s" : ""}`
-                  : ` × ${selectedSlots.length} hr${selectedSlots.length > 1 ? "s" : ""}`
-                : ""}
-            </Text>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.summaryLabel}>
+                {listing.subcategory || listing.title}
+                {selectedSlots.length > 1
+                  ? listing.category === "equipment"
+                    ? ` × ${selectedSlots.length} days`
+                    : ` × ${selectedSlots.length} hrs`
+                  : ""}
+              </Text>
+              {listing.priceUnit === "per_day" && (
+                <Text style={styles.perHourNote}>
+                  ₹{listing.price.toLocaleString("en-IN")}/day
+                  {" · "}₹{Math.round(listing.price / 8).toLocaleString("en-IN")}/hr equivalent
+                </Text>
+              )}
+            </View>
             <Text style={styles.summaryValue}>
               ₹{baseTotal.toLocaleString("en-IN")}
             </Text>
@@ -963,6 +971,7 @@ const styles = StyleSheet.create({
 
   summaryRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 },
   summaryLabel: { fontSize: 13, color: "#7A7A7A", fontFamily: "Inter_400Regular", flex: 1 },
+  perHourNote: { fontSize: 11, color: "#FF7A18", fontFamily: "Inter_400Regular", marginTop: 2 },
   summaryValue: { fontSize: 13, fontWeight: "600", fontFamily: "Inter_600SemiBold", color: "#2C2C2C", textAlign: "right" },
 
   discountRow: {
