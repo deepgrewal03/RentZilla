@@ -531,6 +531,26 @@ router.post("/:id/complete-job", authMiddleware, async (req: Request, res: Respo
       WHERE id = ${req.params.id}
     `);
 
+    // ── Deduct customer wallet (atomic) ────────────────────────────────────
+    const customerRow = toRows(await db.execute(sql`
+      UPDATE users SET wallet_balance = wallet_balance - ${finalAmount}
+      WHERE id = ${b.customer_id} RETURNING wallet_balance
+    `));
+    const newCustomerBalance = Number(customerRow[0]?.wallet_balance || 0);
+
+    // ── Record wallet transaction for customer (debit) ──────────────────────
+    const custTxId = `${Date.now()}c${Math.random().toString(36).slice(2, 6)}`;
+    await db.execute(sql`
+      INSERT INTO wallet_transactions
+        (id, user_id, type, amount, balance_after, reference_id, reference_type, description, status)
+      VALUES (
+        ${custTxId}, ${b.customer_id}, 'payment', ${finalAmount}, ${newCustomerBalance},
+        ${req.params.id}, 'booking',
+        ${'Payment for booking – ' + (b.listing_id || 'service')},
+        'completed'
+      )
+    `);
+
     // ── Credit provider wallet (atomic update) ─────────────────────────────
     const walletUpdated = toRows(await db.execute(sql`
       UPDATE users SET wallet_balance = wallet_balance + ${providerEarning}
@@ -538,8 +558,8 @@ router.post("/:id/complete-job", authMiddleware, async (req: Request, res: Respo
     `));
     const newProviderBalance = Number(walletUpdated[0]?.wallet_balance || 0);
 
-    // ── Record wallet transaction for provider ─────────────────────────────
-    const txId = `${Date.now()}${Math.random().toString(36).slice(2, 6)}`;
+    // ── Record wallet transaction for provider (credit) ─────────────────────
+    const txId = `${Date.now()}p${Math.random().toString(36).slice(2, 6)}`;
     await db.execute(sql`
       INSERT INTO wallet_transactions
         (id, user_id, type, amount, balance_after, reference_id, reference_type, description, status)
@@ -553,7 +573,7 @@ router.post("/:id/complete-job", authMiddleware, async (req: Request, res: Respo
 
     const updated = await db.select().from(bookingsTable).where(eq(bookingsTable.id, req.params.id)).limit(1);
     const enriched = await enrichBooking(updated[0]);
-    res.json({ ...enriched, commissionAmount, commissionRate, providerEarning, newProviderBalance });
+    res.json({ ...enriched, commissionAmount, commissionRate, providerEarning, newProviderBalance, newCustomerBalance });
   } catch (err) {
     req.log.error({ err }, "Complete job error");
     res.status(500).json({ error: "Internal server error" });
