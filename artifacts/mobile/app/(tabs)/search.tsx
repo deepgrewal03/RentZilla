@@ -296,10 +296,12 @@ export default function SearchScreen() {
   }
 
   function onBlur() {
+    /* Use a longer delay so any onPress in the dropdown always fires first
+       before the dropdown is hidden/unmounted. */
     setTimeout(() => {
       setIsFocused(false);
       hideDropdown();
-    }, 200);
+    }, 350);
   }
 
   function clearQuery() {
@@ -445,9 +447,13 @@ export default function SearchScreen() {
       </LinearGradient>
 
       {/* ── Suggestions Dropdown ── */}
-      {showingDropdown && (
-        <Animated.View style={[styles.dropdown, { opacity: dropdownAnim }]}>
-          <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+      {/* Always mounted so onPress fires before the component can be unmounted.
+          pointerEvents="none" blocks interaction when the dropdown is not visible. */}
+      <Animated.View
+        style={[styles.dropdown, { opacity: dropdownAnim }]}
+        pointerEvents={showingDropdown ? "auto" : "none"}
+      >
+        <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
 
             {/* Loading */}
             {suggestionsLoading && query.trim() && (
@@ -613,7 +619,6 @@ export default function SearchScreen() {
             )}
           </ScrollView>
         </Animated.View>
-      )}
 
       {/* ── Results ── */}
       <ScrollView
