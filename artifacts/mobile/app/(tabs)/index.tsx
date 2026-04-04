@@ -138,7 +138,14 @@ export default function HomeScreen() {
             <Pressable onPress={toggleLanguage} style={styles.langPill}>
               <Text style={styles.langPillText}>{isPa ? "EN" : "ਪੰਜਾਬੀ"}</Text>
             </Pressable>
-            <NotificationBell />
+            <View style={styles.bellStack}>
+              <NotificationBell />
+              {isGoldMember && (
+                <Pressable onPress={() => router.push("/gold-membership")} style={styles.goldCoin}>
+                  <Text style={styles.goldCoinText}>🏆</Text>
+                </Pressable>
+              )}
+            </View>
           </View>
         </View>
 
@@ -379,6 +386,9 @@ const styles = StyleSheet.create({
   locRow: { flexDirection: "row", alignItems: "center", gap: 3, marginTop: 3 },
   locText: { fontSize: 12, color: "rgba(255,255,255,0.85)", fontFamily: "Inter_400Regular" },
   headerActions: { flexDirection: "row", alignItems: "center", gap: 8 },
+  bellStack: { alignItems: "center", gap: 3 },
+  goldCoin: { alignItems: "center", justifyContent: "center" },
+  goldCoinText: { fontSize: 13, lineHeight: 14 },
   langPill: {
     backgroundColor: "rgba(255,255,255,0.2)", borderRadius: 12,
     paddingHorizontal: 10, paddingVertical: 5,
