@@ -376,7 +376,7 @@ const styles = StyleSheet.create({
     width: SW,
     textAlign: "center",
     fontSize: 13.5,
-    color: "rgba(255, 255, 255, 0.48)",
+    color: "#0F1F3D",
     fontFamily: "Inter_400Regular",
     letterSpacing: 1.6,
   },
