@@ -1,0 +1,127 @@
+✅ 1) Force tunnel + fresh auth (MOST IMPORTANT)
+
+Run this exactly:
+
+npx expo logout
+npx expo login
+npx expo start --clear --tunnel
+
+A lot of Replit projects stop opening in Expo Go because the Expo auth session expires after EAS / publishing setup. Logging in again fixes the QR connection instantly for many users.
+
+✅ 2) Kill blocked Metro ports
+
+Replit often leaves ghost processes on 8081 / 8082.
+
+Run:
+
+pkill -f expo
+pkill -f metro
+pkill -f node
+npx expo start --tunnel
+
+Then generate a new QR code.
+
+A stuck old Metro process can make Expo Go open then immediately close.
+
+✅ 3) Full nuclear reset
+
+Because your app has many dependencies now, do this full reset:
+
+rm -rf node_modules .expo package-lock.json
+npm cache clean --force
+npm install
+npx expo install --fix
+npx expo-doctor
+npx expo start --clear --tunnel
+
+This is the best Replit-supported full reset flow.
+
+✅ 4) Check wrong API base URL (VERY COMMON in RentZilla)
+
+This is super common in large Replit apps.
+
+If somewhere you changed:
+
+http://localhost:5000
+
+or
+
+http://127.0.0.1:5000
+
+Expo Go on your phone will crash/fail because localhost points to the phone itself.
+
+✅ Fix
+
+Use your Replit backend URL:
+
+https://your-replit-name.username.repl.co
+
+or environment variable:
+
+EXPO_PUBLIC_API_URL=https://your-backend-url.replit.app
+
+One recent Replit case was fixed by changing the port URL from wrong localhost to correct backend port.
+
+✅ 5) Test with a blank screen
+
+Temporarily replace your App.tsx / root screen with:
+
+export default function App() {
+  return null;
+}
+
+If Expo Go opens now, then the crash is inside:
+
+wheel popup
+gold membership logic
+startup API call
+wallet sync
+location fetch
+push notifications
+maps init
+
+For RentZilla, startup logic overload is highly likely.
+
+🎯 My strongest guess for YOUR app
+
+Because your app now includes:
+
+Stripe
+maps
+gold membership
+wheel of fortune
+startup popup
+wallet sync
+API calls
+animations
+
+👉 most likely crash point = Home screen startup useEffect
+
+Especially something like:
+
+useEffect(() => {
+  fetchWallet();
+  checkGold();
+  showWheel();
+  getLocation();
+  fetchBookings();
+}, []);
+
+Too many startup async tasks can instantly crash Expo Go on Replit mobile preview.
+
+🚀 Best professional fix for RentZilla
+
+At this point, stop relying on plain Expo Go.
+
+Use EAS Development Build / Dev Client instead.
+
+Expo Go + Replit becomes unstable with apps this advanced.
+
+Best for your app because you now use:
+
+native modules
+payments
+maps
+image picker
+notifications
+reanimated glow buttons
