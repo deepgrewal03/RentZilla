@@ -250,7 +250,7 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   appName: { fontSize: 34, fontWeight: "700", fontFamily: "Inter_700Bold", color: "#fff", letterSpacing: -0.5 },
-  tagline: { fontSize: 20, fontWeight: "700", fontFamily: "Inter_700Bold", color: "#F5C842", textAlign: "center" },
+  tagline: { fontSize: 20, fontWeight: "700", fontFamily: "Inter_700Bold", color: "#0F1F3D", textAlign: "center" },
   card: { backgroundColor: "#fff", borderRadius: 24, padding: 24, gap: 18 },
   cardTitle: { fontSize: 22, fontWeight: "700", fontFamily: "Inter_700Bold", color: C.text },
   cardSubtitle: { fontSize: 13, color: C.textSecondary, fontFamily: "Inter_400Regular", marginTop: -10 },
