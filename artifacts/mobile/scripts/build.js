@@ -149,6 +149,7 @@ async function startMetro(expoPublicDomain, expoPublicReplId) {
     EXPO_PUBLIC_DOMAIN: expoPublicDomain,
     EXPO_PUBLIC_REPL_ID: expoPublicReplId,
     EXPO_PUBLIC_GMAPS_KEY: gmapsKey,
+    NODE_OPTIONS: (process.env.NODE_OPTIONS || "") + " --max-old-space-size=4096",
   };
 
   if (expoPublicReplId) {
