@@ -46,7 +46,21 @@ function getAppName() {
   }
 }
 
-function serveManifest(platform, res) {
+/**
+ * Rewrite a URL's origin to match the current request's host.
+ * This ensures bundle/asset URLs always point to wherever the server is
+ * actually running, regardless of what domain build.js used at build time.
+ */
+function rewriteOrigin(url, protocol, host) {
+  try {
+    const parsed = new URL(url);
+    return `${protocol}://${host}${parsed.pathname}${parsed.search}`;
+  } catch {
+    return url;
+  }
+}
+
+function serveManifest(platform, req, res) {
   const manifestPath = path.join(STATIC_ROOT, platform, "manifest.json");
 
   if (!fs.existsSync(manifestPath)) {
@@ -57,13 +71,38 @@ function serveManifest(platform, res) {
     return;
   }
 
-  const manifest = fs.readFileSync(manifestPath, "utf-8");
+  let manifest;
+  try {
+    manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
+  } catch (e) {
+    res.writeHead(500, { "content-type": "application/json" });
+    res.end(JSON.stringify({ error: "Manifest JSON parse failed" }));
+    return;
+  }
+
+  // Rewrite all embedded URLs so they point to *this* server,
+  // fixing any domain that was baked in at build time.
+  const protocol = req.headers["x-forwarded-proto"] || "https";
+  const host = req.headers["x-forwarded-host"] || req.headers["host"] || "localhost";
+
+  if (manifest.launchAsset?.url) {
+    manifest.launchAsset.url = rewriteOrigin(manifest.launchAsset.url, protocol, host);
+  }
+  for (const asset of manifest.assets || []) {
+    if (asset.url) {
+      asset.url = rewriteOrigin(asset.url, protocol, host);
+    }
+  }
+
+  console.log(
+    `[manifest] ${platform} → bundle: ${manifest.launchAsset?.url || "none"} assets: ${manifest.assets?.length || 0}`,
+  );
   res.writeHead(200, {
     "content-type": "application/json",
     "expo-protocol-version": "1",
     "expo-sfv-version": "0",
   });
-  res.end(manifest);
+  res.end(JSON.stringify(manifest));
 }
 
 function serveLandingPage(req, res, landingPageTemplate, appName) {
@@ -140,7 +179,7 @@ const server = http.createServer((req, res) => {
   if (pathname === "/" || pathname === "/manifest") {
     const platform = req.headers["expo-platform"];
     if (platform === "ios" || platform === "android") {
-      return serveManifest(platform, res);
+      return serveManifest(platform, req, res);
     }
 
     if (pathname === "/") {
