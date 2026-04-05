@@ -94,8 +94,15 @@ function serveManifest(platform, req, res) {
     }
   }
 
+  // Echo back the runtimeVersion Expo Go advertises in its request header so
+  // the compatibility check always passes (no "incompatible update" rejection).
+  const requestedRuntimeVersion = req.headers["expo-runtime-version"];
+  if (requestedRuntimeVersion) {
+    manifest.runtimeVersion = requestedRuntimeVersion;
+  }
+
   console.log(
-    `[manifest] ${platform} → bundle: ${manifest.launchAsset?.url || "none"} assets: ${manifest.assets?.length || 0}`,
+    `[manifest] ${platform} rv=${manifest.runtimeVersion} → bundle: ${manifest.launchAsset?.url || "none"} assets: ${manifest.assets?.length || 0}`,
   );
   res.writeHead(200, {
     "content-type": "application/json",

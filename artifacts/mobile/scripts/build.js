@@ -99,6 +99,7 @@ function exportPlatform(platform, domain) {
       "exec", "expo", "export",
       "--platform", platform,
       "--no-minify",
+      "--no-bytecode",
       "--output-dir", exportDir,
     ],
     { env },
