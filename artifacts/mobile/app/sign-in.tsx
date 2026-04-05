@@ -101,7 +101,7 @@ export default function SignInScreen() {
               </View>
             </View>
             <Text style={styles.appName}>{t.appName}</Text>
-            <Text style={styles.tagline}>{t.appTagline}</Text>
+            <Text style={styles.tagline}>ਤੁਹਾਡੀ ਆਪਣੀ ਐਪ</Text>
           </View>
 
           {/* Card */}
@@ -250,7 +250,7 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   appName: { fontSize: 34, fontWeight: "700", fontFamily: "Inter_700Bold", color: "#fff", letterSpacing: -0.5 },
-  tagline: { fontSize: 13, color: "rgba(255,255,255,0.6)", fontFamily: "Inter_400Regular", textAlign: "center" },
+  tagline: { fontSize: 20, fontWeight: "700", fontFamily: "Inter_700Bold", color: "#F5C842", textAlign: "center" },
   card: { backgroundColor: "#fff", borderRadius: 24, padding: 24, gap: 18 },
   cardTitle: { fontSize: 22, fontWeight: "700", fontFamily: "Inter_700Bold", color: C.text },
   cardSubtitle: { fontSize: 13, color: C.textSecondary, fontFamily: "Inter_400Regular", marginTop: -10 },
