@@ -349,6 +349,21 @@ export default function DashboardScreen() {
           ))}
         </View>
 
+        {/* ──────────── REFER A FRIEND BANNER ──────────── */}
+        <Pressable onPress={() => router.push("/referral" as any)} activeOpacity={0.9} style={styles.referBanner}>
+          <LinearGradient colors={["#FF7A18", "#FF9F43"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.referBannerGrad}>
+            <View style={styles.referBannerIcon}><Text style={{ fontSize: 24 }}>🎁</Text></View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.referBannerTitle}>Refer Providers, Earn Rewards</Text>
+              <Text style={styles.referBannerSub}>Invite 5 colleagues → unlock 10% off your next job</Text>
+            </View>
+            <View style={styles.referBannerCta}>
+              <Text style={styles.referBannerCtaTxt}>Refer</Text>
+              <Ionicons name="chevron-forward" size={13} color="#fff" />
+            </View>
+          </LinearGradient>
+        </Pressable>
+
         {/* ──────────── DRIVER STATS (if any trips) ──────────── */}
         {!loading && (summary?.rides.totalTrips ?? 0) > 0 && (
           <View style={styles.section}>
@@ -912,6 +927,13 @@ const styles = StyleSheet.create({
   countBadgeText: { fontSize: 12, fontWeight: "700", fontFamily: "Inter_700Bold" },
   driverCard: { borderRadius: 18, overflow: "hidden", shadowColor: NAVY, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.25, shadowRadius: 10, elevation: 5 },
   driverGrad: { padding: 20 },
+  referBanner:     { marginHorizontal: 16, marginBottom: 16, borderRadius: 16, overflow: "hidden", elevation: 4, shadowColor: "#FF7A18", shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 8 },
+  referBannerGrad: { flexDirection: "row", alignItems: "center", paddingVertical: 14, paddingHorizontal: 16, gap: 12 },
+  referBannerIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: "rgba(255,255,255,0.22)", alignItems: "center", justifyContent: "center" },
+  referBannerTitle: { fontSize: 14, fontWeight: "800", fontFamily: "Inter_700Bold", color: "#fff" },
+  referBannerSub:   { fontSize: 11, color: "rgba(255,255,255,0.88)", fontFamily: "Inter_400Regular", marginTop: 2 },
+  referBannerCta:   { flexDirection: "row", alignItems: "center", gap: 2, backgroundColor: "rgba(255,255,255,0.22)", borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6 },
+  referBannerCtaTxt: { fontSize: 12, fontWeight: "700", fontFamily: "Inter_700Bold", color: "#fff" },
   driverRow: { flexDirection: "row", justifyContent: "space-around", alignItems: "center" },
   driverStat: { alignItems: "center", gap: 5 },
   driverStatNum: { fontSize: 20, fontWeight: "700", fontFamily: "Inter_700Bold", color: "#fff" },

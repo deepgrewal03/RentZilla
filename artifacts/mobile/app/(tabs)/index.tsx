@@ -284,6 +284,27 @@ export default function HomeScreen() {
           </View>
         )}
 
+        {/* ─── Refer a Friend banner ─── */}
+        {!inProviderMode && (
+          <Pressable onPress={() => router.push("/referral" as any)} style={styles.referBanner}>
+            <LinearGradient
+              colors={["#FF7A18", "#FF9F43"]}
+              start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+              style={styles.referBannerGrad}
+            >
+              <Text style={{ fontSize: 22 }}>🎁</Text>
+              <View style={styles.referBannerTexts}>
+                <Text style={styles.referBannerTitle}>Refer a Friend, Earn 10% Off</Text>
+                <Text style={styles.referBannerSub}>Share your code · 5 friends = reward!</Text>
+              </View>
+              <View style={styles.referBannerCta}>
+                <Text style={styles.referBannerCtaTxt}>Share</Text>
+                <Ionicons name="chevron-forward" size={12} color="#fff" />
+              </View>
+            </LinearGradient>
+          </Pressable>
+        )}
+
         {/* ─── Equipment chips ─── */}
         <View style={[styles.sectionHeader, { marginTop: 12 }]}>
           <Text style={styles.sectionTitle}>{isPa ? "ਮਸ਼ੀਨਰੀ" : "Equipment"}</Text>
@@ -469,6 +490,13 @@ const styles = StyleSheet.create({
   wheelBannerCtaTxt: { fontSize: 12, fontWeight: "700", fontFamily: "Inter_700Bold", color: "#fff" },
   vaultBtn:  { width: 44, height: 44, borderRadius: 22, backgroundColor: "#F3E8FF", borderWidth: 1.5, borderColor: "#9D6FFF", alignItems: "center", justifyContent: "center" },
   vaultBtnTxt: { fontSize: 10, fontWeight: "800", fontFamily: "Inter_700Bold", color: "#6C3AFF", marginTop: 1 },
+  referBanner:      { marginHorizontal: 16, marginTop: 8, marginBottom: 4, borderRadius: 16, overflow: "hidden", elevation: 4, shadowColor: "#FF7A18", shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.35, shadowRadius: 8 },
+  referBannerGrad:  { flexDirection: "row", alignItems: "center", paddingVertical: 12, paddingHorizontal: 14, gap: 10 },
+  referBannerTexts: { flex: 1 },
+  referBannerTitle: { fontSize: 13, fontWeight: "800", fontFamily: "Inter_700Bold", color: "#fff" },
+  referBannerSub:   { fontSize: 11, color: "rgba(255,255,255,0.88)", fontFamily: "Inter_400Regular", marginTop: 1 },
+  referBannerCta:   { flexDirection: "row", alignItems: "center", gap: 2, backgroundColor: "rgba(255,255,255,0.22)", borderRadius: 20, paddingHorizontal: 10, paddingVertical: 5 },
+  referBannerCtaTxt: { fontSize: 12, fontWeight: "700", fontFamily: "Inter_700Bold", color: "#fff" },
   langPill: {
     backgroundColor: "rgba(255,255,255,0.2)", borderRadius: 12,
     paddingHorizontal: 10, paddingVertical: 5,
