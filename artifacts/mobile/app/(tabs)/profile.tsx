@@ -474,6 +474,7 @@ export default function ProfileScreen() {
           ) : (
             <MenuItem icon="wallet-outline" label="My Wallet" color="#FF7A18" onPress={() => router.push("/wallet" as any)} />
           )}
+          <MenuItem icon="gift-outline" label="Refer a Friend 🎁" color="#FF7A18" onPress={() => router.push("/referral" as any)} />
         </View>
 
         {/* Account */}

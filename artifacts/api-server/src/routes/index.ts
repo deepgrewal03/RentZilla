@@ -23,6 +23,7 @@ import walletRouter from "./wallet.js";
 import membershipRouter from "./membership.js";
 import wheelRouter from "./wheel.js";
 import promosRouter from "./promos.js";
+import referralRouter from "./referral.js";
 
 const router: IRouter = Router();
 
@@ -50,5 +51,6 @@ router.use("/wallet", walletRouter);
 router.use("/membership", membershipRouter);
 router.use("/wheel", wheelRouter);
 router.use("/promos", promosRouter);
+router.use("/referral", referralRouter);
 
 export default router;

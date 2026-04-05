@@ -1,0 +1,247 @@
+Build a complete production-ready REFER A FRIEND system for the RentZilla app for both customers and providers.
+
+APP STACK:
+- React Native Expo frontend
+- Node.js + Express backend
+- MongoDB / Firestore
+- existing wallet
+- existing booking flow
+- existing provider payout flow
+- existing settings tab
+- must work after Expo publish
+
+GOAL:
+Create a referral system visible in SETTINGS TAB for both:
+1. Customer app
+2. Provider app
+
+Referral rewards unlock ONLY after 5 successful completions.
+
+---------------------------------------------------
+CUSTOMER REFERRAL LOGIC
+---------------------------------------------------
+
+RULE:
+- customer must refer at least 5 friends
+- each referred friend must:
+   1) sign up
+   2) use referral code
+   3) complete first booking successfully
+- only after all 5 complete first booking:
+   referrer gets 10% OFF on next booking
+
+IMPORTANT:
+- reward applies only once after each batch of 5
+- after reward is used, next cycle starts again
+- partial progress should be tracked
+- invalid or cancelled bookings do not count
+
+Example:
+Friend completions = 5
+→ unlock promo reward = 10% OFF next booking
+→ add reward to promo vault
+
+---------------------------------------------------
+PROVIDER REFERRAL LOGIC
+---------------------------------------------------
+
+RULE:
+- provider must refer at least 5 provider friends
+- each referred provider must:
+   1) sign up
+   2) use referral code
+   3) complete first JOB successfully
+- after 5 successful first jobs:
+   referrer provider gets EXTRA 10% earnings bonus on NEXT completed booking/job
+
+IMPORTANT:
+- applies only on provider’s next completed booking
+- bonus calculated on provider payout share
+- after bonus use, cycle resets
+- cancelled jobs do not count
+
+Example:
+Provider payout = ₹1,000
+Referral bonus = +₹100
+Provider receives = ₹1,100
+
+---------------------------------------------------
+SETTINGS TAB UI
+---------------------------------------------------
+
+Add in BOTH customer and provider settings:
+
+NEW MENU ITEM:
+"Refer a Friend 🎁"
+
+Inside screen show:
+- unique referral code
+- share via WhatsApp / SMS / link
+- progress bar 0/5
+- referred friends count
+- completed bookings/jobs count
+- reward status
+- next reward preview
+- share CTA button
+- reward history
+
+PROGRESS EXAMPLE:
+3 / 5 friends completed first booking
+"2 more friends to unlock 10% reward"
+
+---------------------------------------------------
+DATABASE STRUCTURE
+---------------------------------------------------
+
+referrals
+- referrerId
+- referrerType = customer | provider
+- referredUserId
+- referredType = customer | provider
+- referralCode
+- signupCompleted
+- firstCompletionDone
+- rewardGranted
+- createdAt
+
+referralRewards
+- userId
+- userType
+- rewardType = booking_discount | provider_bonus
+- rewardValue = 10
+- unlockedAt
+- usedAt
+- status
+
+users
+- referralCode
+- referredBy
+- completedReferralCount
+- pendingReferralReward
+- totalReferralRewardsEarned
+
+---------------------------------------------------
+BACKEND APIs
+---------------------------------------------------
+
+POST /api/referral/generate
+- create unique referral code
+
+POST /api/referral/apply
+- apply code during signup
+
+GET /api/referral/status
+Returns:
+- total referred
+- completed first bookings/jobs
+- progress
+- reward unlocked
+- pending reward
+
+POST /api/referral/share
+- generate shareable deep link
+
+POST /api/referral/use-reward
+- apply customer discount OR provider bonus
+
+GET /api/referral/history
+- previous referrals and rewards
+
+---------------------------------------------------
+BOOKING + JOB INTEGRATION
+---------------------------------------------------
+
+CUSTOMER:
+On referred friend’s first successful booking:
+- increment referrer progress
+- when progress hits 5:
+   unlock 10% next booking promo
+- save in promo vault
+
+PROVIDER:
+On referred provider’s first completed job:
+- increment provider progress
+- when progress hits 5:
+   mark next payout bonus = 10%
+
+---------------------------------------------------
+CHECKOUT + PAYOUT ENGINE
+---------------------------------------------------
+
+CUSTOMER:
+During next booking:
+- auto detect unlocked referral reward
+- apply 10% off
+- mark reward used
+- restart cycle
+
+PROVIDER:
+During next payout completion:
+- auto add 10% bonus
+- show:
+   "Referral Bonus Applied +10%"
+- mark reward used
+- restart cycle
+
+---------------------------------------------------
+ANTI FRAUD RULES
+---------------------------------------------------
+
+IMPORTANT:
+- self referral blocked
+- same device multiple signups blocked
+- same payment method duplicate blocked
+- same phone duplicate blocked
+- only first successful completion counts
+- cancelled/refunded bookings excluded
+- admin fraud review dashboard
+- immutable referral logs
+
+---------------------------------------------------
+NOTIFICATIONS
+---------------------------------------------------
+
+Customer:
+- 1 friend completed
+- 5/5 complete reward unlocked
+- 10% discount used
+
+Provider:
+- 1 provider completed first job
+- 5/5 complete bonus unlocked
+- +10% bonus added to payout
+
+---------------------------------------------------
+ADMIN DASHBOARD
+---------------------------------------------------
+
+Analytics:
+- total referrals today
+- customer referral conversions
+- provider referral conversions
+- unlocked rewards
+- revenue impact
+- fraud alerts
+- top referrers leaderboard
+
+Admin controls:
+- change threshold (default 5)
+- change reward % (default 10)
+- pause referral program
+- festive double referral events
+
+---------------------------------------------------
+RETURN EVERYTHING
+---------------------------------------------------
+
+Return:
+1. referral schemas
+2. backend APIs
+3. settings tab UI
+4. share referral deep links
+5. progress tracker
+6. checkout discount logic
+7. provider payout bonus logic
+8. anti fraud rules
+9. admin analytics dashboard
+10. production deployment notes

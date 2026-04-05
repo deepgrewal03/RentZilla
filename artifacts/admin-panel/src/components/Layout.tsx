@@ -7,7 +7,7 @@ import {
   LayoutDashboard, Users, Package, CalendarDays, FileCheck,
   AlertTriangle, Settings, LogOut, Menu, X, Bell, ChevronRight,
   Shield, Activity, Calendar, UserPlus, FileText, Flag,
-  CheckCheck, ExternalLink, BadgePercent, CircleDollarSign, Tag, Wallet, Trophy, Dices,
+  CheckCheck, ExternalLink, BadgePercent, CircleDollarSign, Tag, Wallet, Trophy, Dices, Gift,
 } from "lucide-react";
 
 const NAV = [
@@ -25,6 +25,7 @@ const NAV = [
   { path: "/platform-wallet", label: "Platform Wallet", icon: Wallet },
   { path: "/gold-analytics", label: "Gold Membership", icon: Trophy },
   { path: "/wheel-analytics", label: "Wheel Analytics", icon: Dices },
+  { path: "/referral-analytics", label: "Referral Program", icon: Gift },
   { path: "/settings", label: "Settings", icon: Settings },
 ];
 

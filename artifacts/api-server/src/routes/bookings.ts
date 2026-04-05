@@ -626,10 +626,138 @@ router.post("/:id/complete-job", authMiddleware, async (req: Request, res: Respo
     const updated = await db.select().from(bookingsTable).where(eq(bookingsTable.id, req.params.id)).limit(1);
     const enriched = await enrichBooking(updated[0]);
     res.json({ ...enriched, commissionAmount, commissionRate, providerEarning, newProviderBalance, newCustomerBalance });
+
+    // ── Fire-and-forget: process referral progress ─────────────────────────
+    processReferralCompletion(b.customer_id, userId, req.params.id).catch(() => {});
   } catch (err) {
     req.log.error({ err }, "Complete job error");
     res.status(500).json({ error: "Internal server error" });
   }
 });
+
+async function processReferralCompletion(customerId: string, providerId: string, bookingId: string) {
+  function genId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
+  function toRowsLocal(r: any) { return Array.isArray(r) ? r : (r?.rows ?? []); }
+  const THRESHOLD = 5;
+  const REWARD_PCT = 10;
+
+  // ── Customer referral check ────────────────────────────────────────────────
+  try {
+    const custRows = toRowsLocal(await db.execute(sql`
+      SELECT referred_by, referral_first_completion_counted FROM users WHERE id = ${customerId} LIMIT 1
+    `));
+    const cust = custRows[0];
+    if (cust?.referred_by && !cust.referral_first_completion_counted) {
+      // Mark customer's first completion as counted
+      await db.execute(sql`UPDATE users SET referral_first_completion_counted = TRUE WHERE id = ${customerId}`);
+      // Update referral record
+      await db.execute(sql`
+        UPDATE referrals SET first_completion_done = TRUE
+        WHERE id = (
+          SELECT id FROM referrals
+          WHERE referred_user_id = ${customerId} AND first_completion_done = FALSE
+          LIMIT 1
+        )
+      `);
+      // Find referrer
+      const refRows = toRowsLocal(await db.execute(sql`
+        SELECT u.id, u.referral_progress FROM users u
+        JOIN referrals r ON r.referrer_id = u.id
+        WHERE r.referred_user_id = ${customerId} LIMIT 1
+      `));
+      if (refRows.length) {
+        const referrer = refRows[0];
+        const newProgress = Number(referrer.referral_progress || 0) + 1;
+        await db.execute(sql`UPDATE users SET referral_progress = ${newProgress} WHERE id = ${referrer.id}`);
+
+        // Notify referrer
+        const nId = genId();
+        await db.execute(sql.raw(`
+          INSERT INTO notifications (id, user_id, title, message)
+          VALUES ('${nId}', '${referrer.id}', '🎁 Referral Progress!',
+            'One of your referred friends completed their first booking! Progress: ${newProgress % THRESHOLD}/${THRESHOLD}')
+        `));
+
+        // Check if reward threshold met
+        if (newProgress % THRESHOLD === 0) {
+          await db.execute(sql`UPDATE users SET pending_referral_reward = TRUE, total_referral_rewards = total_referral_rewards + 1 WHERE id = ${referrer.id}`);
+          const rwId = genId();
+          await db.execute(sql.raw(`
+            INSERT INTO referral_rewards (id, user_id, reward_type, reward_value, status)
+            VALUES ('${rwId}', '${referrer.id}', 'booking_discount', ${REWARD_PCT}, 'pending')
+          `));
+          // Add to promo vault as 10% off
+          const pvId = genId();
+          await db.execute(sql.raw(`
+            INSERT INTO promo_vault (id, user_id, type, discount_value, discount_type, description, expiry_date)
+            VALUES ('${pvId}', '${referrer.id}', 'referral', ${REWARD_PCT}, 'percent', 'Referral Reward – 10% off next booking', NOW() + INTERVAL '30 days')
+          `));
+          const rn2 = genId();
+          await db.execute(sql.raw(`
+            INSERT INTO notifications (id, user_id, title, message)
+            VALUES ('${rn2}', '${referrer.id}', '🏆 Referral Reward Unlocked!',
+              'You referred 5 friends who completed their first booking! 10% off your next booking has been added to your promo vault.')
+          `));
+        }
+      }
+    }
+  } catch { /* non-critical */ }
+
+  // ── Provider referral check ────────────────────────────────────────────────
+  try {
+    const provRows = toRowsLocal(await db.execute(sql`
+      SELECT referred_by, referral_first_completion_counted FROM users WHERE id = ${providerId} LIMIT 1
+    `));
+    const prov = provRows[0];
+    if (prov?.referred_by && !prov.referral_first_completion_counted) {
+      await db.execute(sql`UPDATE users SET referral_first_completion_counted = TRUE WHERE id = ${providerId}`);
+      await db.execute(sql`
+        UPDATE referrals SET first_completion_done = TRUE
+        WHERE id = (
+          SELECT id FROM referrals
+          WHERE referred_user_id = ${providerId} AND first_completion_done = FALSE
+          LIMIT 1
+        )
+      `);
+      const refRows = toRowsLocal(await db.execute(sql`
+        SELECT u.id, u.referral_progress FROM users u
+        JOIN referrals r ON r.referrer_id = u.id
+        WHERE r.referred_user_id = ${providerId} LIMIT 1
+      `));
+      if (refRows.length) {
+        const referrer = refRows[0];
+        const newProgress = Number(referrer.referral_progress || 0) + 1;
+        await db.execute(sql`UPDATE users SET referral_progress = ${newProgress} WHERE id = ${referrer.id}`);
+
+        const nId = genId();
+        await db.execute(sql.raw(`
+          INSERT INTO notifications (id, user_id, title, message)
+          VALUES ('${nId}', '${referrer.id}', '🎁 Provider Referral Progress!',
+            'One of your referred providers completed their first job! Progress: ${newProgress % THRESHOLD}/${THRESHOLD}')
+        `));
+
+        if (newProgress % THRESHOLD === 0) {
+          await db.execute(sql`UPDATE users SET pending_referral_reward = TRUE, total_referral_rewards = total_referral_rewards + 1 WHERE id = ${referrer.id}`);
+          const rwId = genId();
+          await db.execute(sql.raw(`
+            INSERT INTO referral_rewards (id, user_id, reward_type, reward_value, status)
+            VALUES ('${rwId}', '${referrer.id}', 'provider_bonus', ${REWARD_PCT}, 'pending')
+          `));
+          const pvId = genId();
+          await db.execute(sql.raw(`
+            INSERT INTO promo_vault (id, user_id, type, discount_value, discount_type, description, expiry_date)
+            VALUES ('${pvId}', '${referrer.id}', 'referral', ${REWARD_PCT}, 'percent', 'Provider Referral Bonus – 10% on next earnings', NOW() + INTERVAL '30 days')
+          `));
+          const rn2 = genId();
+          await db.execute(sql.raw(`
+            INSERT INTO notifications (id, user_id, title, message)
+            VALUES ('${rn2}', '${referrer.id}', '🏆 Provider Referral Reward!',
+              '5 providers you referred completed their first job! +10% bonus applies to your next booking payout.')
+          `));
+        }
+      }
+    }
+  } catch { /* non-critical */ }
+}
 
 export default router;

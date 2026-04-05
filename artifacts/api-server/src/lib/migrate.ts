@@ -555,5 +555,43 @@ export async function runMigrations() {
     await db.execute(sql.raw(stmt));
   }
 
+  // ── Referral System ───────────────────────────────────────────────────────────
+  const referralUserAlters = [
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS referral_code TEXT UNIQUE`,
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS referred_by TEXT`,
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS referral_progress INTEGER NOT NULL DEFAULT 0`,
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS pending_referral_reward BOOLEAN NOT NULL DEFAULT FALSE`,
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS total_referral_rewards INTEGER NOT NULL DEFAULT 0`,
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS referral_first_completion_counted BOOLEAN NOT NULL DEFAULT FALSE`,
+  ];
+  for (const stmt of referralUserAlters) {
+    await db.execute(sql.raw(stmt));
+  }
+
+  await db.execute(sql.raw(`
+    CREATE TABLE IF NOT EXISTS referrals (
+      id TEXT PRIMARY KEY,
+      referrer_id TEXT NOT NULL,
+      referred_user_id TEXT NOT NULL,
+      referral_code TEXT NOT NULL,
+      first_completion_done BOOLEAN NOT NULL DEFAULT FALSE,
+      reward_granted BOOLEAN NOT NULL DEFAULT FALSE,
+      created_at TIMESTAMP NOT NULL DEFAULT NOW()
+    )
+  `));
+
+  await db.execute(sql.raw(`
+    CREATE TABLE IF NOT EXISTS referral_rewards (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      reward_type TEXT NOT NULL,
+      reward_value NUMERIC(5,2) NOT NULL DEFAULT 10,
+      status TEXT NOT NULL DEFAULT 'pending',
+      unlocked_at TIMESTAMP NOT NULL DEFAULT NOW(),
+      used_at TIMESTAMP,
+      used_in_booking_id TEXT
+    )
+  `));
+
   logger.info("Database migrations complete.");
 }
