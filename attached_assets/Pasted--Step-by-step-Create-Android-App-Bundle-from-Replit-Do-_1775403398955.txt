@@ -1,0 +1,178 @@
+🚀 Step-by-step: Create Android App Bundle from Replit
+
+Do this inside Replit Shell.
+
+✅ 1) Install EAS CLI
+npm install -g eas-cli
+eas login
+
+Login with your Expo account.
+
+✅ 2) Install Expo Dev Client (recommended)
+
+Because RentZilla uses:
+
+Stripe
+Maps
+Camera
+Notifications
+Gold membership
+Wheel of fortune
+
+Run:
+
+npx expo install expo-dev-client
+✅ 3) Configure EAS
+
+Run:
+
+eas build:configure
+
+This creates eas.json.
+
+✅ 4) Use this production eas.json
+
+Paste this exact config:
+
+{
+  "cli": {
+    "version": ">= 10.0.0"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal"
+    },
+    "preview": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      }
+    },
+    "production": {
+      "android": {
+        "buildType": "app-bundle"
+      }
+    }
+  }
+}
+
+This makes production build = AAB for Play Store.
+
+✅ 5) Add Android package name
+
+Open app.json or app.config.js
+
+{
+  "expo": {
+    "name": "RentZilla",
+    "slug": "rentzilla",
+    "android": {
+      "package": "com.rentzilla.app"
+    }
+  }
+}
+
+⚠️ Important:
+Package name can never change after Play Store launch
+
+Best:
+
+com.rentzilla.app
+✅ 6) Build Android App Bundle
+
+Now run:
+
+eas build --platform android --profile production
+
+This uploads your project and creates a Play Store ready .aab file.
+
+✅ 7) Download the AAB
+
+After build completes:
+
+open Expo build dashboard link
+download .aab
+
+Example:
+
+rentzilla-production.aab
+✅ 8) Upload to Google Play Console
+
+Go to:
+
+Google Play Console
+
+Then:
+
+Create App
+Internal Testing
+Create Release
+Upload .aab
+Save → Review → Rollout
+
+Google requires the first upload manually.
+
+🎯 Best Play Store release flow for RentZilla
+
+I strongly recommend:
+
+1. Internal testing
+
+Test:
+
+payments
+maps
+wallets
+gold membership
+referral system
+provider payouts
+wheel rewards
+2. Closed testing
+
+Invite 20–50 users
+
+3. Production
+
+This helps avoid rejection.
+
+⚠️ Important for your app
+
+Because RentZilla has:
+
+payments
+user wallet
+provider earnings
+referral rewards
+memberships
+
+Google may ask for:
+
+privacy policy
+financial transaction disclosure
+location permission explanation
+background location reason
+payment screenshots
+
+Prepare these before upload.
+
+💡 My strongest recommendation
+
+Before production AAB, first create a preview APK:
+
+eas build --platform android --profile preview
+
+Install and test everything on your phone.
+
+Then do production AAB.
+
+This saves Play Store rejection issues.
+
+🔥 Exact command you need now
+
+For your app right now, just run:
+
+eas build:configure
+eas build --platform android --profile production
+
+That will generate the Google Play Store AAB.
