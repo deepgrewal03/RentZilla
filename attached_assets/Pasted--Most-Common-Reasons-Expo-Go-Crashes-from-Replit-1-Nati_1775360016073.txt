@@ -1,0 +1,223 @@
+🚨 Most Common Reasons Expo Go Crashes from Replit
+1) Native package not supported in Expo Go (MOST COMMON)
+
+This is the #1 reason.
+
+If you recently added packages like:
+
+Google Sign In
+Apple Sign In
+Stripe native SDK
+Maps native navigation
+camera/image picker plugins
+Reanimated / Gesture Handler
+push notifications
+background location
+file system native modules
+
+Expo Go can crash if the package needs native build config that Replit preview can’t load properly.
+
+Example risky packages
+@stripe/stripe-react-native
+react-native-reanimated
+react-native-maps
+react-native-vision-camera
+@react-native-google-signin/google-signin
+
+This is very likely in RentZilla because you added:
+
+wallet
+maps
+camera
+gold UI
+wheel animations
+2) SDK version mismatch
+
+Sometimes Replit updates Expo Go automatically but your project still uses older SDK.
+
+Example:
+
+Expo Go app = SDK 55
+Replit project = SDK 53
+
+This causes instant close.
+
+Fix
+
+Run:
+
+npx expo install --fix
+npx expo doctor
+
+Check:
+
+"expo": "~55.x.x"
+3) Reanimated babel plugin missing
+
+This causes instant crash after splash.
+
+If you installed:
+
+npm install react-native-reanimated
+
+But forgot babel config:
+
+plugins: ['react-native-reanimated/plugin']
+
+App crashes immediately. This is one of the most common production crashes.
+
+Check your babel.config.js
+module.exports = {
+  presets: ['babel-preset-expo'],
+  plugins: ['react-native-reanimated/plugin'],
+};
+4) Metro cache corruption
+
+Very common on Replit.
+
+Fix
+
+Run:
+
+npx expo start -c
+
+or
+
+rm -rf node_modules package-lock.json
+npm install
+npx expo start -c
+
+5) Wrong Expo authentication in Replit
+
+This is VERY common specifically on Replit after EAS/TestFlight setup.
+
+Replit loses Expo auth session, then Expo Go crashes or disconnects instantly. Community reports this exact issue.
+
+Fix in Replit shell
+npx expo login
+
+Then restart:
+
+npx expo start --tunnel
+
+This often fixes immediate close.
+
+6) Environment variables missing
+
+If your app loads:
+
+Stripe key
+Firebase key
+Google maps key
+Supabase key
+
+and production mode can’t find them, app may close on launch.
+
+Check:
+
+EXPO_PUBLIC_STRIPE_KEY=
+EXPO_PUBLIC_FIREBASE_API_KEY=
+EXPO_PUBLIC_GOOGLE_MAPS_KEY=
+7) Splash screen stuck because async app init crashes
+
+RentZilla likely loads:
+
+auth session
+wallet
+location
+profile image
+gold membership
+wheel popup
+saved promos
+
+If one async function crashes before navigation, Expo Go closes.
+
+Common bad code:
+
+const user = await AsyncStorage.getItem("user");
+JSON.parse(user).name
+
+If user === null, app crashes.
+
+8) Wrong import / circular dependency
+
+Very common after large app scaling.
+
+Example:
+
+HomeScreen -> Wallet -> GoldScreen -> HomeScreen
+
+This can crash silently in production.
+
+9) Heavy startup screen
+
+Your RentZilla startup currently includes many heavy features:
+
+splash animation
+wheel popup
+gold checks
+wallet sync
+maps
+live booking fetch
+provider sync
+
+If too much runs on first render, Expo Go may crash from memory overload.
+
+10) Bad published build vs Expo Go confusion
+
+Important:
+
+Production app should not be opened in Expo Go if it needs native modules.
+
+For advanced RentZilla features, you should use:
+
+EAS Development Build
+instead of plain Expo Go.
+
+Expo docs strongly recommend debugging production-like crashes in local production mode.
+
+✅ Best fix order for your RentZilla app
+
+Run these in Replit shell:
+
+rm -rf node_modules package-lock.json
+npm install
+npx expo install --fix
+npx expo doctor
+npx expo login
+npx expo start -c --tunnel
+
+Then check:
+
+babel.config.js
+plugins: ['react-native-reanimated/plugin']
+🎯 My strongest guess for RentZilla
+
+Because your app now has:
+
+Stripe
+maps
+camera
+animations
+wheel
+glowing buttons
+auth
+gold membership
+
+👉 Most likely cause = unsupported native package in Expo Go OR missing Reanimated config
+
+This happens a lot in large Replit Expo apps.
+
+💡 Best professional solution
+
+Move RentZilla from Expo Go → EAS Dev Client build
+
+This is much more stable for:
+
+payments
+maps
+camera
+Google sign in
+production testing
+
+and avoids random Expo Go closing
