@@ -16,7 +16,6 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { KeyboardAvoidingView as KAV } from "react-native-keyboard-controller";
 
 import Colors from "@/constants/colors";
 import { useAuth } from "@/context/AuthContext";
@@ -123,7 +122,7 @@ export default function ChatScreen() {
         </View>
       </LinearGradient>
 
-      <KAV behavior="padding" style={{ flex: 1 }} keyboardVerticalOffset={0}>
+      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1 }} keyboardVerticalOffset={0}>
         <FlatList
           ref={flatRef}
           data={sortedMessages}
@@ -182,7 +181,7 @@ export default function ChatScreen() {
             )}
           </Pressable>
         </View>
-      </KAV>
+      </KeyboardAvoidingView>
     </View>
   );
 }
