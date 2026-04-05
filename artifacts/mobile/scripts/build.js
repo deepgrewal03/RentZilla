@@ -7,12 +7,13 @@
  *
  * Output layout (what serve.js reads):
  *   static-build/
- *     ios/manifest.json       ← EAS Update manifest for Expo Go iOS
- *     android/manifest.json   ← EAS Update manifest for Expo Go Android
+ *     build-info.json             ← diagnostic info (check via /build-info)
+ *     ios/manifest.json           ← EAS Update manifest for Expo Go iOS
+ *     android/manifest.json       ← EAS Update manifest for Expo Go Android
  *     {timestamp}/
  *       _expo/static/js/ios/bundle.js
  *       _expo/static/js/android/bundle.js
- *       assets/{hash}         ← asset files (fonts, images, …)
+ *       assets/{hash}             ← asset files (fonts, images, …)
  */
 
 const { spawnSync } = require("child_process");
@@ -22,7 +23,6 @@ const path = require("path");
 
 const projectRoot = path.resolve(__dirname, "..");
 const staticBuild = path.join(projectRoot, "static-build");
-const exportDir = path.join(projectRoot, ".expo-export");
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -58,7 +58,150 @@ const EXT_MIME = {
 };
 
 function mimeForExt(ext) {
-  return EXT_MIME[ext.toLowerCase()] || "application/octet-stream";
+  return EXT_MIME[(ext || "").toLowerCase()] || "application/octet-stream";
+}
+
+/** Run a command synchronously, stream output, return exit code. */
+function run(cmd, args, opts = {}) {
+  console.log(`\n$ ${cmd} ${args.join(" ")}`);
+  const result = spawnSync(cmd, args, {
+    stdio: "inherit",
+    cwd: projectRoot,
+    ...opts,
+  });
+  if (result.error) {
+    console.error("Spawn error:", result.error.message);
+    return 1;
+  }
+  return result.status ?? 1;
+}
+
+/** Export one platform. Returns the exportDir on success, null on failure. */
+function exportPlatform(platform, domain) {
+  const exportDir = path.join(projectRoot, `.expo-export-${platform}`);
+
+  if (fs.existsSync(exportDir)) {
+    fs.rmSync(exportDir, { recursive: true });
+  }
+
+  const env = {
+    ...process.env,
+    EXPO_PUBLIC_DOMAIN: domain,
+    EXPO_PUBLIC_REPL_ID: process.env.REPL_ID || "",
+    EXPO_PUBLIC_GMAPS_KEY: process.env.GOOGLE_MAPS_API_KEY || "",
+    NODE_ENV: "production",
+    NODE_OPTIONS: "--max-old-space-size=4096",
+  };
+
+  const exitCode = run(
+    "pnpm",
+    [
+      "exec", "expo", "export",
+      "--platform", platform,
+      "--no-minify",
+      "--no-bytecode",
+      "--output-dir", exportDir,
+    ],
+    { env },
+  );
+
+  if (exitCode !== 0) {
+    console.error(`expo export --platform ${platform} failed (exit ${exitCode})`);
+    return null;
+  }
+
+  const metadataPath = path.join(exportDir, "metadata.json");
+  if (!fs.existsSync(metadataPath)) {
+    console.error(`metadata.json not found for ${platform}`);
+    return null;
+  }
+
+  return exportDir;
+}
+
+/** Copy bundle + assets, write manifest. Returns manifest URL on success. */
+function processExport(platform, exportDir, timestamp, baseUrl, basePath) {
+  const metadata = JSON.parse(
+    fs.readFileSync(path.join(exportDir, "metadata.json"), "utf-8"),
+  );
+  const platformMeta = metadata.fileMetadata?.[platform];
+  if (!platformMeta) {
+    console.error(`No metadata for platform: ${platform}`);
+    return null;
+  }
+
+  // ── Bundle ────────────────────────────────────────────────────────────────
+  const bundleSrc = path.join(exportDir, platformMeta.bundle);
+  if (!fs.existsSync(bundleSrc)) {
+    console.error(`Bundle not found: ${bundleSrc}`);
+    return null;
+  }
+  const bundleDest = path.join(
+    staticBuild, timestamp, "_expo", "static", "js", platform, "bundle.js",
+  );
+  fs.mkdirSync(path.dirname(bundleDest), { recursive: true });
+  fs.copyFileSync(bundleSrc, bundleDest);
+
+  const bundleBytes = fs.statSync(bundleDest).size;
+  const bundleHash = sha256File(bundleDest);
+  const bundleUrl = `${baseUrl}${basePath}/${timestamp}/_expo/static/js/${platform}/bundle.js`;
+  console.log(
+    `${platform}: bundle ${(bundleBytes / 1024 / 1024).toFixed(1)} MB → ${bundleUrl}`,
+  );
+
+  // ── Assets ────────────────────────────────────────────────────────────────
+  const seenPaths = new Set();
+  const manifestAssets = [];
+
+  for (const asset of (platformMeta.assets || [])) {
+    if (seenPaths.has(asset.path)) continue;
+    seenPaths.add(asset.path);
+
+    const assetSrc = path.join(exportDir, asset.path);
+    if (!fs.existsSync(assetSrc)) {
+      console.warn(`  Asset missing, skipping: ${asset.path}`);
+      continue;
+    }
+    const assetDest = path.join(staticBuild, timestamp, asset.path);
+    fs.mkdirSync(path.dirname(assetDest), { recursive: true });
+    fs.copyFileSync(assetSrc, assetDest);
+
+    manifestAssets.push({
+      hash: sha256File(assetSrc),
+      key: path.basename(asset.path),
+      contentType: mimeForExt(asset.ext),
+      url: `${baseUrl}${basePath}/${timestamp}/${asset.path}`,
+    });
+  }
+  console.log(`${platform}: ${manifestAssets.length} assets`);
+
+  // ── Manifest ──────────────────────────────────────────────────────────────
+  const manifest = {
+    id: crypto.randomUUID(),
+    createdAt: new Date().toISOString(),
+    runtimeVersion: "1.0.0",
+    launchAsset: {
+      hash: bundleHash,
+      key: `bundle-${timestamp}-${platform}`,
+      contentType: "application/javascript",
+      url: bundleUrl,
+    },
+    assets: manifestAssets,
+    metadata: {},
+    extra: {
+      expoClient: {
+        name: "RentZilla",
+        slug: "rentzilla",
+        version: "1.0.0",
+      },
+    },
+  };
+
+  const manifestPath = path.join(staticBuild, platform, "manifest.json");
+  fs.mkdirSync(path.dirname(manifestPath), { recursive: true });
+  fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
+  console.log(`${platform}: manifest written`);
+  return bundleUrl;
 }
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
@@ -68,152 +211,70 @@ function main() {
   const baseUrl = domain.startsWith("http") ? domain : `https://${domain}`;
   const basePath = (process.env.BASE_PATH || "/").replace(/\/+$/, "");
   const timestamp = `${Date.now()}-${process.pid}`;
+  const buildStarted = new Date().toISOString();
 
-  console.log(`Building for domain: ${baseUrl}${basePath}`);
+  console.log(`Building RentZilla for: ${baseUrl}${basePath}`);
+  console.log(`Timestamp: ${timestamp}`);
 
-  // ── 1. Clean up ─────────────────────────────────────────────────────────────
+  // ── Clean static-build ────────────────────────────────────────────────────
   if (fs.existsSync(staticBuild)) {
     fs.rmSync(staticBuild, { recursive: true });
   }
-  if (fs.existsSync(exportDir)) {
+  fs.mkdirSync(staticBuild, { recursive: true });
+
+  const buildInfo = {
+    startedAt: buildStarted,
+    domain,
+    baseUrl,
+    timestamp,
+    platforms: {},
+  };
+
+  // ── Export each platform separately ──────────────────────────────────────
+  // (Running them separately avoids port conflicts with any running dev server
+  //  and keeps peak memory usage lower than bundling all platforms at once.)
+  const platforms = ["ios", "android"];
+  let anyFailed = false;
+
+  for (const platform of platforms) {
+    console.log(`\n━━━ Exporting ${platform.toUpperCase()} ━━━`);
+    const exportDir = exportPlatform(platform, domain);
+
+    if (!exportDir) {
+      buildInfo.platforms[platform] = { status: "failed" };
+      anyFailed = true;
+      continue;
+    }
+
+    const bundleUrl = processExport(
+      platform, exportDir, timestamp, baseUrl, basePath,
+    );
+
+    if (!bundleUrl) {
+      buildInfo.platforms[platform] = { status: "failed" };
+      anyFailed = true;
+    } else {
+      buildInfo.platforms[platform] = { status: "ok", bundleUrl };
+    }
+
+    // Clean up the temporary export directory to save disk space
     fs.rmSync(exportDir, { recursive: true });
   }
 
-  // ── 2. Run expo export ──────────────────────────────────────────────────────
-  console.log("Running expo export (this may take a few minutes)…");
-
-  const exportResult = spawnSync(
-    "pnpm",
-    [
-      "exec", "expo", "export",
-      "--platform", "all",
-      "--no-minify",
-      "--no-bytecode",
-      "--output-dir", exportDir,
-    ],
-    {
-      stdio: "inherit",
-      cwd: projectRoot,
-      env: {
-        ...process.env,
-        EXPO_PUBLIC_DOMAIN: domain,
-        EXPO_PUBLIC_REPL_ID: process.env.REPL_ID || "",
-        EXPO_PUBLIC_GMAPS_KEY: process.env.GOOGLE_MAPS_API_KEY || "",
-        NODE_ENV: "production",
-        NODE_OPTIONS: "--max-old-space-size=4096",
-      },
-    },
+  // ── Write build-info.json (readable via /build-info route) ───────────────
+  buildInfo.completedAt = new Date().toISOString();
+  buildInfo.anyFailed = anyFailed;
+  fs.writeFileSync(
+    path.join(staticBuild, "build-info.json"),
+    JSON.stringify(buildInfo, null, 2),
   );
 
-  if (exportResult.status !== 0) {
-    console.error("expo export failed with exit code:", exportResult.status);
+  if (anyFailed) {
+    console.error("\nBuild failed for one or more platforms. See build-info.json.");
     process.exit(1);
   }
 
-  // ── 3. Read metadata ────────────────────────────────────────────────────────
-  const metadataPath = path.join(exportDir, "metadata.json");
-  if (!fs.existsSync(metadataPath)) {
-    console.error("metadata.json not found in export output");
-    process.exit(1);
-  }
-  const metadata = JSON.parse(fs.readFileSync(metadataPath, "utf-8"));
-  console.log("Export complete. Processing assets…");
-
-  // ── 4. Set up output directories ────────────────────────────────────────────
-  fs.mkdirSync(path.join(staticBuild, "ios"), { recursive: true });
-  fs.mkdirSync(path.join(staticBuild, "android"), { recursive: true });
-  fs.mkdirSync(
-    path.join(staticBuild, timestamp, "_expo", "static", "js", "ios"),
-    { recursive: true },
-  );
-  fs.mkdirSync(
-    path.join(staticBuild, timestamp, "_expo", "static", "js", "android"),
-    { recursive: true },
-  );
-  fs.mkdirSync(path.join(staticBuild, timestamp, "assets"), { recursive: true });
-
-  // ── 5. Process each platform ────────────────────────────────────────────────
-  const platforms = ["ios", "android"];
-
-  for (const platform of platforms) {
-    const platformMeta = metadata.fileMetadata?.[platform];
-    if (!platformMeta) {
-      console.error(`No metadata found for platform: ${platform}`);
-      process.exit(1);
-    }
-
-    // Copy bundle
-    const bundleSrc = path.join(exportDir, platformMeta.bundle);
-    if (!fs.existsSync(bundleSrc)) {
-      console.error(`Bundle not found: ${bundleSrc}`);
-      process.exit(1);
-    }
-    const bundleDest = path.join(
-      staticBuild, timestamp, "_expo", "static", "js", platform, "bundle.js",
-    );
-    fs.copyFileSync(bundleSrc, bundleDest);
-    const bundleHash = sha256File(bundleDest);
-    const bundleUrl = `${baseUrl}${basePath}/${timestamp}/_expo/static/js/${platform}/bundle.js`;
-    console.log(
-      `${platform}: bundle copied (${(fs.statSync(bundleDest).size / 1024 / 1024).toFixed(1)} MB)`,
-    );
-
-    // Collect unique assets (by path to avoid duplicates)
-    const seenAssets = new Set();
-    const manifestAssets = [];
-
-    for (const asset of (platformMeta.assets || [])) {
-      if (seenAssets.has(asset.path)) continue;
-      seenAssets.add(asset.path);
-
-      const assetSrc = path.join(exportDir, asset.path);
-      if (!fs.existsSync(assetSrc)) {
-        console.warn(`  Asset not found, skipping: ${asset.path}`);
-        continue;
-      }
-      const assetDest = path.join(staticBuild, timestamp, asset.path);
-      fs.mkdirSync(path.dirname(assetDest), { recursive: true });
-      fs.copyFileSync(assetSrc, assetDest);
-
-      const assetHash = sha256File(assetSrc);
-      manifestAssets.push({
-        hash: assetHash,
-        key: path.basename(asset.path),
-        contentType: mimeForExt(asset.ext || ""),
-        url: `${baseUrl}${basePath}/${timestamp}/${asset.path}`,
-      });
-    }
-    console.log(`${platform}: ${manifestAssets.length} assets copied`);
-
-    // Build EAS Update manifest
-    const manifest = {
-      id: crypto.randomUUID(),
-      createdAt: new Date().toISOString(),
-      runtimeVersion: "1.0.0",
-      launchAsset: {
-        hash: bundleHash,
-        key: `bundle-${timestamp}-${platform}`,
-        contentType: "application/javascript",
-        url: bundleUrl,
-      },
-      assets: manifestAssets,
-      metadata: {},
-      extra: {
-        expoClient: {
-          name: "RentZilla",
-          slug: "rentzilla",
-          version: "1.0.0",
-          hostUri: `${domain}${basePath}/${platform}`,
-        },
-      },
-    };
-
-    const manifestPath = path.join(staticBuild, platform, "manifest.json");
-    fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
-    console.log(`${platform}: manifest written → ${bundleUrl}`);
-  }
-
-  console.log(`\nBuild complete! Deployed to: ${baseUrl}${basePath}`);
+  console.log(`\n✓ Build complete → ${baseUrl}${basePath}`);
   process.exit(0);
 }
 

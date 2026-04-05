@@ -115,6 +115,27 @@ const server = http.createServer((req, res) => {
     pathname = pathname.slice(basePath.length) || "/";
   }
 
+  // Health check endpoint (used by deployment system)
+  if (pathname === "/status" || pathname === "/health") {
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end(JSON.stringify({ ok: true, uptime: process.uptime() }));
+    return;
+  }
+
+  // Diagnostic endpoint — shows what the last build produced
+  if (pathname === "/build-info") {
+    const infoPath = path.join(STATIC_ROOT, "build-info.json");
+    if (fs.existsSync(infoPath)) {
+      const info = fs.readFileSync(infoPath, "utf-8");
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(info);
+    } else {
+      res.writeHead(404, { "content-type": "application/json" });
+      res.end(JSON.stringify({ error: "No build-info.json found. Build may not have run." }));
+    }
+    return;
+  }
+
   if (pathname === "/" || pathname === "/manifest") {
     const platform = req.headers["expo-platform"];
     if (platform === "ios" || platform === "android") {
