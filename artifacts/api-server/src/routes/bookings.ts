@@ -307,8 +307,10 @@ router.post("/", authMiddleware, async (req: Request, res: Response) => {
       let goldDiscountAmount = 0;
       let goldDiscountApplied = false;
       const subtotalAfterPromo = Math.max(0, baseAmount - discountAmount);
-      const customerGoldRows = toRows(await db.execute(sql`SELECT is_gold_member FROM users WHERE id = ${userId} LIMIT 1`));
-      if (customerGoldRows[0]?.is_gold_member) {
+      const customerGoldRows = toRows(await db.execute(sql`SELECT is_gold_member, gold_expires_at FROM users WHERE id = ${userId} LIMIT 1`));
+      const _cgr = customerGoldRows[0];
+      const _goldActive = _cgr?.is_gold_member && (_cgr?.gold_expires_at ? new Date(_cgr.gold_expires_at) > new Date() : false);
+      if (_goldActive) {
         goldDiscountAmount = Math.round(subtotalAfterPromo * 0.04 * 100) / 100;
         goldDiscountApplied = true;
       }
@@ -404,8 +406,10 @@ router.post("/", authMiddleware, async (req: Request, res: Response) => {
       let goldDiscountAmount2 = 0;
       let goldDiscountApplied2 = false;
       const subtotalAfterPromo2 = Math.max(0, baseAmount - discountAmount);
-      const custGoldRows2 = toRows(await db.execute(sql`SELECT is_gold_member FROM users WHERE id = ${userId} LIMIT 1`));
-      if (custGoldRows2[0]?.is_gold_member) {
+      const custGoldRows2 = toRows(await db.execute(sql`SELECT is_gold_member, gold_expires_at FROM users WHERE id = ${userId} LIMIT 1`));
+      const _cgr2 = custGoldRows2[0];
+      const _goldActive2 = _cgr2?.is_gold_member && (_cgr2?.gold_expires_at ? new Date(_cgr2.gold_expires_at) > new Date() : false);
+      if (_goldActive2) {
         goldDiscountAmount2 = Math.round(subtotalAfterPromo2 * 0.04 * 100) / 100;
         goldDiscountApplied2 = true;
       }

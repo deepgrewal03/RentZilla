@@ -239,7 +239,7 @@ export default function HomeScreen() {
                 </View>
                 <View style={styles.goldBannerTexts}>
                   <Text style={styles.goldBannerTitle}>Unlock Gold — only ₹2.49</Text>
-                  <Text style={styles.goldBannerSub}>4% off every booking, forever. One-time.</Text>
+                  <Text style={styles.goldBannerSub}>4% off every booking. ₹2.49/year — less than a chai!</Text>
                 </View>
               </View>
               <View style={styles.goldBannerCta}>

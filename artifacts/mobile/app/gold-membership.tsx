@@ -20,7 +20,9 @@ const DARK3 = "#242424";
 
 type MembershipStatus = {
   isGoldMember: boolean;
+  isExpired: boolean;
   activatedAt: string | null;
+  expiresAt: string | null;
   totalSaved: number;
   purchaseAmount: number;
   discountPercent: number;
@@ -29,10 +31,15 @@ type MembershipStatus = {
 const BENEFITS = [
   { icon: "pricetag", title: "4% Off Every Booking", desc: "Automatic discount applied at checkout — no codes needed." },
   { icon: "trophy", title: "Gold Badge", desc: "Exclusive badge on your profile, wallet and listings." },
-  { icon: "flash", title: "Lifetime Access", desc: "One-time payment. Never pay again. Forever yours." },
+  { icon: "calendar", title: "1-Year Access", desc: "Valid for 12 months from activation. Renew anytime." },
   { icon: "star", title: "Priority Support", desc: "Your queries jump to the front of the queue." },
   { icon: "shield-checkmark", title: "Member-Only Offers", desc: "Exclusive deals and early access to new features." },
 ];
+
+function formatDate(iso: string | null): string {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" });
+}
 
 export default function GoldMembershipScreen() {
   const { get, post } = useApi();
@@ -63,22 +70,26 @@ export default function GoldMembershipScreen() {
   async function handlePurchase() {
     if (!status) return;
     if (status.isGoldMember) {
-      Alert.alert("Already Gold! 🏆", "You already have the Gold Membership. Enjoy your 4% discount on every booking!");
+      Alert.alert(
+        "Already Gold! 🏆",
+        `Your membership is active until ${formatDate(status.expiresAt)}. Enjoy your 4% discount on every booking!`
+      );
       return;
     }
+    const isRenewal = status.isExpired;
     Alert.alert(
-      "Unlock Gold Membership",
-      `Only ₹${status.purchaseAmount} will be deducted from your wallet. This is a one-time lifetime purchase!`,
+      isRenewal ? "Renew Gold Membership" : "Unlock Gold Membership",
+      `₹${status.purchaseAmount} will be deducted from your wallet for a 1-year subscription${isRenewal ? " renewal" : ""}.`,
       [
         { text: "Cancel", style: "cancel" },
         {
-          text: "Unlock for ₹" + status.purchaseAmount,
+          text: (isRenewal ? "Renew for ₹" : "Subscribe for ₹") + status.purchaseAmount,
           onPress: async () => {
             setPurchasing(true);
             try {
-              const res = await post<{ message: string; newWalletBalance: number }>("/membership/purchase", {});
+              const res = await post<{ message: string; newWalletBalance: number; expiresAt: string }>("/membership/purchase", {});
               await fetchStatus();
-              Alert.alert("🏆 You're Gold!", res.message || "Gold Membership activated. Enjoy 4% off every booking!");
+              Alert.alert("🏆 " + (isRenewal ? "Renewed!" : "You're Gold!"), res.message || "Gold Membership activated. Enjoy 4% off every booking!");
             } catch (e: any) {
               const msg = e?.message || "Purchase failed";
               if (e?.code === "INSUFFICIENT_BALANCE" || msg.includes("Insufficient")) {
@@ -112,6 +123,9 @@ export default function GoldMembershipScreen() {
   }
 
   const isGold = status?.isGoldMember ?? false;
+  const isExpired = status?.isExpired ?? false;
+  const showRenew = !isGold && isExpired;
+  const showSubscribe = !isGold && !isExpired;
 
   return (
     <View style={[ss.root, { paddingTop: insets.top }]}>
@@ -135,7 +149,6 @@ export default function GoldMembershipScreen() {
             start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
             style={ss.heroGrad}
           >
-            {/* Crown */}
             <View style={ss.crownWrap}>
               <Ionicons name="trophy" size={52} color={DARK} />
             </View>
@@ -145,21 +158,34 @@ export default function GoldMembershipScreen() {
                 <Text style={ss.heroStatus}>ACTIVE MEMBER</Text>
                 <Text style={ss.heroTitle}>You're Gold! 🏆</Text>
                 <Text style={ss.heroSub}>4% off automatically applied to every booking</Text>
+                <View style={ss.savingsBadge}>
+                  <Text style={ss.savingsText}>Valid until: {formatDate(status?.expiresAt ?? null)}</Text>
+                </View>
                 {(status?.totalSaved ?? 0) > 0 && (
-                  <View style={ss.savingsBadge}>
+                  <View style={[ss.savingsBadge, { marginTop: 8 }]}>
                     <Text style={ss.savingsText}>Total Saved: ₹{(status?.totalSaved ?? 0).toFixed(2)}</Text>
                   </View>
                 )}
               </>
+            ) : isExpired ? (
+              <>
+                <Text style={ss.heroStatus}>MEMBERSHIP EXPIRED</Text>
+                <Text style={ss.heroTitle}>Renew Gold</Text>
+                <Text style={ss.heroPriceRow}>
+                  <Text style={ss.heroPrice}>₹{status?.purchaseAmount ?? "2.49"}</Text>
+                  <Text style={ss.heroPriceNote}> / year</Text>
+                </Text>
+                <Text style={ss.heroSub}>Your membership expired. Renew to continue enjoying 4% off.</Text>
+              </>
             ) : (
               <>
-                <Text style={ss.heroStatus}>LIFETIME ACCESS</Text>
+                <Text style={ss.heroStatus}>1-YEAR SUBSCRIPTION</Text>
                 <Text style={ss.heroTitle}>Go Gold</Text>
                 <Text style={ss.heroPriceRow}>
                   <Text style={ss.heroPrice}>₹{status?.purchaseAmount ?? "2.49"}</Text>
-                  <Text style={ss.heroPriceNote}> one-time</Text>
+                  <Text style={ss.heroPriceNote}> / year</Text>
                 </Text>
-                <Text style={ss.heroSub}>Never pay again — discount on every booking, forever.</Text>
+                <Text style={ss.heroSub}>Subscribe for 1 year — 4% off every booking, auto-renewed from your wallet.</Text>
               </>
             )}
           </LinearGradient>
@@ -186,9 +212,11 @@ export default function GoldMembershipScreen() {
         </View>
 
         {/* CTA */}
-        {!isGold ? (
+        {(showSubscribe || showRenew) ? (
           <GlowButton
-            title={`Unlock Lifetime Gold for ₹${status?.purchaseAmount ?? "2.49"}`}
+            title={showRenew
+              ? `Renew for 1 Year — ₹${status?.purchaseAmount ?? "2.49"}`
+              : `Subscribe for 1 Year — ₹${status?.purchaseAmount ?? "2.49"}`}
             color={GOLD}
             onPress={handlePurchase}
             loading={purchasing}
@@ -202,14 +230,14 @@ export default function GoldMembershipScreen() {
             textStyle={{ color: DARK, fontWeight: "800" }}
             style={{ marginBottom: 12 }}
           />
-        ) : (
+        ) : isGold ? (
           <View style={ss.activeChip}>
             <Ionicons name="checkmark-circle" size={20} color={GOLD} style={{ marginRight: 6 }} />
-            <Text style={ss.activeChipText}>Gold Membership Active</Text>
+            <Text style={ss.activeChipText}>Gold Membership Active · Renews {formatDate(status?.expiresAt ?? null)}</Text>
           </View>
-        )}
+        ) : null}
 
-        {!isGold && (
+        {(showSubscribe || showRenew) && (
           <Text style={ss.note}>Amount deducted from your RentZilla wallet. Top up if needed.</Text>
         )}
 
@@ -257,15 +285,10 @@ const ss = StyleSheet.create({
   proofQuote: { fontSize: 14, color: "#CCC", fontStyle: "italic", lineHeight: 22, marginBottom: 10 },
   proofAuthor: { fontSize: 12, color: GOLD, fontWeight: "600" },
 
-  ctaWrap: { borderRadius: 16, overflow: "hidden", marginBottom: 12,
-    shadowColor: GOLD, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.5, shadowRadius: 12 },
-  ctaBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", paddingVertical: 18 },
-  ctaText: { fontSize: 16, fontWeight: "800", color: DARK },
-
   activeChip: { flexDirection: "row", alignItems: "center", justifyContent: "center",
     backgroundColor: "#1A1A0D", borderWidth: 1.5, borderColor: GOLD,
-    borderRadius: 16, paddingVertical: 16, marginBottom: 12 },
-  activeChipText: { fontSize: 16, fontWeight: "700", color: GOLD },
+    borderRadius: 16, paddingVertical: 16, marginBottom: 12, paddingHorizontal: 12 },
+  activeChipText: { fontSize: 13, fontWeight: "700", color: GOLD, textAlign: "center" },
 
   note: { fontSize: 12, color: "#666", textAlign: "center", lineHeight: 18 },
 });

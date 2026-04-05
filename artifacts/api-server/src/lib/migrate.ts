@@ -505,10 +505,12 @@ export async function runMigrations() {
   const goldAlters = [
     `ALTER TABLE users ADD COLUMN IF NOT EXISTS is_gold_member BOOLEAN NOT NULL DEFAULT FALSE`,
     `ALTER TABLE users ADD COLUMN IF NOT EXISTS gold_activated_at TIMESTAMP`,
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS gold_expires_at TIMESTAMPTZ`,
     `ALTER TABLE users ADD COLUMN IF NOT EXISTS gold_purchase_tx_id TEXT`,
     `ALTER TABLE users ADD COLUMN IF NOT EXISTS total_membership_savings NUMERIC(10,2) NOT NULL DEFAULT 0`,
     `ALTER TABLE bookings ADD COLUMN IF NOT EXISTS gold_discount_applied BOOLEAN NOT NULL DEFAULT FALSE`,
     `ALTER TABLE bookings ADD COLUMN IF NOT EXISTS gold_discount_amount NUMERIC(10,2) NOT NULL DEFAULT 0`,
+    `ALTER TABLE gold_purchases ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ`,
   ];
   for (const stmt of goldAlters) {
     await db.execute(sql.raw(stmt));
