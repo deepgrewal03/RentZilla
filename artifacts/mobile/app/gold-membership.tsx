@@ -7,6 +7,7 @@ import {
   ActivityIndicator, Alert, Animated, Pressable,
   ScrollView, StyleSheet, Text, View,
 } from "react-native";
+import GlowButton from "@/components/GlowButton";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useApi } from "@/hooks/useApi";
 
@@ -186,17 +187,21 @@ export default function GoldMembershipScreen() {
 
         {/* CTA */}
         {!isGold ? (
-          <Pressable onPress={handlePurchase} disabled={purchasing} style={ss.ctaWrap}>
-            <LinearGradient colors={[GOLD3, GOLD, GOLD2]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={ss.ctaBtn}>
-              {purchasing
-                ? <ActivityIndicator color={DARK} size="small" />
-                : <>
-                    <Ionicons name="trophy" size={20} color={DARK} style={{ marginRight: 8 }} />
-                    <Text style={ss.ctaText}>Unlock Lifetime Gold for ₹{status?.purchaseAmount ?? "2.49"}</Text>
-                  </>
-              }
-            </LinearGradient>
-          </Pressable>
+          <GlowButton
+            title={`Unlock Lifetime Gold for ₹${status?.purchaseAmount ?? "2.49"}`}
+            color={GOLD}
+            onPress={handlePurchase}
+            loading={purchasing}
+            disabled={purchasing}
+            iconLeft={<Ionicons name="trophy" size={20} color={DARK} />}
+            fullWidth
+            height={58}
+            fontSize={15}
+            borderRadius={16}
+            glowStrength={0.7}
+            textStyle={{ color: DARK, fontWeight: "800" }}
+            style={{ marginBottom: 12 }}
+          />
         ) : (
           <View style={ss.activeChip}>
             <Ionicons name="checkmark-circle" size={20} color={GOLD} style={{ marginRight: 6 }} />

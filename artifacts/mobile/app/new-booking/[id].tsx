@@ -23,6 +23,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Colors from "@/constants/colors";
 import { useApi } from "@/hooks/useApi";
 import { Listing } from "@/types";
+import GlowButton from "@/components/GlowButton";
 
 const C = Colors.light;
 const ORANGE = "#FF7A18";
@@ -712,29 +713,29 @@ export default function NewBookingScreen() {
         )}
 
         {/* ── Confirm Button ── */}
-        <Animated.View style={[styles.confirmWrap, { transform: [{ scale: confirmScale }] }]}>
-          <Pressable onPress={handleConfirm} disabled={submitting} style={styles.confirmPress}>
-            <LinearGradient
-              colors={[ORANGE, ORANGE2]}
-              start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-              style={styles.confirmBtn}
-            >
-              {submitting ? (
-                <ActivityIndicator color="#fff" size="small" />
-              ) : (
-                <>
-                  <Ionicons name="checkmark-circle-outline" size={22} color="#fff" />
-                  <Text style={styles.confirmText}>Confirm Booking</Text>
-                  {selectedSlots.length > 0 && (
-                    <View style={styles.confirmBadge}>
-                      <Text style={styles.confirmBadgeText}>{selectedSlots.length} hr{selectedSlots.length > 1 ? "s" : ""}</Text>
-                    </View>
-                  )}
-                </>
-              )}
-            </LinearGradient>
-          </Pressable>
-        </Animated.View>
+        <GlowButton
+          title="Confirm Booking"
+          color={ORANGE}
+          onPress={handleConfirm}
+          loading={submitting}
+          disabled={submitting}
+          iconLeft={<Ionicons name="checkmark-circle-outline" size={22} color="#fff" />}
+          iconRight={
+            selectedSlots.length > 0 ? (
+              <View style={styles.confirmBadge}>
+                <Text style={styles.confirmBadgeText}>
+                  {selectedSlots.length} hr{selectedSlots.length > 1 ? "s" : ""}
+                </Text>
+              </View>
+            ) : undefined
+          }
+          fullWidth
+          height={56}
+          fontSize={17}
+          borderRadius={16}
+          glowStrength={0.65}
+          style={{ marginHorizontal: 20, marginBottom: 12 }}
+        />
 
         <View style={{ height: isWeb ? 30 : 50 }} />
       </ScrollView>

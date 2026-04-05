@@ -1,0 +1,150 @@
+Build a reusable premium BUTTON component for the RentZilla app with a stylish border, brighter same-color glow, slight 3D depth, and bottom glow shadow.
+
+APP STACK:
+- React Native Expo
+- production ready
+- reusable component system
+- must work after Expo publish
+- use Animated + Pressable
+- smooth on Android + iOS
+
+GOAL:
+Create a premium CTA button component used across the RentZilla app.
+
+DESIGN STYLE:
+- rounded corners
+- clean border using same button color
+- border should be 15–20% brighter than fill color
+- soft outer glow in same color family
+- stronger glow at bottom edge
+- subtle 3D floating look
+- premium luxury UI
+- smooth hover / press animation
+- not too flashy
+- elegant and modern
+
+---------------------------------------------------
+VISUAL REQUIREMENTS
+---------------------------------------------------
+
+BUTTON LOOK:
+- main button body solid fill
+- thin bright border
+- outer glow blur same color
+- bottom glow shadow stronger than top
+- looks slightly raised
+- premium neon feel
+- smooth depth illusion
+
+3D EFFECT:
+- top edge light reflection
+- bottom shadow spread
+- subtle elevation
+- scale down on press
+- spring back on release
+
+BOTTOM GLOW:
+- extra glow strip under button
+- wider than button
+- blurred shadow
+- same color but brighter
+- creates floating premium 3D look
+
+---------------------------------------------------
+ANIMATIONS
+---------------------------------------------------
+
+On press:
+- button scale 0.97
+- glow intensity increases
+- bottom glow becomes brighter
+- border shines
+- release spring bounce
+
+Optional:
+- slow breathing glow pulse
+- shimmer sweep on CTA buttons
+- shine line moving across border
+
+---------------------------------------------------
+COMPONENT API
+---------------------------------------------------
+
+Create reusable component:
+
+<GlowButton
+   title="Book Now"
+   color="#FFD700"
+   onPress={handleBooking}
+   fullWidth
+   loading={false}
+/>
+
+Props:
+- title
+- color
+- onPress
+- loading
+- disabled
+- iconLeft
+- iconRight
+- fullWidth
+- borderRadius
+- glowStrength
+- height
+- fontSize
+
+---------------------------------------------------
+USAGE AREAS
+---------------------------------------------------
+
+Use this component in:
+- booking checkout
+- wallet recharge
+- Gold membership
+- wheel spin
+- provider payout
+- profile save
+- ride start
+- ride cancel
+- support submit
+- payment success CTA
+
+---------------------------------------------------
+COLOR SYSTEM
+---------------------------------------------------
+
+Glow logic:
+- use same button color
+- auto brighten by 20%
+- bottom glow brighten by 30%
+- disabled state removes glow
+- dark mode compatible
+- works on gold / blue / green / red buttons
+
+---------------------------------------------------
+PERFORMANCE
+---------------------------------------------------
+
+IMPORTANT:
+- optimized shadows for Android
+- use elevation + shadow props
+- no lag in lists
+- memoized component
+- reusable style generator
+- low GPU usage
+- production safe
+
+---------------------------------------------------
+RETURN EVERYTHING
+---------------------------------------------------
+
+Return:
+1. reusable GlowButton component
+2. animated glow logic
+3. 3D shadow styling
+4. bottom glow layer
+5. example usage screens
+6. color utility brighten function
+7. dark mode support
+8. production optimization notes

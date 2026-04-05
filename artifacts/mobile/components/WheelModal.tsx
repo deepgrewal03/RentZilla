@@ -5,6 +5,7 @@ import {
 } from "react-native";
 import Svg, { Path, Circle, G, Text as SvgText } from "react-native-svg";
 import { LinearGradient } from "expo-linear-gradient";
+import GlowButton from "@/components/GlowButton";
 import * as Haptics from "expo-haptics";
 import { Ionicons } from "@expo/vector-icons";
 import { useApi } from "@/hooks/useApi";
@@ -325,34 +326,50 @@ export default function WheelModal({ visible, onClose }: Props) {
                 {status && !spinning && (
                   <View style={s.actions}>
                     {status.canFreeSpin && (
-                      <Pressable onPress={() => spin("free")} style={s.spinBtn}>
-                        <LinearGradient colors={["#FF7A18", "#FF9F43"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={s.spinBtnGrad}>
-                          <Ionicons name="refresh-circle" size={22} color="#fff" />
-                          <Text style={s.spinBtnTxt}>Spin Free!</Text>
-                        </LinearGradient>
-                      </Pressable>
+                      <GlowButton
+                        title="Spin Free!"
+                        color="#FF7A18"
+                        onPress={() => spin("free")}
+                        iconLeft={<Ionicons name="refresh-circle" size={22} color="#fff" />}
+                        fullWidth
+                        height={52}
+                        fontSize={16}
+                        borderRadius={14}
+                        glowStrength={0.65}
+                        style={{ marginBottom: 10 }}
+                      />
                     )}
 
                     {!status.canFreeSpin && (status.paidSpinBalance ?? 0) > 0 && (
-                      <Pressable onPress={() => spin("paid")} style={s.spinBtn}>
-                        <LinearGradient colors={["#6C3AFF", "#9D6FFF"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={s.spinBtnGrad}>
-                          <Ionicons name="ticket" size={22} color="#fff" />
-                          <Text style={s.spinBtnTxt}>Use Paid Spin ({status.paidSpinBalance} left)</Text>
-                        </LinearGradient>
-                      </Pressable>
+                      <GlowButton
+                        title={`Use Paid Spin (${status.paidSpinBalance} left)`}
+                        color="#6C3AFF"
+                        onPress={() => spin("paid")}
+                        iconLeft={<Ionicons name="ticket" size={22} color="#fff" />}
+                        fullWidth
+                        height={52}
+                        fontSize={15}
+                        borderRadius={14}
+                        glowStrength={0.65}
+                        style={{ marginBottom: 10 }}
+                      />
                     )}
 
                     {canBuyMore && (
-                      <Pressable onPress={buySpin} disabled={buying} style={[s.buyBtn, buying && { opacity: 0.6 }]}>
-                        {buying ? (
-                          <ActivityIndicator size="small" color="#FF7A18" />
-                        ) : (
-                          <>
-                            <Ionicons name="add-circle-outline" size={18} color="#FF7A18" />
-                            <Text style={s.buyBtnTxt}>Buy Extra Spin · ₹0.99</Text>
-                          </>
-                        )}
-                      </Pressable>
+                      <GlowButton
+                        title="Buy Extra Spin · ₹0.99"
+                        color="#FF7A18"
+                        onPress={buySpin}
+                        loading={buying}
+                        disabled={buying}
+                        iconLeft={<Ionicons name="add-circle-outline" size={18} color="#fff" />}
+                        fullWidth
+                        height={44}
+                        fontSize={14}
+                        borderRadius={12}
+                        glowStrength={0.45}
+                        style={{ marginBottom: 8 }}
+                      />
                     )}
 
                     <Text style={s.freeNote}>

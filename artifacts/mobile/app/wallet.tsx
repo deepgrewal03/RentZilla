@@ -12,6 +12,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import Colors from "@/constants/colors";
 import { useApi } from "@/hooks/useApi";
+import GlowButton from "@/components/GlowButton";
 
 const C = Colors.light;
 const ORANGE = "#FF7A18";
@@ -267,10 +268,18 @@ export default function WalletScreen() {
             </Pressable>
 
             {/* Add Money Button */}
-            <Pressable style={s.topupBtn} onPress={() => setShowTopup(v => !v)}>
-              <Ionicons name="add-circle-outline" size={20} color={ORANGE} />
-              <Text style={s.topupBtnText}>Add Money</Text>
-            </Pressable>
+            <GlowButton
+              title="Add Money"
+              color={ORANGE}
+              onPress={() => setShowTopup(v => !v)}
+              iconLeft={<Ionicons name="add-circle-outline" size={20} color="#fff" />}
+              fullWidth
+              height={48}
+              fontSize={15}
+              borderRadius={12}
+              glowStrength={0.5}
+              style={{ marginTop: 16 }}
+            />
 
             {/* Top-up Sheet */}
             {showTopup && (
@@ -328,14 +337,19 @@ export default function WalletScreen() {
                     <Pressable style={s.cancelBtn} onPress={() => { setShowTopup(false); setTopupAmount(""); }}>
                       <Text style={s.cancelText}>Cancel</Text>
                     </Pressable>
-                    <Pressable style={[s.confirmBtn, topping && { opacity: 0.6 }]} onPress={handleTopup} disabled={topping}>
-                      {topping ? <ActivityIndicator color="#fff" size="small" /> : (
-                        <>
-                          <Ionicons name="lock-closed" size={15} color="#fff" />
-                          <Text style={s.confirmText}>Add ₹{parseFloat(topupAmount || "0").toLocaleString("en-IN") || "0"}</Text>
-                        </>
-                      )}
-                    </Pressable>
+                    <GlowButton
+                      title={`Add ₹${parseFloat(topupAmount || "0").toLocaleString("en-IN") || "0"}`}
+                      color={ORANGE}
+                      onPress={handleTopup}
+                      loading={topping}
+                      disabled={topping}
+                      iconLeft={<Ionicons name="lock-closed" size={15} color="#fff" />}
+                      height={44}
+                      fontSize={14}
+                      borderRadius={10}
+                      glowStrength={0.55}
+                      style={{ flex: 1 }}
+                    />
                   </View>
                 </View>
               </KeyboardAvoidingView>
