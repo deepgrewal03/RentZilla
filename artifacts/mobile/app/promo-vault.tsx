@@ -120,8 +120,6 @@ export default function PromoVault() {
                           <Ionicons name="time-outline" size={11} color={urgency <= 3 ? "#C0392B" : "#555"} />
                           <Text style={[s.expiryTxt, urgency <= 3 ? { color: "#C0392B" } : {}]}>{daysLeft(p.expiryDate)}</Text>
                         </View>
-                        <Text style={s.saveAmt}>Save ₹{p.discountValue}</Text>
-                        <Text style={s.saveNote}>on ₹100+</Text>
                       </View>
                     </LinearGradient>
                   </View>
@@ -173,8 +171,6 @@ const s = StyleSheet.create({
   expiryNormal: { backgroundColor: "#F2F2F2" },
   expiryUrgent: { backgroundColor: "#FEE9E7" },
   expiryTxt:   { fontSize: 10, fontFamily: "Inter_600SemiBold", color: "#555" },
-  saveAmt:     { fontSize: 16, fontWeight: "900", color: "#2C2C2C", fontFamily: "Inter_700Bold" },
-  saveNote:    { fontSize: 10, color: "#888", fontFamily: "Inter_400Regular" },
 
   infoBox: { flexDirection: "row", gap: 8, backgroundColor: "#F0F0F0", borderRadius: 12, padding: 12, marginTop: 4, alignItems: "flex-start" },
   infoTxt: { flex: 1, fontSize: 12, color: "#666", fontFamily: "Inter_400Regular", lineHeight: 17 },
