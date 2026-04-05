@@ -163,7 +163,6 @@ async function startMetro(expoPublicDomain, expoPublicReplId) {
       "expo",
       "start",
       "--no-dev",
-      "--minify",
       "--localhost",
     ],
     {
@@ -245,7 +244,7 @@ async function downloadBundle(platform, timestamp) {
   url.searchParams.set("dev", "false");
   url.searchParams.set("hot", "false");
   url.searchParams.set("lazy", "false");
-  url.searchParams.set("minify", "true");
+  url.searchParams.set("minify", "false");
 
   const output = path.join(
     "static-build",
