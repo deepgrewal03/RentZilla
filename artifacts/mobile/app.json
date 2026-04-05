@@ -1,13 +1,21 @@
 {
   "expo": {
     "name": "RentZilla",
-    "slug": "mobile",
+    "slug": "rentzilla",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "mobile",
+    "scheme": "rentzilla",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "runtimeVersion": {
+      "policy": "sdkVersion"
+    },
+    "updates": {
+      "url": "https://rent-organizer.replit.app",
+      "enabled": true,
+      "fallbackToCacheTimeout": 0
+    },
     "splash": {
       "image": "./assets/images/splash-icon.png",
       "resizeMode": "contain",
@@ -15,6 +23,7 @@
     },
     "ios": {
       "supportsTablet": false,
+      "bundleIdentifier": "com.rentzilla.app",
       "infoPlist": {
         "NSCameraUsageDescription": "RentZilla needs camera access to take your profile photo.",
         "NSPhotoLibraryUsageDescription": "RentZilla needs photo library access to set your profile picture.",
@@ -22,6 +31,7 @@
       }
     },
     "android": {
+      "package": "com.rentzilla.app",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/icon.png",
         "backgroundColor": "#FF7A18"
@@ -37,10 +47,11 @@
       "favicon": "./assets/images/icon.png"
     },
     "plugins": [
+      "expo-dev-client",
       [
         "expo-router",
         {
-          "origin": "https://replit.com/"
+          "origin": "https://rent-organizer.replit.app"
         }
       ],
       "expo-font",

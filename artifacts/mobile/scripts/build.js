@@ -26,6 +26,20 @@ const staticBuild = path.join(projectRoot, "static-build");
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+/** Returns the Expo SDK major version string (e.g. "54.0.0") from package.json. */
+function getSdkVersion() {
+  try {
+    const pkg = JSON.parse(fs.readFileSync(path.join(projectRoot, "package.json"), "utf-8"));
+    const expoVersion = (pkg.dependencies?.expo || pkg.devDependencies?.expo || "54.0.0")
+      .replace(/[^0-9.]/g, "")
+      .split(".")
+      .slice(0, 1)[0];
+    return `${expoVersion}.0.0`;
+  } catch {
+    return "54.0.0";
+  }
+}
+
 function getDeploymentDomain() {
   return (
     process.env.REPLIT_INTERNAL_APP_DOMAIN ||
@@ -182,7 +196,7 @@ function processExport(platform, exportDir, timestamp, baseUrl, basePath) {
   const manifest = {
     id: crypto.randomUUID(),
     createdAt: new Date().toISOString(),
-    runtimeVersion: "1.0.0",
+    runtimeVersion: getSdkVersion(),
     launchAsset: {
       hash: bundleHash,
       key: `bundle-${timestamp}-${platform}`,

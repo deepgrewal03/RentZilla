@@ -57,6 +57,7 @@
   },
   "dependencies": {
     "expo-clipboard": "^8.0.8",
+    "expo-dev-client": "^55.0.22",
     "expo-document-picker": "^14.0.8",
     "expo-image-manipulator": "^14.0.8"
   }
