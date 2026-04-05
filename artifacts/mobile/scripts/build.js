@@ -1,7 +1,7 @@
 /**
  * Production build script for RentZilla mobile deployment.
  *
- * Uses `expo export` (batch Metro bundling, Hermes skipped via --no-bytecode)
+ * Uses `expo export` (batch Metro bundling, Hermes bytecode enabled for fast startup)
  * instead of the old Metro HTTP server approach, which crashed when Terser
  * tried to minify 1756+ modules in the Cloud Run environment.
  *
@@ -99,7 +99,6 @@ function exportPlatform(platform, domain) {
       "exec", "expo", "export",
       "--platform", platform,
       "--no-minify",
-      "--no-bytecode",
       "--output-dir", exportDir,
     ],
     { env },
@@ -136,15 +135,18 @@ function processExport(platform, exportDir, timestamp, baseUrl, basePath) {
     console.error(`Bundle not found: ${bundleSrc}`);
     return null;
   }
+  // Preserve the real extension: .hbc (Hermes bytecode) or .js (plain JS)
+  const bundleExt = path.extname(bundleSrc) || ".js";
+  const bundleFilename = `bundle${bundleExt}`;
   const bundleDest = path.join(
-    staticBuild, timestamp, "_expo", "static", "js", platform, "bundle.js",
+    staticBuild, timestamp, "_expo", "static", "js", platform, bundleFilename,
   );
   fs.mkdirSync(path.dirname(bundleDest), { recursive: true });
   fs.copyFileSync(bundleSrc, bundleDest);
 
   const bundleBytes = fs.statSync(bundleDest).size;
   const bundleHash = sha256File(bundleDest);
-  const bundleUrl = `${baseUrl}${basePath}/${timestamp}/_expo/static/js/${platform}/bundle.js`;
+  const bundleUrl = `${baseUrl}${basePath}/${timestamp}/_expo/static/js/${platform}/${bundleFilename}`;
   console.log(
     `${platform}: bundle ${(bundleBytes / 1024 / 1024).toFixed(1)} MB → ${bundleUrl}`,
   );
