@@ -1,0 +1,12 @@
+{
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "dcfd4e68-a6c4-461e-82a2-17da3ce0ab46"
+      }
+    },
+    "android": {
+      "package": "com.rentzilla.workspace"
+    }
+  }
+}
