@@ -10,6 +10,8 @@ import {
 import GlowButton from "@/components/GlowButton";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useApi } from "@/hooks/useApi";
+import { useRazorpay } from "@/hooks/useRazorpay";
+import RazorpayCheckout from "@/components/RazorpayCheckout";
 
 const GOLD = "#F5C518";
 const GOLD2 = "#FFE066";
@@ -43,6 +45,7 @@ function formatDate(iso: string | null): string {
 
 export default function GoldMembershipScreen() {
   const { get, post } = useApi();
+  const { initiatePayment, checkout } = useRazorpay();
   const insets = useSafeAreaInsets();
   const [status, setStatus] = useState<MembershipStatus | null>(null);
   const [loading, setLoading] = useState(true);
@@ -77,38 +80,21 @@ export default function GoldMembershipScreen() {
       return;
     }
     const isRenewal = status.isExpired;
-    Alert.alert(
-      isRenewal ? "Renew Gold Membership" : "Unlock Gold Membership",
-      `₹${status.purchaseAmount} will be deducted from your wallet for a 1-year subscription${isRenewal ? " renewal" : ""}.`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: (isRenewal ? "Renew for ₹" : "Subscribe for ₹") + status.purchaseAmount,
-          onPress: async () => {
-            setPurchasing(true);
-            try {
-              const res = await post<{ message: string; newWalletBalance: number; expiresAt: string }>("/membership/purchase", {});
-              await fetchStatus();
-              Alert.alert("🏆 " + (isRenewal ? "Renewed!" : "You're Gold!"), res.message || "Gold Membership activated. Enjoy 4% off every booking!");
-            } catch (e: any) {
-              const msg = e?.message || "Purchase failed";
-              if (e?.code === "INSUFFICIENT_BALANCE" || msg.includes("Insufficient")) {
-                Alert.alert(
-                  "Insufficient Balance",
-                  `You need ₹${status.purchaseAmount} in your wallet. Please top up and try again.`,
-                  [
-                    { text: "Cancel", style: "cancel" },
-                    { text: "Top Up Wallet", onPress: () => { router.back(); router.push("/wallet"); } },
-                  ]
-                );
-              } else {
-                Alert.alert("Error", msg);
-              }
-            } finally { setPurchasing(false); }
-          },
-        },
-      ]
-    );
+    setPurchasing(true);
+    await initiatePayment({
+      purpose: "gold_membership",
+      description: isRenewal ? "Gold Membership Renewal — 1 Year" : "Gold Membership — 1 Year Access",
+      onSuccess: async (result) => {
+        await fetchStatus();
+        Alert.alert(
+          "🏆 " + (isRenewal ? "Renewed!" : "You're Gold!"),
+          `Gold Membership activated! Enjoy 4% off every booking until ${formatDate(result.expiresAt || null)}.`
+        );
+      },
+      onError: (msg) => Alert.alert("Payment Failed", msg),
+      onDismiss: () => {},
+    });
+    setPurchasing(false);
   }
 
   const shimmerOpacity = shimmer.interpolate({ inputRange: [0, 1], outputRange: [0.6, 1] });
@@ -130,6 +116,20 @@ export default function GoldMembershipScreen() {
   return (
     <View style={[ss.root, { paddingTop: insets.top }]}>
       <StatusBar style="light" />
+
+      {/* Razorpay Checkout Modal */}
+      {checkout && (
+        <RazorpayCheckout
+          visible={checkout.visible}
+          orderId={checkout.orderId}
+          amount={checkout.amount}
+          keyId={checkout.keyId}
+          prefill={checkout.prefill}
+          description={checkout.description}
+          onSuccess={checkout.onSuccess}
+          onDismiss={checkout.onDismiss}
+        />
+      )}
 
       {/* Header */}
       <View style={ss.header}>
@@ -241,7 +241,7 @@ export default function GoldMembershipScreen() {
           <Text style={ss.note}>Amount deducted from your RentZilla wallet. Top up if needed.</Text>
         )}
 
-        <View style={{ height: 40 }} />
+        <View style={{ height: insets.bottom + 40 }} />
       </ScrollView>
     </View>
   );

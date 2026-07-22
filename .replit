@@ -1,4 +1,4 @@
-modules = ["nodejs-20", "nodejs-24", "postgresql-16"]
+modules = ["nodejs-20", "nodejs-24", "python-3.11", "postgresql-16"]
 
 [[artifacts]]
 id = "artifacts/api-server"
@@ -28,3 +28,12 @@ timeoutMs = 20000
 [nix]
 channel = "stable-25_05"
 packages = ["u-root-cmds"]
+
+[userenv]
+
+[userenv.shared]
+SMTP_HOST = "smtp.gmail.com"
+SMTP_PORT = "587"
+SUPPORT_EMAIL = "info.rentzilla@gmail.com"
+SMTP_FROM = "RentZilla Support <info.rentzilla@gmail.com>"
+EXPO_PUBLIC_GOOGLE_CLIENT_ID = "558670008629-hccacctug6of58c0627hq7qht378iunr.apps.googleusercontent.com"

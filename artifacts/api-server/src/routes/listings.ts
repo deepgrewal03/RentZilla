@@ -32,15 +32,22 @@ async function enrichListing(listing: typeof listingsTable.$inferSelect) {
     priceUnit: listing.priceUnit,
     images: (listing.images as string[]) || [],
     location: listing.location,
+    latitude: listing.latitude != null ? Number(listing.latitude) : null,
+    longitude: listing.longitude != null ? Number(listing.longitude) : null,
     rating: avgRating ? Math.round(avgRating * 10) / 10 : null,
     reviewCount: reviews.length,
     isAvailable: listing.isAvailable,
     operatorIncluded: listing.operatorIncluded ?? false,
     fuelIncluded: listing.fuelIncluded ?? false,
     deliveryCharges: listing.deliveryCharges ?? null,
+    engineSize: listing.engineSize ?? null,
+    vehicleType: listing.vehicleType ?? null,
     createdAt: listing.createdAt.toISOString(),
   };
 }
+
+const VALID_CATEGORIES = ["cars", "equipment", "services"] as const;
+type ValidCategory = typeof VALID_CATEGORIES[number];
 
 router.get("/", async (req: Request, res: Response) => {
   try {
@@ -49,7 +56,13 @@ router.get("/", async (req: Request, res: Response) => {
     let query = db.select().from(listingsTable);
     const conditions = [];
 
-    if (category) conditions.push(eq(listingsTable.category, category as "cars" | "equipment" | "services"));
+    if (category) {
+      if (!VALID_CATEGORIES.includes(category as ValidCategory)) {
+        res.json([]);
+        return;
+      }
+      conditions.push(eq(listingsTable.category, category as ValidCategory));
+    }
     if (subcategory) conditions.push(eq(listingsTable.subcategory, subcategory as string));
     if (providerId) conditions.push(eq(listingsTable.providerId, providerId as string));
     if (minPrice) conditions.push(gte(listingsTable.price, Number(minPrice)));
@@ -113,12 +126,24 @@ router.post("/", authMiddleware, async (req: Request, res: Response) => {
   try {
     const userId = (req as Request & { userId: string }).userId;
     const { category, subcategory, title, description, price, priceUnit, images, location, isAvailable,
-            operatorIncluded, fuelIncluded, deliveryCharges, engineSize, vehicleType } = req.body;
+            operatorIncluded, fuelIncluded, deliveryCharges, engineSize, vehicleType, latitude, longitude } = req.body;
+
+    if (!VALID_CATEGORIES.includes(category as ValidCategory)) {
+      res.status(400).json({ error: `Invalid category. Must be one of: ${VALID_CATEGORIES.join(", ")}` });
+      return;
+    }
+
+    const userRows = await db.execute(sql`SELECT role FROM users WHERE id = ${userId} LIMIT 1`);
+    const userRole = (userRows as any)?.rows?.[0]?.role ?? (Array.isArray(userRows) ? (userRows as any)[0]?.role : null);
+    if (!userRole || (userRole !== "provider" && userRole !== "both")) {
+      res.status(403).json({ error: "Only providers can create listings" });
+      return;
+    }
 
     const listing = {
       id: generateId(),
       providerId: userId,
-      category: category as "cars" | "equipment" | "services",
+      category: category as ValidCategory,
       subcategory: subcategory || null,
       title,
       description: description || null,
@@ -132,6 +157,8 @@ router.post("/", authMiddleware, async (req: Request, res: Response) => {
       deliveryCharges: deliveryCharges != null ? Number(deliveryCharges) : null,
       engineSize: engineSize != null ? Number(engineSize) : null,
       vehicleType: vehicleType || null,
+      latitude: latitude != null ? Number(latitude) : null,
+      longitude: longitude != null ? Number(longitude) : null,
     };
 
     const inserted = await db.insert(listingsTable).values(listing).returning();
@@ -148,18 +175,26 @@ router.put("/:id", authMiddleware, async (req: Request, res: Response) => {
     const {
       category, subcategory, title, description, price, priceUnit,
       images, location, isAvailable, operatorIncluded, fuelIncluded, deliveryCharges,
-      engineSize, vehicleType,
+      engineSize, vehicleType, latitude, longitude,
     } = req.body;
+
+    if (category && !VALID_CATEGORIES.includes(category as ValidCategory)) {
+      res.status(400).json({ error: `Invalid category. Must be one of: ${VALID_CATEGORIES.join(", ")}` });
+      return;
+    }
 
     const updated = await db.update(listingsTable)
       .set({
-        category, subcategory, title, description,
+        ...(category !== undefined && { category: category as ValidCategory }),
+        subcategory, title, description,
         price: Number(price), priceUnit, images, location, isAvailable,
         ...(operatorIncluded !== undefined && { operatorIncluded: operatorIncluded === true }),
         ...(fuelIncluded !== undefined && { fuelIncluded: fuelIncluded === true }),
         ...(deliveryCharges !== undefined && { deliveryCharges: deliveryCharges != null ? Number(deliveryCharges) : null }),
         ...(engineSize !== undefined && { engineSize: engineSize != null ? Number(engineSize) : null }),
         ...(vehicleType !== undefined && { vehicleType: vehicleType || null }),
+        ...(latitude !== undefined && { latitude: latitude != null ? String(Number(latitude)) : null }),
+        ...(longitude !== undefined && { longitude: longitude != null ? String(Number(longitude)) : null }),
       })
       .where(eq(listingsTable.id, req.params.id))
       .returning();

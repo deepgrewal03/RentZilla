@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useFocusEffect } from "expo-router";
+import { API_BASE_URL } from "@/constants/apiUrl";
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   ActivityIndicator, Animated, Alert, Platform, Modal,
-  Dimensions, PanResponder, StatusBar, TextInput,
+  Dimensions, PanResponder, StatusBar, TextInput, KeyboardAvoidingView,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -203,13 +204,19 @@ function BottomSheet({ children, isExpanded, onToggle }: {
       <TouchableOpacity {...panResponder.panHandlers} onPress={onToggle} style={styles.handleArea} activeOpacity={1}>
         <View style={styles.handleBar} />
       </TouchableOpacity>
-      <ScrollView
-        contentContainerStyle={{ paddingBottom: scrollBottomPad }}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
       >
-        {children}
-      </ScrollView>
+        <ScrollView
+          contentContainerStyle={{ paddingBottom: scrollBottomPad }}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          {children}
+        </ScrollView>
+      </KeyboardAvoidingView>
     </Animated.View>
   );
 }
@@ -1034,6 +1041,7 @@ export default function CarsScreen() {
                       value={passengerName}
                       onChangeText={setPassengerName}
                       autoCapitalize="words"
+                      onFocus={() => setSheetExpanded(true)}
                     />
                   </View>
                   <View style={styles.passengerInputWrap}>
@@ -1045,6 +1053,7 @@ export default function CarsScreen() {
                       value={passengerPhone}
                       onChangeText={setPassengerPhone}
                       keyboardType="phone-pad"
+                      onFocus={() => setSheetExpanded(true)}
                     />
                   </View>
                 </View>
@@ -1212,7 +1221,10 @@ export default function CarsScreen() {
                 </View>
               </View>
               <View style={styles.requestActions}>
-                <TouchableOpacity style={styles.rejectSmallBtn} onPress={() => {}}>
+                <TouchableOpacity
+                  style={styles.rejectSmallBtn}
+                  onPress={() => setDriverRequests(prev => prev.filter(r => r.id !== req.id))}
+                >
                   <Feather name="x" size={16} color={RED} />
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.acceptSmallBtn} onPress={() => setSelectedRequest(req)}>
@@ -1419,7 +1431,7 @@ export default function CarsScreen() {
       <TripNavigationModal
         visible={showTripNav}
         ride={driverActiveRide as TripRide | null}
-        apiBase={`https://${process.env.EXPO_PUBLIC_DOMAIN ?? ""}`}
+        apiBase={API_BASE_URL}
         token={token ?? ""}
         onComplete={() => {
           setShowTripNav(false);

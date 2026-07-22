@@ -1,0 +1,114 @@
+📩 Contact Support Button Functionality Prompt
+
+Objective:
+Make the “Contact Support” button fully functional across the app so users can easily reach RentZilla support, with the support email fixed as info.rentzilla@gmail.com
+.
+
+1) Button Click Action
+
+When user taps Contact Support:
+
+Open email composer automatically
+Default recipient:
+info.rentzilla@gmail.com
+Subject auto-fill:
+RentZilla Support Request
+Body auto-fill:
+User name
+Registered mobile/email
+App version
+Device type
+Message placeholder
+Example Email Body
+Email
+Subject
+
+Hello RentZilla Support Team,
+
+Name: [Auto-fill user name]
+Phone/Email: [Auto-fill registered contact]
+Issue Type: [Booking / Payment / Listing / Verification]
+
+Please describe your issue below:
+[User enters issue here]
+
+Thanks,
+[User Name]
+
+2) In-App Support Form (Fallback)
+
+If no email app is available:
+
+Open an in-app support form modal
+Fields:
+Name
+Email / Mobile
+Issue Category
+Message
+Screenshot upload (optional)
+
+On submit:
+
+Send support request to:
+info.rentzilla@gmail.com
+3) Support Categories
+
+Add quick options:
+
+Booking issue
+Payment refund
+Provider verification
+Listing problem
+Technical bug
+Safety report
+Other
+
+This helps faster support handling.
+
+4) API / Backend Dependency
+
+Create support endpoint:
+
+POST /api/support-ticket
+
+Payload:
+
+{
+  "user_id": "",
+  "name": "",
+  "contact": "",
+  "issue_type": "",
+  "message": "",
+  "support_email": "info.rentzilla@gmail.com"
+}
+5) Admin Panel Integration
+
+Every submitted support request should appear in:
+
+Admin Dashboard → Open Reports / Support Tickets
+Include:
+User details
+Time submitted
+Status
+Resolved / Pending
+6) UI/UX Behavior
+Add mail icon 📧 beside button
+Press animation
+Show success message:
+“Your support request has been sent successfully”
+Add retry on failure
+7) Extra Smart Features
+
+Optional but highly useful:
+
+Open WhatsApp support if email fails
+Attach booking ID automatically
+Auto attach screenshot of current screen
+Priority support for active bookings
+🎯 Expected Result
+
+✅ Contact Support button works everywhere
+✅ Email always goes to info.rentzilla@gmail.com
+
+✅ Fallback in-app support form
+✅ Admin can track all support tickets

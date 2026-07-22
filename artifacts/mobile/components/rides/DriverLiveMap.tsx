@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import { View, Text, StyleSheet, Platform, ActivityIndicator } from "react-native";
+import { API_BASE_URL } from "@/constants/apiUrl";
 import * as Location from "expo-location";
 import { Feather } from "@expo/vector-icons";
 
@@ -44,8 +45,7 @@ async function getKey(): Promise<string> {
   const env = (process.env.EXPO_PUBLIC_GMAPS_KEY as string) || "";
   if (env) return env;
   try {
-    const base = (process.env.EXPO_PUBLIC_DOMAIN as string)
-      ? `https://${process.env.EXPO_PUBLIC_DOMAIN}` : window.location.origin;
+    const base = API_BASE_URL;
     const r = await fetch(`${base}/api/maps/key`, { signal: AbortSignal.timeout(4000) });
     if (r.ok) { const d: any = await r.json(); if (d?.key) return d.key; }
   } catch {}

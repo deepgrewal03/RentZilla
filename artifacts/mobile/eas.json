@@ -1,6 +1,7 @@
 {
   "cli": {
-    "version": ">= 12.0.0"
+    "version": ">= 16.0.0",
+    "appVersionSource": "local"
   },
   "build": {
     "development": {
@@ -15,16 +16,26 @@
     },
     "preview": {
       "distribution": "internal",
+      "channel": "preview",
       "android": {
         "buildType": "apk"
       },
-      "channel": "preview"
+      "env": {
+        "EXPO_PUBLIC_DOMAIN": "rent-organizer.replit.app"
+      }
     },
     "production": {
-      "autoIncrement": true,
+      "node": "20.19.0",
       "channel": "production",
       "android": {
         "buildType": "app-bundle"
+      },
+      "ios": {
+        "buildConfiguration": "Release"
+      },
+      "env": {
+        "EXPO_PUBLIC_DOMAIN": "rent-organizer.replit.app",
+        "EXPO_PUBLIC_REPL_ID": "rentzilla-prod"
       }
     }
   },

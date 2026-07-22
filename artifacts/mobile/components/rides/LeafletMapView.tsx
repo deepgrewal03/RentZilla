@@ -1,4 +1,5 @@
 import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
+import { API_BASE_URL } from "@/constants/apiUrl";
 import { Platform, StyleSheet, View } from "react-native";
 
 export interface MapRef {
@@ -65,8 +66,7 @@ async function getMapsApiKey(): Promise<string> {
   if (_keyPromise) return _keyPromise;
 
   const candidates: string[] = [];
-  const pubDomain = (process.env.EXPO_PUBLIC_DOMAIN as string) || "";
-  if (pubDomain) candidates.push(`https://${pubDomain}`);
+  candidates.push(API_BASE_URL);
   if (typeof window !== "undefined") candidates.push(window.location.origin);
 
   _keyPromise = (async () => {

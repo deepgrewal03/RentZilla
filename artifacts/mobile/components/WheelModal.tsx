@@ -1,15 +1,182 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import {
   Modal, View, Text, Pressable, StyleSheet, Animated, Easing,
-  Dimensions, ScrollView, ActivityIndicator,
+  Dimensions, ScrollView, ActivityIndicator, Platform,
 } from "react-native";
 import Svg, { Path, Circle, G, Text as SvgText } from "react-native-svg";
 import { LinearGradient } from "expo-linear-gradient";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import GlowButton from "@/components/GlowButton";
 import * as Haptics from "expo-haptics";
 import { Ionicons } from "@expo/vector-icons";
 import { useApi } from "@/hooks/useApi";
 import { useAuth } from "@/context/AuthContext";
+import { useRazorpay } from "@/hooks/useRazorpay";
+import RazorpayCheckout from "@/components/RazorpayCheckout";
+
+// ─── Audio Engine (Web Audio API) ─────────────────────────────────────────────
+
+let _wheelAudioCtx: AudioContext | null = null;
+
+function getWheelAudioCtx(): AudioContext | null {
+  if (Platform.OS !== "web") return null;
+  if (_wheelAudioCtx) return _wheelAudioCtx;
+  const W = window as any;
+  const AC = W.AudioContext || W.webkitAudioContext;
+  if (!AC) return null;
+  _wheelAudioCtx = new AC();
+  return _wheelAudioCtx;
+}
+
+function resumeWheelCtx(): void {
+  const ctx = getWheelAudioCtx();
+  if (ctx && ctx.state === "suspended") ctx.resume();
+}
+
+/**
+ * Short percussive tick. pitch 400–1400 Hz, louder and snappier at high speed.
+ */
+function playWheelTick(pitch: number, volume = 0.38): void {
+  const ctx = getWheelAudioCtx();
+  if (!ctx) return;
+  try {
+    const osc  = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.type = "triangle";
+    osc.frequency.value = Math.min(Math.max(pitch, 400), 1400);
+    const t = ctx.currentTime;
+    gain.gain.setValueAtTime(volume, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.052);
+    osc.start(t);
+    osc.stop(t + 0.052);
+  } catch (_) {}
+}
+
+/**
+ * Coin-toss reveal sound: sparkling C-major chord + three rapid dings.
+ * Fires when the wheel lands on the result.
+ */
+function playCoinReveal(): void {
+  const ctx = getWheelAudioCtx();
+  if (!ctx) return;
+  try {
+    const now = ctx.currentTime;
+    // Chord tones (staggered)
+    const chord = [
+      { freq: 1047, delay: 0,    vol: 0.45, dur: 1.0 },
+      { freq: 1319, delay: 0.06, vol: 0.30, dur: 0.85 },
+      { freq: 1568, delay: 0.12, vol: 0.22, dur: 0.7 },
+      { freq: 2093, delay: 0.18, vol: 0.11, dur: 0.5 },
+    ];
+    chord.forEach(({ freq, delay, vol, dur }) => {
+      const osc  = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = "sine";
+      osc.frequency.value = freq;
+      const t0 = now + delay;
+      gain.gain.setValueAtTime(0, t0);
+      gain.gain.linearRampToValueAtTime(vol, t0 + 0.015);
+      gain.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
+      osc.start(t0);
+      osc.stop(t0 + dur + 0.01);
+    });
+    // Rapid ding ding ding
+    [0.38, 0.54, 0.68].forEach((delay, i) => {
+      const osc  = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = "sine";
+      osc.frequency.value = 1047 + i * 262;
+      const t0 = now + delay;
+      gain.gain.setValueAtTime(0, t0);
+      gain.gain.linearRampToValueAtTime(0.18, t0 + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.001, t0 + 0.28);
+      osc.start(t0);
+      osc.stop(t0 + 0.3);
+    });
+  } catch (_) {}
+}
+
+/** Sad trombone-ish wobble for "Better Luck". */
+function playBetterLuck(): void {
+  const ctx = getWheelAudioCtx();
+  if (!ctx) return;
+  try {
+    const now = ctx.currentTime;
+    const osc  = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.type = "triangle";
+    osc.frequency.setValueAtTime(440, now);
+    osc.frequency.linearRampToValueAtTime(330, now + 0.4);
+    osc.frequency.linearRampToValueAtTime(262, now + 0.8);
+    gain.gain.setValueAtTime(0.25, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.9);
+    osc.start(now);
+    osc.stop(now + 0.9);
+  } catch (_) {}
+}
+
+// ─── Tick Scheduler ────────────────────────────────────────────────────────────
+//
+// Easing used: Easing.out(Easing.cubic) → y = 1 − (1−t)³
+// Inverse      → t = 1 − ∛(1−y)
+// Derivative   → dy/dt = 3·(1−t)²   (angular velocity, proportional)
+//
+// For each segment boundary crossing we:
+//  1. Compute the normalised position y = crossAngle / totalDelta
+//  2. Invert to get t → schedule setTimeout at t * duration
+//  3. Compute angular velocity → map to pitch (fast = high, slow = low)
+//  4. Play tick + haptic at that exact time
+
+const SEGMENT_ANGLE = 360 / 7;       // 360 / N ≈ 51.43° (N=7, defined below but inlined here to avoid TDZ)
+
+function scheduleWheelTicks(
+  startAngle: number,
+  totalDelta: number,
+  duration: number,
+): ReturnType<typeof setTimeout>[] {
+  if (totalDelta <= 0) return [];
+
+  const startCross = Math.ceil(startAngle / SEGMENT_ANGLE);
+  const endCross   = Math.floor((startAngle + totalDelta) / SEGMENT_ANGLE);
+  const timers: ReturnType<typeof setTimeout>[] = [];
+
+  for (let c = startCross; c <= endCross; c++) {
+    const crossAngle = c * SEGMENT_ANGLE;
+    const y = (crossAngle - startAngle) / totalDelta;  // 0 → 1
+    if (y < 0 || y > 1) continue;
+
+    // Invert Easing.out(Easing.cubic): t = 1 − cbrt(1 − y)
+    const t     = 1 - Math.cbrt(1 - y);
+    const timeMs = t * duration;
+
+    // Angular velocity: d(position)/dt ∝ 3·(1−t)²
+    const dydt  = 3 * Math.pow(1 - t, 2);
+    const angVel = (totalDelta * dydt) / duration; // deg/ms
+
+    // Pitch: ~1200 Hz at full speed (~10 deg/ms), down to ~450 Hz near stop
+    const pitch  = 450 + Math.min(angVel * 75, 900);
+    // Volume: slightly louder when faster
+    const volume = 0.25 + Math.min(angVel * 0.04, 0.18);
+
+    const timer = setTimeout(() => {
+      playWheelTick(pitch, volume);
+      if (Platform.OS !== "web") {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+      }
+    }, timeMs);
+
+    timers.push(timer);
+  }
+  return timers;
+}
 
 const { width: SW, height: SH } = Dimensions.get("window");
 const WHEEL_SIZE = Math.min(SW - 56, 290);
@@ -19,13 +186,13 @@ const R  = WHEEL_SIZE / 2 - 8;
 const N  = 7;
 
 const SEGMENTS = [
-  { label: "5% OFF",    discount: 5,  type: "discount", fill: "#FFCCD5", stroke: "#FF8FA3", text: "#880018" },
-  { label: "10% OFF",   discount: 10, type: "discount", fill: "#FFE8C0", stroke: "#FFBA4D", text: "#7A3D00" },
-  { label: "15% OFF",   discount: 15, type: "discount", fill: "#FEFFC0", stroke: "#E0DC00", text: "#5A5000" },
-  { label: "20% OFF",   discount: 20, type: "discount", fill: "#C8F5C8", stroke: "#48C748", text: "#1A5A1A" },
-  { label: "25% OFF",   discount: 25, type: "discount", fill: "#BFF0FF", stroke: "#2ECBF5", text: "#0A5A75" },
-  { label: "30% OFF",   discount: 30, type: "discount", fill: "#E0D0FF", stroke: "#9D6FFF", text: "#3D0099" },
-  { label: "Better\nLuck\nNext Time", discount: 0, type: "none",  fill: "#F2F2F2", stroke: "#C8C8C8", text: "#666666" },
+  { label: "5% OFF", sub: "on ₹100",  discount: 5,  type: "discount", fill: "#FFCCD5", stroke: "#FF8FA3", text: "#880018" },
+  { label: "10% OFF", sub: "on ₹100", discount: 10, type: "discount", fill: "#FFE8C0", stroke: "#FFBA4D", text: "#7A3D00" },
+  { label: "15% OFF", sub: "on ₹100", discount: 15, type: "discount", fill: "#FEFFC0", stroke: "#E0DC00", text: "#5A5000" },
+  { label: "20% OFF", sub: "on ₹100", discount: 20, type: "discount", fill: "#C8F5C8", stroke: "#48C748", text: "#1A5A1A" },
+  { label: "25% OFF", sub: "on ₹100", discount: 25, type: "discount", fill: "#BFF0FF", stroke: "#2ECBF5", text: "#0A5A75" },
+  { label: "30% OFF", sub: "on ₹100", discount: 30, type: "discount", fill: "#E0D0FF", stroke: "#9D6FFF", text: "#3D0099" },
+  { label: "Better\nLuck!", sub: "",   discount: 0,  type: "none",     fill: "#F2F2F2", stroke: "#C8C8C8", text: "#666666" },
 ];
 
 function segPath(i: number): string {
@@ -73,10 +240,13 @@ interface Props {
 export default function WheelModal({ visible, onClose }: Props) {
   const { user } = useAuth();
   const { get, post } = useApi();
+  const { initiatePayment, checkout, clearCheckout, loading: rzLoading } = useRazorpay();
+  const { bottom: bottomInset } = useSafeAreaInsets();
 
-  const spinAnim    = useRef(new Animated.Value(0)).current;
-  const curAngle    = useRef(0);
-  const spinRef     = useRef<Animated.CompositeAnimation | null>(null);
+  const spinAnim     = useRef(new Animated.Value(0)).current;
+  const curAngle     = useRef(0);
+  const spinRef      = useRef<Animated.CompositeAnimation | null>(null);
+  const tickTimers   = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   const [status,    setStatus]    = useState<WheelStatus | null>(null);
   const [spinning,  setSpinning]  = useState(false);
@@ -103,7 +273,14 @@ export default function WheelModal({ visible, onClose }: Props) {
   }, [get]);
 
   useEffect(() => {
-    if (visible && user) { loadStatus(); setResult(null); setConfetti(false); setError(""); }
+    if (visible && user) {
+      loadStatus(); setResult(null); setConfetti(false); setError("");
+    }
+    if (!visible) {
+      // Clear any scheduled ticks when the modal is dismissed
+      tickTimers.current.forEach(clearTimeout);
+      tickTimers.current = [];
+    }
   }, [visible, user]);
 
   function launchConfetti() {
@@ -123,15 +300,26 @@ export default function WheelModal({ visible, onClose }: Props) {
   }
 
   function doSpin(segIndex: number) {
-    // To land segment i at the top pointer, rotate wheel by (360 - (2i+1)*180/N)
-    // because rotating CW by X moves what was at (360-X) to the top.
+    const SPIN_DURATION = 4200;
+
+    // Clear any leftover tick timers from a previous spin
+    tickTimers.current.forEach(clearTimeout);
+    tickTimers.current = [];
+
+    // Land segment i under the pointer (top).
+    // Rotating CW by X moves what was at (360-X) to the top.
     const target = 360 - (2 * segIndex + 1) * 180 / N;
     let delta = target - (curAngle.current % 360);
     if (delta <= 0) delta += 360;
-    const finalAngle = curAngle.current + delta + 5 * 360;
+    const totalDelta = delta + 5 * 360;
+    const finalAngle = curAngle.current + totalDelta;
+
+    // Schedule tick sounds at every segment crossing using the easing inverse
+    tickTimers.current = scheduleWheelTicks(curAngle.current, totalDelta, SPIN_DURATION);
+
     curAngle.current = finalAngle;
     spinRef.current = Animated.timing(spinAnim, {
-      toValue: finalAngle, duration: 4200, easing: Easing.out(Easing.cubic), useNativeDriver: true,
+      toValue: finalAngle, duration: SPIN_DURATION, easing: Easing.out(Easing.cubic), useNativeDriver: true,
     });
     spinRef.current.start();
   }
@@ -139,37 +327,61 @@ export default function WheelModal({ visible, onClose }: Props) {
   async function spin(type: "free" | "paid") {
     if (spinning) return;
     setSpinning(true); setResult(null); setError("");
+
+    // Unlock AudioContext on user gesture (required by browsers)
+    resumeWheelCtx();
+
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
       const endpoint = type === "free" ? "/wheel/free-spin" : "/wheel/paid-spin";
       const data = await post<{ segmentIndex: number; reward: { label: string; discountValue: number; type: string } }>(endpoint);
       doSpin(data.segmentIndex);
+
+      // Reveal result after animation completes
       setTimeout(() => {
         setResult({ label: data.reward.label, discount: data.reward.discountValue, type: data.reward.type });
         setSpinning(false);
+
         if (data.reward.type === "discount") {
+          playCoinReveal();
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
           launchConfetti();
         } else {
+          playBetterLuck();
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
         }
         loadStatus();
       }, 4400);
     } catch (err: any) {
+      // Clear scheduled ticks on error
+      tickTimers.current.forEach(clearTimeout);
+      tickTimers.current = [];
       setError(err?.message || "Spin failed. Please try again.");
       setSpinning(false);
     }
   }
 
   async function buySpin() {
-    if (buying || spinning) return;
+    if (buying || spinning || rzLoading) return;
     setBuying(true); setError("");
     try {
-      const data = await post<{ message: string; paidSpinBalance: number }>("/wheel/buy-spin");
-      await loadStatus();
+      await initiatePayment({
+        purpose: "wheel_spin",
+        description: "Wheel of Fortune Spin — ₹1",
+        onSuccess: async () => {
+          await loadStatus();
+          setBuying(false);
+        },
+        onError: (msg) => {
+          setError(msg);
+          setBuying(false);
+        },
+        onDismiss: () => {
+          setBuying(false);
+        },
+      });
     } catch (err: any) {
-      setError(err?.message || "Purchase failed. Check your wallet balance.");
-    } finally {
+      setError(err?.message || "Purchase failed. Please try again.");
       setBuying(false);
     }
   }
@@ -208,7 +420,7 @@ export default function WheelModal({ visible, onClose }: Props) {
             )}
           </LinearGradient>
 
-          <ScrollView contentContainerStyle={s.body} showsVerticalScrollIndicator={false} bounces={false}>
+          <ScrollView contentContainerStyle={[s.body, { paddingBottom: 40 + bottomInset }]} showsVerticalScrollIndicator={false} bounces={false}>
             {loading ? (
               <View style={s.loadWrap}><ActivityIndicator size="large" color="#FF7A18" /></View>
             ) : (
@@ -254,26 +466,48 @@ export default function WheelModal({ visible, onClose }: Props) {
                     <Svg width={WHEEL_SIZE} height={WHEEL_SIZE} viewBox={`0 0 ${WHEEL_SIZE} ${WHEEL_SIZE}`}>
                       {SEGMENTS.map((seg, i) => {
                         const tp = textPos(i);
-                        const lines = seg.label.split("\n");
-                        const lh = 8;
-                        const topY = tp.y - ((lines.length - 1) * lh) / 2;
+                        const mainLines = seg.label.split("\n");
+                        const hasSub = seg.sub && seg.sub.length > 0;
+                        const mainLH = 10;   // px between main lines
+                        const subGap = 9;    // extra gap before sub line
+                        const totalH = (mainLines.length - 1) * mainLH + (hasSub ? subGap : 0);
+                        const baseY = tp.y - totalH / 2;
+                        const rot = `rotate(${tp.rot.toFixed(1)}, ${tp.x.toFixed(1)}, ${tp.y.toFixed(1)})`;
+                        const mainSize = mainLines.length === 1 ? 11 : 9.5;
                         return (
                           <G key={i}>
                             <Path d={segPath(i)} fill={seg.fill} stroke={seg.stroke} strokeWidth={1.5} />
-                            {lines.map((line, li) => (
+                            {/* Main label lines */}
+                            {mainLines.map((line, li) => (
                               <SvgText
-                                key={li}
-                                x={tp.x} y={topY + li * lh}
+                                key={`m${li}`}
+                                x={tp.x} y={baseY + li * mainLH}
                                 fill={seg.text}
-                                fontSize={lines.length === 1 ? 11 : lines.length === 2 ? 9.5 : 8}
+                                fontSize={mainSize}
                                 fontWeight="800"
                                 textAnchor="middle"
                                 alignmentBaseline="middle"
-                                transform={`rotate(${tp.rot.toFixed(1)}, ${tp.x.toFixed(1)}, ${tp.y.toFixed(1)})`}
+                                transform={rot}
                               >
                                 {line}
                               </SvgText>
                             ))}
+                            {/* Sub-label: "on ₹100" */}
+                            {hasSub && (
+                              <SvgText
+                                x={tp.x}
+                                y={baseY + (mainLines.length - 1) * mainLH + subGap}
+                                fill={seg.text}
+                                fontSize={7}
+                                fontWeight="600"
+                                textAnchor="middle"
+                                alignmentBaseline="middle"
+                                opacity={0.75}
+                                transform={rot}
+                              >
+                                {seg.sub}
+                              </SvgText>
+                            )}
                           </G>
                         );
                       })}
@@ -357,7 +591,7 @@ export default function WheelModal({ visible, onClose }: Props) {
 
                     {canBuyMore && (
                       <GlowButton
-                        title="Buy Extra Spin · ₹0.99"
+                        title="Buy Extra Spin · ₹1"
                         color="#FF7A18"
                         onPress={buySpin}
                         loading={buying}
@@ -373,7 +607,7 @@ export default function WheelModal({ visible, onClose }: Props) {
                     )}
 
                     <Text style={s.freeNote}>
-                      {status.canFreeSpin ? "✓ 1 free spin per day" : "Need another spin? Only ₹0.99 from wallet"}
+                      {status.canFreeSpin ? "✓ 1 free spin per day" : "Need another spin? Only ₹1 via Razorpay"}
                     </Text>
                   </View>
                 )}
@@ -388,6 +622,19 @@ export default function WheelModal({ visible, onClose }: Props) {
           </ScrollView>
         </View>
       </View>
+      {/* Razorpay checkout — rendered outside ScrollView per modal rule */}
+      {checkout && (
+        <RazorpayCheckout
+          visible={checkout.visible}
+          orderId={checkout.orderId}
+          amount={checkout.amount}
+          keyId={checkout.keyId}
+          prefill={checkout.prefill}
+          description={checkout.description}
+          onSuccess={checkout.onSuccess}
+          onDismiss={checkout.onDismiss}
+        />
+      )}
     </Modal>
   );
 }

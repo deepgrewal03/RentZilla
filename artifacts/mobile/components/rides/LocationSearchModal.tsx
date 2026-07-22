@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
+import { API_BASE_URL } from "@/constants/apiUrl";
 import {
   View, Text, StyleSheet, Modal, TouchableOpacity, TextInput,
   FlatList, Animated, Keyboard, ActivityIndicator, Platform,
@@ -26,11 +27,8 @@ export interface LocationResult {
 function getServerCandidates(): string[] {
   const urls: string[] = [];
 
-  // 1. Build-time env var (fastest — works when freshly bundled)
-  const envDomain = process.env.EXPO_PUBLIC_DOMAIN;
-  if (envDomain && envDomain !== "undefined") {
-    urls.push(`https://${envDomain}`);
-  }
+  // 1. Production domain (always available)
+  urls.push(API_BASE_URL);
 
   // 2. Constants.expoConfig.hostUri — Expo Go sets this at runtime to the
   //    Metro packager address. In Replit, Metro is at xxx.expo.worf.replit.dev
@@ -61,8 +59,7 @@ function getServerCandidates(): string[] {
 // Fetches from server at runtime — works even if EXPO_PUBLIC_GMAPS_KEY wasn't
 // set during bundle compilation.
 let _mapsKey: string = process.env.EXPO_PUBLIC_GMAPS_KEY || "";
-let _serverBase: string = process.env.EXPO_PUBLIC_DOMAIN
-  ? `https://${process.env.EXPO_PUBLIC_DOMAIN}` : "";
+let _serverBase: string = API_BASE_URL;
 let _keyFetchPromise: Promise<string> | null = null;
 
 async function getMapsKey(): Promise<string> {

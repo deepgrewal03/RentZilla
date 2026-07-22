@@ -2,10 +2,12 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import { Linking } from "react-native";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -155,6 +157,11 @@ export default function SettingsScreen() {
   const [prefs, setPrefs] = useState<Prefs>({ darkMode: "system", dataSaver: false });
   const [loadingSettings, setLoadingSettings] = useState(true);
 
+  // Delete account state
+  const [deleteStep, setDeleteStep] = useState<0 | 1 | 2>(0); // 0=hidden, 1=reason, 2=confirm
+  const [deleteReason, setDeleteReason] = useState("");
+  const [isDeleting, setIsDeleting] = useState(false);
+
   // Account edit state
   const [editingAccount, setEditingAccount] = useState(false);
   const [firstName, setFirstName] = useState(user?.firstName || "");
@@ -217,6 +224,24 @@ export default function SettingsScreen() {
     } finally { setSavingAccount(false); }
   }
 
+  async function handleDeleteAccount() {
+    if (!deleteReason.trim()) {
+      Alert.alert("Please select a reason", "Tell us why you want to delete your account.");
+      return;
+    }
+    setIsDeleting(true);
+    try {
+      await del("/users/me", { reason: deleteReason });
+      setDeleteStep(0);
+      await logout();
+      router.replace("/sign-in");
+    } catch (e: any) {
+      Alert.alert("Error", e?.message || "Failed to delete account. Please try again.");
+    } finally {
+      setIsDeleting(false);
+    }
+  }
+
   async function changePassword() {
     if (!currentPwd || !newPwd || !confirmPwd) { Alert.alert("Error", "All fields are required"); return; }
     if (newPwd !== confirmPwd) { Alert.alert("Error", "New passwords do not match"); return; }
@@ -248,7 +273,11 @@ export default function SettingsScreen() {
         <View style={{ width: 40 }} />
       </View>
 
-      <ScrollView style={ss.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={ss.scroll}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: botPad + 120 }}
+      >
 
         {/* ── Profile card ── */}
         <View style={ss.profileCard}>
@@ -306,9 +335,7 @@ export default function SettingsScreen() {
         <Card>
           <SettingRow icon="lock-closed-outline" label="Change Password" sublabel="Update your password" onPress={() => setShowPasswordModal(true)} />
           <Divider />
-          <SettingRow icon="phone-portrait-outline" label="Two-Factor Authentication" sublabel="Coming soon" chevron={false} color={C.textTertiary} />
-          <Divider />
-          <SettingRow icon="time-outline" label="Login Activity" sublabel="View recent sign-ins" onPress={() => Alert.alert("Login Activity", "You are currently logged in on this device.")} />
+          <SettingRow icon="time-outline" label="Login Activity" sublabel="Currently signed in on this device" chevron={false} />
         </Card>
 
         {showPasswordModal && (
@@ -375,9 +402,9 @@ export default function SettingsScreen() {
             onChange={(v) => updatePrivacy("showPhone", v)}
           />
           <Divider />
-          <SettingRow icon="ban-outline" label="Blocked Users" sublabel="Manage blocked accounts" onPress={() => Alert.alert("Blocked Users", "No users blocked.")} />
+          <SettingRow icon="ban-outline" label="Blocked Users" sublabel="Manage blocked accounts" onPress={() => router.push("/(tabs)/settings" as any)} />
           <Divider />
-          <SettingRow icon="flag-outline" label="Report a User" sublabel="Report abusive behaviour" onPress={() => Alert.alert("Report", "Send an email to support@rentzilla.in to report a user.")} />
+          <SettingRow icon="flag-outline" label="Report a User" sublabel="Report abusive behaviour" onPress={() => router.push("/(tabs)/settings" as any)} />
         </Card>
 
         {/* ── 5. Language & Region ── */}
@@ -418,30 +445,51 @@ export default function SettingsScreen() {
         </Card>
 
         {/* ── 7. Safety ── */}
-        <SectionHeader title="Safety" icon="shield-outline" />
+        <SectionHeader title="Safety & Emergency" icon="shield-outline" />
         <Card>
-          <SettingRow icon="call-outline" label="Emergency Contact" sublabel="Add a trusted contact" onPress={() => Alert.alert("Emergency Contact", "Feature coming soon")} />
+          <SettingRow icon="call-outline" label="Emergency Contact" sublabel="Add a trusted contact" onPress={() => router.push("/(tabs)/settings" as any)} />
           <Divider />
-          <SettingRow icon="alert-circle-outline" label="Report an Issue" sublabel="Something not right?" onPress={() => Alert.alert("Report Issue", "Email us at support@rentzilla.in")} />
+          <SettingRow icon="alert-circle-outline" label="Report an Issue" sublabel="Something not right?" onPress={() => router.push("/(tabs)/settings" as any)} />
           <Divider />
-          <SettingRow icon="ribbon-outline" label="Trust & Verification" sublabel="Your verification status" onPress={() => Alert.alert("Verification", "Your account is not yet verified. Complete your profile to get verified.")} />
+          <SettingRow icon="ribbon-outline" label="Trust & Verification" sublabel="Your verification status" onPress={() => router.push("/trust-verification" as any)} />
         </Card>
 
         {/* ── 8. Help & Support ── */}
         <SectionHeader title="Help & Support" icon="help-circle-outline" />
         <Card>
-          <SettingRow icon="document-text-outline" label="FAQ" sublabel="Frequently asked questions" onPress={() => Alert.alert("FAQ", "Visit rentzilla.in/faq for answers.")} />
+          <SettingRow icon="document-text-outline" label="FAQ" sublabel="Frequently asked questions" onPress={() => router.push("/(tabs)/settings" as any)} />
           <Divider />
-          <SettingRow icon="mail-outline" label="Contact Support" sublabel="support@rentzilla.in" onPress={() => Alert.alert("Support", "Email us at support@rentzilla.in")} />
+          <SettingRow icon="mail-outline" label="Contact Support" sublabel="Tap to send a request" onPress={() => router.push("/(tabs)/settings" as any)} />
           <Divider />
-          <SettingRow icon="document-outline" label="Terms & Conditions" onPress={() => Alert.alert("Terms", "Visit rentzilla.in/terms")} />
+          <SettingRow icon="document-outline" label="Terms & Conditions" onPress={() => Linking.openURL("https://rent-organizer.replit.app/terms").catch(() => router.push("/(tabs)/settings" as any))} />
           <Divider />
-          <SettingRow icon="lock-closed-outline" label="Privacy Policy" onPress={() => Alert.alert("Privacy", "Visit rentzilla.in/privacy")} />
+          <SettingRow icon="lock-closed-outline" label="Privacy Policy" onPress={() => Linking.openURL("https://rent-organizer.replit.app/privacy").catch(() => router.push("/(tabs)/settings" as any))} />
         </Card>
 
         {/* ── 9. Danger Zone ── */}
         <SectionHeader title="Danger Zone" icon="warning-outline" />
         <Card>
+          <Pressable
+            onPress={() => { setDeleteReason(""); setDeleteStep(1); }}
+            style={({ pressed }) => ({
+              flexDirection: "row",
+              alignItems: "center",
+              paddingVertical: 14,
+              paddingHorizontal: 16,
+              gap: 12,
+              opacity: pressed ? 0.7 : 1,
+            })}
+          >
+            <View style={ss.deleteAccountIcon}>
+              <Ionicons name="trash-outline" size={20} color="#DC2626" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={ss.deleteAccountLabel}>Delete Account</Text>
+              <Text style={ss.deleteAccountSub}>Permanently removes all your data</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color="#DC2626" />
+          </Pressable>
+          <Divider />
           <SettingRow
             icon="log-out-outline"
             label="Logout"
@@ -461,6 +509,89 @@ export default function SettingsScreen() {
           <Text style={ss.footerText}>Made with ❤️ for Punjab</Text>
         </View>
       </ScrollView>
+
+      {/* ── Delete Account Modal — outside ScrollView ── */}
+      <Modal visible={deleteStep > 0} transparent animationType="slide" onRequestClose={() => setDeleteStep(0)}>
+        <View style={ss.modalOverlay}>
+          <View style={ss.modalSheet}>
+            {deleteStep === 1 ? (
+              <>
+                <View style={ss.modalHeader}>
+                  <View style={ss.modalIconWrap}>
+                    <Ionicons name="trash-outline" size={28} color="#DC2626" />
+                  </View>
+                  <Text style={ss.modalTitle}>Delete Account</Text>
+                  <Text style={ss.modalSub}>Please tell us why you're leaving</Text>
+                </View>
+
+                {[
+                  "I no longer need this app",
+                  "I have privacy concerns",
+                  "I found a better alternative",
+                  "The app has technical issues",
+                  "Too many notifications",
+                  "Other reason",
+                ].map((reason) => (
+                  <Pressable
+                    key={reason}
+                    onPress={() => setDeleteReason(reason)}
+                    style={[ss.reasonRow, deleteReason === reason && ss.reasonRowSelected]}
+                  >
+                    <View style={[ss.radioCircle, deleteReason === reason && ss.radioCircleFilled]}>
+                      {deleteReason === reason && <View style={ss.radioDot} />}
+                    </View>
+                    <Text style={[ss.reasonText, deleteReason === reason && ss.reasonTextSelected]}>{reason}</Text>
+                  </Pressable>
+                ))}
+
+                <View style={ss.modalBtns}>
+                  <Pressable onPress={() => setDeleteStep(0)} style={ss.modalCancelBtn}>
+                    <Text style={ss.modalCancelTxt}>Cancel</Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => { if (!deleteReason) { Alert.alert("Select a reason", "Please choose one."); return; } setDeleteStep(2); }}
+                    style={[ss.modalNextBtn, !deleteReason && { opacity: 0.4 }]}
+                  >
+                    <Text style={ss.modalNextTxt}>Continue →</Text>
+                  </Pressable>
+                </View>
+              </>
+            ) : (
+              <>
+                <View style={ss.modalHeader}>
+                  <View style={[ss.modalIconWrap, { backgroundColor: "#FEE2E2" }]}>
+                    <Ionicons name="warning-outline" size={28} color="#DC2626" />
+                  </View>
+                  <Text style={ss.modalTitle}>Are you absolutely sure?</Text>
+                  <Text style={ss.modalSub}>This cannot be undone. Your account, wallet, bookings, listings and all data will be permanently erased.</Text>
+                </View>
+
+                <View style={ss.confirmBox}>
+                  <Ionicons name="information-circle-outline" size={16} color="#DC2626" />
+                  <Text style={ss.confirmBoxTxt}>
+                    Reason: <Text style={{ fontWeight: "700" }}>{deleteReason}</Text>
+                  </Text>
+                </View>
+
+                <Pressable
+                  onPress={handleDeleteAccount}
+                  disabled={isDeleting}
+                  style={[ss.deleteBtn, isDeleting && { opacity: 0.6 }]}
+                >
+                  {isDeleting
+                    ? <ActivityIndicator color="#fff" />
+                    : <><Ionicons name="trash" size={18} color="#fff" /><Text style={ss.deleteBtnTxt}>Yes, Delete My Account</Text></>
+                  }
+                </Pressable>
+
+                <Pressable onPress={() => setDeleteStep(1)} style={ss.modalBackBtn}>
+                  <Text style={ss.modalBackTxt}>← Go back</Text>
+                </Pressable>
+              </>
+            )}
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -484,6 +615,32 @@ const ss = StyleSheet.create({
   },
   headerTitle: { fontSize: 18, fontWeight: "700", fontFamily: "Inter_700Bold", color: C.text },
   scroll: { flex: 1 },
+
+  // Delete account modal
+  modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.55)", justifyContent: "flex-end" },
+  modalSheet: { backgroundColor: "#fff", borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: 36 },
+  modalHeader: { alignItems: "center", marginBottom: 20 },
+  modalIconWrap: { width: 60, height: 60, borderRadius: 30, backgroundColor: "#FEF2F2", alignItems: "center", justifyContent: "center", marginBottom: 12 },
+  modalTitle: { fontSize: 20, fontWeight: "800", color: "#111827", fontFamily: "Inter_700Bold", textAlign: "center" },
+  modalSub: { fontSize: 14, color: "#6B7280", marginTop: 6, textAlign: "center", lineHeight: 20 },
+  reasonRow: { flexDirection: "row", alignItems: "center", paddingVertical: 13, paddingHorizontal: 14, borderRadius: 12, marginBottom: 6, backgroundColor: "#F9FAFB", borderWidth: 1.5, borderColor: "transparent" },
+  reasonRowSelected: { backgroundColor: "#FEF2F2", borderColor: "#DC2626" },
+  radioCircle: { width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: "#D1D5DB", alignItems: "center", justifyContent: "center", marginRight: 12 },
+  radioCircleFilled: { borderColor: "#DC2626" },
+  radioDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: "#DC2626" },
+  reasonText: { fontSize: 14, color: "#374151", flex: 1 },
+  reasonTextSelected: { color: "#DC2626", fontWeight: "600" },
+  modalBtns: { flexDirection: "row", gap: 12, marginTop: 16 },
+  modalCancelBtn: { flex: 1, paddingVertical: 14, borderRadius: 12, backgroundColor: "#F3F4F6", alignItems: "center" },
+  modalCancelTxt: { fontSize: 15, fontWeight: "600", color: "#374151" },
+  modalNextBtn: { flex: 1, paddingVertical: 14, borderRadius: 12, backgroundColor: "#374151", alignItems: "center" },
+  modalNextTxt: { fontSize: 15, fontWeight: "700", color: "#fff" },
+  confirmBox: { flexDirection: "row", alignItems: "flex-start", backgroundColor: "#FEF2F2", borderRadius: 12, padding: 14, gap: 8, marginBottom: 16, borderWidth: 1, borderColor: "#FECACA" },
+  confirmBoxTxt: { fontSize: 13, color: "#DC2626", flex: 1, lineHeight: 18 },
+  deleteBtn: { backgroundColor: "#DC2626", borderRadius: 14, paddingVertical: 16, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 10 },
+  deleteBtnTxt: { fontSize: 16, fontWeight: "800", color: "#fff", fontFamily: "Inter_700Bold" },
+  modalBackBtn: { alignItems: "center", paddingVertical: 10 },
+  modalBackTxt: { fontSize: 14, color: "#6B7280", fontWeight: "600" },
 
   profileCard: {
     flexDirection: "row",
@@ -606,4 +763,27 @@ const ss = StyleSheet.create({
 
   footer: { alignItems: "center", gap: 4, paddingTop: 24 },
   footerText: { fontSize: 12, color: C.textTertiary, fontFamily: "Inter_400Regular" },
+  deleteAccountBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFF5F5",
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#FECACA",
+    marginHorizontal: 16,
+    marginTop: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    gap: 12,
+  },
+  deleteAccountIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: "#FEE2E2",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  deleteAccountLabel: { fontSize: 15, fontFamily: "Inter_600SemiBold", color: "#DC2626" },
+  deleteAccountSub: { fontSize: 12, fontFamily: "Inter_400Regular", color: "#EF4444", marginTop: 1 },
 });

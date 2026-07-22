@@ -78,15 +78,15 @@ export default function PromoVault() {
         <View style={s.center}><ActivityIndicator size="large" color="#FF7A18" /></View>
       ) : (
         <ScrollView
-          contentContainerStyle={s.body}
+          contentContainerStyle={[s.body, { paddingBottom: insets.bottom + 40 }]}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#FF7A18" />}
           showsVerticalScrollIndicator={false}
         >
           {promos.length === 0 ? (
             <View style={s.empty}>
-              <Text style={{ fontSize: 52 }}>🎡</Text>
+              <Text style={{ fontSize: 52 }}>🎁</Text>
               <Text style={s.emptyTitle}>No promos yet</Text>
-              <Text style={s.emptySub}>Spin the Wheel of Fortune on the home screen to win discount promos!</Text>
+              <Text style={s.emptySub}>Your referral bonuses and earned discounts will appear here.</Text>
             </View>
           ) : (
             <>

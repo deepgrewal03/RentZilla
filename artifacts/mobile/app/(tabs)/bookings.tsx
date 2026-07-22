@@ -26,6 +26,18 @@ import { Booking } from "@/types";
 const C = Colors.light;
 
 function BookingCard({ booking, onPress }: { booking: Booking; onPress: () => void }) {
+  const bAny = booking as any;
+  // For hourly/service bookings (has bookingDate + timeSlots), show date + duration
+  const isHourly = !!(bAny.bookingDate && (bAny.timeSlots?.length || bAny.timeSlot));
+  const totalHours = bAny.timeSlots?.length || (bAny.timeSlot ? 1 : 0);
+  const displayDate = isHourly
+    ? new Date(bAny.bookingDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
+    : `${new Date(booking.startDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })} – ${new Date(booking.endDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}`;
+  const displayDuration = isHourly
+    ? `${totalHours} hr${totalHours > 1 ? "s" : ""}`
+    : `${booking.totalDays || 1} day${(booking.totalDays || 1) > 1 ? "s" : ""}`;
+  const finalAmount = Number(bAny.finalAmount || booking.totalAmount);
+
   return (
     <Pressable onPress={onPress} style={({ pressed }) => [styles.card, { opacity: pressed ? 0.9 : 1 }]}>
       <View style={styles.cardLeft}>
@@ -38,13 +50,16 @@ function BookingCard({ booking, onPress }: { booking: Booking; onPress: () => vo
         )}
       </View>
       <View style={styles.cardBody}>
-        <Text style={styles.cardTitle} numberOfLines={2}>{booking.listingTitle || "Booking"}</Text>
-        <Text style={styles.cardDates}>
-          {new Date(booking.startDate).toLocaleDateString("en-IN")} –{" "}
-          {new Date(booking.endDate).toLocaleDateString("en-IN")}
-        </Text>
+        <Text style={styles.cardTitle} numberOfLines={1}>{booking.listingTitle || "Booking"}</Text>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 2 }}>
+          <Ionicons name="calendar-outline" size={12} color={C.textTertiary} />
+          <Text style={styles.cardDates}>{displayDate}</Text>
+          <View style={{ width: 3, height: 3, borderRadius: 1.5, backgroundColor: C.textTertiary }} />
+          <Ionicons name="time-outline" size={12} color={C.textTertiary} />
+          <Text style={styles.cardDates}>{displayDuration}</Text>
+        </View>
         <View style={styles.cardFooter}>
-          <Text style={styles.cardAmount}>₹{booking.totalAmount.toLocaleString("en-IN")}</Text>
+          <Text style={styles.cardAmount}>₹{finalAmount.toLocaleString("en-IN")}</Text>
           <BookingStatusBadge status={booking.status} />
         </View>
       </View>

@@ -18,8 +18,11 @@ import ProviderPrices from "@/pages/ProviderPrices";
 import PromoCodes from "@/pages/PromoCodes";
 import PlatformWallet from "@/pages/PlatformWallet";
 import GoldAnalytics from "@/pages/GoldAnalytics";
-import WheelAnalytics from "@/pages/WheelAnalytics";
 import ReferralAnalytics from "@/pages/ReferralAnalytics";
+import SupportTickets from "@/pages/SupportTickets";
+import Verification from "@/pages/Verification";
+import Disputes from "@/pages/Disputes";
+import FraudCenter from "@/pages/FraudCenter";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient({
@@ -46,8 +49,11 @@ function ProtectedRoutes() {
         <Route path="/promo-codes" component={PromoCodes} />
         <Route path="/platform-wallet" component={PlatformWallet} />
         <Route path="/gold-analytics" component={GoldAnalytics} />
-        <Route path="/wheel-analytics" component={WheelAnalytics} />
         <Route path="/referral-analytics" component={ReferralAnalytics} />
+        <Route path="/support-tickets" component={SupportTickets} />
+        <Route path="/verification" component={Verification} />
+        <Route path="/disputes" component={Disputes} />
+        <Route path="/fraud-center" component={FraudCenter} />
         <Route path="/settings" component={Settings} />
         <Route component={NotFound} />
       </Switch>

@@ -28,6 +28,23 @@ app.use(
   }),
 );
 app.use(cors());
+
+// Capture raw body for Razorpay webhook signature verification
+app.use((req, res, next) => {
+  if (req.path === "/api/payments/webhook") {
+    let data = "";
+    req.setEncoding("utf8");
+    req.on("data", (chunk: string) => { data += chunk; });
+    req.on("end", () => {
+      (req as any).rawBody = data;
+      try { (req as any).body = JSON.parse(data); } catch { (req as any).body = {}; }
+      next();
+    });
+  } else {
+    next();
+  }
+});
+
 app.use(express.json({ limit: "5mb" }));
 app.use(express.urlencoded({ extended: true, limit: "5mb" }));
 

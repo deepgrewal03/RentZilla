@@ -12,7 +12,9 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import Colors from "@/constants/colors";
 import { useApi } from "@/hooks/useApi";
+import { useRazorpay } from "@/hooks/useRazorpay";
 import GlowButton from "@/components/GlowButton";
+import RazorpayCheckout from "@/components/RazorpayCheckout";
 
 const C = Colors.light;
 const ORANGE = "#FF7A18";
@@ -42,6 +44,7 @@ const TYPE_ICON: Record<string, string> = {
 
 export default function WalletScreen() {
   const { get, post, put, del } = useApi();
+  const { initiatePayment, checkout, loading: rzpLoading } = useRazorpay();
   const insets = useSafeAreaInsets();
   const isWeb = Platform.OS === "web";
   const topPad = isWeb ? 67 : insets.top;
@@ -98,36 +101,19 @@ export default function WalletScreen() {
     const amt = parseFloat(topupAmount);
     if (!amt || amt < 1) { Alert.alert("Invalid amount", "Minimum top-up is ₹1"); return; }
     if (amt > 100000) { Alert.alert("Invalid amount", "Maximum top-up is ₹1,00,000"); return; }
-    if (!selectedMethodId && methods.length > 0) {
-      Alert.alert("Select method", "Please select a payment method to continue."); return;
-    }
-    if (methods.length === 0) {
-      Alert.alert(
-        "No Payment Method",
-        "Please add a payment method (UPI, card, or bank) to top up your wallet.",
-        [
-          { text: "Cancel", style: "cancel" },
-          { text: "Add Method", onPress: () => { setShowTopup(false); setShowAddMethod(true); } },
-        ]
-      );
-      return;
-    }
-    setTopping(true);
-    try {
-      const m = methods.find(x => x.id === selectedMethodId);
-      const data = await post<{ balance: number; message: string }>("/wallet/topup", {
-        amount: amt,
-        method: m?.type || "upi",
-        paymentMethodId: selectedMethodId,
-      });
-      setBalance(data.balance);
-      setShowTopup(false);
-      setTopupAmount("");
-      Alert.alert("Success!", `₹${amt.toLocaleString("en-IN")} added to your wallet securely.`);
-      fetchWallet();
-    } catch (e: any) {
-      Alert.alert("Error", e?.message || "Top-up failed. Please try again.");
-    } finally { setTopping(false); }
+    setShowTopup(false);
+    await initiatePayment({
+      purpose: "wallet_topup",
+      amount: amt,
+      description: `Wallet Top-up ₹${amt.toLocaleString("en-IN")}`,
+      onSuccess: (result) => {
+        setTopupAmount("");
+        fetchWallet();
+        Alert.alert("Money Added! 🎉", `₹${amt.toLocaleString("en-IN")} has been added to your wallet.`);
+      },
+      onError: (msg) => Alert.alert("Payment Failed", msg),
+      onDismiss: () => setShowTopup(true),
+    });
   }
 
   async function handleAddMethod() {
@@ -219,6 +205,20 @@ export default function WalletScreen() {
     <View style={[s.root, { paddingTop: topPad }]}>
       <StatusBar style="light" />
 
+      {/* Razorpay Checkout Modal */}
+      {checkout && (
+        <RazorpayCheckout
+          visible={checkout.visible}
+          orderId={checkout.orderId}
+          amount={checkout.amount}
+          keyId={checkout.keyId}
+          prefill={checkout.prefill}
+          description={checkout.description}
+          onSuccess={checkout.onSuccess}
+          onDismiss={checkout.onDismiss}
+        />
+      )}
+
       {/* Header */}
       <View style={s.header}>
         <Pressable onPress={() => router.back()} style={s.backBtn} hitSlop={12}>
@@ -228,6 +228,10 @@ export default function WalletScreen() {
         <View style={{ width: 36 }} />
       </View>
 
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+      >
       <FlatList
         data={transactions}
         keyExtractor={t => t.id}
@@ -283,7 +287,6 @@ export default function WalletScreen() {
 
             {/* Top-up Sheet */}
             {showTopup && (
-              <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined}>
                 <View style={s.sheet}>
                   <Text style={s.sheetTitle}>Add Money to Wallet</Text>
 
@@ -307,31 +310,10 @@ export default function WalletScreen() {
                       keyboardType="number-pad" />
                   </View>
 
-                  {/* Payment Method Selection */}
-                  <Text style={[s.fieldLabel, { marginTop: 14 }]}>Pay via</Text>
-                  {methods.length === 0 ? (
-                    <Pressable style={s.addMethodPrompt} onPress={() => { setShowTopup(false); setShowAddMethod(true); }}>
-                      <Ionicons name="add-circle-outline" size={18} color={ORANGE} />
-                      <Text style={s.addMethodPromptText}>Add a payment method first</Text>
-                    </Pressable>
-                  ) : (
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 2 }}>
-                      <View style={{ flexDirection: "row", gap: 8 }}>
-                        {methods.map(m => (
-                          <Pressable key={m.id}
-                            style={[s.methodChip, selectedMethodId === m.id && s.methodChipActive]}
-                            onPress={() => setSelectedMethodId(m.id)}>
-                            <Ionicons name={TYPE_ICON[m.type] as any} size={14} color={selectedMethodId === m.id ? ORANGE : C.textSecondary} />
-                            <View>
-                              <Text style={[s.methodChipLabel, selectedMethodId === m.id && { color: ORANGE }]}>{m.label}</Text>
-                              <Text style={s.methodChipMasked} numberOfLines={1}>{m.maskedDisplay}</Text>
-                            </View>
-                            {m.isDefault && <View style={s.defaultDot} />}
-                          </Pressable>
-                        ))}
-                      </View>
-                    </ScrollView>
-                  )}
+                  <View style={s.rzpBadge}>
+                    <Ionicons name="shield-checkmark" size={14} color="#22C55E" />
+                    <Text style={s.rzpBadgeText}>Pay securely via UPI, Card, Net Banking — powered by Razorpay</Text>
+                  </View>
 
                   <View style={s.sheetActions}>
                     <Pressable style={s.cancelBtn} onPress={() => { setShowTopup(false); setTopupAmount(""); }}>
@@ -352,7 +334,6 @@ export default function WalletScreen() {
                     />
                   </View>
                 </View>
-              </KeyboardAvoidingView>
             )}
 
             {/* ── Payment Methods Section ── */}
@@ -397,7 +378,6 @@ export default function WalletScreen() {
 
             {/* Add Method Form */}
             {showAddMethod && (
-              <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined}>
                 <View style={s.sheet}>
                   <Text style={s.sheetTitle}>Add Payment Method</Text>
 
@@ -476,7 +456,6 @@ export default function WalletScreen() {
                     </Pressable>
                   </View>
                 </View>
-              </KeyboardAvoidingView>
             )}
 
             {/* Transactions header */}
@@ -496,8 +475,9 @@ export default function WalletScreen() {
           </>
         }
         renderItem={({ item }) => <TxRow item={item} />}
-        contentContainerStyle={{ paddingBottom: 40 }}
+        contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}
       />
+      </KeyboardAvoidingView>
     </View>
   );
 }
@@ -604,4 +584,8 @@ const s = StyleSheet.create({
   goldBannerLeft: { flexDirection: "row", alignItems: "center", gap: 12, flex: 1 },
   goldBannerTitle: { fontSize: 14, fontFamily: "Inter_700Bold", color: "#F5C518" },
   goldBannerSub: { fontSize: 11, fontFamily: "Inter_400Regular", color: "#B8A040", marginTop: 1 },
+
+  rzpBadge: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 12, marginBottom: 4,
+    backgroundColor: "#F0FDF4", borderRadius: 8, padding: 8, borderWidth: 1, borderColor: "#BBF7D0" },
+  rzpBadgeText: { flex: 1, fontSize: 11, color: "#166534", fontFamily: "Inter_400Regular" },
 });

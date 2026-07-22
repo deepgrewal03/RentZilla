@@ -1,7 +1,7 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { db } from "@workspace/db";
 import { reviewsTable, usersTable } from "@workspace/db";
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import { authMiddleware } from "./users.js";
 
 const router: IRouter = Router();
@@ -49,17 +49,47 @@ router.post("/", authMiddleware, async (req: Request, res: Response) => {
     const userId = (req as Request & { userId: string }).userId;
     const { providerId, listingId, bookingId, rating, comment } = req.body;
 
+    // Validate rating range
+    const numRating = Number(rating);
+    if (!rating || isNaN(numRating) || numRating < 1 || numRating > 5) {
+      res.status(400).json({ error: "Rating must be between 1 and 5" });
+      return;
+    }
+
+    // Require a valid booking
+    if (!bookingId) {
+      res.status(400).json({ error: "Booking ID is required to submit a review" });
+      return;
+    }
+
+    // Verify booking exists, belongs to this customer, and is completed
+    const bookings = await db.execute(sql`
+      SELECT id, status, customer_id FROM bookings WHERE id = ${bookingId} LIMIT 1
+    `);
+    const bkRows = Array.isArray(bookings) ? bookings : (bookings as any)?.rows ?? [];
+    const booking = bkRows[0];
+    if (!booking) {
+      res.status(404).json({ error: "Booking not found" });
+      return;
+    }
+    if (booking.customer_id !== userId) {
+      res.status(403).json({ error: "You can only review your own bookings" });
+      return;
+    }
+    if (booking.status !== "completed") {
+      res.status(400).json({ error: "You can only review completed bookings" });
+      return;
+    }
+
     // Prevent duplicate review for the same booking
-    if (bookingId) {
-      const existing = await db
-        .select()
-        .from(reviewsTable)
-        .where(and(eq(reviewsTable.bookingId, bookingId), eq(reviewsTable.userId, userId)))
-        .limit(1);
-      if (existing.length > 0) {
-        res.status(409).json({ error: "You have already reviewed this booking." });
-        return;
-      }
+    const existing = await db
+      .select()
+      .from(reviewsTable)
+      .where(and(eq(reviewsTable.bookingId, bookingId), eq(reviewsTable.userId, userId)))
+      .limit(1);
+    if (existing.length > 0) {
+      res.status(409).json({ error: "You have already reviewed this booking." });
+      return;
     }
 
     const review = {

@@ -1,0 +1,361 @@
+Google mainly checks:
+
+crashes
+broken functionality
+privacy/data safety
+permissions misuse
+misleading screenshots
+incomplete apps
+login/testing access
+policy violations
+🚀 1) GOOGLE PLAY CONSOLE REQUIREMENTS
+✅ Developer Account
+
+You need:
+
+Google Play Developer account
+$25 one-time fee
+verified identity
+verified phone/email
+
+New accounts may require:
+
+closed testing period
+extra review checks
+🔥 2) APP BUILD REQUIREMENTS
+✅ Android App Bundle (.aab)
+
+Google Play now requires:
+
+.aab
+
+NOT APK.
+
+For Expo:
+
+eas build --platform android
+📱 3) TEST ON REAL DEVICES
+
+Before upload test:
+
+Android 11+
+Samsung
+Xiaomi
+OnePlus
+Pixel
+slow internet
+no internet
+dark mode
+small screens
+
+Check:
+
+no crashes
+no white screens
+no frozen loaders
+no broken navigation
+
+Google checks app quality closely.
+
+🚨 4) CRITICAL FUNCTION CHECKLIST
+MUST WORK
+Authentication
+signup
+login
+forgot password
+Google sign in
+logout
+Booking
+browse listings
+booking flow
+payments
+cancellation
+booking history
+Provider
+add listing
+image upload
+verification
+payout request
+Admin
+verification approval
+disputes
+payouts
+fraud controls
+Support
+support email/chat works
+Notifications
+push notifications
+booking alerts
+🔐 5) PRIVACY POLICY (MANDATORY)
+
+You MUST add:
+
+✅ Privacy Policy URL
+
+Example:
+
+https://rentzilla.co.in/privacy-policy
+
+Google requires this especially for apps using:
+
+location
+camera
+payments
+login
+uploads
+personal data
+
+Also place it:
+
+in app
+signup screen
+settings page
+📋 6) DATA SAFETY FORM (VERY IMPORTANT)
+
+In Play Console → App Content → Data Safety
+
+Declare:
+
+what data collected
+why collected
+whether encrypted
+whether shared
+
+For RentZilla likely includes:
+
+name
+email
+phone
+location
+payment info
+uploaded documents
+photos
+
+Incorrect declarations can cause rejection.
+
+📍 7) PERMISSIONS CHECKLIST
+Only request permissions you REALLY use
+Location
+
+Explain:
+
+Used to show nearby rentals and live booking tracking.
+Camera
+Used for listing uploads and provider verification.
+Storage/Photos
+Used to upload equipment images and documents.
+Notifications
+Used for booking and payout updates.
+
+Google rejects apps requesting unnecessary permissions.
+
+🔥 8) APP ACCESS / DEMO ACCOUNT
+
+VERY IMPORTANT.
+
+If login required:
+
+You MUST provide test credentials
+
+Play Console → App Access
+
+Provide:
+
+Customer account
+email:
+password:
+Provider account
+email:
+password:
+
+Add instructions:
+
+how to test booking
+how to test payments
+how to test provider dashboard
+
+Missing login info is a common rejection reason.
+
+💳 9) PAYMENT CHECKLIST
+
+If using Razorpay:
+
+payment success works
+failed payment handled
+refund works
+no stuck pending bookings
+webhook verification works
+no fake payment success
+
+Google tests financial flows carefully.
+
+📷 10) STORE LISTING REQUIREMENTS
+✅ App Icon
+512x512
+no blur
+no copyright issues
+✅ Feature Graphic
+1024x500
+no small unreadable text
+no fake badges
+✅ Screenshots
+
+Need:
+
+phone screenshots
+real UI
+no placeholders
+no fake data
+
+Google checks screenshots match real app.
+
+✍️ 11) STORE DESCRIPTION
+Short Description
+
+80 characters max.
+
+Example:
+
+Book JCB, cars, bikes, tools & generators instantly in Punjab.
+Full Description
+
+Explain:
+
+categories
+booking process
+provider onboarding
+verification
+payments
+support
+
+Do NOT use misleading claims.
+
+🔥 12) REMOVE ALL TEST/DUMMY CONTENT
+
+Before submit:
+
+remove dummy data
+remove test OTP
+remove fake payments
+remove “under development”
+remove empty tabs
+remove broken buttons
+remove placeholder banners
+🚨 13) MOST COMMON PLAY STORE REJECTIONS
+
+Avoid these:
+
+❌ Network request failed
+❌ Crashes on launch
+❌ Broken login
+❌ Incomplete app
+❌ Misleading screenshots
+❌ Missing privacy policy
+❌ Wrong Data Safety form
+❌ Fake reviews/download manipulation
+❌ Non-working payments
+❌ Placeholder screens
+
+Google now uses strong automated + AI review systems.
+
+🧪 14) PRE-LAUNCH TESTING
+
+Google may run automated testing.
+
+So verify:
+
+no ANR
+no crashes
+no memory leaks
+no navigation dead ends
+no blank screens
+no permissions loops
+🔥 15) PLAY STORE APP CONTENT SECTION
+
+Complete ALL:
+
+✅ Privacy Policy
+✅ App Access
+✅ Ads declaration
+✅ Target audience
+✅ Content rating
+✅ Data Safety
+✅ Sensitive permissions declaration
+
+Missing these blocks submission.
+
+📦 16) RELEASE CHECKLIST
+
+Before clicking:
+
+“Send for Review”
+
+Verify:
+
+production API works
+Supabase env vars working
+HTTPS URLs only
+no localhost
+release build tested
+payments tested
+uploads tested
+maps tested
+notifications tested
+app size optimized
+version number updated
+🚀 17) RENTZILLA-SPECIFIC FINAL CHECKLIST
+Customer
+
+✅ booking
+✅ payment
+✅ cancellation
+✅ reviews
+✅ wallet
+
+Provider
+
+✅ KYC upload
+✅ listing upload
+✅ payouts
+✅ booking accept/reject
+
+Admin
+
+✅ fraud controls
+✅ verification
+✅ disputes
+✅ escrow release
+
+AI/Fraud
+
+✅ no fake alerts crashing
+✅ hidden listings handled correctly
+
+⏳ 18) REVIEW TIME EXPECTATION
+
+Typical:
+
+updates: 1–3 days
+first app: 3–10+ days sometimes
+
+New accounts may take longer.
+
+🎯 BEST LAUNCH STRATEGY FOR RENTZILLA
+My strongest recommendation:
+Version 1:
+
+Focus on:
+
+stable booking
+stable payments
+strong UI
+provider verification
+support system
+
+Avoid launching:
+
+unfinished AI features
+experimental modules
+partially working flows
+
+Stable apps get approved faster

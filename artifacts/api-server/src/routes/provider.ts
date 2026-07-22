@@ -9,6 +9,13 @@ type AR = Request & { userId: string };
 router.get("/summary", authMiddleware, async (req: Request, res: Response) => {
   try {
     const userId = (req as AR).userId;
+    // Only users with provider or both role can access provider dashboard
+    const roleResult = await db.execute(sql`SELECT role FROM users WHERE id = ${userId} LIMIT 1`);
+    const userRole = (roleResult as any)?.rows?.[0]?.role;
+    if (!userRole || !['provider', 'both'].includes(userRole)) {
+      res.status(403).json({ error: "Provider access required" });
+      return;
+    }
 
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();

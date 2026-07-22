@@ -1,0 +1,245 @@
+Build a complete Trust & Verification system for the RentZilla app.
+
+TECH STACK:
+- React Native Expo frontend
+- Supabase backend
+- Admin panel app
+- Role based access: customer, provider, admin
+- Production-ready
+- Real document upload + approval workflow
+- Works on Android + iOS
+- Secure storage + database rules
+
+====================================================
+GOAL
+====================================================
+Create a trust and verification ecosystem that increases safety, prevents fraud, and improves booking confidence.
+
+There must be:
+1) Customer verification
+2) Provider verification
+3) Equipment / vehicle ownership proof
+4) Admin review + approval panel
+5) Badge system
+6) Risk scoring
+7) Booking restrictions if not verified
+
+====================================================
+1) CUSTOMER VERIFICATION FLOW
+====================================================
+Create verification section in customer profile.
+
+Verification types:
+- Mobile number verified (OTP)
+- Email verified
+- Government ID verification
+- Selfie face verification
+- Address verification
+- Payment method verified
+
+UI:
+- show verification progress %
+- show badge states:
+  - Unverified
+  - Pending
+  - Verified
+  - Rejected
+- trust score meter 0–100
+- green shield badge after full verification
+
+FUNCTIONALITY:
+- upload Aadhaar / PAN / Driver License
+- capture live selfie
+- compare selfie with ID face placeholder flow
+- store verification request in Supabase
+- allow re-upload if rejected
+- restrict high-value bookings above threshold if not verified
+
+====================================================
+2) PROVIDER VERIFICATION FLOW
+====================================================
+Provider trust is stricter.
+
+Required:
+- phone verified
+- email verified
+- GST optional
+- Aadhaar / PAN mandatory
+- business proof
+- bank account verification
+- UPI verification
+- driving license if vehicle rentals
+- equipment ownership invoice upload
+- RC for vehicles
+- insurance proof
+- address proof
+- selfie
+- company registration optional
+
+Provider dashboard must show:
+- verification checklist
+- completion %
+- trust score
+- payout locked until verified
+- listing cannot go live without mandatory verification
+
+Badge system:
+- Basic Verified
+- Fully Verified
+- Premium Trusted Provider
+- Top Rated Verified
+
+====================================================
+3) DOCUMENT UPLOAD SYSTEM
+====================================================
+Use:
+- Expo image picker
+- Camera capture
+- PDF upload support
+- image compression
+- watermark uploaded docs internally
+- secure private Supabase storage bucket
+
+Folders:
+verification/customer/{userId}
+verification/provider/{providerId}
+
+Accepted:
+jpg
+png
+pdf
+max 10MB
+
+Store metadata:
+file type
+upload time
+document type
+verification status
+admin note
+
+====================================================
+4) ADMIN APP VERIFICATION PANEL
+====================================================
+Build fully functional admin screen:
+Trust & Verification Management
+
+Tabs:
+- Pending Customer
+- Pending Provider
+- Rejected
+- Approved
+- High Risk Users
+
+For each request show:
+- profile details
+- trust score
+- uploaded docs preview
+- selfie preview
+- previous rejection reasons
+- booking history
+- cancellation %
+- dispute count
+- payment fraud flags
+
+ADMIN ACTIONS:
+- approve
+- reject
+- request resubmission
+- suspend account
+- upgrade trust tier
+- add admin notes
+- mark suspicious
+- ban fake providers
+- manually verify after offline KYC
+
+====================================================
+5) TRUST SCORE ENGINE
+====================================================
+Build scoring logic:
+phone verified +10
+email +10
+gov id +25
+selfie +15
+address +10
+payment +10
+successful bookings +10
+good reviews +10
+low cancellation +5
+long account age +5
+
+Penalty:
+dispute -20
+provider complaints -25
+chargeback -40
+fake docs -100 + auto suspend
+
+Store:
+trust_score
+verification_level
+risk_level
+fraud_flag
+
+====================================================
+6) BOOKING SAFETY RULES
+====================================================
+Add restrictions:
+- unverified customers cannot book expensive equipment
+- unverified providers cannot list premium items
+- trust score below 40 triggers manual review
+- high fraud users blocked from wallet withdrawals
+- new providers need full verification before first payout
+
+====================================================
+7) ADMIN NOTIFICATIONS
+====================================================
+When docs submitted:
+- notify admin instantly
+- push notification in admin app
+- badge count updates
+- email alert optional
+
+When approved/rejected:
+- notify user instantly
+- show exact rejection reason
+- allow resubmit CTA
+
+====================================================
+8) DATABASE TABLES
+====================================================
+Generate SQL schema:
+
+user_verification
+provider_verification
+verification_documents
+trust_scores
+verification_audit_logs
+risk_flags
+
+====================================================
+9) UI DESIGN
+====================================================
+Make premium UI:
+- shield icons
+- trust meter
+- progress rings
+- verified check badges
+- green/gold premium badge
+- rejection warning cards
+- reupload CTA
+- admin action modal
+
+====================================================
+10) OUTPUT REQUIRED
+====================================================
+Generate:
+- customer verification screen
+- provider verification dashboard
+- admin verification management screen
+- Supabase SQL tables
+- storage bucket policies
+- trust score helper logic
+- real-time notifications
+- upload services
+- approval/rejection actions
+- fraud lock logic
+- production-ready code only

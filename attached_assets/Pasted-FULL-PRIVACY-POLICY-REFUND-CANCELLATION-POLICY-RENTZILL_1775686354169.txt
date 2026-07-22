@@ -1,0 +1,48 @@
+FULL PRIVACY POLICY + REFUND &
+CANCELLATION POLICY – RENTZILLA
+ 
+1. Scope
+This Policy applies to the RentZilla mobile app, website, provider dashboard, wallet, payouts,
+customer support, marketing communication, KYC systems, and all global users including India.
+2. Information We Collect
+We collect account data, phone, email, profile photo, addresses, GST/PAN details, booking details,
+location, payment references, wallet history, device identifiers, crash logs, KYC records, bank
+details, and dispute evidence.
+3. Why We Use Data
+We use personal data for account creation, booking execution, fraud prevention, customer support,
+escrow, payouts, tax compliance, analytics, legal investigations, service quality, and misuse
+prevention.
+4. Consent
+By using RentZilla, users provide informed consent for account creation, OTP verification, location
+access, booking communication, and optional marketing notifications. Consent may be withdrawn
+by deleting the account or contacting support.
+5. Data Sharing
+We may share limited data with payment gateways, KYC vendors, cloud hosting providers,
+SMS/OTP vendors, insurance partners, analytics services, government authorities, law
+enforcement, and counterparties involved in a booking. We do not sell personal data.
+6. Cross-Border Transfers
+Because RentZilla may serve international users, data may be processed in India, Singapore, UAE,
+EU regions, and other secure global cloud zones using encryption, processor agreements, and
+access controls.
+7. Retention & Deletion
+Booking records may be retained for up to 7 years, tax invoices as required by law, and dispute
+evidence until final closure. Users may request access, correction, deletion, or consent withdrawal
+subject to legal obligations.
+8. Security Measures
+We use encryption in transit, secure storage, tokenized payments, OTP verification, role-based
+admin access, audit logs, fraud monitoring, and secure image uploads.
+9. Customer Cancellation
+100% refund before provider acceptance. After acceptance, platform fees or reserved-time charges
+may apply. Same-day cancellations may attract 20–50% deduction depending on category.
+10. Provider Cancellation
+If a provider cancels, the customer receives a full refund and may get priority rebooking. Providers
+may face penalties, ranking reduction, payout holds, or temporary suspension.
+11. Security Deposit & Damage
+For rentals, escrow deposits may be held and deductions may apply for damages, extra usage, fuel
+shortage, cleaning, or missing accessories after inspection.
+12. Refund Timelines
+Wallet refunds: instant to 24 hrs. UPI: 1–3 business days. Cards: 5–10 business days. Bank
+transfers: 3–7 business days.
+13. Non-Refundable Cases
+No refunds for fraud, fake bookings, illegal use, duplicate claims, force majeure losses, or
+user-caused cancellation after service start.

@@ -1,5 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { createContext, useContext, useEffect, useState } from "react";
+import { API_BASE_URL } from "@/constants/apiUrl";
 
 export type UserRole = "customer" | "provider" | "both";
 export type ActiveMode = "customer" | "provider";
@@ -15,9 +16,12 @@ export interface User {
   roles: string[];
   location: string | null;
   profileImage: string | null;
+  photoUrl?: string | null;
   rating: number | null;
   reviewCount: number;
   createdAt: string;
+  provider?: "email" | "google" | "apple";
+  profileComplete?: boolean;
 }
 
 interface AuthContextType {
@@ -28,6 +32,9 @@ interface AuthContextType {
   setActiveMode: (mode: ActiveMode) => void;
   loginWithPhone: (phone: string, name: string, role: UserRole) => Promise<void>;
   loginWithEmail: (email: string, password: string) => Promise<void>;
+  loginWithGoogle: (idToken: string) => Promise<{ isNewUser: boolean; profileComplete: boolean }>;
+  loginWithApple: (identityToken: string, appleUserId: string, fullName?: { givenName?: string | null; familyName?: string | null } | null, email?: string | null) => Promise<{ isNewUser: boolean; profileComplete: boolean }>;
+  completeProfile: (data: CompleteProfileData) => Promise<void>;
   register: (data: RegisterData) => Promise<void>;
   logout: () => Promise<void>;
   updateUser: (data: Partial<User>) => void;
@@ -46,14 +53,25 @@ export interface RegisterData {
   location?: string;
 }
 
+export interface CompleteProfileData {
+  name?: string;
+  phone: string;
+  dob?: string;
+  location?: string;
+  role?: UserRole;
+}
+
 const AuthContext = createContext<AuthContextType | null>(null);
 
-const BASE_URL = `https://${process.env.EXPO_PUBLIC_DOMAIN}`;
+const BASE_URL = API_BASE_URL;
 
 function normalizeUser(u: any): User {
   return {
     ...u,
     roles: u.roles ?? (u.role === "both" ? ["customer", "provider"] : [u.role]),
+    photoUrl: u.photo_url ?? u.photoUrl ?? null,
+    profileComplete: u.profile_complete ?? u.profileComplete ?? true,
+    provider: u.provider ?? u.auth_provider ?? "email",
   };
 }
 
@@ -80,7 +98,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setActiveModeState(mode);
       }
     } catch {
-      // ignore
     } finally {
       setIsLoading(false);
     }
@@ -118,33 +135,122 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   async function loginWithPhone(phone: string, name: string, role: UserRole) {
-    const response = await fetch(`${BASE_URL}/api/auth/login`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ phone, name, role }),
-    });
+    let response: Response;
+    try {
+      response = await fetch(`${BASE_URL}/api/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone, name, role }),
+      });
+    } catch {
+      throw new Error(`Cannot reach server. Check your internet connection.`);
+    }
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || "Login failed");
     await persist(data.user, data.token);
   }
 
   async function loginWithEmail(email: string, password: string) {
-    const response = await fetch(`${BASE_URL}/api/auth/login`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
-    });
+    let response: Response;
+    try {
+      response = await fetch(`${BASE_URL}/api/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+    } catch {
+      throw new Error(`Cannot reach server. Check your internet connection.`);
+    }
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || "Login failed");
     await persist(data.user, data.token);
   }
 
+  async function loginWithGoogle(idToken: string): Promise<{ isNewUser: boolean; profileComplete: boolean }> {
+    let response: Response;
+    try {
+      response = await fetch(`${BASE_URL}/api/auth/google`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id_token: idToken, device_type: "mobile" }),
+      });
+    } catch {
+      throw new Error(`Cannot reach server. Check your internet connection.`);
+    }
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "Google sign-in failed");
+    await persist(data.user, data.token);
+    return {
+      isNewUser: data.is_new_user ?? false,
+      profileComplete: data.profile_complete ?? true,
+    };
+  }
+
+  async function loginWithApple(
+    identityToken: string,
+    appleUserId: string,
+    fullName?: { givenName?: string | null; familyName?: string | null } | null,
+    email?: string | null,
+  ): Promise<{ isNewUser: boolean; profileComplete: boolean }> {
+    let response: Response;
+    try {
+      response = await fetch(`${BASE_URL}/api/auth/apple`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          identity_token: identityToken,
+          apple_user_id: appleUserId,
+          full_name: fullName ?? null,
+          email: email ?? null,
+          device_type: "ios",
+        }),
+      });
+    } catch {
+      throw new Error(`Cannot reach server. Check your internet connection.`);
+    }
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "Apple sign-in failed");
+    await persist(data.user, data.token);
+    return {
+      isNewUser: data.is_new_user ?? false,
+      profileComplete: data.profile_complete ?? true,
+    };
+  }
+
+  async function completeProfile(profileData: CompleteProfileData) {
+    if (!token) throw new Error("Not authenticated");
+    let response: Response;
+    try {
+      response = await fetch(`${BASE_URL}/api/auth/complete-profile`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify(profileData),
+      });
+    } catch {
+      throw new Error(`Cannot reach server. Check your internet connection.`);
+    }
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "Profile update failed");
+    if (data.token) {
+      await persist(data.user, data.token);
+    } else if (data.user) {
+      const normalized = normalizeUser(data.user);
+      setUser(normalized);
+      await AsyncStorage.setItem("auth_user", JSON.stringify(normalized));
+    }
+  }
+
   async function register(regData: RegisterData) {
-    const response = await fetch(`${BASE_URL}/api/auth/register`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(regData),
-    });
+    let response: Response;
+    try {
+      response = await fetch(`${BASE_URL}/api/auth/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(regData),
+      });
+    } catch {
+      throw new Error(`Cannot reach server. Check your internet connection.`);
+    }
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || "Registration failed");
     await persist(data.user, data.token);
@@ -172,7 +278,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, token, isLoading, activeMode, setActiveMode, loginWithPhone, loginWithEmail, register, logout, updateUser, refreshUser }}>
+    <AuthContext.Provider value={{
+      user, token, isLoading, activeMode, setActiveMode,
+      loginWithPhone, loginWithEmail, loginWithGoogle, loginWithApple,
+      completeProfile, register, logout, updateUser, refreshUser,
+    }}>
       {children}
     </AuthContext.Provider>
   );

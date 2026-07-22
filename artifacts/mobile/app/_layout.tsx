@@ -6,24 +6,73 @@ import {
   useFonts,
 } from "@expo-google-fonts/inter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Stack } from "expo-router";
+import { router, Stack, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect, useState } from "react";
+import { KeyboardAvoidingView, Platform } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import NetworkGate from "@/components/NetworkGate";
 import SplashAnimation from "@/components/SplashAnimation";
-import { AuthProvider } from "@/context/AuthContext";
+import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { FavoritesProvider } from "@/context/FavoritesContext";
 import { LanguageProvider } from "@/context/LanguageContext";
+import { SoundProvider } from "@/context/SoundContext";
+import * as AudioService from "@/services/AudioService";
 import { setBaseUrl } from "@workspace/api-client-react";
+import { API_BASE_URL } from "@/constants/apiUrl";
 
-setBaseUrl(`https://${process.env.EXPO_PUBLIC_DOMAIN}`);
+setBaseUrl(API_BASE_URL);
 
 SplashScreen.preventAutoHideAsync();
 
 const queryClient = new QueryClient();
+
+// Public routes that don't require authentication
+const PUBLIC_ROUTES = new Set([
+  "sign-in", "sign-up", "auth", "forgot-password", "reset-password",
+]);
+
+/**
+ * Guards protected routes — redirects to sign-in when not authenticated
+ * and redirects authenticated users away from auth screens.
+ * Must be rendered inside AuthProvider.
+ */
+function AuthGuard() {
+  const { user, isLoading } = useAuth();
+  const segments = useSegments();
+
+  useEffect(() => {
+    if (isLoading) return;
+
+    const rootSegment = segments[0] as string | undefined;
+    const inTabsGroup = rootSegment === "(tabs)";
+    const inPublicRoute = rootSegment !== undefined && PUBLIC_ROUTES.has(rootSegment);
+
+    if (!user && inTabsGroup) {
+      // Not logged in — send to sign-in
+      router.replace("/sign-in");
+    } else if (user && inPublicRoute) {
+      // Already logged in — send to app
+      router.replace("/(tabs)");
+    }
+  }, [user, isLoading, segments]);
+
+  return null;
+}
+
+(async () => {
+  try {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 8000);
+    await fetch(`${API_BASE_URL}/api/healthz`, { signal: ctrl.signal });
+    clearTimeout(timer);
+  } catch {
+    // silent — server unavailable at startup
+  }
+})();
 
 function RootLayoutNav() {
   return (
@@ -41,6 +90,15 @@ function RootLayoutNav() {
       <Stack.Screen name="new-booking/[id]" options={{ presentation: "card", animation: "slide_from_bottom" }} />
       <Stack.Screen name="provider/[id]" options={{ presentation: "card" }} />
       <Stack.Screen name="promo-vault" options={{ presentation: "card", animation: "slide_from_right" }} />
+      <Stack.Screen name="wallet" options={{ presentation: "card", animation: "slide_from_right" }} />
+      <Stack.Screen name="gold-membership" options={{ presentation: "card", animation: "slide_from_right" }} />
+      <Stack.Screen name="referral" options={{ presentation: "card", animation: "slide_from_right" }} />
+      <Stack.Screen name="trust-verification" options={{ presentation: "card", animation: "slide_from_right" }} />
+      <Stack.Screen name="forgot-password" options={{ presentation: "card", animation: "slide_from_bottom" }} />
+      <Stack.Screen name="reset-password" options={{ presentation: "card", animation: "slide_from_bottom" }} />
+      <Stack.Screen name="become-customer" options={{ presentation: "card", animation: "slide_from_right" }} />
+      <Stack.Screen name="edit-listing" options={{ presentation: "modal" }} />
+      <Stack.Screen name="provider-wallet" options={{ presentation: "card", animation: "slide_from_right" }} />
     </Stack>
   );
 }
@@ -56,7 +114,6 @@ export default function RootLayout() {
 
   useEffect(() => {
     if (fontsLoaded || fontError) {
-      // Hide the native system splash — our animated one takes over
       SplashScreen.hideAsync();
     }
   }, [fontsLoaded, fontError]);
@@ -68,17 +125,32 @@ export default function RootLayout() {
       <ErrorBoundary>
         <QueryClientProvider client={queryClient}>
           <LanguageProvider>
-            <AuthProvider>
-              <FavoritesProvider>
-                <GestureHandlerRootView style={{ flex: 1 }}>
-                  <RootLayoutNav />
-                  {/* Animated splash overlay — shown once on every app launch */}
-                  {!splashDone && (
-                    <SplashAnimation onDone={() => setSplashDone(true)} />
-                  )}
-                </GestureHandlerRootView>
-              </FavoritesProvider>
-            </AuthProvider>
+            <SoundProvider>
+              <AuthProvider>
+                <AuthGuard />
+                <FavoritesProvider>
+                  <GestureHandlerRootView style={{ flex: 1 }}>
+                    <KeyboardAvoidingView
+                      style={{ flex: 1 }}
+                      behavior={Platform.OS === "ios" ? "padding" : undefined}
+                      keyboardVerticalOffset={0}
+                    >
+                      <NetworkGate>
+                        <RootLayoutNav />
+                        {!splashDone && (
+                          <SplashAnimation
+                            onDone={() => {
+                              setSplashDone(true);
+                              AudioService.playStartup().catch(() => {});
+                            }}
+                          />
+                        )}
+                      </NetworkGate>
+                    </KeyboardAvoidingView>
+                  </GestureHandlerRootView>
+                </FavoritesProvider>
+              </AuthProvider>
+            </SoundProvider>
           </LanguageProvider>
         </QueryClientProvider>
       </ErrorBoundary>

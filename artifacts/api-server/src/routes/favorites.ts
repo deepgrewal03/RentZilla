@@ -100,6 +100,31 @@ router.post("/", authMiddleware, async (req: Request, res: Response) => {
   }
 });
 
+// DELETE /api/favorites/:listingId — explicitly remove a favorite
+router.delete("/:listingId", authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as Request & { userId: string }).userId;
+    const { listingId } = req.params;
+
+    const existing = await db
+      .select()
+      .from(favoritesTable)
+      .where(and(eq(favoritesTable.userId, userId), eq(favoritesTable.listingId, listingId)))
+      .limit(1);
+
+    if (existing.length === 0) {
+      res.json({ action: "removed", isFavorite: false, message: "Not in favorites" });
+      return;
+    }
+
+    await db.delete(favoritesTable).where(eq(favoritesTable.id, existing[0].id));
+    res.json({ action: "removed", isFavorite: false });
+  } catch (err) {
+    req.log.error({ err }, "Delete favorite error");
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 // GET /api/favorites/check/:listingId — check if favorited
 router.get("/check/:listingId", authMiddleware, async (req: Request, res: Response) => {
   try {

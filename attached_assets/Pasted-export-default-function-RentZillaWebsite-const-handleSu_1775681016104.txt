@@ -1,0 +1,165 @@
+export default function RentZillaWebsite() {
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    const form = new FormData(e.target);
+    const name = form.get('name');
+    const email = form.get('email');
+    const message = form.get('message');
+
+    const subject = encodeURIComponent(`RentZilla Website Query from ${name}`);
+    const body = encodeURIComponent(`Name: ${name}\nEmail: ${email}\n\nQuery:\n${message}`);
+    window.location.href = `mailto:info.rentzilla@gmail.com?subject=${subject}&body=${body}`;
+  };
+
+  const services = [
+    {
+      title: 'Home & Furniture Rentals',
+      desc: 'Affordable furniture, appliances, and home essentials on rent for daily, weekly, or monthly needs.'
+    },
+    {
+      title: 'Vehicles & Equipment',
+      desc: 'Cars, bikes, tools, and professional equipment from verified local providers.'
+    },
+    {
+      title: 'Event & Party Rentals',
+      desc: 'Decoration, sound systems, lighting, tents, and event supplies for every celebration.'
+    },
+    {
+      title: 'Local Service Marketplace',
+      desc: 'Connect customers with trusted providers for repair, shifting, cleaning, and rental services.'
+    }
+  ];
+
+  return (
+    <div className="min-h-screen bg-white text-gray-900">
+      {/* Header */}
+      <header className="sticky top-0 z-50 bg-white/90 backdrop-blur border-b">
+        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold">RentZilla</h1>
+            <p className="text-sm text-gray-600">ਤੁਹਾਡੀ ਆਪਣੀ ਐਪ</p>
+          </div>
+          <nav className="flex gap-6 text-sm font-medium">
+            <a href="#home" className="hover:text-gray-600">Home</a>
+            <a href="#services" className="hover:text-gray-600">Services</a>
+            <a href="#contact" className="hover:text-gray-600">Contact</a>
+          </nav>
+        </div>
+      </header>
+
+      {/* Hero */}
+      <section id="home" className="max-w-7xl mx-auto px-6 py-20 grid md:grid-cols-2 gap-10 items-center">
+        <div>
+          <p className="text-sm uppercase tracking-widest text-gray-500 mb-3">India’s Smart Rental Marketplace</p>
+          <h2 className="text-5xl font-bold leading-tight mb-6">
+            Rent Anything, Anytime with <span className="text-gray-700">RentZilla</span>
+          </h2>
+          <p className="text-lg text-gray-600 mb-8 leading-8">
+            A trusted rental marketplace connecting customers with verified providers for homes, vehicles, events, tools, and local services. Built to make renting simple, affordable, and fast.
+          </p>
+          <div className="flex gap-4">
+            <a href="#services" className="px-6 py-3 rounded-2xl bg-black text-white shadow-lg hover:opacity-90">
+              Explore Services
+            </a>
+            <a href="#contact" className="px-6 py-3 rounded-2xl border hover:bg-gray-50">
+              Contact Us
+            </a>
+          </div>
+        </div>
+
+        <div className="bg-gradient-to-br from-gray-100 to-gray-200 rounded-3xl p-10 shadow-xl">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="bg-white rounded-2xl p-6 shadow">
+              <h3 className="font-semibold mb-2">Verified Providers</h3>
+              <p className="text-sm text-gray-600">Safe and trusted rental partners</p>
+            </div>
+            <div className="bg-white rounded-2xl p-6 shadow">
+              <h3 className="font-semibold mb-2">Easy Booking</h3>
+              <p className="text-sm text-gray-600">Fast mobile-first experience</p>
+            </div>
+            <div className="bg-white rounded-2xl p-6 shadow">
+              <h3 className="font-semibold mb-2">Secure Payments</h3>
+              <p className="text-sm text-gray-600">Smooth customer checkout</p>
+            </div>
+            <div className="bg-white rounded-2xl p-6 shadow">
+              <h3 className="font-semibold mb-2">Best Prices</h3>
+              <p className="text-sm text-gray-600">Affordable local rentals</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Services */}
+      <section id="services" className="bg-gray-50 py-20">
+        <div className="max-w-7xl mx-auto px-6">
+          <h2 className="text-4xl font-bold text-center mb-4">Our Services</h2>
+          <p className="text-center text-gray-600 mb-12 max-w-3xl mx-auto">
+            RentZilla is built for the modern rental economy — helping users find everything from home products to event setups and local services in one place.
+          </p>
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {services.map((service, index) => (
+              <div key={index} className="bg-white rounded-3xl p-6 shadow-sm hover:shadow-xl transition-all border">
+                <h3 className="text-xl font-semibold mb-3">{service.title}</h3>
+                <p className="text-gray-600 leading-7">{service.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Contact */}
+      <section id="contact" className="max-w-7xl mx-auto px-6 py-20 grid md:grid-cols-2 gap-10">
+        <div>
+          <h2 className="text-4xl font-bold mb-6">Get in Touch</h2>
+          <p className="text-gray-600 leading-8 mb-8">
+            Have a question about rentals, partnerships, provider onboarding, or customer bookings? Send us your query and our team will get back to you.
+          </p>
+          <div className="space-y-4 text-gray-700">
+            <p><strong>Email:</strong> info.rentzilla@gmail.com</p>
+            <p><strong>Head Office:</strong> 1792/1 St No. 1, Backside circuit house, Maharaj Nagar, PAU, Ludhiana - 141004</p>
+          </div>
+        </div>
+
+        <form onSubmit={handleSubmit} className="bg-white rounded-3xl shadow-xl border p-8 space-y-5">
+          <input
+            name="name"
+            required
+            placeholder="Your Name"
+            className="w-full border rounded-2xl px-4 py-3 outline-none focus:ring-2 focus:ring-gray-300"
+          />
+          <input
+            name="email"
+            type="email"
+            required
+            placeholder="Your Email"
+            className="w-full border rounded-2xl px-4 py-3 outline-none focus:ring-2 focus:ring-gray-300"
+          />
+          <textarea
+            name="message"
+            required
+            rows={5}
+            placeholder="Write your query"
+            className="w-full border rounded-2xl px-4 py-3 outline-none focus:ring-2 focus:ring-gray-300"
+          />
+          <button
+            type="submit"
+            className="w-full bg-black text-white py-3 rounded-2xl font-medium hover:opacity-90"
+          >
+            Send Query
+          </button>
+        </form>
+      </section>
+
+      {/* Footer */}
+      <footer className="border-t bg-gray-50">
+        <div className="max-w-7xl mx-auto px-6 py-8 flex flex-col md:flex-row justify-between gap-4">
+          <div>
+            <h3 className="font-bold text-lg">RentZilla</h3>
+            <p className="text-gray-600">ਤੁਹਾਡੀ ਆਪਣੀ ਐਪ</p>
+          </div>
+          <p className="text-sm text-gray-500">© 2026 RentZilla. All rights reserved.</p>
+        </div>
+      </footer>
+    </div>
+  );
+}

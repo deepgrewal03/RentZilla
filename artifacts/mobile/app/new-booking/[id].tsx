@@ -24,6 +24,7 @@ import Colors from "@/constants/colors";
 import { useApi } from "@/hooks/useApi";
 import { Listing } from "@/types";
 import GlowButton from "@/components/GlowButton";
+import * as AudioService from "@/services/AudioService";
 
 const C = Colors.light;
 const ORANGE = "#FF7A18";
@@ -32,20 +33,31 @@ const GREEN = "#22C55E";
 const RED = "#EF4444";
 const SPRING = { useNativeDriver: false, tension: 300, friction: 14 };
 
+const DAY_NAMES_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const MONTH_NAMES_FULL = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+const MONTH_NAMES_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+function isoToDate(iso: string): Date { return new Date(iso + "T00:00:00"); }
+function dateToIso(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+}
+function todayIso(): string { return dateToIso(new Date()); }
+function daysBetween(a: string, b: string): number {
+  return Math.round((isoToDate(b).getTime() - isoToDate(a).getTime()) / 86400000);
+}
+
 function generateDays(count = 14): { date: Date; label: string; day: string; iso: string }[] {
   const result = [];
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-  const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   for (let i = 0; i < count; i++) {
     const d = new Date(today);
     d.setDate(today.getDate() + i);
-    const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    const iso = dateToIso(d);
     result.push({
       date: d,
-      label: `${d.getDate()} ${MONTH_NAMES[d.getMonth()]}`,
-      day: i === 0 ? "Today" : DAY_NAMES[d.getDay()],
+      label: `${d.getDate()} ${MONTH_NAMES_SHORT[d.getMonth()]}`,
+      day: i === 0 ? "Today" : DAY_NAMES_SHORT[d.getDay()],
       iso,
     });
   }
@@ -53,6 +65,133 @@ function generateDays(count = 14): { date: Date; label: string; day: string; iso
 }
 
 const DAYS = generateDays(14);
+
+// ── MonthCalendar component ────────────────────────────────────────────────────
+function MonthCalendar({
+  startIso, endIso, onPickDate, minIso,
+}: {
+  startIso: string; endIso: string;
+  onPickDate: (iso: string) => void; minIso: string;
+}) {
+  const initYear = parseInt(startIso.split("-")[0]);
+  const initMonth = parseInt(startIso.split("-")[1]) - 1;
+  const [year, setYear] = React.useState(initYear);
+  const [month, setMonth] = React.useState(initMonth);
+
+  const firstDay = new Date(year, month, 1);
+  const lastDay = new Date(year, month + 1, 0);
+  const offset = firstDay.getDay(); // 0=Sun
+  const daysInMonth = lastDay.getDate();
+  const cells: (string | null)[] = [];
+  for (let i = 0; i < offset; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) {
+    cells.push(dateToIso(new Date(year, month, d)));
+  }
+  while (cells.length % 7 !== 0) cells.push(null);
+
+  const prevMonth = () => {
+    if (month === 0) { setYear(y => y - 1); setMonth(11); }
+    else setMonth(m => m - 1);
+  };
+  const nextMonth = () => {
+    if (month === 11) { setYear(y => y + 1); setMonth(0); }
+    else setMonth(m => m + 1);
+  };
+
+  const rows = [];
+  for (let i = 0; i < cells.length; i += 7) rows.push(cells.slice(i, i + 7));
+
+  return (
+    <View style={cal.wrap}>
+      {/* Header */}
+      <View style={cal.header}>
+        <Pressable onPress={prevMonth} hitSlop={12} style={cal.navBtn}>
+          <Ionicons name="chevron-back" size={20} color="#FF7A18" />
+        </Pressable>
+        <Text style={cal.headerTitle}>{MONTH_NAMES_FULL[month]} {year}</Text>
+        <Pressable onPress={nextMonth} hitSlop={12} style={cal.navBtn}>
+          <Ionicons name="chevron-forward" size={20} color="#FF7A18" />
+        </Pressable>
+      </View>
+      {/* Day of week labels */}
+      <View style={cal.dowRow}>
+        {DAY_NAMES_SHORT.map(d => (
+          <Text key={d} style={cal.dowLabel}>{d}</Text>
+        ))}
+      </View>
+      {/* Day grid */}
+      {rows.map((row, ri) => (
+        <View key={ri} style={cal.row}>
+          {row.map((iso, ci) => {
+            if (!iso) return <View key={ci} style={cal.cell} />;
+            const isPast = iso < minIso;
+            const isStart = iso === startIso;
+            const isEnd = iso === endIso;
+            const inRange = iso > startIso && iso < endIso;
+            const isToday = iso === todayIso();
+            return (
+              <Pressable
+                key={ci}
+                onPress={() => !isPast && onPickDate(iso)}
+                style={[
+                  cal.cell,
+                  inRange && cal.cellInRange,
+                  (isStart || isEnd) && cal.cellEndpoint,
+                ]}
+                disabled={isPast}
+              >
+                <View style={[
+                  cal.dayCircle,
+                  (isStart || isEnd) && cal.dayCircleActive,
+                  isToday && !isStart && !isEnd && cal.dayCircleToday,
+                ]}>
+                  <Text style={[
+                    cal.dayText,
+                    isPast && cal.dayTextPast,
+                    (isStart || isEnd) && cal.dayTextActive,
+                    inRange && cal.dayTextRange,
+                    isToday && !isStart && !isEnd && cal.dayTextToday,
+                  ]}>
+                    {parseInt(iso.split("-")[2])}
+                  </Text>
+                </View>
+              </Pressable>
+            );
+          })}
+        </View>
+      ))}
+      {/* Legend */}
+      <View style={cal.legend}>
+        <View style={cal.legendDot} />
+        <Text style={cal.legendText}>Tap start date, then tap end date to set range</Text>
+      </View>
+    </View>
+  );
+}
+
+const cal = StyleSheet.create({
+  wrap: { backgroundColor: "#fff", borderRadius: 16, padding: 14, marginHorizontal: 16, marginBottom: 4, shadowColor: "#000", shadowOpacity: 0.06, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 2 },
+  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 10 },
+  navBtn: { padding: 6 },
+  headerTitle: { fontFamily: "Inter_700Bold", fontSize: 16, color: "#1A1A1A" },
+  dowRow: { flexDirection: "row", marginBottom: 4 },
+  dowLabel: { flex: 1, textAlign: "center", fontFamily: "Inter_600SemiBold", fontSize: 11, color: "#9CA3AF" },
+  row: { flexDirection: "row" },
+  cell: { flex: 1, aspectRatio: 1, alignItems: "center", justifyContent: "center", borderRadius: 0 },
+  cellInRange: { backgroundColor: "#FFF0E6" },
+  cellEndpoint: { backgroundColor: "#FFF0E6" },
+  dayCircle: { width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center" },
+  dayCircleActive: { backgroundColor: "#FF7A18" },
+  dayCircleToday: { borderWidth: 1.5, borderColor: "#FF7A18" },
+  dayText: { fontFamily: "Inter_400Regular", fontSize: 13, color: "#1A1A1A" },
+  dayTextPast: { color: "#D1D5DB" },
+  dayTextActive: { color: "#fff", fontFamily: "Inter_700Bold" },
+  dayTextRange: { color: "#FF7A18" },
+  dayTextToday: { color: "#FF7A18", fontFamily: "Inter_600SemiBold" },
+  legend: { flexDirection: "row", alignItems: "center", marginTop: 8, gap: 6 },
+  legendDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: "#FF7A18" },
+  legendText: { fontSize: 11, color: "#9CA3AF", fontFamily: "Inter_400Regular", flex: 1 },
+});
 
 function getCategoryAccent(category: string) {
   if (category === "cars")      return { bg: "#FFF3E9", fg: "#FF7A18" };
@@ -74,6 +213,18 @@ interface ServiceTypePriceInfo {
   name: string; hasPrice: boolean; estimatedPrice: number;
 }
 
+// All equipment and services use day-count picker; cars use time slots
+function isDayBasedCategory(category: string | undefined): boolean {
+  return category === "equipment" || category === "services";
+}
+
+// Add N days to a YYYY-MM-DD string
+function addDays(iso: string, n: number): string {
+  const d = new Date(iso + "T00:00:00");
+  d.setDate(d.getDate() + n - 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 export default function NewBookingScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { get, post } = useApi();
@@ -93,6 +244,17 @@ export default function NewBookingScreen() {
   const [selectedSlots, setSelectedSlots] = useState<string[]>([]);
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
 
+  // ── Multi-day state ────────────────────────────────────────────────────────
+  const [numDays, setNumDays] = useState(1);
+  // Calendar mode for day-based bookings: "start" = picking start date, "end" = picking end date
+  const [calPickMode, setCalPickMode] = React.useState<"start" | "end">("start");
+  // Booking unit toggle: equipment & services can be booked by days OR hours
+  const [bookingUnit, setBookingUnit] = useState<"days" | "hours">("days");
+
+  // ── Location state ─────────────────────────────────────────────────────────
+  const [bookingLocation, setBookingLocation] = useState("");
+  const [gpsLoading, setGpsLoading] = useState(false);
+
   // ── Notes ──────────────────────────────────────────────────────────────────
   const [notes, setNotes] = useState("");
 
@@ -105,19 +267,27 @@ export default function NewBookingScreen() {
   // ── Pricing ────────────────────────────────────────────────────────────────
   const [pricingResult, setPricingResult] = useState<PricingResult | null>(null);
   const [pricingLoading, setPricingLoading] = useState(false);
+  // Per-service-type pricing map: { "Pipe Repair": PricingResult, ... }
+  const [serviceTypePricingMap, setServiceTypePricingMap] = useState<Record<string, PricingResult>>({});
   const [submitting, setSubmitting] = useState(false);
   const confirmScale = useRef(new Animated.Value(1)).current;
 
-  useEffect(() => { loadListing(); }, [id]);
-  useEffect(() => { if (listing) loadSlots(); }, [selectedDate, listing]);
+  const isDayBased = listing ? isDayBasedCategory(listing.category) : false;
+  // isDayMode: true when booking by calendar days (equipment/services in days mode)
+  const isDayMode = isDayBased && bookingUnit === "days";
+  // useSlots: true when showing the time-slot grid (cars always, or equipment/services in hours mode)
+  const useSlots = !isDayBased || bookingUnit === "hours";
 
-  // Reset promo when price changes (slots added/removed)
+  useEffect(() => { loadListing(); }, [id]);
   useEffect(() => {
-    if (promoApplied) {
-      setPromoResult(null);
-      setPromoApplied(false);
-    }
-  }, [selectedSlots.length]);
+    if (listing && useSlots) loadSlots();
+  }, [selectedDate, listing, bookingUnit]);
+
+  // Reset promo when price changes (numDays for agri, slot count for hourly)
+  useEffect(() => {
+    if (promoApplied) { setPromoResult(null); setPromoApplied(false); }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [numDays, selectedSlots.length]);
 
   async function loadListing() {
     try {
@@ -128,18 +298,14 @@ export default function NewBookingScreen() {
       setServiceTypes(types);
 
       if (types.length === 0) {
-        // No service types — fetch pricing immediately with category/subcategory
-        await fetchPricing(data, undefined);
+        await fetchPricing(data, undefined, 1);
       } else if (data.category && data.subcategory) {
-        // Fetch per-service-type prices to show inline in the selection list
         try {
           const priceData = await get<{ serviceTypes: ServiceTypePriceInfo[] }>(
             `/pricing/service-types?category=${encodeURIComponent(data.category)}&subcategory=${encodeURIComponent(data.subcategory)}`
           );
           setServiceTypePrices(priceData.serviceTypes || []);
-        } catch {
-          // Show service types without prices if this fails
-        }
+        } catch {}
       }
     } catch {
     } finally {
@@ -147,22 +313,42 @@ export default function NewBookingScreen() {
     }
   }
 
-  // fetchPricing: calls /pricing/calculate with the actual slot count so
-  // hourly_rate × numSlots is computed server-side and returned as a single total.
+  async function getGpsLocation() {
+    setGpsLoading(true);
+    try {
+      const Location = await import("expo-location");
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert("Permission Denied", "Location permission is required to use GPS. Please enter your address manually.");
+        return;
+      }
+      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      const [geo] = await Location.reverseGeocodeAsync({ latitude: loc.coords.latitude, longitude: loc.coords.longitude });
+      if (geo) {
+        const addr = [geo.name, geo.street, geo.city, geo.region].filter(Boolean).join(", ");
+        setBookingLocation(addr || `${loc.coords.latitude.toFixed(5)}, ${loc.coords.longitude.toFixed(5)}`);
+      }
+    } catch {
+      Alert.alert("GPS Error", "Could not get your location. Please enter your address manually.");
+    } finally {
+      setGpsLoading(false);
+    }
+  }
+
+  // fetchPricing: calls /pricing/calculate
   async function fetchPricing(
     l: Listing,
     serviceType: string | undefined,
-    numSlots: number = 1,
+    count: number = 1,
   ) {
     if (!l.category || !l.subcategory) return;
     setPricingLoading(true);
     try {
-      const isEquip = l.category === "equipment";
+      const inDayMode = isDayBasedCategory(l.category) && bookingUnit === "days";
       const params = new URLSearchParams({
         category: l.category, subcategory: l.subcategory,
-        // Equipment is priced per-day; services/professions per-hour.
-        hours: isEquip ? "0" : String(Math.max(1, numSlots)),
-        days:  isEquip ? String(Math.max(1, numSlots)) : "0",
+        hours: inDayMode ? "0" : String(Math.max(1, count)),
+        days:  inDayMode ? String(Math.max(1, count)) : "0",
         distance_km: "0",
       });
       if (serviceType) params.set("service_type", serviceType);
@@ -174,26 +360,59 @@ export default function NewBookingScreen() {
     }
   }
 
-  // Re-fetch whenever the primary service type OR the slot count changes
+  // Fetch pricing for ALL selected service types in parallel
+  async function fetchAllServicePricing(l: Listing, services: string[], count: number) {
+    if (!l.category || !l.subcategory || services.length === 0) {
+      setServiceTypePricingMap({});
+      return;
+    }
+    setPricingLoading(true);
+    const inDayMode = isDayBasedCategory(l.category) && bookingUnit === "days";
+    try {
+      const entries = await Promise.all(
+        services.map(async (svc) => {
+          const params = new URLSearchParams({
+            category: l.category!, subcategory: l.subcategory!,
+            hours: inDayMode ? "0" : String(Math.max(1, count)),
+            days:  inDayMode ? String(Math.max(1, count)) : "0",
+            distance_km: "0",
+            service_type: svc,
+          });
+          try {
+            const r = await get<PricingResult>(`/pricing/calculate?${params.toString()}`);
+            return [svc, r] as [string, PricingResult];
+          } catch {
+            return [svc, { found: false, customer_price: 0, provider_payout: 0, app_commission: 0, commission_percent: 15, security_deposit: 0 }] as [string, PricingResult];
+          }
+        })
+      );
+      setServiceTypePricingMap(Object.fromEntries(entries));
+    } finally {
+      setPricingLoading(false);
+    }
+  }
+
+  // Re-fetch ALL selected service type prices when selection or count changes
   useEffect(() => {
     if (!listing) return;
     if (serviceTypes.length === 0) return;
-    const primary = selectedServices[0];
-    if (primary) {
-      fetchPricing(listing, primary, selectedSlots.length || 1);
-    } else {
-      setPricingResult(null);
+    if (selectedServices.length === 0) {
+      setServiceTypePricingMap({});
+      return;
     }
+    const count = isDayMode ? numDays : selectedSlots.length || 1;
+    fetchAllServicePricing(listing, selectedServices, count);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedServices[0], selectedSlots.length]);
+  }, [JSON.stringify(selectedServices), numDays, selectedSlots.length, bookingUnit]);
 
-  // For listings with no service-type selection, re-fetch when slot count changes
+  // For listings with no service-type selection
   useEffect(() => {
     if (!listing) return;
-    if (serviceTypes.length > 0) return; // handled above
-    fetchPricing(listing, undefined, selectedSlots.length || 1);
+    if (serviceTypes.length > 0) return;
+    const count = isDayMode ? numDays : selectedSlots.length || 1;
+    fetchPricing(listing, undefined, count);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedSlots.length]);
+  }, [numDays, selectedSlots.length, bookingUnit]);
 
   async function loadSlots() {
     if (!id || !selectedDate) return;
@@ -215,6 +434,21 @@ export default function NewBookingScreen() {
     setSelectedSlots([]);
   }, []);
 
+  // Calendar tap handler — "start" mode sets start date; "end" mode (or tapping after start) sets end
+  const handleCalendarPickDate = useCallback((iso: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (calPickMode === "start" || iso <= selectedDate) {
+      setSelectedDate(iso);
+      setCalPickMode("end");
+    } else {
+      // iso > selectedDate → set as end date, compute numDays
+      const diff = daysBetween(selectedDate, iso) + 1;
+      setNumDays(Math.max(1, diff));
+      setCalPickMode("start");
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [calPickMode, selectedDate]);
+
   const toggleSlot = useCallback((slot: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setSelectedSlots(prev => {
@@ -234,10 +468,8 @@ export default function NewBookingScreen() {
   async function applyPromo() {
     if (!promoCode.trim()) return;
     if (!listing) return;
-    // customer_price is already the total for all selected slots (server-side calculation)
-    const amount = pricingResult?.found
-      ? pricingResult.customer_price
-      : listing.price * Math.max(1, selectedSlots.length);
+    // Use the computed baseTotal which already accounts for all selected services × days/slots
+    const amount = baseTotal > 0 ? baseTotal : listing.price * unitCount;
 
     setPromoLoading(true);
     setPromoResult(null);
@@ -268,14 +500,22 @@ export default function NewBookingScreen() {
   }
 
   async function handleConfirm() {
-    if (selectedSlots.length === 0) {
-      Alert.alert("Select Time Slots", "Please choose at least one time slot to continue.");
-      return;
-    }
     if (serviceTypes.length > 0 && selectedServices.length === 0) {
       Alert.alert("Select Service Type", "Please select at least one service type.");
       return;
     }
+
+    const confirmDayBased = isDayMode;
+
+    if (!confirmDayBased && selectedSlots.length === 0) {
+      Alert.alert("Select Time Slots", "Please choose at least one time slot to continue.");
+      return;
+    }
+    if (confirmDayBased && numDays < 1) {
+      Alert.alert("Select Days", "Please select at least 1 day.");
+      return;
+    }
+
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     Animated.sequence([
       Animated.spring(confirmScale, { toValue: 0.95, ...SPRING }),
@@ -283,27 +523,53 @@ export default function NewBookingScreen() {
     ]).start();
     setSubmitting(true);
     try {
-      const result = await post<{ id: string }>("/bookings", {
-        listingId: id,
-        bookingDate: selectedDate,
-        timeSlots: selectedSlots,
-        serviceTypes: selectedServices,
-        notes: notes.trim() || undefined,
-        promoCode: promoApplied ? promoCode.trim() : undefined,
-      });
+      let payload: Record<string, any>;
+      let successMsg: string;
+
+      if (confirmDayBased) {
+        // Multi-day booking (equipment & services): date-range path
+        const endDate = addDays(selectedDate, numDays);
+        payload = {
+          listingId: id,
+          startDate: selectedDate,
+          endDate,
+          totalDays: numDays,
+          serviceTypes: selectedServices,
+          notes: notes.trim() || undefined,
+          promoCode: promoApplied ? promoCode.trim() : undefined,
+          location: bookingLocation.trim() || undefined,
+        };
+        successMsg = `${listing?.title} booked for ${numDays} day${numDays > 1 ? "s" : ""} starting ${selectedDate}.`;
+      } else {
+        // Hourly slot booking (cars)
+        payload = {
+          listingId: id,
+          bookingDate: selectedDate,
+          timeSlots: selectedSlots,
+          serviceTypes: selectedServices,
+          notes: notes.trim() || undefined,
+          promoCode: promoApplied ? promoCode.trim() : undefined,
+          location: bookingLocation.trim() || undefined,
+        };
+        const slotLabel = selectedSlots.length === 1
+          ? selectedSlots[0]
+          : `${selectedSlots.length} slot${selectedSlots.length > 1 ? "s" : ""} (${selectedSlots.length} hr${selectedSlots.length > 1 ? "s" : ""})`;
+        successMsg = `${listing?.title} booked on ${selectedDate} at ${slotLabel}.`;
+      }
+
+      const result = await post<{ id: string }>("/bookings", payload);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      const slotLabel = selectedSlots.length === 1
-        ? selectedSlots[0]
-        : `${selectedSlots.length} slots (${selectedSlots.length} hr${selectedSlots.length > 1 ? "s" : ""})`;
+      AudioService.playBookingSuccess().catch(() => {});
       Alert.alert(
-        "Booking Confirmed!",
-        `Your booking for ${listing?.title} on ${selectedDate} at ${slotLabel} has been placed successfully.`,
+        "Booking Confirmed! 🎉",
+        successMsg,
         [{ text: "View Booking", onPress: () => router.replace(`/booking/${result.id}` as any) }]
       );
     } catch (e: any) {
       const raw = e?.message || "";
       const msg = raw.includes("409") || raw.includes("already booked")
-        ? "One or more of the selected time slots is already booked. Please pick different times."
+        ? "These time slots are already booked. Please choose different times."
+        : raw.includes("past") ? "Cannot book a past date. Please select a future date."
         : "Could not place booking. Please try again.";
       Alert.alert("Booking Failed", msg);
     } finally {
@@ -334,12 +600,24 @@ export default function NewBookingScreen() {
   const accent = getCategoryAccent(listing.category);
   const hasImg = listing.images && listing.images.length > 0;
 
-  // pricingResult.customer_price is already the TOTAL for the actual number of
-  // slots passed to /pricing/calculate (hourly_rate × numSlots computed server-side).
-  // Never multiply it by numSlots again.
-  const baseTotal  = pricingResult?.found
-    ? pricingResult.customer_price
-    : listing.price * Math.max(1, selectedSlots.length);
+  // pricingResult.customer_price is the TOTAL already computed server-side.
+  // For equipment/services → price × numDays; for hourly (cars) → price × numSlots.
+  const unitCount = isDayMode ? numDays : Math.max(1, selectedSlots.length);
+
+  // When service types are selected, sum up all individual service prices
+  const hasServicePricing = serviceTypes.length > 0 && selectedServices.length > 0;
+  const svcPricingTotal = hasServicePricing
+    ? selectedServices.reduce((sum, svc) => {
+        const r = serviceTypePricingMap[svc];
+        return sum + (r?.found ? r.customer_price : listing.price * unitCount);
+      }, 0)
+    : 0;
+
+  const baseTotal = hasServicePricing
+    ? svcPricingTotal
+    : pricingResult?.found
+      ? pricingResult.customer_price
+      : listing.price * unitCount;
   const discount   = promoApplied && promoResult?.valid ? (promoResult.discount ?? 0) : 0;
   const finalTotal = Math.max(0, baseTotal - discount);
 
@@ -400,81 +678,193 @@ export default function NewBookingScreen() {
           </View>
         </View>
 
+        {/* ── Booking Type Toggle (equipment & services only) ── */}
+        {isDayBased && (
+          <View style={styles.unitToggleCard}>
+            <View style={styles.unitToggleHeader}>
+              <Ionicons name="swap-horizontal-outline" size={18} color={ORANGE} />
+              <Text style={styles.unitToggleTitle}>How would you like to book?</Text>
+            </View>
+            <View style={styles.unitToggleRow}>
+              <Pressable
+                onPress={() => { Haptics.selectionAsync(); setBookingUnit("days"); setSelectedSlots([]); }}
+                style={[styles.unitToggleOpt, bookingUnit === "days" && styles.unitToggleOptActive]}
+              >
+                <Ionicons name="calendar-outline" size={22} color={bookingUnit === "days" ? "#fff" : ORANGE} />
+                <Text style={[styles.unitToggleOptTitle, bookingUnit === "days" && styles.unitToggleOptTitleActive]}>Per Day</Text>
+                <Text style={[styles.unitToggleOptSub, bookingUnit === "days" && { color: "rgba(255,255,255,0.75)" }]}>Choose calendar dates</Text>
+                {bookingUnit === "days" && (
+                  <View style={styles.unitToggleCheck}>
+                    <Ionicons name="checkmark-circle" size={16} color="#fff" />
+                  </View>
+                )}
+              </Pressable>
+              <Pressable
+                onPress={() => { Haptics.selectionAsync(); setBookingUnit("hours"); setNumDays(1); }}
+                style={[styles.unitToggleOpt, bookingUnit === "hours" && styles.unitToggleOptActive]}
+              >
+                <Ionicons name="time-outline" size={22} color={bookingUnit === "hours" ? "#fff" : ORANGE} />
+                <Text style={[styles.unitToggleOptTitle, bookingUnit === "hours" && styles.unitToggleOptTitleActive]}>Per Hour</Text>
+                <Text style={[styles.unitToggleOptSub, bookingUnit === "hours" && { color: "rgba(255,255,255,0.75)" }]}>Pick time slots</Text>
+                {bookingUnit === "hours" && (
+                  <View style={styles.unitToggleCheck}>
+                    <Ionicons name="checkmark-circle" size={16} color="#fff" />
+                  </View>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        )}
+
         {/* ── STEP 1: Date ── */}
-        <SectionLabel step={1} label="Select Date" />
-        <ScrollView
-          horizontal showsHorizontalScrollIndicator={false}
-          style={styles.dateScroll} contentContainerStyle={styles.dateScrollContent}
-        >
-          {DAYS.map((d) => {
-            const isSelected = d.iso === selectedDate;
-            return (
-              <Pressable key={d.iso} onPress={() => handleDateSelect(d.iso)}
-                style={[styles.dateTile, isSelected && styles.dateTileSelected]}>
-                <Text style={[styles.dateTileDay, isSelected && styles.dateTileDaySelected]}>{d.day}</Text>
-                <Text style={[styles.dateTileNum, isSelected && styles.dateTileNumSelected]}>{d.date.getDate()}</Text>
-                <Text style={[styles.dateTileMon, isSelected && styles.dateTileMonSelected]}>
-                  {["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][d.date.getMonth()]}
+        {isDayMode ? (
+          <>
+            <SectionLabel
+              step={1}
+              label="Select Dates"
+              sub={calPickMode === "start"
+                ? "Tap start date on calendar"
+                : "Now tap end date to set range"}
+            />
+            {/* Calendar range picker */}
+            <MonthCalendar
+              startIso={selectedDate}
+              endIso={addDays(selectedDate, numDays)}
+              onPickDate={handleCalendarPickDate}
+              minIso={todayIso()}
+            />
+            {/* Pick-mode indicator */}
+            <View style={styles.calModeRow}>
+              <Pressable
+                onPress={() => setCalPickMode("start")}
+                style={[styles.calModeBtn, calPickMode === "start" && styles.calModeBtnActive]}
+              >
+                <Ionicons name="play-circle-outline" size={14} color={calPickMode === "start" ? "#fff" : ORANGE} />
+                <Text style={[styles.calModeBtnText, calPickMode === "start" && styles.calModeBtnTextActive]}>
+                  Start: {selectedDate}
                 </Text>
               </Pressable>
-            );
-          })}
-        </ScrollView>
-
-        {/* ── STEP 2: Time Slots (multi-select) ── */}
-        <SectionLabel
-          step={2}
-          label="Select Time Slots"
-          sub={selectedSlots.length > 0
-            ? `${selectedSlots.length} slot${selectedSlots.length > 1 ? "s" : ""} selected · ${selectedSlots.length} hr${selectedSlots.length > 1 ? "s" : ""}`
-            : "Tap multiple slots to book more hours"}
-        />
-        {slotsLoading ? (
-          <View style={styles.slotsLoader}>
-            <ActivityIndicator size="small" color={ORANGE} />
-            <Text style={styles.slotsLoaderText}>Checking availability...</Text>
-          </View>
+              <Pressable
+                onPress={() => setCalPickMode("end")}
+                style={[styles.calModeBtn, calPickMode === "end" && styles.calModeBtnActive]}
+              >
+                <Ionicons name="stop-circle-outline" size={14} color={calPickMode === "end" ? "#fff" : ORANGE} />
+                <Text style={[styles.calModeBtnText, calPickMode === "end" && styles.calModeBtnTextActive]}>
+                  End: {addDays(selectedDate, numDays)}
+                </Text>
+              </Pressable>
+            </View>
+          </>
         ) : (
-          <View style={styles.slotGrid}>
-            {slots.map((s) => {
-              const isSelected = selectedSlots.includes(s.slot);
-              return (
-                <Pressable
-                  key={s.slot}
-                  onPress={() => s.available && toggleSlot(s.slot)}
-                  disabled={!s.available}
-                  style={[
-                    styles.slotTile,
-                    isSelected && styles.slotTileSelected,
-                    !s.available && styles.slotTileBooked,
-                  ]}
-                >
-                  <Ionicons
-                    name={isSelected ? "checkbox" : s.available ? "square-outline" : "close-circle"}
-                    size={15}
-                    color={isSelected ? "#fff" : !s.available ? "#ccc" : C.textSecondary}
-                  />
-                  <Text style={[
-                    styles.slotText,
-                    isSelected && styles.slotTextSelected,
-                    !s.available && styles.slotTextBooked,
-                  ]}>
-                    {s.slot}
-                  </Text>
-                  {!s.available && (
-                    <View style={styles.slotBookedBadge}>
-                      <Text style={styles.slotBookedText}>Booked</Text>
-                    </View>
-                  )}
-                </Pressable>
-              );
-            })}
-            {slots.length === 0 && !slotsLoading && (
-              <View style={styles.noSlotsWrap}>
-                <Text style={styles.noSlotsText}>No slots available for this date</Text>
+          <>
+            <SectionLabel step={1} label="Select Date" />
+            <ScrollView
+              horizontal showsHorizontalScrollIndicator={false}
+              style={styles.dateScroll} contentContainerStyle={styles.dateScrollContent}
+            >
+              {DAYS.map((d) => {
+                const isSelected = d.iso === selectedDate;
+                return (
+                  <Pressable key={d.iso} onPress={() => handleDateSelect(d.iso)}
+                    style={[styles.dateTile, isSelected && styles.dateTileSelected]}>
+                    <Text style={[styles.dateTileDay, isSelected && styles.dateTileDaySelected]}>{d.day}</Text>
+                    <Text style={[styles.dateTileNum, isSelected && styles.dateTileNumSelected]}>{d.date.getDate()}</Text>
+                    <Text style={[styles.dateTileMon, isSelected && styles.dateTileMonSelected]}>
+                      {MONTH_NAMES_SHORT[d.date.getMonth()]}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          </>
+        )}
+
+        {/* ── STEP 2: Day-count stepper OR Time Slots ── */}
+        {isDayMode ? (
+          <>
+            <SectionLabel
+              step={2}
+              label="Number of Days"
+              sub={`${numDays} day${numDays > 1 ? "s" : ""} · ${selectedDate} → ${addDays(selectedDate, numDays)}`}
+            />
+            <View style={styles.dayPickerWrap}>
+              <Pressable
+                onPress={() => { if (numDays > 1) { Haptics.selectionAsync(); setNumDays(n => n - 1); } }}
+                style={[styles.dayBtn, numDays <= 1 && styles.dayBtnDisabled]}
+                disabled={numDays <= 1}
+              >
+                <Ionicons name="remove" size={22} color={numDays <= 1 ? "#ccc" : ORANGE} />
+              </Pressable>
+              <View style={styles.dayCountWrap}>
+                <Text style={styles.dayCount}>{numDays}</Text>
+                <Text style={styles.dayCountSub}>{numDays === 1 ? "day" : "days"}</Text>
+              </View>
+              <Pressable
+                onPress={() => { if (numDays < 30) { Haptics.selectionAsync(); setNumDays(n => n + 1); } }}
+                style={[styles.dayBtn, numDays >= 30 && styles.dayBtnDisabled]}
+                disabled={numDays >= 30}
+              >
+                <Ionicons name="add" size={22} color={numDays >= 30 ? "#ccc" : ORANGE} />
+              </Pressable>
+            </View>
+          </>
+        ) : (
+          <>
+            <SectionLabel
+              step={2}
+              label="Select Time Slots"
+              sub={selectedSlots.length > 0
+                ? `${selectedSlots.length} slot${selectedSlots.length > 1 ? "s" : ""} selected · ${selectedSlots.length} hr${selectedSlots.length > 1 ? "s" : ""}`
+                : "Tap multiple slots to book more hours"}
+            />
+            {slotsLoading ? (
+              <View style={styles.slotsLoader}>
+                <ActivityIndicator size="small" color={ORANGE} />
+                <Text style={styles.slotsLoaderText}>Checking availability...</Text>
+              </View>
+            ) : (
+              <View style={styles.slotGrid}>
+                {slots.map((s) => {
+                  const isSelected = selectedSlots.includes(s.slot);
+                  return (
+                    <Pressable
+                      key={s.slot}
+                      onPress={() => s.available && toggleSlot(s.slot)}
+                      disabled={!s.available}
+                      style={[
+                        styles.slotTile,
+                        isSelected && styles.slotTileSelected,
+                        !s.available && styles.slotTileBooked,
+                      ]}
+                    >
+                      <Ionicons
+                        name={isSelected ? "checkbox" : s.available ? "square-outline" : "close-circle"}
+                        size={15}
+                        color={isSelected ? "#fff" : !s.available ? "#ccc" : C.textSecondary}
+                      />
+                      <Text style={[
+                        styles.slotText,
+                        isSelected && styles.slotTextSelected,
+                        !s.available && styles.slotTextBooked,
+                      ]}>
+                        {s.slot}
+                      </Text>
+                      {!s.available && (
+                        <View style={styles.slotBookedBadge}>
+                          <Text style={styles.slotBookedText}>Booked</Text>
+                        </View>
+                      )}
+                    </Pressable>
+                  );
+                })}
+                {slots.length === 0 && !slotsLoading && (
+                  <View style={styles.noSlotsWrap}>
+                    <Text style={styles.noSlotsText}>No slots available for this date</Text>
+                  </View>
+                )}
               </View>
             )}
-          </View>
+          </>
         )}
 
         {/* ── STEP 3: Service Type (multi-select) ── */}
@@ -522,29 +912,78 @@ export default function NewBookingScreen() {
           </>
         )}
 
-        {/* ── STEP 4: Notes ── */}
-        <SectionLabel
-          step={serviceTypes.length > 0 ? 4 : 3}
-          label="Additional Notes"
-          sub="Optional — any special requirements?"
-        />
-        <View style={styles.notesWrap}>
-          <TextInput
-            style={styles.notesInput}
-            value={notes}
-            onChangeText={setNotes}
-            placeholder="e.g. Need delivery by morning, prefer 2-person operator..."
-            placeholderTextColor={C.textTertiary}
-            multiline numberOfLines={3} textAlignVertical="top"
-          />
-        </View>
+        {/* ── STEP 4: Location ── */}
+        {(() => {
+          const svcStep = serviceTypes.length > 0 ? 1 : 0;
+          const stepBase = 3 + svcStep;
+          return (
+            <>
+              <SectionLabel
+                step={stepBase}
+                label="Service Location"
+                sub="Where should the provider come? (optional)"
+              />
+              <View style={styles.locationWrap}>
+                <View style={styles.locationRow}>
+                  <Ionicons name="location-outline" size={18} color={ORANGE} style={{ marginLeft: 12 }} />
+                  <TextInput
+                    style={styles.locationInput}
+                    value={bookingLocation}
+                    onChangeText={setBookingLocation}
+                    placeholder="Enter your address or use GPS..."
+                    placeholderTextColor={C.textTertiary}
+                    multiline={false}
+                    returnKeyType="done"
+                  />
+                  <Pressable
+                    onPress={getGpsLocation}
+                    style={styles.gpsBtn}
+                    disabled={gpsLoading}
+                  >
+                    {gpsLoading ? (
+                      <ActivityIndicator size="small" color={ORANGE} />
+                    ) : (
+                      <Ionicons name="navigate" size={18} color={ORANGE} />
+                    )}
+                  </Pressable>
+                </View>
+                {bookingLocation.length > 0 && (
+                  <Pressable onPress={() => setBookingLocation("")} style={styles.locationClear}>
+                    <Ionicons name="close-circle" size={16} color="#ccc" />
+                    <Text style={styles.locationClearText}>Clear</Text>
+                  </Pressable>
+                )}
+              </View>
 
-        {/* ── STEP 5: Promo Code ── */}
-        <SectionLabel
-          step={serviceTypes.length > 0 ? 5 : 4}
-          label="Promo Code"
-          sub="Have a coupon? Enter it below"
-        />
+              {/* ── Notes ── */}
+              <SectionLabel
+                step={stepBase + 1}
+                label="Additional Notes"
+                sub="Optional — any special requirements?"
+              />
+              <View style={styles.notesWrap}>
+                <TextInput
+                  style={styles.notesInput}
+                  value={notes}
+                  onChangeText={setNotes}
+                  placeholder="e.g. Need delivery by morning, prefer 2-person operator..."
+                  placeholderTextColor={C.textTertiary}
+                  multiline numberOfLines={3} textAlignVertical="top"
+                />
+              </View>
+
+              {/* ── Promo Code ── */}
+              <SectionLabel
+                step={stepBase + 2}
+                label="Promo Code"
+                sub="Have a coupon? Enter it below"
+              />
+            </>
+          );
+        })()}
+
+        {/* keep promo placeholder for flow */}
+        {false && <SectionLabel step={99} label="Promo Code" sub="" />}
         <View style={styles.promoWrap}>
           <View style={[
             styles.promoRow,
@@ -605,62 +1044,94 @@ export default function NewBookingScreen() {
         </View>
 
         {/* ── Price Summary ── */}
-        {(selectedSlots.length === 0 || (serviceTypes.length > 0 && selectedServices.length === 0)) && (
+        {/* Show placeholder only when needed selection is missing */}
+        {((!isDayMode && selectedSlots.length === 0) || (serviceTypes.length > 0 && selectedServices.length === 0)) && (
           <View style={styles.pricePlaceholder}>
             <Ionicons name="calculator-outline" size={28} color={ORANGE} style={{ marginBottom: 8 }} />
             <Text style={styles.pricePlaceholderTitle}>Select to see pricing</Text>
             <Text style={styles.pricePlaceholderSub}>
-              {selectedSlots.length === 0
+              {!isDayMode && selectedSlots.length === 0
                 ? "Choose time slots above to calculate the total"
                 : "Pick a service type above to calculate the total"}
             </Text>
           </View>
         )}
-        {selectedSlots.length > 0 && (serviceTypes.length === 0 || selectedServices.length > 0) && (
+        {(isDayMode || selectedSlots.length > 0) && (serviceTypes.length === 0 || selectedServices.length > 0) && (
         <View style={styles.summaryCard}>
           <View style={styles.summaryHeader}>
             <Text style={styles.summaryTitle}>Price Summary</Text>
           </View>
 
-          {/* Base price row */}
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>
-              {listing.subcategory || listing.title}
-              {selectedSlots.length > 1
-                ? listing.category === "equipment"
-                  ? ` × ${selectedSlots.length} days`
-                  : ` × ${selectedSlots.length} hrs`
-                : ""}
-            </Text>
-            <Text style={styles.summaryValue}>
-              ₹{baseTotal.toLocaleString("en-IN")}
-            </Text>
-          </View>
-
-          {/* Security deposit (refundable) — shown to customer when applicable */}
-          {pricingResult?.found && pricingResult.security_deposit > 0 && (
-            <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Security deposit (refundable)</Text>
-              <Text style={styles.summaryValue}>
-                ₹{pricingResult.security_deposit.toLocaleString("en-IN")}
-              </Text>
-            </View>
+          {/* ── Per-service line items (when service types selected) ── */}
+          {hasServicePricing ? (
+            <>
+              {selectedServices.map((svc) => {
+                const r = serviceTypePricingMap[svc];
+                const svcPrice = r?.found
+                  ? r.customer_price
+                  : listing.price * unitCount;
+                return (
+                  <View key={svc} style={styles.summaryRow}>
+                    <Text style={styles.summaryLabel} numberOfLines={2}>
+                      {svc}
+                      {isDayMode ? ` × ${numDays} day${numDays > 1 ? "s" : ""}` : selectedSlots.length > 1 ? ` × ${selectedSlots.length} hrs` : ""}
+                    </Text>
+                    <Text style={styles.summaryValue}>
+                      {pricingLoading ? "..." : `₹${svcPrice.toLocaleString("en-IN")}`}
+                    </Text>
+                  </View>
+                );
+              })}
+              {selectedServices.length > 1 && (
+                <View style={[styles.summaryRow, { borderTopWidth: 1, borderTopColor: "#F0F0F0", paddingTop: 8, marginTop: 2 }]}>
+                  <Text style={[styles.summaryLabel, { fontFamily: "Inter_600SemiBold", color: "#2C2C2C" }]}>Subtotal</Text>
+                  <Text style={[styles.summaryValue, { fontFamily: "Inter_700Bold" }]}>
+                    {pricingLoading ? "..." : `₹${svcPricingTotal.toLocaleString("en-IN")}`}
+                  </Text>
+                </View>
+              )}
+              {/* Max security deposit across all selected services */}
+              {selectedServices.some(svc => (serviceTypePricingMap[svc]?.security_deposit ?? 0) > 0) && (
+                <View style={styles.summaryRow}>
+                  <Text style={styles.summaryLabel}>Security deposit (refundable)</Text>
+                  <Text style={styles.summaryValue}>
+                    ₹{Math.max(...selectedServices.map(svc => serviceTypePricingMap[svc]?.security_deposit ?? 0)).toLocaleString("en-IN")}
+                  </Text>
+                </View>
+              )}
+            </>
+          ) : (
+            <>
+              {/* Single base price row */}
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryLabel}>
+                  {listing.subcategory || listing.title}
+                  {isDayMode && numDays > 1 ? ` × ${numDays} days`
+                    : !isDayMode && selectedSlots.length > 1 ? ` × ${selectedSlots.length} hrs`
+                    : isDayMode ? " × 1 day" : ""}
+                </Text>
+                <Text style={styles.summaryValue}>
+                  ₹{baseTotal.toLocaleString("en-IN")}
+                </Text>
+              </View>
+              {pricingResult?.found && pricingResult.security_deposit > 0 && (
+                <View style={styles.summaryRow}>
+                  <Text style={styles.summaryLabel}>Security deposit (refundable)</Text>
+                  <Text style={styles.summaryValue}>
+                    ₹{pricingResult.security_deposit.toLocaleString("en-IN")}
+                  </Text>
+                </View>
+              )}
+            </>
           )}
 
-          {/* Selected info rows */}
-          {selectedServices.length > 0 && (
-            <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Service{selectedServices.length > 1 ? "s" : ""}</Text>
-              <Text style={[styles.summaryValue, { maxWidth: 180 }]} numberOfLines={2}>
-                {selectedServices.join(", ")}
-              </Text>
-            </View>
-          )}
+          {/* Date / time slot info rows */}
           {selectedDate && (
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Date</Text>
               <Text style={styles.summaryValue}>
                 {new Date(selectedDate + "T00:00:00").toLocaleDateString("en-IN", { dateStyle: "long" })}
+                {isDayMode && numDays > 1 ? ` – ${addDays(selectedDate, numDays)}` : ""}
               </Text>
             </View>
           )}
@@ -705,9 +1176,14 @@ export default function NewBookingScreen() {
               </View>
             )}
           </View>
-          {!pricingResult?.found && (
-            <Text style={[styles.summaryNote, { color: "#AEAEAE" }]}>Price from provider listing</Text>
-          )}
+          {hasServicePricing
+            ? selectedServices.some(svc => !serviceTypePricingMap[svc]?.found) && (
+                <Text style={[styles.summaryNote, { color: "#AEAEAE" }]}>Some prices based on provider listing</Text>
+              )
+            : !pricingResult?.found && (
+                <Text style={[styles.summaryNote, { color: "#AEAEAE" }]}>Price from provider listing</Text>
+              )
+          }
           <Text style={styles.summaryNote}>Payment will be collected after confirmation</Text>
         </View>
         )}
@@ -721,10 +1197,12 @@ export default function NewBookingScreen() {
           disabled={submitting}
           iconLeft={<Ionicons name="checkmark-circle-outline" size={22} color="#fff" />}
           iconRight={
-            selectedSlots.length > 0 ? (
+            (isDayMode || selectedSlots.length > 0) ? (
               <View style={styles.confirmBadge}>
                 <Text style={styles.confirmBadgeText}>
-                  {selectedSlots.length} hr{selectedSlots.length > 1 ? "s" : ""}
+                  {isDayMode
+                    ? `${numDays} day${numDays > 1 ? "s" : ""}`
+                    : `${selectedSlots.length} hr${selectedSlots.length > 1 ? "s" : ""}`}
                 </Text>
               </View>
             ) : undefined
@@ -737,7 +1215,7 @@ export default function NewBookingScreen() {
           style={{ marginHorizontal: 20, marginBottom: 12 }}
         />
 
-        <View style={{ height: isWeb ? 30 : 50 }} />
+        <View style={{ height: isWeb ? 30 : insets.bottom + 50 }} />
       </ScrollView>
       </KeyboardAvoidingView>
     </View>
@@ -965,4 +1443,106 @@ const styles = StyleSheet.create({
     paddingVertical: 3, borderRadius: 8,
   },
   confirmBadgeText: { color: "#fff", fontSize: 11, fontFamily: "Inter_600SemiBold" },
+
+  /* ── Agricultural Day Picker ── */
+  dayPickerWrap: {
+    flexDirection: "row", alignItems: "center", justifyContent: "center",
+    marginHorizontal: 20, marginTop: 8, backgroundColor: "#fff",
+    borderRadius: 16, borderWidth: 1, borderColor: "#EAEAEA",
+    padding: 20, gap: 24,
+    shadowColor: "#000", shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05, shadowRadius: 6, elevation: 2,
+  },
+  dayBtn: {
+    width: 44, height: 44, borderRadius: 22,
+    backgroundColor: "#FFF5ED", alignItems: "center", justifyContent: "center",
+    borderWidth: 1.5, borderColor: "#FFD9BA",
+  },
+  dayBtnDisabled: { backgroundColor: "#F5F5F5", borderColor: "#E8E8E8" },
+  dayCountWrap: { alignItems: "center", minWidth: 60 },
+  dayCount: { fontSize: 40, fontWeight: "700", fontFamily: "Inter_700Bold", color: ORANGE },
+  dayCountSub: { fontSize: 13, color: "#AEAEAE", fontFamily: "Inter_400Regular", marginTop: -4 },
+  agriInfoBox: {
+    flexDirection: "row", alignItems: "center", gap: 6,
+    backgroundColor: "#FFF5ED", marginHorizontal: 20, marginTop: 10,
+    borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10,
+    borderWidth: 1, borderColor: "#FFD9BA",
+  },
+  agriInfoText: { fontSize: 12, color: "#FF7A18", fontFamily: "Inter_400Regular", flex: 1 },
+  calModeRow: {
+    flexDirection: "row", gap: 10,
+    marginHorizontal: 16, marginTop: 8, marginBottom: 4,
+  },
+  calModeBtn: {
+    flex: 1, flexDirection: "row", alignItems: "center", gap: 6,
+    paddingHorizontal: 12, paddingVertical: 9, borderRadius: 10,
+    borderWidth: 1.5, borderColor: "#FFD9BA", backgroundColor: "#FFF5ED",
+    justifyContent: "center",
+  },
+  calModeBtnActive: { backgroundColor: "#FF7A18", borderColor: "#FF7A18" },
+  calModeBtnText: { fontSize: 12, color: "#FF7A18", fontFamily: "Inter_600SemiBold" },
+  calModeBtnTextActive: { color: "#fff" },
+
+  /* ── Location Input ── */
+  locationWrap: {
+    marginHorizontal: 20, marginTop: 8,
+    backgroundColor: "#fff", borderRadius: 14,
+    borderWidth: 1, borderColor: "#EAEAEA",
+    shadowColor: "#000", shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04, shadowRadius: 4, elevation: 1,
+    overflow: "hidden",
+  },
+  locationRow: { flexDirection: "row", alignItems: "center", minHeight: 48 },
+  locationInput: {
+    flex: 1, fontSize: 14, color: "#2C2C2C",
+    fontFamily: "Inter_400Regular", paddingVertical: 12, paddingHorizontal: 10,
+  },
+  gpsBtn: {
+    width: 44, height: 44, alignItems: "center", justifyContent: "center",
+    marginRight: 4,
+  },
+  locationClear: {
+    flexDirection: "row", alignItems: "center", gap: 4,
+    paddingHorizontal: 14, paddingBottom: 10,
+  },
+  locationClearText: { fontSize: 12, color: "#AEAEAE", fontFamily: "Inter_400Regular" },
+
+  /* ── Booking Type Toggle ── */
+  unitToggleCard: {
+    marginHorizontal: 20, marginTop: 16, marginBottom: 4,
+    backgroundColor: "#fff", borderRadius: 16, padding: 16,
+    borderWidth: 1.5, borderColor: `${ORANGE}30`,
+    shadowColor: ORANGE, shadowOpacity: 0.08, shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 }, elevation: 2,
+  },
+  unitToggleHeader: {
+    flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12,
+  },
+  unitToggleTitle: {
+    fontSize: 14, fontFamily: "Inter_700Bold", color: "#2C2C2C",
+  },
+  unitToggleRow: {
+    flexDirection: "row", gap: 10,
+  },
+  unitToggleOpt: {
+    flex: 1, alignItems: "center", gap: 4,
+    paddingVertical: 14, paddingHorizontal: 10, borderRadius: 12,
+    backgroundColor: "#FFF5ED", borderWidth: 1.5, borderColor: `${ORANGE}30`,
+    position: "relative",
+  },
+  unitToggleOptActive: {
+    backgroundColor: ORANGE, borderColor: ORANGE,
+    shadowColor: ORANGE, shadowOpacity: 0.4, shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 }, elevation: 4,
+  },
+  unitToggleOptTitle: {
+    fontSize: 15, fontFamily: "Inter_700Bold", color: ORANGE,
+  },
+  unitToggleOptTitleActive: { color: "#fff" },
+  unitToggleOptSub: {
+    fontSize: 11, fontFamily: "Inter_400Regular", color: "#AEAEAE",
+  },
+  unitToggleCheck: {
+    position: "absolute", top: 6, right: 8,
+  },
 });

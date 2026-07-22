@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, pgEnum, real, boolean, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, pgEnum, real, boolean, jsonb, numeric } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -19,9 +19,11 @@ export const listingsTable = pgTable("listings", {
   isAvailable: boolean("is_available").notNull().default(true),
   operatorIncluded: boolean("operator_included").default(false),
   fuelIncluded: boolean("fuel_included").default(false),
-  deliveryCharges: real("delivery_charges"),
+  deliveryCharges: numeric("delivery_charges", { precision: 10, scale: 2 }),
   engineSize: real("engine_size"),
   vehicleType: text("vehicle_type"),
+  latitude: numeric("latitude", { precision: 10, scale: 6 }),
+  longitude: numeric("longitude", { precision: 10, scale: 6 }),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

@@ -12,6 +12,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Colors from "@/constants/colors";
 import { useAuth, type ActiveMode } from "@/context/AuthContext";
 import { useLang } from "@/context/LanguageContext";
+import { useSound } from "@/context/SoundContext";
+import type { SoundKey } from "@/services/AudioService";
 import { useApi } from "@/hooks/useApi";
 
 const C = Colors.light;
@@ -360,6 +362,7 @@ export default function SettingsTab() {
   const api = useApi();
   const { get, patch, del, post, put } = api;
   const { t, language, toggleLanguage } = useLang();
+  const { settings: snd, toggle: toggleSnd, testSound } = useSound();
   const insets = useSafeAreaInsets();
   const isWeb = Platform.OS === "web";
   const topPad = isWeb ? 67 : insets.top;
@@ -406,7 +409,34 @@ export default function SettingsTab() {
   const [showReportUserModal, setShowReportUserModal] = useState(false);
   const [showReportIssueModal, setShowReportIssueModal] = useState(false);
   const [showFAQModal, setShowFAQModal] = useState(false);
+  const [showTermsModal, setShowTermsModal] = useState(false);
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const [faqs, setFaqs] = useState<FAQ[]>([]);
+
+  // Delete Account
+  const [deleteStep, setDeleteStep] = useState<0 | 1 | 2>(0);
+  const [deleteReason, setDeleteReason] = useState("");
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  // Contact Support
+  const [showSupportModal, setShowSupportModal] = useState(false);
+  const [supportName, setSupportName] = useState("");
+  const [supportEmail, setSupportEmail] = useState("");
+  const [supportCategory, setSupportCategory] = useState("");
+  const [supportSubject, setSupportSubject] = useState("");
+  const [supportMessage, setSupportMessage] = useState("");
+  const [submittingSupport, setSubmittingSupport] = useState(false);
+  const emailRef = React.useRef<any>(null);
+  const subjectRef = React.useRef<any>(null);
+  const messageRef = React.useRef<any>(null);
+
+  // Pre-fill user details when modal opens
+  React.useEffect(() => {
+    if (showSupportModal) {
+      setSupportName(`${user?.firstName ?? ""} ${user?.lastName ?? ""}`.trim() || "");
+      setSupportEmail(user?.email || "");
+    }
+  }, [showSupportModal]);
 
   useEffect(() => {
     fetchSettings();
@@ -430,6 +460,90 @@ export default function SettingsTab() {
 
   async function fetchFAQs() {
     try { setFaqs(await get<FAQ[]>("/safety/faqs")); } catch { }
+  }
+
+  function resetSupportForm() {
+    setSupportName("");
+    setSupportEmail("");
+    setSupportCategory("");
+    setSupportSubject("");
+    setSupportMessage("");
+  }
+
+  async function submitSupportTicket() {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!supportName.trim()) {
+      Alert.alert("Name required", "Please enter your name."); return;
+    }
+    if (!emailRegex.test(supportEmail.trim())) {
+      Alert.alert("Valid email required", "Please enter a valid email address so we can reply to you."); return;
+    }
+    const subject = supportSubject.trim() || supportCategory;
+    if (!subject) {
+      Alert.alert("Subject required", "Please select a category or enter a subject."); return;
+    }
+    if (!supportMessage.trim() || supportMessage.length < 10) {
+      Alert.alert("Describe your issue", "Please write at least 10 characters describing your problem."); return;
+    }
+
+    setSubmittingSupport(true);
+    try {
+      const result = await post<{ ok: boolean; id: string; emailSent: boolean }>("/support-ticket", {
+        name: supportName.trim(),
+        contact: supportEmail.trim(),
+        issue_type: supportCategory || "General",
+        subject,
+        message: supportMessage.trim(),
+        platform: Platform.OS,
+        app_version: "1.0",
+        user_id: (user as any)?.id ?? null,
+      });
+
+      resetSupportForm();
+      setShowSupportModal(false);
+
+      if (result?.emailSent) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        Alert.alert(
+          "Request Sent Successfully",
+          "Your support request has been received and a confirmation email was sent. Our team will get back to you within 24 hours.",
+          [{ text: "OK", style: "default" }]
+        );
+      } else {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+        Alert.alert(
+          "Request Saved",
+          "Your request has been logged. The confirmation email could not be delivered — our team will still review your ticket. For urgent help email info.rentzilla@gmail.com directly.",
+          [{ text: "OK", style: "default" }]
+        );
+      }
+    } catch (e: any) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      const msg = e?.message?.includes("rate limit")
+        ? "You've sent too many requests. Please wait 10 minutes before trying again."
+        : "Something went wrong. Please try again or email info.rentzilla@gmail.com directly.";
+      Alert.alert("Could Not Send Request", msg, [{ text: "OK", style: "destructive" }]);
+    } finally {
+      setSubmittingSupport(false);
+    }
+  }
+
+  async function handleDeleteAccount() {
+    if (!deleteReason.trim()) {
+      Alert.alert("Select a reason", "Please choose why you want to delete your account.");
+      return;
+    }
+    setIsDeleting(true);
+    try {
+      await del("/users/me", { reason: deleteReason });
+      setDeleteStep(0);
+      await logout();
+      router.replace("/sign-in");
+    } catch (e: any) {
+      Alert.alert("Error", e.message || "Could not delete account. Please try again.");
+    } finally {
+      setIsDeleting(false);
+    }
   }
 
   async function updateNotif(key: keyof NotifPrefs, val: boolean) {
@@ -477,12 +591,10 @@ export default function SettingsTab() {
     setPendingTwoFa(enabled);
     setSendingOtp(true);
     try {
-      const res = await post<{ code: string; message: string }>("/safety/2fa/send-otp", {});
+      await post<{ message: string }>("/safety/2fa/send-otp", {});
       setShowOtpPanel(true);
-      // Demo: show OTP since no email service is connected
-      Alert.alert("OTP Sent (Demo)", `Your verification code is: ${res.code}\n\nIn production, this would be sent to your email.`);
     } catch (e: any) {
-      Alert.alert("Error", e.message || "Could not send OTP");
+      Alert.alert("Error", e.message || "Could not send OTP. Please try again.");
       setPendingTwoFa(null);
     } finally { setSendingOtp(false); }
   }
@@ -611,7 +723,7 @@ export default function SettingsTab() {
           {showOtpPanel && (
             <View style={ss.otpPanel}>
               <Text style={ss.otpTitle}>Enter Verification Code</Text>
-              <Text style={ss.otpDesc}>A 6-digit OTP has been sent. Check the alert above.</Text>
+              <Text style={ss.otpDesc}>A 6-digit code has been sent to your email address. Check your inbox.</Text>
               <View style={ss.otpRow}>
                 <TextInput
                   style={ss.otpInput} value={otpCode} onChangeText={(t) => setOtpCode(t.replace(/\D/g, "").slice(0, 6))}
@@ -671,7 +783,48 @@ export default function SettingsTab() {
           )}
         </Card>
 
-        {/* ── 4. Privacy ── */}
+        {/* ── 4. Sounds & Notifications ── */}
+        <SectionHeader title="Sounds & Notifications" icon="musical-notes-outline" />
+        <Card>
+          <ToggleRow icon="volume-high-outline" label="Master Sound" sublabel="Enable all in-app sounds" value={snd.master} onChange={() => toggleSnd("master")} color="#FF7A18" />
+          <Divider />
+          <ToggleRow icon="phone-portrait-outline" label="Vibration" sublabel="Haptic feedback for interactions" value={snd.vibration} onChange={() => toggleSnd("vibration")} color="#8B5CF6" />
+          <Divider />
+          <ToggleRow icon="sunny-outline" label="Startup Sound" sublabel="Play chime when app opens" value={snd.startup} onChange={() => toggleSnd("startup")} color="#F59E0B" />
+          <Divider />
+          <ToggleRow icon="calendar-outline" label="Booking Sounds" sublabel="Confirmation and alert tones" value={snd.booking} onChange={() => toggleSnd("booking")} color="#22C55E" />
+          <Divider />
+          <ToggleRow icon="wallet-outline" label="Wallet & Payment Sounds" sublabel="Credit, payout, and payment tones" value={snd.wallet} onChange={() => toggleSnd("wallet")} color="#0EA5E9" />
+          <Divider />
+          <ToggleRow icon="call-outline" label="Incoming Booking Ringtone" sublabel="Louder ring for new booking requests" value={snd.ringtone} onChange={() => toggleSnd("ringtone")} color="#EF4444" />
+          <Divider />
+          <ToggleRow icon="notifications-outline" label="Notification Tones" sublabel="Sounds for push notifications" value={snd.notif} onChange={() => toggleSnd("notif")} color="#EC4899" />
+          <Divider />
+          <View style={ss.soundTestRow}>
+            <Text style={ss.soundTestLabel}>Test Sounds</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 8 }}>
+              {([
+                { key: "notification",    label: "Notif",   icon: "notifications-outline" },
+                { key: "bookingSuccess",  label: "Booking", icon: "checkmark-circle-outline" },
+                { key: "walletCredit",    label: "Credit",  icon: "wallet-outline" },
+                { key: "payoutSuccess",   label: "Payout",  icon: "cash-outline" },
+                { key: "providerAlert",   label: "Alert",   icon: "warning-outline" },
+                { key: "ringtone",        label: "Ring",    icon: "call-outline" },
+              ] as { key: SoundKey; label: string; icon: string }[]).map(({ key, label, icon }) => (
+                <Pressable
+                  key={key}
+                  onPress={() => { Haptics.selectionAsync(); testSound(key); }}
+                  style={ss.testBtn}
+                >
+                  <Ionicons name={icon as any} size={14} color={ORANGE} />
+                  <Text style={ss.testBtnText}>{label}</Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+          </View>
+        </Card>
+
+        {/* ── 5. Privacy ── */}
         <SectionHeader title="Privacy & Visibility" icon="eye-outline" />
         <Card>
           <ToggleRow
@@ -837,7 +990,7 @@ export default function SettingsTab() {
           <Divider />
           <SettingRow icon="alert-circle-outline" label="Report an Issue" sublabel="Payment, booking, driver or app problems" onPress={() => setShowReportIssueModal(true)} color="#F59E0B" />
           <Divider />
-          <SettingRow icon="ribbon-outline" label="Trust & Verification" sublabel="Complete your profile to get verified" onPress={() => Alert.alert("Verification", "Complete your profile to get verified. Verification badge coming soon.")} color="#059669" />
+          <SettingRow icon="ribbon-outline" label="Trust & Verification" sublabel="Complete your profile to get verified" onPress={() => router.push("/trust-verification" as any)} color="#059669" />
         </Card>
 
         {/* ── 8. Help & Support ── */}
@@ -845,16 +998,30 @@ export default function SettingsTab() {
         <Card>
           <SettingRow icon="document-text-outline" label="FAQ" sublabel={`${faqs.length} answers to common questions`} onPress={() => setShowFAQModal(true)} />
           <Divider />
-          <SettingRow icon="mail-outline" label="Contact Support" sublabel="support@rentzilla.in" onPress={() => Alert.alert("Contact Support", "Email us at support@rentzilla.in\nWe respond within 24 hours.")} />
+          <SettingRow icon="mail-outline" label="Contact Support" onPress={() => setShowSupportModal(true)} />
           <Divider />
-          <SettingRow icon="document-outline" label="Terms & Conditions" onPress={() => Alert.alert("Terms & Conditions", "By using RentZilla, you agree to our terms of service. Full terms available at rentzilla.in/terms")} />
+          <SettingRow icon="document-outline" label="Terms & Conditions" onPress={() => setShowTermsModal(true)} />
           <Divider />
-          <SettingRow icon="lock-closed-outline" label="Privacy Policy" onPress={() => Alert.alert("Privacy Policy", "We protect your data and never share it without consent. Full policy at rentzilla.in/privacy")} />
+          <SettingRow icon="lock-closed-outline" label="Privacy Policy" onPress={() => setShowPrivacyModal(true)} />
         </Card>
 
         {/* ── 9. Danger Zone ── */}
         <SectionHeader title="Danger Zone" icon="warning-outline" />
         <Card>
+          <Pressable
+            onPress={() => { setDeleteReason(""); setDeleteStep(1); }}
+            style={({ pressed }) => [ss.delRow, { opacity: pressed ? 0.7 : 1 }]}
+          >
+            <View style={ss.delIcon}>
+              <Ionicons name="trash-outline" size={19} color="#DC2626" />
+            </View>
+            <View style={ss.delContent}>
+              <Text style={ss.delLabel}>Delete Account</Text>
+              <Text style={ss.delSub}>Permanently removes all your data</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color="#DC2626" />
+          </Pressable>
+          <Divider />
           <SettingRow
             icon="log-out-outline" label="Logout" color="#EF4444" chevron={false}
             onPress={() => Alert.alert("Logout", "Are you sure you want to log out?", [
@@ -870,6 +1037,193 @@ export default function SettingsTab() {
         </View>
       </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* ── Contact Support Modal ── */}
+      <Modal visible={showSupportModal} transparent animationType="slide" onRequestClose={() => { resetSupportForm(); setShowSupportModal(false); }}>
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"}>
+          <View style={ss.delOverlay}>
+            <View style={[ss.delSheet, { maxHeight: "94%", paddingBottom: 0 }]}>
+
+              {/* Header */}
+              <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 16 }}>
+                <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: "#EFF6FF", alignItems: "center", justifyContent: "center", marginRight: 12 }}>
+                  <Ionicons name="mail-outline" size={20} color="#3B82F6" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[ss.delModalTitle, { fontSize: 17, marginBottom: 1 }]}>Contact Support</Text>
+                  <Text style={{ fontSize: 11, color: "#9CA3AF", fontFamily: "Inter_400Regular" }}>We respond within 24 hours</Text>
+                </View>
+                <Pressable onPress={() => { resetSupportForm(); setShowSupportModal(false); }} hitSlop={12}>
+                  <Ionicons name="close" size={22} color="#6B7280" />
+                </Pressable>
+              </View>
+
+              <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 20 }}>
+
+                {/* Name */}
+                <Text style={ss.supportSectionLabel}>Your Name *</Text>
+                <TextInput
+                  style={ss.supportFieldInput}
+                  value={supportName}
+                  onChangeText={setSupportName}
+                  placeholder="Full name"
+                  placeholderTextColor="#9CA3AF"
+                  returnKeyType="next"
+                  onSubmitEditing={() => emailRef.current?.focus()}
+                  blurOnSubmit={false}
+                />
+
+                {/* Email */}
+                <Text style={[ss.supportSectionLabel, { marginTop: 12 }]}>Email Address *</Text>
+                <TextInput
+                  ref={emailRef}
+                  style={ss.supportFieldInput}
+                  value={supportEmail}
+                  onChangeText={setSupportEmail}
+                  placeholder="your@email.com"
+                  placeholderTextColor="#9CA3AF"
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  returnKeyType="next"
+                  onSubmitEditing={() => subjectRef.current?.focus()}
+                  blurOnSubmit={false}
+                />
+
+                {/* Category chips → auto-fills subject */}
+                <Text style={[ss.supportSectionLabel, { marginTop: 12 }]}>Issue Category</Text>
+                <View style={ss.supportChipGrid}>
+                  {["Booking Issue", "Payment Refund", "Provider Verification", "Listing Problem", "Technical Bug", "Safety Report", "Other"].map(cat => (
+                    <Pressable
+                      key={cat}
+                      onPress={() => { setSupportCategory(cat); setSupportSubject(cat); Haptics.selectionAsync(); }}
+                      style={[ss.supportChip, supportCategory === cat && ss.supportChipActive]}
+                    >
+                      <Text style={[ss.supportChipText, supportCategory === cat && { color: "#fff" }]}>{cat}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+
+                {/* Subject */}
+                <Text style={[ss.supportSectionLabel, { marginTop: 12 }]}>Subject *</Text>
+                <TextInput
+                  ref={subjectRef}
+                  style={ss.supportFieldInput}
+                  value={supportSubject}
+                  onChangeText={setSupportSubject}
+                  placeholder="Brief summary of your issue"
+                  placeholderTextColor="#9CA3AF"
+                  returnKeyType="next"
+                  onSubmitEditing={() => messageRef.current?.focus()}
+                  blurOnSubmit={false}
+                />
+
+                {/* Message */}
+                <Text style={[ss.supportSectionLabel, { marginTop: 12 }]}>Message *</Text>
+                <TextInput
+                  ref={messageRef}
+                  style={[ss.supportInput, { minHeight: 100 }]}
+                  value={supportMessage}
+                  onChangeText={v => setSupportMessage(v.slice(0, 500))}
+                  multiline
+                  placeholder="Describe your issue in detail. Include booking IDs or any relevant info..."
+                  placeholderTextColor="#9CA3AF"
+                  textAlignVertical="top"
+                  returnKeyType="done"
+                />
+                <Text style={ss.supportCharCount}>{supportMessage.length} / 500</Text>
+
+                {/* Buttons */}
+                <View style={{ flexDirection: "row", gap: 10, marginTop: 16 }}>
+                  <Pressable onPress={() => { resetSupportForm(); setShowSupportModal(false); }} style={ss.delCancelBtn}>
+                    <Text style={ss.delCancelText}>Cancel</Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={submitSupportTicket}
+                    disabled={submittingSupport}
+                    style={[ss.delNextBtn, { backgroundColor: "#3B82F6", flex: 1.5 }, submittingSupport && { opacity: 0.6 }]}
+                  >
+                    {submittingSupport
+                      ? <ActivityIndicator color="#fff" size="small" />
+                      : <>
+                          <Ionicons name="send" size={14} color="#fff" style={{ marginRight: 6 }} />
+                          <Text style={ss.delNextText}>Send Request</Text>
+                        </>
+                    }
+                  </Pressable>
+                </View>
+              </ScrollView>
+
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* ── Delete Account Modal ── */}
+      <Modal visible={deleteStep > 0} transparent animationType="slide" onRequestClose={() => setDeleteStep(0)}>
+        <View style={ss.delOverlay}>
+          <View style={ss.delSheet}>
+            {deleteStep === 1 ? (
+              <>
+                <View style={{ alignItems: "center", marginBottom: 16 }}>
+                  <View style={ss.delModalIcon}>
+                    <Ionicons name="trash-outline" size={28} color="#DC2626" />
+                  </View>
+                  <Text style={ss.delModalTitle}>Delete Account</Text>
+                  <Text style={ss.delModalSub}>Please tell us why you're leaving</Text>
+                </View>
+                {["I no longer need this app", "I have privacy concerns", "I found a better alternative", "The app has technical issues", "Too many notifications", "Other reason"].map((reason) => (
+                  <Pressable
+                    key={reason}
+                    onPress={() => setDeleteReason(reason)}
+                    style={[ss.delReasonRow, deleteReason === reason && ss.delReasonSelected]}
+                  >
+                    <View style={[ss.delRadio, deleteReason === reason && ss.delRadioFilled]}>
+                      {deleteReason === reason && <View style={ss.delRadioDot} />}
+                    </View>
+                    <Text style={[ss.delReasonText, deleteReason === reason && { color: "#DC2626", fontFamily: "Inter_600SemiBold" }]}>{reason}</Text>
+                  </Pressable>
+                ))}
+                <View style={{ flexDirection: "row", gap: 10, marginTop: 16 }}>
+                  <Pressable onPress={() => setDeleteStep(0)} style={ss.delCancelBtn}>
+                    <Text style={ss.delCancelText}>Cancel</Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => { if (!deleteReason) { Alert.alert("Select a reason", "Please choose one."); return; } setDeleteStep(2); }}
+                    style={[ss.delNextBtn, !deleteReason && { opacity: 0.4 }]}
+                  >
+                    <Text style={ss.delNextText}>Next →</Text>
+                  </Pressable>
+                </View>
+              </>
+            ) : (
+              <>
+                <View style={{ alignItems: "center", marginBottom: 16 }}>
+                  <View style={[ss.delModalIcon, { backgroundColor: "#FEE2E2" }]}>
+                    <Ionicons name="warning-outline" size={28} color="#DC2626" />
+                  </View>
+                  <Text style={ss.delModalTitle}>Are you sure?</Text>
+                  <Text style={ss.delModalSub}>This will permanently delete your account, all bookings, messages, and data. This cannot be undone.</Text>
+                </View>
+                <View style={{ flexDirection: "row", gap: 10, marginTop: 8 }}>
+                  <Pressable onPress={() => setDeleteStep(1)} style={ss.delCancelBtn}>
+                    <Text style={ss.delCancelText}>← Back</Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={handleDeleteAccount}
+                    disabled={isDeleting}
+                    style={[ss.delConfirmBtn, isDeleting && { opacity: 0.6 }]}
+                  >
+                    {isDeleting
+                      ? <ActivityIndicator color="#fff" size="small" />
+                      : <Text style={ss.delConfirmText}>Delete Forever</Text>
+                    }
+                  </Pressable>
+                </View>
+              </>
+            )}
+          </View>
+        </View>
+      </Modal>
 
       {/* ── Modals ── */}
       <BlockedUsersModal visible={showBlockedModal} onClose={() => setShowBlockedModal(false)} api={api} />
@@ -897,6 +1251,103 @@ export default function SettingsTab() {
                   </View>
                 ))}
               </Card>
+            </ScrollView>
+          </View>
+        </Modal>
+      )}
+
+      {/* Privacy Policy Modal */}
+      {showPrivacyModal && (
+        <Modal visible animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowPrivacyModal(false)}>
+          <View style={ss.modalRoot}>
+            <View style={ss.modalHeader}>
+              <Pressable onPress={() => setShowPrivacyModal(false)} style={ss.modalBack}>
+                <Ionicons name="close" size={22} color={C.text} />
+              </Pressable>
+              <Text style={ss.modalTitle}>Privacy Policy</Text>
+              <View style={{ width: 36 }} />
+            </View>
+            <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 20, paddingBottom: 48 }} showsVerticalScrollIndicator={false}>
+              <Text style={{ fontSize: 18, fontWeight: "800", fontFamily: "Inter_700Bold", color: "#111827", marginBottom: 4 }}>FULL PRIVACY POLICY</Text>
+              <Text style={{ fontSize: 13, fontFamily: "Inter_600SemiBold", color: "#FF7A18", marginBottom: 4 }}>Refund & Cancellation Policy — RentZilla</Text>
+              <Text style={{ fontSize: 11, color: "#9CA3AF", marginBottom: 20 }}>Applies to: Mobile App · Website · Provider Dashboard · Wallet · KYC · All Global Users</Text>
+              {[
+                { num: "1", title: "Scope", body: "This Policy applies to the RentZilla mobile app, website, provider dashboard, wallet, payouts, customer support, marketing communication, KYC systems, and all global users including India." },
+                { num: "2", title: "Information We Collect", body: "We collect account data, phone, email, profile photo, addresses, GST/PAN details, booking details, location, payment references, wallet history, device identifiers, crash logs, KYC records, bank details, and dispute evidence." },
+                { num: "3", title: "Why We Use Data", body: "We use personal data for account creation, booking execution, fraud prevention, customer support, escrow, payouts, tax compliance, analytics, legal investigations, service quality, and misuse prevention." },
+                { num: "4", title: "Consent", body: "By using RentZilla, users provide informed consent for account creation, OTP verification, location access, booking communication, and optional marketing notifications. Consent may be withdrawn by deleting the account or contacting support." },
+                { num: "5", title: "Data Sharing", body: "We may share limited data with payment gateways, KYC vendors, cloud hosting providers, SMS/OTP vendors, insurance partners, analytics services, government authorities, law enforcement, and counterparties involved in a booking. We do not sell personal data." },
+                { num: "6", title: "Cross-Border Transfers", body: "Because RentZilla may serve international users, data may be processed in India, Singapore, UAE, EU regions, and other secure global cloud zones using encryption, processor agreements, and access controls." },
+                { num: "7", title: "Retention & Deletion", body: "Booking records may be retained for up to 7 years, tax invoices as required by law, and dispute evidence until final closure. Users may request access, correction, deletion, or consent withdrawal subject to legal obligations." },
+                { num: "8", title: "Security Measures", body: "We use encryption in transit, secure storage, tokenized payments, OTP verification, role-based admin access, audit logs, fraud monitoring, and secure image uploads." },
+                { num: "9", title: "Customer Cancellation", body: "100% refund before provider acceptance. After acceptance, platform fees or reserved-time charges may apply. Same-day cancellations may attract 20–50% deduction depending on category." },
+                { num: "10", title: "Provider Cancellation", body: "If a provider cancels, the customer receives a full refund and may get priority rebooking. Providers may face penalties, ranking reduction, payout holds, or temporary suspension." },
+                { num: "11", title: "Security Deposit & Damage", body: "For rentals, escrow deposits may be held and deductions may apply for damages, extra usage, fuel shortage, cleaning, or missing accessories after inspection." },
+                { num: "12", title: "Refund Timelines", body: "Wallet refunds: instant to 24 hrs.\nUPI: 1–3 business days.\nCards: 5–10 business days.\nBank transfers: 3–7 business days." },
+                { num: "13", title: "Non-Refundable Cases", body: "No refunds for fraud, fake bookings, illegal use, duplicate claims, force majeure losses, or user-caused cancellation after service start." },
+              ].map((section) => (
+                <View key={section.num} style={{ marginBottom: 16, backgroundColor: "#F9FAFB", borderRadius: 12, padding: 14, borderLeftWidth: 3, borderLeftColor: "#6366F1" }}>
+                  <Text style={{ fontSize: 13, fontWeight: "700", fontFamily: "Inter_700Bold", color: "#6366F1", marginBottom: 4 }}>
+                    {section.num}. {section.title}
+                  </Text>
+                  <Text style={{ fontSize: 13, fontFamily: "Inter_400Regular", color: "#374151", lineHeight: 20 }}>
+                    {section.body}
+                  </Text>
+                </View>
+              ))}
+              <Text style={{ fontSize: 11, color: "#9CA3AF", textAlign: "center", marginTop: 8 }}>
+                Last updated: April 2026 · rentzilla.in/privacy
+              </Text>
+            </ScrollView>
+          </View>
+        </Modal>
+      )}
+
+      {/* Terms & Conditions Modal */}
+      {showTermsModal && (
+        <Modal visible animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowTermsModal(false)}>
+          <View style={ss.modalRoot}>
+            <View style={ss.modalHeader}>
+              <Pressable onPress={() => setShowTermsModal(false)} style={ss.modalBack}>
+                <Ionicons name="close" size={22} color={C.text} />
+              </Pressable>
+              <Text style={ss.modalTitle}>Terms & Conditions</Text>
+              <View style={{ width: 36 }} />
+            </View>
+            <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 20, paddingBottom: 48 }} showsVerticalScrollIndicator={false}>
+              <Text style={{ fontSize: 18, fontWeight: "800", fontFamily: "Inter_700Bold", color: "#111827", marginBottom: 4 }}>TERMS AND CONDITIONS</Text>
+              <Text style={{ fontSize: 13, fontFamily: "Inter_600SemiBold", color: "#FF7A18", marginBottom: 20 }}>RentZilla — Detailed Version</Text>
+              {[
+                { num: "1", title: "Acceptance of Terms", body: "By accessing or using Rentzilla, you agree to be legally bound by these Terms. If you do not agree, you must not use the platform." },
+                { num: "2", title: "Nature of Platform", body: "Rentzilla is a technology intermediary facilitating connections between Customers and independent Service Providers.\n\n• Rentzilla does not employ providers\n• Rentzilla does not guarantee services\n• All contracts are between Customer and Provider" },
+                { num: "3", title: "Eligibility", body: "Users must be at least 18 years old and capable of entering legally binding agreements under Indian law." },
+                { num: "4", title: "Account Responsibility", body: "• Maintain confidentiality of login credentials\n• Provide accurate and updated information\n• Responsible for all activities under your account" },
+                { num: "5", title: "Service Disclaimer", body: "All services are provided by independent providers. Rentzilla disclaims any responsibility for quality, legality, or safety of services." },
+                { num: "6", title: "Payments & Fees", body: "• Payments processed via third-party gateways\n• Rentzilla may charge commissions and service fees\n• Refunds subject to provider terms" },
+                { num: "7", title: "Strict No Liability Clause", body: "Rentzilla shall not be held liable under any circumstances for:\n\n• Disputes between Customer and Provider\n• Injury, death, or damages\n• Loss of property or money\n• Fraud, negligence, or misconduct by users\n\nAll disputes must be resolved directly between Customer and Provider." },
+                { num: "8", title: "User Conduct (Strict)", body: "• No illegal activities\n• No harassment or abuse\n• No false or misleading listings\n• Compliance with all applicable Indian laws" },
+                { num: "9", title: "Provider Obligations", body: "• Maintain valid licenses and permits\n• Ensure safety standards\n• Provide accurate service details\n• Comply with tax and legal requirements" },
+                { num: "10", title: "Confidentiality (Strict Clause)", body: "Users must not disclose, misuse, or exploit any personal, business, or platform data. Violation may result in legal action under Indian law." },
+                { num: "11", title: "Data Protection", body: "Complies with Information Technology Act, 2000 and applicable rules. Reasonable security measures are implemented." },
+                { num: "12", title: "Limitation of Liability", body: "To the fullest extent permitted by Indian law, Rentzilla shall not be liable for indirect, incidental, or consequential damages." },
+                { num: "13", title: "Indemnification (Strict)", body: "Users agree to indemnify and hold Rentzilla harmless from all claims, damages, liabilities, and legal costs arising from misuse or violations." },
+                { num: "14", title: "Termination Rights", body: "Rentzilla reserves the right to suspend or terminate any account without prior notice for violation of these Terms." },
+                { num: "15", title: "Force Majeure", body: "Rentzilla is not liable for failure due to events beyond control including natural disasters, government restrictions, or technical failures." },
+                { num: "16", title: "Governing Law", body: "These Terms shall be governed by the laws of India. Jurisdiction shall lie exclusively in courts of Punjab, India." },
+                { num: "17", title: "Amendments", body: "Rentzilla reserves the right to modify these Terms at any time without prior notice." },
+              ].map((section) => (
+                <View key={section.num} style={{ marginBottom: 20, backgroundColor: "#F9FAFB", borderRadius: 12, padding: 14, borderLeftWidth: 3, borderLeftColor: "#FF7A18" }}>
+                  <Text style={{ fontSize: 13, fontWeight: "700", fontFamily: "Inter_700Bold", color: "#FF7A18", marginBottom: 4 }}>
+                    {section.num}. {section.title}
+                  </Text>
+                  <Text style={{ fontSize: 13, fontFamily: "Inter_400Regular", color: "#374151", lineHeight: 20 }}>
+                    {section.body}
+                  </Text>
+                </View>
+              ))}
+              <Text style={{ fontSize: 11, color: "#9CA3AF", textAlign: "center", marginTop: 8 }}>
+                Last updated: April 2026 · rentzilla.in/terms
+              </Text>
             </ScrollView>
           </View>
         </Modal>
@@ -929,6 +1380,11 @@ const ss = StyleSheet.create({
 
   card: { backgroundColor: "#fff", marginHorizontal: 16, borderRadius: 16, overflow: "hidden", shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 6, elevation: 1 },
   row: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 13, gap: 12 },
+
+  soundTestRow: { paddingHorizontal: 16, paddingVertical: 12 },
+  soundTestLabel: { fontSize: 12, fontWeight: "600", fontFamily: "Inter_600SemiBold", color: C.textSecondary, textTransform: "uppercase", letterSpacing: 0.5 },
+  testBtn: { flexDirection: "row", alignItems: "center", gap: 5, backgroundColor: `${ORANGE}12`, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 7, marginRight: 8, borderWidth: 1, borderColor: `${ORANGE}25` },
+  testBtnText: { fontSize: 12, fontWeight: "600", fontFamily: "Inter_600SemiBold", color: ORANGE },
   rowIcon: { width: 36, height: 36, borderRadius: 10, alignItems: "center", justifyContent: "center" },
   rowContent: { flex: 1, gap: 2 },
   rowLabel: { fontSize: 15, fontWeight: "500", fontFamily: "Inter_500Medium", color: C.text },
@@ -1025,4 +1481,40 @@ const ss = StyleSheet.create({
   faqQText: { flex: 1, fontSize: 14, fontWeight: "600", fontFamily: "Inter_600SemiBold", color: C.text, lineHeight: 20 },
   faqAnswer: { backgroundColor: "#F9FAFB", paddingHorizontal: 16, paddingBottom: 14, paddingTop: 4, marginTop: -4 },
   faqAnswerText: { fontSize: 13, color: C.textSecondary, fontFamily: "Inter_400Regular", lineHeight: 20, paddingLeft: 32 },
+
+  // Contact Support
+  supportSectionLabel: { fontSize: 12, fontWeight: "600", fontFamily: "Inter_600SemiBold", color: "#6B7280", marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.4 },
+  supportFieldInput: { backgroundColor: "#F9FAFB", borderRadius: 10, borderWidth: 1.5, borderColor: "#E5E7EB", paddingHorizontal: 12, paddingVertical: 11, fontSize: 14, fontFamily: "Inter_400Regular", color: "#111827" },
+  supportChipGrid: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
+  supportChip: { borderRadius: 20, paddingHorizontal: 11, paddingVertical: 6, borderWidth: 1.5, borderColor: "#E5E7EB", backgroundColor: "#fff" },
+  supportChipActive: { backgroundColor: "#3B82F6", borderColor: "#3B82F6" },
+  supportChipText: { fontSize: 11, fontWeight: "600", fontFamily: "Inter_600SemiBold", color: "#374151" },
+  supportInput: { backgroundColor: "#F9FAFB", borderRadius: 10, borderWidth: 1.5, borderColor: "#E5E7EB", padding: 12, fontSize: 14, fontFamily: "Inter_400Regular", color: "#111827", minHeight: 100, textAlignVertical: "top" },
+  supportCharCount: { fontSize: 11, color: "#9CA3AF", textAlign: "right", marginTop: 4, fontFamily: "Inter_400Regular" },
+
+  // Delete Account row
+  delRow: { flexDirection: "row", alignItems: "center", paddingVertical: 14, paddingHorizontal: 16, gap: 12 },
+  delIcon: { width: 36, height: 36, borderRadius: 10, backgroundColor: "#FEE2E2", alignItems: "center", justifyContent: "center" },
+  delContent: { flex: 1 },
+  delLabel: { fontSize: 15, fontFamily: "Inter_600SemiBold", color: "#DC2626" },
+  delSub: { fontSize: 12, fontFamily: "Inter_400Regular", color: "#EF4444", marginTop: 1 },
+
+  // Delete Account modal
+  delOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" },
+  delSheet: { backgroundColor: "#fff", borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: 40 },
+  delModalIcon: { width: 56, height: 56, borderRadius: 28, backgroundColor: "#FEF2F2", alignItems: "center", justifyContent: "center", marginBottom: 12 },
+  delModalTitle: { fontSize: 20, fontWeight: "700", fontFamily: "Inter_700Bold", color: "#111827", marginBottom: 6 },
+  delModalSub: { fontSize: 14, fontFamily: "Inter_400Regular", color: "#6B7280", textAlign: "center", lineHeight: 20 },
+  delReasonRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 11, paddingHorizontal: 14, borderRadius: 12, borderWidth: 1.5, borderColor: C.border, marginBottom: 8, backgroundColor: "#fff" },
+  delReasonSelected: { borderColor: "#DC2626", backgroundColor: "#FFF5F5" },
+  delReasonText: { flex: 1, fontSize: 14, fontFamily: "Inter_400Regular", color: C.text },
+  delRadio: { width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: C.border, alignItems: "center", justifyContent: "center" },
+  delRadioFilled: { borderColor: "#DC2626" },
+  delRadioDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: "#DC2626" },
+  delCancelBtn: { flex: 1, paddingVertical: 14, borderRadius: 12, borderWidth: 1.5, borderColor: C.border, alignItems: "center" },
+  delCancelText: { fontSize: 15, fontFamily: "Inter_600SemiBold", color: C.text },
+  delNextBtn: { flex: 1, paddingVertical: 14, borderRadius: 12, backgroundColor: "#DC2626", alignItems: "center" },
+  delNextText: { fontSize: 15, fontFamily: "Inter_600SemiBold", color: "#fff" },
+  delConfirmBtn: { flex: 1, paddingVertical: 14, borderRadius: 12, backgroundColor: "#DC2626", alignItems: "center" },
+  delConfirmText: { fontSize: 15, fontFamily: "Inter_700Bold", color: "#fff" },
 });

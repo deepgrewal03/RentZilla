@@ -1,0 +1,165 @@
+#!/usr/bin/env python3
+"""GNU grep compatible wrapper supporting -x and all standard flags."""
+import sys, os, re, argparse
+
+def main():
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument('-x', '--line-regexp', action='store_true', default=False)
+    parser.add_argument('-i', '--ignore-case', action='store_true', default=False)
+    parser.add_argument('-v', '--invert-match', action='store_true', default=False)
+    parser.add_argument('-n', '--line-number', action='store_true', default=False)
+    parser.add_argument('-l', '--files-with-matches', action='store_true', default=False)
+    parser.add_argument('-L', '--files-without-match', action='store_true', default=False)
+    parser.add_argument('-c', '--count', action='store_true', default=False)
+    parser.add_argument('-q', '--quiet', '--silent', action='store_true', default=False)
+    parser.add_argument('-r', '--recursive', action='store_true', default=False)
+    parser.add_argument('-F', '--fixed-strings', action='store_true', default=False)
+    parser.add_argument('-E', '--extended-regexp', action='store_true', default=False)
+    parser.add_argument('-P', '--perl-regexp', action='store_true', default=False)
+    parser.add_argument('-o', '--only-matching', action='store_true', default=False)
+    parser.add_argument('-h', '--no-filename', action='store_true', default=False)
+    parser.add_argument('-H', '--with-filename', action='store_true', default=False)
+    parser.add_argument('-w', '--word-regexp', action='store_true', default=False)
+    parser.add_argument('-a', '--text', action='store_true', default=False)
+    parser.add_argument('-e', '--regexp', action='append', dest='patterns', default=[])
+    parser.add_argument('-f', '--file', action='append', dest='pattern_files', default=[])
+    parser.add_argument('--include', default=None)
+    parser.add_argument('--exclude', default=None)
+    parser.add_argument('--exclude-dir', default=None)
+    parser.add_argument('-A', '--after-context', type=int, default=0)
+    parser.add_argument('-B', '--before-context', type=int, default=0)
+    parser.add_argument('-C', '--context', type=int, default=0)
+    parser.add_argument('--color', '--colour', nargs='?', default=None)
+    parser.add_argument('--version', action='store_true', default=False)
+    parser.add_argument('args', nargs='*')
+
+    try:
+        opts, unknown = parser.parse_known_args()
+    except SystemExit:
+        sys.exit(2)
+
+    if opts.version:
+        print("grep (Python wrapper) 3.0")
+        sys.exit(0)
+
+    args = opts.args
+    if not opts.patterns and not opts.pattern_files:
+        if not args:
+            sys.exit(2)
+        opts.patterns = [args.pop(0)]
+
+    for pf in opts.pattern_files:
+        try:
+            with open(pf) as f:
+                opts.patterns.extend(l.rstrip('\n') for l in f)
+        except Exception:
+            pass
+
+    files = args
+    flags = re.MULTILINE
+    if opts.ignore_case:
+        flags |= re.IGNORECASE
+
+    compiled = []
+    for pat in opts.patterns:
+        if opts.fixed_strings:
+            pat = re.escape(pat)
+        if opts.word_regexp:
+            pat = r'\b' + pat + r'\b'
+        if opts.line_regexp:
+            pat = '^(?:' + pat + ')$'
+        try:
+            compiled.append(re.compile(pat, flags))
+        except re.error:
+            compiled.append(re.compile(re.escape(pat), flags))
+
+    if not compiled:
+        sys.exit(2)
+
+    def match_line(line):
+        stripped = line.rstrip('\n')
+        for c in compiled:
+            m = c.search(stripped)
+            if m:
+                return True
+        return False
+
+    def grep_file(path, label=None):
+        try:
+            with open(path, 'r', errors='replace') as f:
+                lines = f.readlines()
+        except Exception:
+            return False
+
+        matched_any = False
+        count = 0
+        for i, line in enumerate(lines, 1):
+            hit = match_line(line)
+            if opts.invert_match:
+                hit = not hit
+            if hit:
+                matched_any = True
+                count += 1
+                if opts.quiet:
+                    return True
+                if opts.files_with_matches:
+                    print(path if label is None else label)
+                    return True
+                if not opts.count:
+                    prefix = ''
+                    if label and not opts.no_filename:
+                        prefix += (label if label else path) + ':'
+                    if opts.line_number:
+                        prefix += str(i) + ':'
+                    print(prefix + line, end='' if line.endswith('\n') else '\n')
+        if opts.count and not opts.quiet:
+            print((label + ':' if label and not opts.no_filename else '') + str(count))
+        if opts.files_without_match and not matched_any:
+            print(path if label is None else label)
+        return matched_any
+
+    def walk_dir(d):
+        results = False
+        for root, dirs, fnames in os.walk(d):
+            if opts.exclude_dir:
+                dirs[:] = [x for x in dirs if x != opts.exclude_dir]
+            for fn in fnames:
+                if opts.include and not fn.endswith(opts.include.lstrip('*')):
+                    continue
+                if opts.exclude and fn.endswith(opts.exclude.lstrip('*')):
+                    continue
+                fp = os.path.join(root, fn)
+                if grep_file(fp, fp):
+                    results = True
+        return results
+
+    found = False
+    if not files:
+        # stdin
+        lines = sys.stdin.readlines()
+        for i, line in enumerate(lines, 1):
+            hit = match_line(line)
+            if opts.invert_match:
+                hit = not hit
+            if hit:
+                found = True
+                if opts.quiet:
+                    break
+                prefix = ''
+                if opts.line_number:
+                    prefix = str(i) + ':'
+                print(prefix + line, end='' if line.endswith('\n') else '\n')
+    else:
+        show_label = len(files) > 1 or opts.recursive
+        for f in files:
+            if opts.recursive and os.path.isdir(f):
+                if walk_dir(f):
+                    found = True
+            else:
+                if grep_file(f, f if show_label else None):
+                    found = True
+
+    sys.exit(0 if found else 1)
+
+if __name__ == '__main__':
+    main()

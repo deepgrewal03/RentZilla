@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import { API_BASE_URL } from "@/constants/apiUrl";
 import * as DocumentPicker from "expo-document-picker";
 import * as Haptics from "expo-haptics";
 import * as ImageManipulator from "expo-image-manipulator";
@@ -23,7 +24,7 @@ import { useAuth } from "@/context/AuthContext";
 const C = Colors.light;
 const ORANGE = "#E8742A";
 const NAVY = "#0F1F3D";
-const BASE_URL = `https://${process.env.EXPO_PUBLIC_DOMAIN}`;
+const BASE_URL = API_BASE_URL;
 
 // ─── Service & Document Definitions ─────────────────────────────────────────
 

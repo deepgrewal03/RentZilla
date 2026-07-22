@@ -508,7 +508,7 @@ export default function ProfileScreen() {
           />
         </View>
 
-        <View style={{ height: isWeb ? 34 : 100 }} />
+        <View style={{ height: isWeb ? 34 : 80 + insets.bottom }} />
       </ScrollView>
       </KeyboardAvoidingView>
 

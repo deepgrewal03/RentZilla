@@ -1,0 +1,177 @@
+🔐 Prompt: Add Fully Functional Google + Apple Sign-In to RentZilla
+
+Objective:
+Add Google Sign-In and Apple Sign-In buttons on the Sign In screen of RentZilla and make the full authentication flow production-ready with backend APIs, session persistence, and account linking.
+
+1) UI Changes on Sign-In Screen
+
+Add social login buttons below existing OTP / mobile login:
+
+[ Continue with Google ]
+[ Continue with Apple ]   // show only on iOS
+-------------------------
+Continue with Mobile OTP
+UI Requirements
+Add official Google icon
+Add official Apple icon
+Apple button visible only on iOS
+Keep existing app theme
+Add loading spinner while authenticating
+Prevent double taps
+Add subtle press animation
+2) Google Sign-In (Fully Functional)
+Frontend SDK
+
+Use:
+
+@react-native-google-signin/google-signin
+Expo custom dev build / EAS build
+Firebase or direct backend token verification
+Flow
+User taps Google
+Open Google account selector
+Get:
+email
+full name
+profile photo
+id token
+Send token to backend API
+Backend verifies token
+Create/login user
+Return app session token
+3) Apple Sign-In (Fully Functional)
+Frontend SDK
+
+Use:
+
+expo-apple-authentication
+Flow
+User taps Apple button
+Apple auth popup opens
+Get:
+Apple user id
+email (first time only)
+full name (first time only)
+identity token
+Send token to backend
+Verify token
+Create/login user
+Return app session
+4) Required Backend APIs
+A) Google Auth API
+POST /api/auth/google
+
+Payload:
+
+{
+  "id_token": "",
+  "device_type": "android/ios/web",
+  "app_version": ""
+}
+B) Apple Auth API
+POST /api/auth/apple
+
+Payload:
+
+{
+  "identity_token": "",
+  "apple_user_id": "",
+  "device_type": "ios"
+}
+C) Response Format
+{
+  "success": true,
+  "user": {
+    "id": "",
+    "name": "",
+    "email": "",
+    "photo_url": "",
+    "provider": "google/apple"
+  },
+  "access_token": "",
+  "refresh_token": "",
+  "is_new_user": false
+}
+5) Smart Account Linking
+
+Critical for RentZilla:
+
+If same mobile/email already exists
+Merge with existing customer/provider account
+Prevent duplicate user creation
+Keep:
+bookings
+listings
+wallet
+rewards
+favorites
+6) First-Time Signup Flow
+
+If is_new_user = true
+redirect to:
+
+Complete Profile Screen
+
+Collect:
+
+Mobile number
+DOB (18+ validation)
+Punjab preferred location
+Customer / Provider intent
+Notification permissions
+7) Session Persistence
+
+Store securely:
+
+access token
+refresh token
+provider type
+expiry
+
+Use:
+
+expo-secure-store
+
+Auto-login on next app open.
+
+8) Error Handling
+
+Handle:
+
+user cancel
+token expired
+network failure
+duplicate email
+Apple private relay email
+Google Play Services unavailable
+
+Show friendly errors:
+
+“Google sign-in failed, please try again”
+“Apple sign-in unavailable”
+9) Security Requirements
+
+Backend must:
+
+Verify Google token via Google public keys
+Verify Apple token via Apple public keys
+Generate JWT
+Maintain refresh token rotation
+Log device sessions
+Detect suspicious repeated login attempts
+10) Final User Flow
+
+✅ User taps Google / Apple
+✅ Auth popup opens
+✅ Backend verifies token
+✅ Existing account linked OR new account created
+✅ Session saved securely
+✅ Redirect to Home / Complete Profile
+
+🚀 Goal Outcome
+
+✅ One-tap secure login
+✅ Global users supported
+✅ Faster signup conversion
+✅ Reduced OTP cost
+✅ Production-ready App Store + Play Store complian

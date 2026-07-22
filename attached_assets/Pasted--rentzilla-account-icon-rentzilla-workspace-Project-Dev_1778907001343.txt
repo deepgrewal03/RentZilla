@@ -1,0 +1,231 @@
+
+
+
+
+
+rentzilla account icon
+rentzilla
+
+
+workspace
+
+
+Project
+
+
+
+
+Develop
+
+
+
+Deploy
+
+
+
+
+Over-the-air updates
+
+
+
+Entities
+
+
+Project settings
+
+
+
+
+
+
+Builds
+
+927e5737
+
+
+Copy error as prompt
+
+Compare
+This build does not count towards your EAS Build usage.
+iOS App Store build
+35768ef · Fix pnpm frozen lockfile for EAS
+
+
+Profile
+
+
+Environment
+
+SDK version
+
+Version
+
+Fingerprint
+
+Commit
+
+Created by
+
+production
+
+production
+
+54.0.0
+
+ 0.0.0 (5)
+
+dbd02e7
+
+35768ef*
+
+rentzilla account icon
+rentzilla
+
+Build artifact
+
+Status
+
+Start time
+
+Wait time
+
+Queue time
+
+
+Build time
+
+Total time
+
+Availability
+
+
+Errored
+
+May 16, 2026 4:47 PM
+139ms
+
+42s
+
+54s
+
+1m 36s
+
+29 days
+
+Logs
+
+Waiting to start
+
+3s
+
+
+Spin up build environment
+
+38s
+
+
+Prepare project
+
+859ms
+
+
+Read eas.json
+
+1ms
+
+
+Read package.json
+
+0ms
+
+
+Install dependencies
+
+16s
+
+
+Read app config
+
+298ms
+
+
+Prepare credentials
+
+2s
+
+
+Prebuild
+
+4s
+
+
+Install pods
+
+15s
+
+
+Calculate expo-updates runtime version
+
+530ms
+
+
+Configure Xcode project
+
+94ms
+
+
+Bundle JavaScript
+
+3s
+
+
+Starting Metro Bundler
+iOS Bundling failed 229ms node_modules/.pnpm/expo@54.0.33_@babel+core@7.29.0_@expo+metro-runtime@6.1.2_expo-router@6.0.23_react-native-web_a2cbbih4g5xnlt5cgsiekwlycy/node_modules/expo/AppEntry.js (1 module)
+Unable to resolve module ../../App from /Users/expo/workingdir/build/node_modules/.pnpm/expo@54.0.33_@babel+core@7.29.0_@expo+metro-runtime@6.1.2_expo-router@6.0.23_react-native-web_a2cbbih4g5xnlt5cgsiekwlycy/node_modules/expo/AppEntry.js: 
+None of these files exist:
+  * node_modules/.pnpm/expo@54.0.33_@babel+core@7.29.0_@expo+metro-runtime@6.1.2_expo-router@6.0.23_react-native-web_a2cbbih4g5xnlt5cgsiekwlycy/App(.ios.ts|.native.ts|.ts|.ios.tsx|.native.tsx|.tsx|.ios.mjs|.native.mjs|.mjs|.ios.js|.native.js|.js|.ios.jsx|.native.jsx|.jsx|.ios.json|.native.json|.json|.ios.cjs|.native.cjs|.cjs|.ios.scss|.native.scss|.scss|.ios.sass|.native.sass|.sass|.ios.css|.native.css|.css)
+  * node_modules/.pnpm/expo@54.0.33_@babel+core@7.29.0_@expo+metro-runtime@6.1.2_expo-router@6.0.23_react-native-web_a2cbbih4g5xnlt5cgsiekwlycy/App
+  1 | import registerRootComponent from 'expo/src/launch/registerRootComponent';
+  2 |
+> 3 | import App from '../../App';
+    |                  ^
+  4 |
+  5 | registerRootComponent(App);
+  6 |
+Import stack:
+ node_modules/.pnpm/expo@54.0.33_@babel+core@7.29.0_@expo+metro-runtime@6.1.2_expo-router@6.0.23_react-native-web_a2cbbih4g5xnlt5cgsiekwlycy/node_modules/expo/AppEntry.js
+ | import "../../App"
+ 
+ | import "/Users/expo/workingdir/build/node_modules/.pnpm/expo@54.0.33_@babel+core@7.29.0_@expo+metro-runtime@6.1.2_expo-router@6.0.23_react-native-web_a2cbbih4g5xnlt5cgsiekwlycy/node_modules/expo/AppEntry.js"
+Error: Unable to resolve module ../../App from /Users/expo/workingdir/build/node_modules/.pnpm/expo@54.0.33_@babel+core@7.29.0_@expo+metro-runtime@6.1.2_expo-router@6.0.23_react-native-web_a2cbbih4g5xnlt5cgsiekwlycy/node_modules/expo/AppEntry.js: 
+None of these files exist:
+  * node_modules/.pnpm/expo@54.0.33_@babel+core@7.29.0_@expo+metro-runtime@6.1.2_expo-router@6.0.23_react-native-web_a2cbbih4g5xnlt5cgsiekwlycy/App(.ios.ts|.native.ts|.ts|.ios.tsx|.native.tsx|.tsx|.ios.mjs|.native.mjs|.mjs|.ios.js|.native.js|.js|.ios.jsx|.native.jsx|.jsx|.ios.json|.native.json|.json|.ios.cjs|.native.cjs|.cjs|.ios.scss|.native.scss|.scss|.ios.sass|.native.sass|.sass|.ios.css|.native.css|.css)
+  * node_modules/.pnpm/expo@54.0.33_@babel+core@7.29.0_@expo+metro-runtime@6.1.2_expo-router@6.0.23_react-native-web_a2cbbih4g5xnlt5cgsiekwlycy/App
+  1 | import registerRootComponent from 'expo/src/launch/registerRootComponent';
+  2 |
+> 3 | import App from '../../App';
+    |                  ^
+  4 |
+  5 | registerRootComponent(App);
+  6 |
+Import stack:
+ node_modules/.pnpm/expo@54.0.33_@babel+core@7.29.0_@expo+metro-runtime@6.1.2_expo-router@6.0.23_react-native-web_a2cbbih4g5xnlt5cgsiekwlycy/node_modules/expo/AppEntry.js
+ | import "../../App"
+ 
+ | import "/Users/expo/workingdir/build/node_modules/.pnpm/expo@54.0.33_@babel+core@7.29.0_@expo+metro-runtime@6.1.2_expo-router@6.0.23_react-native-web_a2cbbih4g5xnlt5cgsiekwlycy/node_modules/expo/AppEntry.js"
+pnpm expo export:embed --eager --platform ios --dev false exited with non-zero code: 1
+
+Clean up credentials
+
+719ms
+
+
+Fail job
+
+0ms
+
+
+Build failed
+
+pnpm expo export:embed --eager --platform ios --dev false exited with non-zero code: 1
+

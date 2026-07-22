@@ -129,7 +129,7 @@ export default function MessagesScreen() {
             </Pressable>
           ))
         )}
-        <View style={{ height: isWeb ? 34 : 100 }} />
+        <View style={{ height: isWeb ? 34 : 80 + insets.bottom }} />
       </ScrollView>
     </View>
   );

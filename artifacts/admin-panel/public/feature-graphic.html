@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { width: 1024px; height: 500px; overflow: hidden; font-family: 'Arial', sans-serif; }
+
+  .bg {
+    width: 1024px;
+    height: 500px;
+    background: linear-gradient(135deg, #FF7A18 0%, #FF9F43 50%, #FFB347 100%);
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 70px;
+    overflow: hidden;
+  }
+
+  /* Decorative circles */
+  .circle1 {
+    position: absolute;
+    width: 420px; height: 420px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.07);
+    top: -100px; right: -80px;
+  }
+  .circle2 {
+    position: absolute;
+    width: 280px; height: 280px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.07);
+    bottom: -80px; left: 300px;
+  }
+  .circle3 {
+    position: absolute;
+    width: 150px; height: 150px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.06);
+    top: 30px; left: 60px;
+  }
+
+  /* Left content */
+  .left {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    max-width: 520px;
+  }
+
+  .logo-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .logo-icon {
+    width: 64px; height: 64px;
+    background: #fff;
+    border-radius: 16px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 32px;
+    box-shadow: 0 6px 24px rgba(0,0,0,0.18);
+  }
+
+  .app-name {
+    font-size: 52px;
+    font-weight: 900;
+    color: #fff;
+    letter-spacing: -1px;
+    text-shadow: 0 3px 10px rgba(0,0,0,0.15);
+  }
+
+  .tagline {
+    font-size: 22px;
+    color: rgba(255,255,255,0.95);
+    font-weight: 600;
+    line-height: 1.4;
+    text-shadow: 0 2px 6px rgba(0,0,0,0.12);
+  }
+
+  .badges {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 6px;
+  }
+
+  .badge {
+    background: rgba(255,255,255,0.2);
+    border: 1.5px solid rgba(255,255,255,0.5);
+    border-radius: 30px;
+    padding: 7px 18px;
+    font-size: 13px;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: 0.3px;
+    backdrop-filter: blur(4px);
+  }
+
+  /* Right content — mock phone UI cards */
+  .right {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    align-items: flex-end;
+  }
+
+  .card {
+    background: rgba(255,255,255,0.18);
+    border: 1.5px solid rgba(255,255,255,0.4);
+    border-radius: 18px;
+    padding: 16px 22px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    backdrop-filter: blur(8px);
+    min-width: 260px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+  }
+
+  .card-icon {
+    font-size: 28px;
+    width: 46px; height: 46px;
+    background: rgba(255,255,255,0.25);
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .card-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .card-title {
+    font-size: 14px;
+    font-weight: 800;
+    color: #fff;
+  }
+
+  .card-sub {
+    font-size: 12px;
+    color: rgba(255,255,255,0.8);
+    font-weight: 500;
+  }
+
+  .card-price {
+    margin-left: auto;
+    font-size: 15px;
+    font-weight: 900;
+    color: #fff;
+  }
+
+  .bottom-bar {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    background: rgba(0,0,0,0.12);
+    padding: 10px 70px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    z-index: 3;
+  }
+
+  .bottom-text {
+    font-size: 12px;
+    color: rgba(255,255,255,0.85);
+    font-weight: 600;
+    letter-spacing: 0.4px;
+  }
+
+  .stars {
+    display: flex;
+    gap: 3px;
+    align-items: center;
+  }
+  .star { color: #FFD700; font-size: 16px; }
+  .rating-text { color: rgba(255,255,255,0.9); font-size: 12px; font-weight: 700; margin-left: 6px; }
+</style>
+</head>
+<body>
+<div class="bg">
+  <div class="circle1"></div>
+  <div class="circle2"></div>
+  <div class="circle3"></div>
+
+  <div class="left">
+    <div class="logo-row">
+      <div class="logo-icon">🏗️</div>
+      <div class="app-name">RentZilla</div>
+    </div>
+    <div class="tagline">Rent Cars, Tractors &amp; Services<br>Across Punjab, India</div>
+    <div class="badges">
+      <div class="badge">🚗 Cars</div>
+      <div class="badge">🚜 Tractors</div>
+      <div class="badge">🔧 Services</div>
+      <div class="badge">⚡ Instant Booking</div>
+    </div>
+  </div>
+
+  <div class="right">
+    <div class="card">
+      <div class="card-icon">🚗</div>
+      <div class="card-text">
+        <div class="card-title">Swift Dzire 2023</div>
+        <div class="card-sub">Amritsar · Available Now</div>
+      </div>
+      <div class="card-price">₹800/day</div>
+    </div>
+    <div class="card">
+      <div class="card-icon">🚜</div>
+      <div class="card-text">
+        <div class="card-title">Mahindra Tractor</div>
+        <div class="card-sub">Ludhiana · Available Now</div>
+      </div>
+      <div class="card-price">₹2,500/day</div>
+    </div>
+    <div class="card">
+      <div class="card-icon">🔧</div>
+      <div class="card-text">
+        <div class="card-title">Expert Plumber</div>
+        <div class="card-sub">Jalandhar · 4.9 ★</div>
+      </div>
+      <div class="card-price">Get Quote</div>
+    </div>
+  </div>
+
+  <div class="bottom-bar">
+    <div class="bottom-text">Available on Android &amp; iOS</div>
+    <div class="stars">
+      <span class="star">★</span>
+      <span class="star">★</span>
+      <span class="star">★</span>
+      <span class="star">★</span>
+      <span class="star">★</span>
+      <span class="rating-text">5.0 · Trusted by Punjab</span>
+    </div>
+    <div class="bottom-text">www.rentzilla.app</div>
+  </div>
+</div>
+</body>
+</html>

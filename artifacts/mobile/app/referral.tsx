@@ -3,8 +3,9 @@ import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useEffect, useRef, useState } from "react";
+import * as Clipboard from "expo-clipboard";
 import {
-  ActivityIndicator, Alert, Animated, Clipboard, Pressable,
+  ActivityIndicator, Alert, Animated, Pressable,
   ScrollView, Share, StyleSheet, Text, TextInput, View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -67,7 +68,7 @@ export default function ReferralScreen() {
 
   function copyCode() {
     if (!status?.referralCode) return;
-    Clipboard.setString(status.referralCode);
+    Clipboard.setStringAsync(status.referralCode);
     Alert.alert("Copied!", `Code "${status.referralCode}" copied to clipboard.`);
   }
 
@@ -125,7 +126,7 @@ export default function ReferralScreen() {
         <View style={{ width: 40 }} />
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={ss.scroll}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[ss.scroll, { paddingBottom: insets.bottom + 40 }]}>
 
         {/* Hero */}
         <LinearGradient colors={[ORANGE, "#FF9F43"]} style={ss.hero}>
@@ -277,7 +278,7 @@ const ss = StyleSheet.create({
   },
   backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: "#F5F6FA", alignItems: "center", justifyContent: "center" },
   headerTitle: { fontSize: 18, fontWeight: "700", color: NAVY, fontFamily: "Inter_700Bold" },
-  scroll: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 20 },
+  scroll: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 40 },
 
   hero: { borderRadius: 20, padding: 28, alignItems: "center", marginBottom: 16 },
   heroTitle: { fontSize: 22, fontWeight: "800", color: "#fff", marginTop: 12, textAlign: "center" },

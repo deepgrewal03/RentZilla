@@ -1,8 +1,8 @@
-import { BlurView } from "expo-blur";
 import { Tabs, usePathname } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import React, { useEffect, useState } from "react";
 import { Platform, StyleSheet, View, useColorScheme } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import Colors from "@/constants/colors";
 import { useAuth } from "@/context/AuthContext";
@@ -19,6 +19,8 @@ export default function TabLayout() {
   const isDark = colorScheme === "dark";
   const isIOS = Platform.OS === "ios";
   const isWeb = Platform.OS === "web";
+  const insets = useSafeAreaInsets();
+  const bottomInset = Platform.OS === "android" ? insets.bottom : 0;
 
   const isPureProvider = user?.role === "provider";
   const isBoth = user?.role === "both";
@@ -55,21 +57,23 @@ export default function TabLayout() {
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: C.tint,
-        tabBarInactiveTintColor: C.tabIconDefault,
+        tabBarInactiveTintColor: isDark ? "#888888" : "#999999",
         tabBarStyle: {
-          position: "absolute",
-          backgroundColor: isIOS ? "transparent" : isDark ? "#000" : "#fff",
-          borderTopWidth: isWeb ? 1 : 0,
-          borderTopColor: isDark ? "#333" : C.border,
-          elevation: 0,
-          ...(isWeb ? { height: 64, paddingBottom: 8 } : {}),
+          backgroundColor: isDark ? "#1a1a1a" : "#ffffff",
+          borderTopWidth: 1,
+          borderTopColor: isDark ? "#2a2a2a" : "#e8e8e8",
+          elevation: 12,
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: -3 },
+          shadowOpacity: 0.08,
+          shadowRadius: 8,
+          height: isWeb ? 64 : 60 + bottomInset,
+          paddingBottom: isIOS ? 8 : bottomInset + 6,
+          paddingTop: 6,
         },
-        tabBarBackground: () =>
-          isIOS ? (
-            <BlurView intensity={100} tint={isDark ? "dark" : "light"} style={StyleSheet.absoluteFill} />
-          ) : (
-            <View style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? "#000" : "#fff" }]} />
-          ),
+        tabBarBackground: () => (
+          <View style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? "#1a1a1a" : "#ffffff" }]} />
+        ),
         tabBarLabelStyle: {
           fontFamily: "Inter_500Medium",
           fontSize: 11,
@@ -122,6 +126,16 @@ export default function TabLayout() {
           title: "Cars",
           href: carsHref,
           tabBarIcon: ({ color }) => <Feather name="truck" size={22} color={color} />,
+        }}
+      />
+
+      {/* ── Wallet: providers only ── */}
+      <Tabs.Screen
+        name="wallet"
+        options={{
+          title: "Wallet",
+          href: inProviderMode ? undefined : null,
+          tabBarIcon: ({ color }) => <Feather name="credit-card" size={22} color={color} />,
         }}
       />
 

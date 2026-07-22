@@ -1,0 +1,239 @@
+AUTO-REPAIR ALL CRITICAL BOOKING WORKFLOW BUGS AND DATABASE INCONSISTENCIES IN THE EXISTING RENTZILLA CODEBASE.
+
+ROLE:
+Act as:
+- Senior React Native Production Engineer
+- Senior Supabase Database Reliability Engineer
+- Booking Lifecycle Architect
+- Payment + Escrow Safety Engineer
+- Race Condition Debugger
+- Migration Patch Specialist
+
+STRICT RULE:
+Apply ONLY production-safe code patches and SQL migrations.
+Do NOT rewrite working modules.
+Do NOT create mock code.
+Patch the actual existing codebase and connected Supabase schema only.
+
+====================================================
+1) CRITICAL BOOKING STATE REPAIR
+====================================================
+Inspect and repair all invalid booking lifecycle transitions.
+
+Allowed lifecycle:
+draft
+pending
+accepted
+scheduled
+started
+in_progress
+completed
+cancel_requested
+cancelled
+refund_pending
+refunded
+disputed
+closed
+
+Fix:
+- invalid direct pending → completed jumps
+- accepted → refunded without cancellation
+- completed → pending rollback
+- provider payout before completed
+- review before completed
+- dispute after closed without reopen flow
+
+Implement:
+- centralized booking state machine helper
+- transition guards
+- atomic transition updates
+- transition audit log
+- rollback on failed transition
+
+Output:
+bookingStateMachine.ts
+transition validators
+DB constraint patch
+
+====================================================
+2) DOUBLE BOOKING + INVENTORY LOCK FIX
+====================================================
+Repair:
+- same asset booked for overlapping dates
+- duplicate customer taps creating 2 bookings
+- same provider accepting two overlapping jobs
+- tool quantity oversold
+- generator capacity double allocation
+- JCB operator double assignment
+
+Implement:
+- DB unique composite constraints
+- overlap date SQL checks
+- transaction-based booking insert
+- optimistic lock version column
+- provider schedule conflict validator
+- stock decrement atomic updates
+
+Supabase:
+use RPC / SQL function transaction for booking creation
+
+====================================================
+3) PAYMENT + ESCROW CONSISTENCY PATCH
+====================================================
+Repair:
+- payment success but booking row missing
+- escrow created twice
+- provider payout before escrow release
+- refund amount mismatch
+- wallet double debit
+- failed payment leaving stale pending booking
+
+Implement:
+- idempotency keys
+- payment_event_logs table
+- atomic booking + escrow creation
+- wallet ledger table patch
+- refund reconciliation worker
+- payout eligibility middleware
+
+Rules:
+escrow releases only when:
+booking.status = completed
+AND dispute_status = null
+AND fraud_hold = false
+
+====================================================
+4) DATABASE INTEGRITY PATCH
+====================================================
+Auto-fix all critical DB inconsistencies:
+- missing foreign keys
+- orphan booking rows
+- null provider_id
+- null asset_id
+- stale wallet balances
+- payout rows without earnings
+- duplicate review rows
+- missing created_at/updated_at
+- invalid status enum values
+
+Generate:
+- SQL migrations
+- indexes
+- foreign keys
+- unique constraints
+- check constraints
+- repair orphan cleanup script
+- status enum migration
+
+====================================================
+5) RACE CONDITION PATCHES
+====================================================
+Repair race conditions in:
+- booking creation
+- provider accept
+- provider reject
+- customer cancel
+- escrow release
+- payout request
+- wallet topup
+- coupon redemption
+- stock decrement
+
+Implement:
+- server-side mutex pattern
+- row version checks
+- RPC transactional guards
+- compare-and-swap updates
+- retry-safe idempotent writes
+
+====================================================
+6) CATEGORY PRICING REPAIR
+====================================================
+Fix incorrect pricing writes for all categories.
+
+Earthmovers:
+- hourly x overtime
+- diesel surcharge
+- operator fee
+- transport radius
+
+Cars/Bikes:
+- security deposit
+- extra km
+- late return
+- fuel difference
+
+Tools:
+- quantity x days
+- deposit
+- damage hold
+
+Generators:
+- kva surcharge
+- diesel usage
+- transport + setup
+
+Patch:
+single pricing engine helper
+server-side recalculation before final booking save
+prevent client-side manipulated totals
+
+====================================================
+7) ROLE + PERMISSION FIXES
+====================================================
+Repair:
+- provider editing active booking totals
+- customer viewing other bookings
+- admin override without audit
+- provider payout access before KYC
+- unverified provider listing premium equipment
+
+Patch:
+- Supabase RLS
+- role middleware
+- admin audit logs
+- route guards
+- protected provider actions
+
+====================================================
+8) FAILURE RECOVERY PATCH
+====================================================
+Repair crash recovery for:
+- app close during payment
+- session expiry mid checkout
+- notification send fail
+- provider offline during accept
+- upload fail during verification
+- API timeout during booking
+
+Implement:
+- resumable checkout session
+- stale pending cleanup cron
+- failed payment compensating action
+- retry queue
+- dead-letter notification queue
+- recovery modal on app reopen
+
+====================================================
+9) OUTPUT REQUIRED
+====================================================
+Return ONLY:
+A) exact changed files
+B) exact code patches
+C) SQL migrations
+D) RPC functions
+E) RLS policy patches
+F) rollback scripts
+G) release notes for patched bugs
+
+IMPORTANT:
+Prioritize:
+P0 = payment / escrow / booking integrity
+P1 = overlap / double booking
+P2 = wallet / payout
+P3 = UI recovery states
+
+Auto-apply fixes directly into the existing codebase.
+No generic explanations.
+No mock examples.
+Production patches only.

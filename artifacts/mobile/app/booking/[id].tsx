@@ -41,6 +41,8 @@ export default function BookingDetailScreen() {
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  // Per-service pricing breakdown (fetched from pricing API when serviceTypes > 1)
+  const [svcPrices, setSvcPrices] = useState<Record<string, number>>({});
 
   // ── Provider: open/complete job ────────────────────────────────────────────
   const [providerServiceFee, setProviderServiceFee] = useState("");
@@ -59,6 +61,34 @@ export default function BookingDetailScreen() {
     try {
       const data = await get<Booking>(`/bookings/${id}`);
       setBooking(data);
+      // Fetch per-service pricing if multiple service types are present
+      const bAnyData = data as any;
+      const svcTypes: string[] = bAnyData.serviceTypes ?? [];
+      if (svcTypes.length > 1 && bAnyData.listingCategory && bAnyData.listingSubcategory) {
+        const numDays = bAnyData.totalDays ?? 1;
+        const isHourly = bAnyData.listingCategory === "cars";
+        const numHours = bAnyData.timeSlots?.length ?? 1;
+        try {
+          const entries = await Promise.all(
+            svcTypes.map(async (svc) => {
+              const params = new URLSearchParams({
+                category: bAnyData.listingCategory,
+                subcategory: bAnyData.listingSubcategory,
+                hours: isHourly ? String(numHours) : "0",
+                days: isHourly ? "0" : String(numDays),
+                distance_km: "0",
+                service_type: svc,
+              });
+              try {
+                const r = await get<{ found: boolean; customer_price: number }>(`/pricing/calculate?${params.toString()}`);
+                return [svc, r.found ? r.customer_price : 0] as [string, number];
+              } catch { return [svc, 0] as [string, number]; }
+            })
+          );
+          const priceMap = Object.fromEntries(entries.filter(([, v]) => v > 0));
+          setSvcPrices(priceMap);
+        } catch { /* non-critical */ }
+      }
       // Check if the current user already reviewed this booking
       if (data.status === "completed") {
         try {
@@ -68,8 +98,9 @@ export default function BookingDetailScreen() {
           setHasReview(false);
         }
       }
-    } catch {
-      // ignore
+    } catch (err) {
+      console.error("loadBooking error", err);
+      Alert.alert("Error", "Could not load booking details. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -118,6 +149,53 @@ export default function BookingDetailScreen() {
     }
   }
 
+
+  // ── Provider: accept a pending booking ───────────────────────────────────
+  async function acceptBooking() {
+    if (!booking) return;
+    Alert.alert("Accept Booking", "Accept this booking request?", [
+      { text: "No", style: "cancel" },
+      {
+        text: "Accept",
+        onPress: async () => {
+          try {
+            await post(`/bookings/${booking.id}/accept`, {});
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            Alert.alert("Booking Accepted", "The customer has been notified.");
+            loadBooking();
+          } catch (e: any) {
+            Alert.alert("Error", e?.message || "Could not accept booking.");
+          }
+        },
+      },
+    ]);
+  }
+
+  // ── Provider: reject a pending booking ───────────────────────────────────
+  async function rejectBooking() {
+    if (!booking) return;
+    Alert.alert(
+      "Reject Booking",
+      "This will notify the customer that you are unavailable. Continue?",
+      [
+        { text: "Go Back", style: "cancel" },
+        {
+          text: "Reject",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await post(`/bookings/${booking.id}/reject`, { reason: "Provider unavailable" });
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+              Alert.alert("Booking Rejected", "The customer has been notified.");
+              loadBooking();
+            } catch (e: any) {
+              Alert.alert("Error", e?.message || "Could not reject booking.");
+            }
+          },
+        },
+      ],
+    );
+  }
 
   async function completeJob() {
     if (!booking) return;
@@ -201,6 +279,16 @@ export default function BookingDetailScreen() {
 
         {/* Details */}
         <View style={styles.detailCard}>
+          {/* Category / subcategory chip */}
+          {(bAny.listingSubcategory || bAny.listingCategory) && (
+            <View style={detailStyles.categoryChip}>
+              <Text style={detailStyles.categoryChipText}>
+                {bAny.listingSubcategory || bAny.listingCategory}
+              </Text>
+            </View>
+          )}
+
+          {/* Date */}
           {booking.bookingDate ? (
             <InfoRow
               icon="calendar-outline"
@@ -213,35 +301,126 @@ export default function BookingDetailScreen() {
               <InfoRow icon="calendar" label="End Date" value={new Date(booking.endDate).toLocaleDateString("en-IN", { dateStyle: "long" })} />
             </>
           )}
-          {booking.timeSlot ? (
-            <>
-              <InfoRow icon="time-outline" label="Time Slot" value={booking.timeSlot} />
-              <InfoRow icon="hourglass-outline" label="Duration" value="1 hour" />
-            </>
-          ) : (
-            <InfoRow icon="time-outline" label="Duration" value={`${booking.totalDays} day${booking.totalDays > 1 ? "s" : ""}`} />
+
+          {/* Duration: multi-slot time display */}
+          {(() => {
+            const slots: string[] = bAny.timeSlots && Array.isArray(bAny.timeSlots) && bAny.timeSlots.length > 0
+              ? bAny.timeSlots
+              : bAny.timeSlot ? [bAny.timeSlot] : [];
+            if (slots.length > 0) {
+              const hrs = slots.length;
+              return (
+                <>
+                  <InfoRow
+                    icon="time-outline"
+                    label={`Time Slot${slots.length > 1 ? "s" : ""}`}
+                    value={slots.length === 1
+                      ? slots[0]
+                      : `${slots[0]} … +${slots.length - 1} more`}
+                    sub={slots.length > 1 ? slots.join(" · ") : undefined}
+                  />
+                  <InfoRow
+                    icon="hourglass-outline"
+                    label="Duration"
+                    value={`${hrs} hour${hrs > 1 ? "s" : ""}`}
+                  />
+                </>
+              );
+            } else {
+              const days = booking.totalDays || 1;
+              return (
+                <InfoRow
+                  icon="hourglass-outline"
+                  label="Duration"
+                  value={`${days} day${days > 1 ? "s" : ""}`}
+                />
+              );
+            }
+          })()}
+
+          {/* Location */}
+          {bAny.location && (
+            <InfoRow icon="location-outline" label="Service Location" value={bAny.location} />
           )}
-          <InfoRow icon="cash-outline" label="Base Amount" value={`₹${Number(booking.totalAmount).toLocaleString("en-IN")}`} />
+
+          {/* Per-service price breakdown (when multiple service types) */}
+          {Object.keys(svcPrices).length > 0 && (bAny.serviceTypes as string[]).map((svc: string) => {
+            const price = svcPrices[svc];
+            if (!price) return null;
+            const days = bAny.totalDays ?? 1;
+            return (
+              <InfoRow
+                key={svc}
+                icon="construct-outline"
+                label={svc}
+                value={`₹${price.toLocaleString("en-IN")}`}
+                sub={`${days} day${days > 1 ? "s" : ""}`}
+              />
+            );
+          })}
+
+          {/* Price breakdown */}
+          <InfoRow icon="cash-outline" label="Subtotal" value={`₹${Number(booking.totalAmount).toLocaleString("en-IN")}`} />
           {bAny.serviceFee > 0 && (
             <InfoRow icon="shield-checkmark-outline" label="Service Fee" value={`₹${Number(bAny.serviceFee).toLocaleString("en-IN")}`} />
           )}
           {Array.isArray(bAny.extraCharges) && bAny.extraCharges.map((c: any, i: number) => (
             <InfoRow key={i} icon="add-circle-outline" label={c.label || "Extra Charge"} value={`₹${Number(c.amount).toLocaleString("en-IN")}`} sub={c.description || undefined} />
           ))}
-          {bAny.discountAmount > 0 && (
-            <InfoRow icon="pricetag-outline" label={`Promo${bAny.promoCode ? ` (${bAny.promoCode})` : ""}`} value={`-₹${Number(bAny.discountAmount).toLocaleString("en-IN")}`} />
+          {/* Promo discount */}
+          {bAny.promoDiscountAmount > 0 && (
+            <InfoRow
+              icon="pricetag-outline"
+              label={bAny.promoCode ? `Promo (${bAny.promoCode})` : "Promo Discount"}
+              value={`-₹${Number(bAny.promoDiscountAmount).toLocaleString("en-IN")}`}
+            />
           )}
-          <InfoRow icon="wallet-outline" label="Total Payable" value={`₹${Number(bAny.finalAmount || booking.totalAmount).toLocaleString("en-IN")}`} highlight />
-          <InfoRow icon="card-outline" label="Payment" value={booking.paymentStatus.charAt(0).toUpperCase() + booking.paymentStatus.slice(1)} />
+          {/* Gold membership discount */}
+          {bAny.goldDiscountAmount > 0 && (
+            <InfoRow
+              icon="star-outline"
+              label="Gold Membership (-4%)"
+              value={`-₹${Number(bAny.goldDiscountAmount).toLocaleString("en-IN")}`}
+            />
+          )}
+          {/* If only total discount shown (legacy bookings) */}
+          {bAny.discountAmount > 0 && !bAny.promoDiscountAmount && !bAny.goldDiscountAmount && (
+            <InfoRow
+              icon="pricetag-outline"
+              label={bAny.promoCode ? `Discount (${bAny.promoCode})` : "Discount"}
+              value={`-₹${Number(bAny.discountAmount).toLocaleString("en-IN")}`}
+            />
+          )}
+          <InfoRow
+            icon="wallet-outline"
+            label="Total Payable"
+            value={`₹${Number(bAny.finalAmount || booking.totalAmount).toLocaleString("en-IN")}`}
+            highlight
+          />
+          <InfoRow
+            icon="card-outline"
+            label="Payment"
+            value={booking.paymentStatus.charAt(0).toUpperCase() + booking.paymentStatus.slice(1)}
+          />
           {isProvider && booking.status === "completed" && Number(bAny.providerEarning) > 0 && (
-            <InfoRow icon="cash-outline" label="Your Earning (credited to wallet)" value={`₹${Number(bAny.providerEarning).toLocaleString("en-IN")}`} highlight />
+            <InfoRow
+              icon="cash-outline"
+              label="Your Earning (wallet)"
+              value={`₹${Number(bAny.providerEarning).toLocaleString("en-IN")}`}
+              highlight
+            />
           )}
           {isCustomer ? (
-            <InfoRow icon="person-outline" label="Provider" value={`${booking.customerName || "Provider"}`} />
+            <InfoRow icon="person-outline" label="Provider" value={booking.providerName || "Provider"} />
           ) : (
             <InfoRow icon="person-outline" label="Customer" value={`${booking.customerName || "Customer"} · ${booking.customerPhone}`} />
           )}
-          {booking.serviceType && <InfoRow icon="options-outline" label="Service Type" value={booking.serviceType} />}
+          {(bAny.serviceTypes?.length > 1 ? bAny.serviceTypes : null) && (
+            <InfoRow icon="options-outline" label="Service Types" value={(bAny.serviceTypes as string[]).join(", ")} />
+          )}
+          {booking.serviceType && !(bAny.serviceTypes?.length > 1) && (
+            <InfoRow icon="options-outline" label="Service Type" value={booking.serviceType} />
+          )}
           {booking.notes && <InfoRow icon="document-text-outline" label="Notes" value={booking.notes} />}
         </View>
 
@@ -288,8 +467,29 @@ export default function BookingDetailScreen() {
             )
           )}
 
+          {/* ── Provider: accept/reject for pending bookings ── */}
+          {isProvider && booking.status === "pending" && (
+            <View style={styles.acceptRejectPanel}>
+              <View style={styles.acceptRejectHeader}>
+                <Ionicons name="notifications-outline" size={18} color="#D97706" />
+                <Text style={styles.acceptRejectTitle}>New Booking Request</Text>
+              </View>
+              <Text style={styles.acceptRejectSub}>Accept or reject this booking request from the customer.</Text>
+              <View style={styles.acceptRejectRow}>
+                <Pressable onPress={rejectBooking} style={styles.rejectBtn}>
+                  <Ionicons name="close-circle-outline" size={18} color="#DC2626" />
+                  <Text style={styles.rejectBtnText}>Reject</Text>
+                </Pressable>
+                <Pressable onPress={acceptBooking} style={styles.acceptBtn}>
+                  <Ionicons name="checkmark-circle-outline" size={18} color="#fff" />
+                  <Text style={styles.acceptBtnText}>Accept</Text>
+                </Pressable>
+              </View>
+            </View>
+          )}
+
           {/* ── Provider: charges panel shown for confirmed & in-progress ── */}
-          {isProvider && (booking.status === "confirmed" || booking.status === "in_progress") && (
+          {isProvider && (booking.status === "confirmed" || booking.status === "in_progress" || booking.status === "accepted") && (
             <View style={styles.completePanel}>
               <View style={styles.completePanelHeader}>
                 <Ionicons name="receipt-outline" size={18} color={C.tint} />
@@ -379,6 +579,46 @@ export default function BookingDetailScreen() {
               <Text style={styles.cancelBtnText}>Cancel Booking</Text>
             </Pressable>
           )}
+
+          {/* Open / View Dispute (customer only, confirmed or completed) */}
+          {user?.role !== "provider" && (booking.status === "confirmed" || booking.status === "completed") && (
+            <Pressable
+              onPress={() => router.push(`/dispute/${booking.id}` as any)}
+              style={[styles.cancelBtn, {
+                backgroundColor: booking.dispute_status === "resolved" ? "#D1FAE5"
+                  : booking.dispute_status === "open" || booking.dispute_status === "under_review" ? "#FEF3C7"
+                  : "#FFF7F0",
+                borderColor: booking.dispute_status === "resolved" ? "#6EE7B7"
+                  : booking.dispute_status === "open" || booking.dispute_status === "under_review" ? "#FDE68A"
+                  : "#FDBA74",
+                marginTop: 10,
+              }]}
+            >
+              <Ionicons
+                name={
+                  booking.dispute_status === "resolved" ? "checkmark-circle-outline"
+                  : booking.dispute_status === "open" || booking.dispute_status === "under_review" ? "time-outline"
+                  : "alert-circle-outline"
+                }
+                size={16}
+                color={
+                  booking.dispute_status === "resolved" ? "#059669"
+                  : booking.dispute_status === "open" || booking.dispute_status === "under_review" ? "#D97706"
+                  : "#C2410C"
+                }
+              />
+              <Text style={[styles.cancelBtnText, {
+                color: booking.dispute_status === "resolved" ? "#059669"
+                  : booking.dispute_status === "open" || booking.dispute_status === "under_review" ? "#D97706"
+                  : "#C2410C",
+              }]}>
+                {booking.dispute_status === "resolved" ? "Dispute Resolved"
+                  : booking.dispute_status === "open" ? "Dispute Open — View Thread"
+                  : booking.dispute_status === "under_review" ? "Dispute Under Review"
+                  : "Open a Dispute"}
+              </Text>
+            </Pressable>
+          )}
         </View>
 
         <View style={{ height: isWeb ? 34 : 60 }} />
@@ -416,6 +656,24 @@ const infoStyles = StyleSheet.create({
   label: { fontSize: 14, color: Colors.light.textSecondary, fontFamily: "Inter_400Regular" },
   sub: { fontSize: 11, color: Colors.light.textTertiary, fontFamily: "Inter_400Regular", marginTop: 2 },
   value: { fontSize: 14, fontWeight: "600", fontFamily: "Inter_600SemiBold", color: Colors.light.text },
+});
+
+const detailStyles = StyleSheet.create({
+  categoryChip: {
+    alignSelf: "flex-start",
+    backgroundColor: "#FFF3E9",
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    marginBottom: 10,
+  },
+  categoryChipText: {
+    fontSize: 12,
+    color: "#FF7A18",
+    fontFamily: "Inter_600SemiBold",
+    fontWeight: "600",
+    textTransform: "capitalize",
+  },
 });
 
 const styles = StyleSheet.create({
@@ -596,4 +854,25 @@ const styles = StyleSheet.create({
   completeConfirmBtnText: { fontSize: 14, fontFamily: "Inter_700Bold", color: "#fff" },
 
   errorText: { fontSize: 16, color: C.textSecondary, fontFamily: "Inter_400Regular" },
+
+  acceptRejectPanel: {
+    marginHorizontal: 20, marginTop: 4, marginBottom: 4,
+    backgroundColor: "#FFFBEB", borderRadius: 16, padding: 18,
+    borderWidth: 1.5, borderColor: "#FDE68A",
+  },
+  acceptRejectHeader: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 6 },
+  acceptRejectTitle: { fontSize: 16, fontFamily: "Inter_700Bold", color: "#92400E" },
+  acceptRejectSub: { fontSize: 13, fontFamily: "Inter_400Regular", color: "#78350F", marginBottom: 16 },
+  acceptRejectRow: { flexDirection: "row", gap: 12 },
+  rejectBtn: {
+    flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6,
+    borderWidth: 1.5, borderColor: "#DC2626", borderRadius: 12, paddingVertical: 12,
+    backgroundColor: "#FEF2F2",
+  },
+  rejectBtnText: { color: "#DC2626", fontSize: 14, fontWeight: "700", fontFamily: "Inter_700Bold" },
+  acceptBtn: {
+    flex: 2, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6,
+    backgroundColor: "#059669", borderRadius: 12, paddingVertical: 12,
+  },
+  acceptBtnText: { color: "#fff", fontSize: 14, fontWeight: "700", fontFamily: "Inter_700Bold" },
 });

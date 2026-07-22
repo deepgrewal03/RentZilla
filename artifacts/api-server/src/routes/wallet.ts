@@ -47,6 +47,19 @@ router.get("/", authMiddleware, async (req: Request, res: Response) => {
   }
 });
 
+// ── GET /wallet/balance — lightweight alias returning just balance ─────────
+router.get("/balance", authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as AR).userId;
+    const users = toRows(await db.execute(sql.raw(`SELECT wallet_balance FROM users WHERE id = '${userId}' LIMIT 1`)));
+    if (!users.length) { res.status(404).json({ error: "User not found" }); return; }
+    res.json({ balance: Number(users[0].wallet_balance || 0), currency: "INR" });
+  } catch (err) {
+    req.log?.error({ err }, "Wallet balance error");
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 // ── POST /wallet/topup — add funds to customer wallet (mock UPI/card) ─────
 router.post("/topup", authMiddleware, async (req: Request, res: Response) => {
   try {
@@ -189,52 +202,162 @@ router.get("/provider", authMiddleware, async (req: Request, res: Response) => {
   }
 });
 
-// ── POST /wallet/provider/payout/instant — request instant payout ──────────
+// ── GET /wallet/provider/payout/info — next Monday date + default method ──
+router.get("/provider/payout/info", authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as AR).userId;
+
+    // Next Monday in IST
+    const now = new Date();
+    const dayOfWeek = now.getUTCDay(); // 0=Sun, 1=Mon
+    const daysUntilMonday = dayOfWeek === 1 ? 7 : (8 - dayOfWeek) % 7 || 7;
+    const nextMonday = new Date(now);
+    nextMonday.setUTCDate(now.getUTCDate() + daysUntilMonday);
+    nextMonday.setUTCHours(3, 30, 0, 0); // 9:00 AM IST = 3:30 UTC
+
+    const defaultMethod = toRows(await db.execute(sql.raw(`
+      SELECT id, type, label, masked_display, is_default
+      FROM user_payment_methods
+      WHERE user_id = '${userId}' AND is_default = TRUE
+      LIMIT 1
+    `)));
+
+    res.json({
+      nextMondayPayout: nextMonday.toISOString(),
+      nextMondayLabel: nextMonday.toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long", timeZone: "Asia/Kolkata" }),
+      instantFee: 5,
+      defaultMethod: defaultMethod.length ? {
+        id: defaultMethod[0].id,
+        type: defaultMethod[0].type,
+        label: defaultMethod[0].label,
+        maskedDisplay: defaultMethod[0].masked_display,
+      } : null,
+    });
+  } catch (err) {
+    req.log.error({ err }, "Payout info error");
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ── POST /wallet/provider/payout/instant — instant payout with ₹5 fee ─────
+// Accepts paymentMethodId (saved method) OR upiId (ad-hoc UPI).
+// Deducts amount + ₹5 fee from wallet, transfers amount to provider's account.
 router.post("/provider/payout/instant", authMiddleware, async (req: Request, res: Response) => {
   try {
     const userId = (req as AR).userId;
-    const { amount, upiId } = req.body;
+    const { amount, paymentMethodId, upiId } = req.body;
     const amt = parseFloat(amount);
+    const INSTANT_FEE = 5; // ₹5 flat instant transfer fee
+
     if (!amt || amt <= 0) { res.status(400).json({ error: "Invalid amount" }); return; }
-    if (!upiId?.trim()) { res.status(400).json({ error: "UPI ID is required for instant payout" }); return; }
+    if (amt < INSTANT_FEE + 1) {
+      res.status(400).json({ error: `Minimum payout is ₹${INSTANT_FEE + 1} (₹${INSTANT_FEE} fee + ₹1)` }); return;
+    }
+
+    // Resolve payment method
+    let methodType = "upi";
+    let methodLabel = "";
+    let maskedDisplay = "";
+    let methodId: string | null = null;
+    let savedUpiId: string | null = null;
+
+    if (paymentMethodId) {
+      const pm = toRows(await db.execute(sql.raw(`
+        SELECT id, type, label, masked_display FROM user_payment_methods
+        WHERE id = '${paymentMethodId}' AND user_id = '${userId}' LIMIT 1
+      `)));
+      if (!pm.length) { res.status(404).json({ error: "Payment method not found" }); return; }
+      methodType    = pm[0].type;
+      methodLabel   = pm[0].label;
+      maskedDisplay = pm[0].masked_display;
+      methodId      = pm[0].id;
+      if (methodType === "upi") savedUpiId = maskedDisplay;
+    } else if (upiId?.trim()) {
+      savedUpiId    = upiId.trim();
+      maskedDisplay = upiId.trim();
+      methodLabel   = "UPI";
+    } else {
+      // Try default method
+      const pm = toRows(await db.execute(sql.raw(`
+        SELECT id, type, label, masked_display FROM user_payment_methods
+        WHERE user_id = '${userId}' AND is_default = TRUE LIMIT 1
+      `)));
+      if (!pm.length) {
+        res.status(400).json({ error: "No payment method provided. Add a UPI / bank / card first." }); return;
+      }
+      methodType    = pm[0].type;
+      methodLabel   = pm[0].label;
+      maskedDisplay = pm[0].masked_display;
+      methodId      = pm[0].id;
+      if (methodType === "upi") savedUpiId = maskedDisplay;
+    }
+
+    const totalDeduct = amt + INSTANT_FEE;
 
     const users = toRows(await db.execute(sql.raw(`
       SELECT wallet_balance FROM users WHERE id = '${userId}' LIMIT 1
     `)));
     const balance = Number(users[0]?.wallet_balance || 0);
-    if (amt > balance) { res.status(400).json({ error: `Insufficient balance. Available: ₹${balance.toFixed(2)}` }); return; }
+    if (totalDeduct > balance) {
+      res.status(400).json({ error: `Insufficient balance. Need ₹${totalDeduct.toFixed(2)} (₹${amt} + ₹${INSTANT_FEE} fee). Available: ₹${balance.toFixed(2)}` }); return;
+    }
 
-    // Deduct from wallet
     const updated = toRows(await db.execute(sql.raw(`
-      UPDATE users SET wallet_balance = wallet_balance - ${amt}, upi_id = '${upiId.trim()}'
-      WHERE id = '${userId}' AND wallet_balance >= ${amt}
+      UPDATE users SET wallet_balance = wallet_balance - ${totalDeduct}
+      WHERE id = '${userId}' AND wallet_balance >= ${totalDeduct}
       RETURNING wallet_balance
     `)));
     if (!updated.length) { res.status(400).json({ error: "Insufficient balance or concurrent update" }); return; }
 
     const newBalance = Number(updated[0].wallet_balance);
-    const payoutId = newId();
-    const txId = newId();
+    const payoutId   = newId();
+    const txPayout   = newId();
+    const txFee      = newId();
+    const safeMasked = maskedDisplay.replace(/'/g, "''");
+    const safeLabel  = methodLabel.replace(/'/g, "''");
+    const pmId       = methodId ? `'${methodId}'` : "NULL";
+    const upiCol     = savedUpiId ? `'${savedUpiId.replace(/'/g, "''")}'` : "NULL";
 
     await db.execute(sql.raw(`
-      INSERT INTO payouts (id, provider_id, amount, method, upi_id, status, processed_at, notes)
-      VALUES ('${payoutId}', '${userId}', ${amt}, 'instant', '${upiId.trim()}', 'processing',
-        NOW(), 'Instant payout to UPI ${upiId.trim()}')
+      INSERT INTO payouts
+        (id, provider_id, amount, fee, method, payment_method_id, upi_id, masked_display, status, processed_at, notes)
+      VALUES (
+        '${payoutId}', '${userId}', ${amt}, ${INSTANT_FEE}, 'instant',
+        ${pmId}, ${upiCol}, '${safeMasked}', 'processing', NOW(),
+        'Instant payout to ${safeLabel}: ${safeMasked}'
+      )
     `));
 
+    // Main payout transaction
     await db.execute(sql.raw(`
-      INSERT INTO wallet_transactions (id, user_id, type, amount, balance_after, reference_id, reference_type, description, status)
-      VALUES ('${txId}', '${userId}', 'payout', ${amt}, ${newBalance}, '${payoutId}', 'payout',
-        'Instant payout to UPI: ${upiId.trim()}', 'completed')
+      INSERT INTO wallet_transactions
+        (id, user_id, type, amount, balance_after, reference_id, reference_type, description, status)
+      VALUES (
+        '${txPayout}', '${userId}', 'payout', ${amt}, ${newBalance + INSTANT_FEE}, '${payoutId}', 'payout',
+        'Instant payout to ${safeLabel} (${safeMasked})', 'completed'
+      )
+    `));
+
+    // Fee transaction
+    await db.execute(sql.raw(`
+      INSERT INTO wallet_transactions
+        (id, user_id, type, amount, balance_after, reference_id, reference_type, description, status)
+      VALUES (
+        '${txFee}', '${userId}', 'fee', ${INSTANT_FEE}, ${newBalance}, '${payoutId}', 'payout',
+        'Instant transfer fee', 'completed'
+      )
     `));
 
     res.json({
       payoutId,
       amount: amt,
+      fee: INSTANT_FEE,
+      totalDeducted: totalDeduct,
       newBalance,
-      upiId: upiId.trim(),
+      method: methodType,
+      maskedDisplay,
       status: "processing",
-      message: `₹${amt.toFixed(2)} payout to ${upiId.trim()} initiated. Typically arrives within 30 minutes.`,
+      message: `₹${amt.toFixed(2)} sent to ${methodLabel || methodType} (${maskedDisplay}). ₹${INSTANT_FEE} fee charged. Typically arrives in 30 minutes.`,
     });
   } catch (err) {
     req.log.error({ err }, "Instant payout error");
@@ -256,6 +379,112 @@ router.post("/provider/payout/schedule", authMiddleware, async (req: Request, re
     if (upiId?.trim()) sets.push(`upi_id = '${upiId.trim()}'`);
     await db.execute(sql.raw(`UPDATE users SET ${sets.join(", ")} WHERE id = '${userId}'`));
 
+    res.json({ preference, message: `Payout preference set to: ${preference}` });
+  } catch (err) {
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ── GET /wallet/provider/methods — alias used by mobile app ───────────────
+router.get("/provider/methods", authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as AR).userId;
+    const rows = toRows(await db.execute(sql.raw(`
+      SELECT id, type, label, masked_display, is_default, created_at
+      FROM user_payment_methods WHERE user_id = '${userId}'
+      ORDER BY is_default DESC, created_at DESC
+    `)));
+    res.json({ methods: rows.map(m => ({ id: m.id, type: m.type, label: m.label, maskedDisplay: m.masked_display, isDefault: m.is_default, createdAt: m.created_at })) });
+  } catch (err) {
+    req.log.error({ err }, "Get payment methods error");
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ── POST /wallet/provider/methods — add payment method (mobile alias) ──────
+router.post("/provider/methods", authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const { encryptPayment } = await import("../lib/crypto.js");
+    const userId = (req as AR).userId;
+    const { type, label, upiId, cardNumber, cardName, cardExpiry, bankName, accountNumber, ifsc } = req.body;
+
+    if (!type || !label) { res.status(400).json({ error: "type and label required" }); return; }
+
+    let plainDetails: Record<string, string> = {};
+    let maskedDisplay = "";
+
+    if (type === "upi") {
+      if (!upiId?.trim()) { res.status(400).json({ error: "upiId required for UPI" }); return; }
+      plainDetails = { upiId: upiId.trim() };
+      maskedDisplay = upiId.trim();
+    } else if (type === "card") {
+      if (!cardNumber || cardNumber.length < 12) { res.status(400).json({ error: "Valid card number required" }); return; }
+      const last4 = String(cardNumber).replace(/\s/g, "").slice(-4);
+      plainDetails = { cardNumber: String(cardNumber).replace(/\s/g, ""), cardName: cardName || "", cardExpiry: cardExpiry || "" };
+      maskedDisplay = `•••• •••• •••• ${last4}${cardName ? ` · ${cardName}` : ""}`;
+    } else if (type === "bank") {
+      if (!accountNumber || !ifsc) { res.status(400).json({ error: "accountNumber and ifsc required" }); return; }
+      const last4 = String(accountNumber).slice(-4);
+      plainDetails = { bankName: bankName || "", accountNumber: String(accountNumber), ifsc: ifsc.trim().toUpperCase() };
+      maskedDisplay = `${bankName || "Bank"} •••• ${last4} · ${ifsc.trim().toUpperCase()}`;
+    } else {
+      res.status(400).json({ error: "type must be upi, card, or bank" }); return;
+    }
+
+    const encryptedDetails = encryptPayment(JSON.stringify(plainDetails));
+    const id = `pm${Date.now()}${Math.random().toString(36).slice(2, 5)}`;
+    const safeLabel = String(label).replace(/'/g, "''");
+    const safeMasked = maskedDisplay.replace(/'/g, "''");
+
+    const isFirst = toRows(await db.execute(sql.raw(`SELECT COUNT(*) as c FROM user_payment_methods WHERE user_id = '${userId}'`)));
+    const makeDefault = Number(isFirst[0]?.c || 0) === 0;
+
+    await db.execute(sql.raw(`
+      INSERT INTO user_payment_methods (id, user_id, type, label, encrypted_details, masked_display, is_default)
+      VALUES ('${id}', '${userId}', '${type}', '${safeLabel}', '${encryptedDetails}', '${safeMasked}', ${makeDefault})
+    `));
+
+    res.json({ success: true, id, maskedDisplay, isDefault: makeDefault });
+  } catch (err) {
+    req.log.error({ err }, "Add payment method error");
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ── PUT /wallet/provider/methods/:id/default — set as default (mobile alias) ─
+router.put("/provider/methods/:id/default", authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as AR).userId;
+    await db.execute(sql.raw(`UPDATE user_payment_methods SET is_default = FALSE WHERE user_id = '${userId}'`));
+    await db.execute(sql.raw(`UPDATE user_payment_methods SET is_default = TRUE WHERE id = '${req.params.id}' AND user_id = '${userId}'`));
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ── DELETE /wallet/provider/methods/:id (mobile alias) ───────────────────
+router.delete("/provider/methods/:id", authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as AR).userId;
+    await db.execute(sql.raw(`DELETE FROM user_payment_methods WHERE id = '${req.params.id}' AND user_id = '${userId}'`));
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ── PUT /wallet/provider/payout-preference — save payout preference ────────
+router.put("/provider/payout-preference", authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as AR).userId;
+    const { preference, upiId } = req.body;
+    if (!["instant", "weekly", "wallet"].includes(preference)) {
+      res.status(400).json({ error: "Invalid preference. Use: instant, weekly, or wallet" }); return;
+    }
+    const sets = [`payout_preference = '${preference}'`];
+    if (upiId?.trim()) sets.push(`upi_id = '${upiId.trim()}'`);
+    await db.execute(sql.raw(`UPDATE users SET ${sets.join(", ")} WHERE id = '${userId}'`));
     res.json({ preference, message: `Payout preference set to: ${preference}` });
   } catch (err) {
     res.status(500).json({ error: "Internal server error" });
@@ -582,6 +811,61 @@ router.get("/admin/summary", authMiddleware, async (req: Request, res: Response)
     });
   } catch (err) {
     req.log.error({ err }, "Admin wallet summary error");
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ── POST /wallet/admin/trigger-weekly-payouts — admin trigger for Monday payouts ──
+router.post("/admin/trigger-weekly-payouts", authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as AR).userId;
+    const adminCheck = toRows(await db.execute(sql.raw(`SELECT is_admin FROM users WHERE id = '${userId}' LIMIT 1`)));
+    if (!adminCheck[0]?.is_admin) { res.status(403).json({ error: "Admin only" }); return; }
+
+    const { runWeeklyPayouts } = await import("../lib/payout-scheduler.js");
+    await runWeeklyPayouts();
+    res.json({ success: true, message: "Weekly payouts triggered" });
+  } catch (err) {
+    req.log.error({ err }, "Admin trigger weekly payouts error");
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ── GET /wallet/admin/payouts — list all provider payouts ──────────────────
+router.get("/admin/payouts", authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as AR).userId;
+    const adminCheck = toRows(await db.execute(sql.raw(`SELECT is_admin FROM users WHERE id = '${userId}' LIMIT 1`)));
+    if (!adminCheck[0]?.is_admin) { res.status(403).json({ error: "Admin only" }); return; }
+
+    const page   = Math.max(1, parseInt(String(req.query.page || "1")));
+    const limit  = 50;
+    const offset = (page - 1) * limit;
+    const status = String(req.query.status || "");
+    let where = "1=1";
+    if (status) where += ` AND p.status = '${status}'`;
+
+    const rows = toRows(await db.execute(sql.raw(`
+      SELECT p.*, u.name as provider_name, u.email as provider_email
+      FROM payouts p
+      JOIN users u ON u.id = p.provider_id
+      WHERE ${where}
+      ORDER BY p.created_at DESC
+      LIMIT ${limit} OFFSET ${offset}
+    `)));
+
+    res.json({
+      payouts: rows.map(p => ({
+        id: p.id, providerName: p.provider_name, providerEmail: p.provider_email,
+        amount: Number(p.amount), fee: Number(p.fee || 0), method: p.method,
+        maskedDisplay: p.masked_display, upiId: p.upi_id, status: p.status,
+        scheduledAt: p.scheduled_at, processedAt: p.processed_at,
+        notes: p.notes, createdAt: p.created_at,
+      })),
+      page,
+    });
+  } catch (err) {
+    req.log.error({ err }, "Admin payouts list error");
     res.status(500).json({ error: "Internal server error" });
   }
 });

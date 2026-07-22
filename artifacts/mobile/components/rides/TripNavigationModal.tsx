@@ -3,6 +3,7 @@ import {
   Modal, View, Text, TouchableOpacity, StyleSheet,
   ActivityIndicator, Platform, Alert, Dimensions, Linking,
 } from "react-native";
+import { API_BASE_URL } from "@/constants/apiUrl";
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Location from "expo-location";
@@ -68,8 +69,7 @@ async function getMapsKey(): Promise<string> {
   const envKey = (process.env.EXPO_PUBLIC_GMAPS_KEY as string) || "";
   if (envKey) return envKey;
   try {
-    const base = (process.env.EXPO_PUBLIC_DOMAIN as string)
-      ? `https://${process.env.EXPO_PUBLIC_DOMAIN}` : window.location.origin;
+    const base = API_BASE_URL;
     const r = await fetch(`${base}/api/maps/key`, { signal: AbortSignal.timeout(5000) });
     if (r.ok) { const d: any = await r.json(); if (d?.key) return d.key; }
   } catch {}

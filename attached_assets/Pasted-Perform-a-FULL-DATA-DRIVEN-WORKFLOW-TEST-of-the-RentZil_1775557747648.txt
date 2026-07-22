@@ -1,0 +1,277 @@
+Perform a FULL DATA-DRIVEN WORKFLOW TEST of the RentZilla mobile app, provider app, and admin app.
+
+ROLE:
+Act as:
+- Senior QA Automation Engineer
+- Workflow Integrity Tester
+- Supabase Data Validation Engineer
+- Booking Lifecycle Specialist
+- Form Validation Expert
+- Cross-category Functional Tester
+
+GOAL:
+Test every input field, every form, every submit button, and the complete booking workflow for ALL categories with real data insertion, validation, database verification, state transitions, and admin/provider/customer lifecycle.
+
+====================================================
+1) FIELD VALIDATION TESTING
+====================================================
+Scan every form field in the app and test with valid + invalid + edge-case data.
+
+Check:
+- required fields
+- optional fields
+- min/max characters
+- numeric validation
+- date validation
+- time validation
+- location validation
+- image upload fields
+- dropdown values
+- checkbox states
+- radio buttons
+- payment fields
+- OTP fields
+- referral code
+- wallet amount
+- payout bank details
+- GST/PAN/Aadhaar fields
+- RC / serial / engine numbers
+- support form
+- profile edit
+- booking special instructions
+- cancellation reason
+- dispute description
+
+Test invalid cases:
+- empty
+- null
+- undefined
+- long strings
+- SQL injection-like text
+- emoji
+- Punjabi/Hindi text
+- duplicate values
+- invalid date ranges
+- invalid amount decimals
+- negative values
+- zero values
+- unsupported image/pdf
+
+For every field verify:
+- frontend validation
+- backend validation
+- Supabase schema compatibility
+- error UI shown correctly
+- no silent failures
+
+====================================================
+2) BUTTON + FORM SUBMIT TESTING
+====================================================
+For every form submit button verify:
+- loading state
+- duplicate tap prevention
+- optimistic UI
+- rollback on failure
+- DB insert success
+- DB update success
+- proper redirect after success
+- confirmation modal
+- toast success
+- retry flow
+
+Forms to test:
+- customer signup
+- provider signup
+- provider listing creation
+- booking checkout
+- support send
+- trust verification submit
+- fraud report submit
+- payout request
+- refund request
+- cancellation submit
+- review submit
+- dispute raise
+- profile update
+- listing edit
+- wallet topup
+- bank add/update
+
+====================================================
+3) FULL BOOKING WORKFLOW TEST
+====================================================
+Run REAL end-to-end booking simulation for ALL categories.
+
+CATEGORIES:
+- earthmovers
+- JCB
+- cranes
+- tractors
+- trucks
+- cars
+- bikes
+- tools
+- generators
+- construction machinery
+- labour/services if available
+
+For each category test:
+A) browse listings
+B) apply filters
+C) open listing details
+D) select date/time
+E) add location
+F) calculate pricing
+G) add add-ons
+H) apply coupon
+I) pay advance/full
+J) booking confirm
+K) provider receives request
+L) provider accept/reject
+M) trip/job starts
+N) live tracking if applicable
+O) trip/job complete
+P) escrow release
+Q) provider payout
+R) customer review
+S) booking enters history
+
+Verify every DB state:
+pending
+accepted
+started
+in_progress
+completed
+cancelled
+refunded
+disputed
+
+Catch:
+- wrong status transitions
+- double booking
+- same asset unavailable dates issue
+- incorrect escrow release
+- payout before completion
+- duplicate provider alerts
+- review without completion
+- cancellation refund mismatch
+
+====================================================
+4) CATEGORY-SPECIFIC LOGIC TESTS
+====================================================
+Earthmovers / JCB:
+- operator required toggle
+- hourly vs daily pricing
+- diesel inclusion
+- delivery charges
+- site location radius
+- overtime pricing
+
+Cars/Bikes:
+- RC validation
+- fuel policy
+- security deposit
+- kilometer limit
+- driver required
+- license verification
+- pickup/drop location
+- trip start OTP
+
+Tools:
+- deposit
+- quantity booking
+- stock deduction
+- damage fee
+- replacement cost
+
+Generators:
+- power capacity filters
+- fuel surcharge
+- transport charges
+- electrician/operator add-on
+
+Verify pricing formulas and DB writes.
+
+====================================================
+5) DATABASE VERIFICATION
+====================================================
+After every action verify actual DB changes:
+- booking row created
+- provider earnings ledger
+- wallet balance
+- escrow table
+- notification row
+- support ticket
+- fraud scan logs
+- verification logs
+- payout queue
+- review table
+- dispute table
+
+Check:
+- wrong foreign keys
+- duplicate inserts
+- null references
+- missing timestamps
+- rollback failures
+- stale status
+- race conditions
+
+====================================================
+6) ROLE-BASED WORKFLOW TEST
+====================================================
+Verify workflow for:
+CUSTOMER:
+- can only access own bookings
+- can cancel within allowed time
+- can review only completed booking
+
+PROVIDER:
+- cannot edit accepted booking price
+- cannot payout before escrow release
+- cannot list without verification
+
+ADMIN:
+- can override disputes
+- can force refund
+- can suspend listing
+- can block fake provider
+- can manually complete booking
+
+====================================================
+7) FAILURE + RECOVERY TESTS
+====================================================
+Test failures during workflow:
+- payment success but DB fail
+- DB success but notification fail
+- provider accepts while customer cancels
+- payout request during dispute
+- network loss during booking
+- image upload halfway fail
+- app closes during checkout
+- provider app offline
+- duplicate booking taps
+- session expiry during payment
+
+Verify recovery logic.
+
+====================================================
+8) FINAL REPORT REQUIRED
+====================================================
+Return:
+A) broken fields
+B) invalid validations
+C) wrong DB writes
+D) broken category logic
+E) status workflow issues
+F) payout/refund bugs
+G) missing role restrictions
+H) race condition risks
+I) exact fixes + SQL patches + route fixes
+J) release blockers by priority
+
+IMPORTANT:
+Use actual existing codebase + Supabase schema.
+Insert and verify real test data.
+Auto-fix critical issues where possible.
+No generic suggestions.

@@ -4,9 +4,10 @@ import {
   blockedUsersTable, reportsTable, emergencyContactsTable,
   issuesTable, otpCodesTable, usersTable, userSettingsTable,
 } from "@workspace/db";
-import { eq, and, ne } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { authMiddleware } from "./users.js";
 import { randomUUID } from "crypto";
+import { send2FAEmail } from "../lib/email.js";
 
 const router: IRouter = Router();
 type AR = Request & { userId: string };
@@ -15,16 +16,33 @@ type AR = Request & { userId: string };
 
 function gen6() { return String(Math.floor(100000 + Math.random() * 900000)); }
 
-// POST /safety/2fa/send-otp — generate OTP (simulated, returns code for demo)
+// POST /safety/2fa/send-otp — generate OTP and send via email
 router.post("/2fa/send-otp", authMiddleware, async (req: Request, res: Response) => {
   try {
     const userId = (req as AR).userId;
+    const userRows = await db.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
+    const userEmail = userRows[0]?.email;
+    if (!userEmail) {
+      res.status(400).json({ error: "No email address on your account. Cannot send OTP." });
+      return;
+    }
     const code = gen6();
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
     await db.delete(otpCodesTable).where(eq(otpCodesTable.userId, userId));
     await db.insert(otpCodesTable).values({ id: randomUUID(), userId, code, expiresAt });
-    // In production, send via email/SMS. For demo we return the code.
-    res.json({ success: true, code, message: "OTP sent (demo mode — code returned in response)" });
+    let emailSent = false;
+    try {
+      await send2FAEmail(userEmail, code);
+      emailSent = true;
+    } catch (emailErr) {
+      req.log.warn({ emailErr }, "2FA email send failed — OTP saved to DB");
+    }
+    res.json({
+      success: true,
+      message: emailSent
+        ? "OTP sent to your email address"
+        : "OTP generated. Check your inbox — if email doesn't arrive, contact support.",
+    });
   } catch (err) {
     req.log.error({ err }, "Send OTP error");
     res.status(500).json({ error: "Internal server error" });

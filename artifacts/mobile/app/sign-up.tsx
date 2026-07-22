@@ -116,6 +116,7 @@ interface DatePickerProps {
 }
 
 function DatePickerModal({ value, onChange, onClose }: DatePickerProps) {
+  const { bottom: bottomInset } = useSafeAreaInsets();
   const maxDate = getMaxDate();
   const initDate = value || maxDate;
 
@@ -315,7 +316,7 @@ function DatePickerModal({ value, onChange, onClose }: DatePickerProps) {
         </Animated.View>
 
         {/* ── Footer ── */}
-        <View style={cs.footer}>
+        <View style={[cs.footer, { paddingBottom: 20 + bottomInset }]}>
           {selected ? (
             <View style={cs.selectedRow}>
               <Ionicons name="calendar" size={16} color={TINT} />
@@ -398,7 +399,7 @@ const cs = StyleSheet.create({
   yearText: { fontSize: 16, fontFamily: "Inter_400Regular", color: C.text },
   yearTextSelected: { color: "#fff", fontWeight: "700", fontFamily: "Inter_700Bold" },
   footer: {
-    padding: 20, borderTopWidth: 1, borderTopColor: "#F0F0F0", gap: 14,
+    paddingHorizontal: 20, paddingTop: 20, paddingBottom: 20, borderTopWidth: 1, borderTopColor: "#F0F0F0", gap: 14,
   },
   selectedRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6 },
   selectedText: { fontSize: 16, fontWeight: "700", fontFamily: "Inter_700Bold", color: TINT },
@@ -425,6 +426,14 @@ function getAge(dob: string): number | null {
   return age;
 }
 
+const pwRules = [
+  { label: "At least 8 characters",       test: (p: string) => p.length >= 8 },
+  { label: "One uppercase letter (A–Z)",  test: (p: string) => /[A-Z]/.test(p) },
+  { label: "One lowercase letter (a–z)",  test: (p: string) => /[a-z]/.test(p) },
+  { label: "One number (0–9)",            test: (p: string) => /[0-9]/.test(p) },
+  { label: "One special character (!@#…)", test: (p: string) => /[^A-Za-z0-9]/.test(p) },
+];
+
 export default function SignUpScreen() {
   const { register } = useAuth();
   const { t, language, toggleLanguage } = useLang();
@@ -444,6 +453,7 @@ export default function SignUpScreen() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [role, setRole] = useState<UserRole>("customer");
   const [agreedToTerms, setAgreedToTerms] = useState(false);
+  const [showTermsModal, setShowTermsModal] = useState(false);
   const [selectedDistrict, setSelectedDistrict] = useState("");
   const [selectedCity, setSelectedCity]         = useState("");
   const [showDistrictPicker, setShowDistrictPicker] = useState(false);
@@ -486,8 +496,8 @@ export default function SignUpScreen() {
     }
     if (!password) {
       e.password = err("Password is required", "ਪਾਸਵਰਡ ਲਾਜ਼ਮੀ ਹੈ");
-    } else if (password.length < 6) {
-      e.password = err("Password must be at least 6 characters", "ਪਾਸਵਰਡ ਘੱਟੋ ਘੱਟ 6 ਅੱਖਰਾਂ ਦਾ ਹੋਣਾ ਚਾਹੀਦਾ ਹੈ");
+    } else if (!pwRules.every((r) => r.test(password))) {
+      e.password = err("Password does not meet all requirements", "ਪਾਸਵਰਡ ਸਾਰੀਆਂ ਲੋੜਾਂ ਪੂਰੀਆਂ ਨਹੀਂ ਕਰਦਾ");
     }
     if (!confirmPassword) {
       e.confirmPassword = err("Please confirm your password", "ਕਿਰਪਾ ਕਰਕੇ ਪਾਸਵਰਡ ਦੀ ਪੁਸ਼ਟੀ ਕਰੋ");
@@ -859,7 +869,7 @@ export default function SignUpScreen() {
                   style={styles.iconInputText}
                   value={password}
                   onChangeText={setPassword}
-                  placeholder={t.minPassword}
+                  placeholder="Create a strong password"
                   placeholderTextColor={C.textTertiary}
                   secureTextEntry={!showPassword}
                 />
@@ -867,6 +877,44 @@ export default function SignUpScreen() {
                   <Ionicons name={showPassword ? "eye-off-outline" : "eye-outline"} size={17} color={C.textTertiary} />
                 </Pressable>
               </View>
+
+              {/* Live password rules */}
+              {password.length > 0 && (
+                <View style={{ backgroundColor: "#F9FAFB", borderRadius: 10, padding: 12, gap: 6, borderWidth: 1, borderColor: "#E5E7EB" }}>
+                  {(() => {
+                    const passed = pwRules.filter((r) => r.test(password)).length;
+                    const pct = passed / pwRules.length;
+                    const strengthColor = pct <= 0.4 ? "#EF4444" : pct <= 0.6 ? "#F59E0B" : pct <= 0.8 ? "#3B82F6" : "#22C55E";
+                    const strengthLabel = pct <= 0.4 ? "Weak" : pct <= 0.6 ? "Fair" : pct <= 0.8 ? "Good" : "Strong";
+                    return (
+                      <>
+                        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+                          <View style={{ flex: 1, height: 4, backgroundColor: "#E5E7EB", borderRadius: 2, marginRight: 10 }}>
+                            <View style={{ width: `${pct * 100}%`, height: 4, backgroundColor: strengthColor, borderRadius: 2 }} />
+                          </View>
+                          <Text style={{ fontSize: 11, fontWeight: "700", color: strengthColor }}>{strengthLabel}</Text>
+                        </View>
+                        {pwRules.map((rule) => {
+                          const ok = rule.test(password);
+                          return (
+                            <View key={rule.label} style={{ flexDirection: "row", alignItems: "center", gap: 7 }}>
+                              <Ionicons
+                                name={ok ? "checkmark-circle" : "ellipse-outline"}
+                                size={15}
+                                color={ok ? "#22C55E" : "#9CA3AF"}
+                              />
+                              <Text style={{ fontSize: 12, color: ok ? "#16A34A" : "#6B7280", fontFamily: "Inter_400Regular" }}>
+                                {rule.label}
+                              </Text>
+                            </View>
+                          );
+                        })}
+                      </>
+                    );
+                  })()}
+                </View>
+              )}
+
               {errors.password ? <Text style={styles.fieldError}>{errors.password}</Text> : null}
             </View>
 
@@ -915,12 +963,22 @@ export default function SignUpScreen() {
             </View>
 
             {/* Terms */}
-            <Pressable onPress={() => setAgreedToTerms(!agreedToTerms)} style={styles.termsRow}>
-              <View style={[styles.checkbox, agreedToTerms && styles.checkboxChecked]}>
-                {agreedToTerms && <Ionicons name="checkmark" size={13} color="#fff" />}
-              </View>
-              <Text style={styles.termsText}>{t.termsText}</Text>
-            </Pressable>
+            <View style={styles.termsRow}>
+              <Pressable onPress={() => setAgreedToTerms(!agreedToTerms)}>
+                <View style={[styles.checkbox, agreedToTerms && styles.checkboxChecked]}>
+                  {agreedToTerms && <Ionicons name="checkmark" size={13} color="#fff" />}
+                </View>
+              </Pressable>
+              <Text style={styles.termsText}>
+                {"I agree to the "}
+                <Text
+                  style={{ color: "#FF7A18", fontWeight: "600", textDecorationLine: "underline" }}
+                  onPress={() => setShowTermsModal(true)}
+                >
+                  {"Terms and Conditions"}
+                </Text>
+              </Text>
+            </View>
             {errors.terms ? <Text style={styles.fieldError}>{errors.terms}</Text> : null}
 
             {/* Submit */}
@@ -948,6 +1006,62 @@ export default function SignUpScreen() {
           <View style={{ height: 40 }} />
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* Terms & Conditions Modal */}
+      {showTermsModal && (
+        <Modal visible animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setShowTermsModal(false)}>
+          <View style={{ flex: 1, backgroundColor: "#fff" }}>
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingTop: 20, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: "#F3F4F6" }}>
+              <View style={{ width: 36 }} />
+              <Text style={{ fontSize: 16, fontWeight: "700", fontFamily: "Inter_700Bold", color: "#111827" }}>Terms & Conditions</Text>
+              <Pressable onPress={() => setShowTermsModal(false)} hitSlop={12} style={{ width: 36, height: 36, alignItems: "center", justifyContent: "center", backgroundColor: "#F3F4F6", borderRadius: 18 }}>
+                <Ionicons name="close" size={20} color="#374151" />
+              </Pressable>
+            </View>
+            <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 20, paddingBottom: 48 }} showsVerticalScrollIndicator={false}>
+              <Text style={{ fontSize: 18, fontWeight: "800", fontFamily: "Inter_700Bold", color: "#111827", marginBottom: 4 }}>TERMS AND CONDITIONS</Text>
+              <Text style={{ fontSize: 13, fontFamily: "Inter_600SemiBold", color: "#FF7A18", marginBottom: 20 }}>RentZilla — Detailed Version</Text>
+              {[
+                { num: "1", title: "Acceptance of Terms", body: "By accessing or using Rentzilla, you agree to be legally bound by these Terms. If you do not agree, you must not use the platform." },
+                { num: "2", title: "Nature of Platform", body: "Rentzilla is a technology intermediary facilitating connections between Customers and independent Service Providers.\n\n• Rentzilla does not employ providers\n• Rentzilla does not guarantee services\n• All contracts are between Customer and Provider" },
+                { num: "3", title: "Eligibility", body: "Users must be at least 18 years old and capable of entering legally binding agreements under Indian law." },
+                { num: "4", title: "Account Responsibility", body: "• Maintain confidentiality of login credentials\n• Provide accurate and updated information\n• Responsible for all activities under your account" },
+                { num: "5", title: "Service Disclaimer", body: "All services are provided by independent providers. Rentzilla disclaims any responsibility for quality, legality, or safety of services." },
+                { num: "6", title: "Payments & Fees", body: "• Payments processed via third-party gateways\n• Rentzilla may charge commissions and service fees\n• Refunds subject to provider terms" },
+                { num: "7", title: "Strict No Liability Clause", body: "Rentzilla shall not be held liable under any circumstances for:\n\n• Disputes between Customer and Provider\n• Injury, death, or damages\n• Loss of property or money\n• Fraud, negligence, or misconduct by users\n\nAll disputes must be resolved directly between Customer and Provider." },
+                { num: "8", title: "User Conduct (Strict)", body: "• No illegal activities\n• No harassment or abuse\n• No false or misleading listings\n• Compliance with all applicable Indian laws" },
+                { num: "9", title: "Provider Obligations", body: "• Maintain valid licenses and permits\n• Ensure safety standards\n• Provide accurate service details\n• Comply with tax and legal requirements" },
+                { num: "10", title: "Confidentiality (Strict Clause)", body: "Users must not disclose, misuse, or exploit any personal, business, or platform data. Violation may result in legal action under Indian law." },
+                { num: "11", title: "Data Protection", body: "Complies with Information Technology Act, 2000 and applicable rules. Reasonable security measures are implemented." },
+                { num: "12", title: "Limitation of Liability", body: "To the fullest extent permitted by Indian law, Rentzilla shall not be liable for indirect, incidental, or consequential damages." },
+                { num: "13", title: "Indemnification (Strict)", body: "Users agree to indemnify and hold Rentzilla harmless from all claims, damages, liabilities, and legal costs arising from misuse or violations." },
+                { num: "14", title: "Termination Rights", body: "Rentzilla reserves the right to suspend or terminate any account without prior notice for violation of these Terms." },
+                { num: "15", title: "Force Majeure", body: "Rentzilla is not liable for failure due to events beyond control including natural disasters, government restrictions, or technical failures." },
+                { num: "16", title: "Governing Law", body: "These Terms shall be governed by the laws of India. Jurisdiction shall lie exclusively in courts of Punjab, India." },
+                { num: "17", title: "Amendments", body: "Rentzilla reserves the right to modify these Terms at any time without prior notice." },
+              ].map((section) => (
+                <View key={section.num} style={{ marginBottom: 16, backgroundColor: "#F9FAFB", borderRadius: 12, padding: 14, borderLeftWidth: 3, borderLeftColor: "#FF7A18" }}>
+                  <Text style={{ fontSize: 13, fontWeight: "700", fontFamily: "Inter_700Bold", color: "#FF7A18", marginBottom: 4 }}>
+                    {section.num}. {section.title}
+                  </Text>
+                  <Text style={{ fontSize: 13, fontFamily: "Inter_400Regular", color: "#374151", lineHeight: 20 }}>
+                    {section.body}
+                  </Text>
+                </View>
+              ))}
+              <Pressable
+                onPress={() => { setAgreedToTerms(true); setShowTermsModal(false); }}
+                style={{ backgroundColor: "#FF7A18", borderRadius: 14, paddingVertical: 14, alignItems: "center", marginTop: 8 }}
+              >
+                <Text style={{ color: "#fff", fontSize: 15, fontWeight: "700", fontFamily: "Inter_700Bold" }}>I Agree & Close</Text>
+              </Pressable>
+              <Text style={{ fontSize: 11, color: "#9CA3AF", textAlign: "center", marginTop: 12 }}>
+                Last updated: April 2026 · rentzilla.in/terms
+              </Text>
+            </ScrollView>
+          </View>
+        </Modal>
+      )}
     </View>
   );
 }

@@ -12,8 +12,206 @@ uri = "file://artifacts/mobile/assets/images/splash-icon.png"
 type = "image"
 title = "generated_image"
 
+[[generated]]
+id = "k6cVF0OQ83RLnqqh8N9_v"
+uri = "file://attached_assets/generated_images/rentzilla_workflow.png"
+type = "image"
+title = "rentzilla workflow infographic"
+
 [[outputs]]
 id = "EaCukmMXpNPpTQII20DKk"
 uri = "file://artifacts/mobile/assets/images/icon.png"
 type = "image"
 title = "RentZilla App Icon (ЯZ logo)"
+
+[[outputs]]
+id = "EY8VoK7DoYwamKCeNLWfZ"
+uri = "file://artifacts/mobile/PLAY_STORE.md"
+type = "text"
+title = "RentZilla — Google Play Store Deployment Guide"
+
+[[outputs]]
+id = "8I4a3ZO8sqkZORYBGV-jg"
+uri = "file://screenshots/rentzilla_appstore_screenshots.zip"
+type = "unspecified"
+title = "RentZilla — App Store Screenshots (10 screens)"
+
+[[outputs]]
+id = "SJQx9tcST0LDnafFTnRLb"
+uri = "file://screenshots/rentzilla_appstore_screenshots_PNG.zip"
+type = "unspecified"
+title = "RentZilla — App Store Screenshots PNG (10 screens, 6 MB)"
+
+[[outputs]]
+id = "xCY_wHhZ79uIzpVXKOZ5O"
+uri = "file://screenshots/7inch/01-signin.jpeg"
+type = "image"
+title = "7\" — 01 Sign In"
+
+[[outputs]]
+id = "2YwgMHrXqp0916ODK8xbi"
+uri = "file://screenshots/7inch/02-home.jpeg"
+type = "image"
+title = "7\" — 02 Home Feed"
+
+[[outputs]]
+id = "wWZ-Qb00MVJLCsUGnoAQE"
+uri = "file://screenshots/7inch/03-categories.jpeg"
+type = "image"
+title = "7\" — 03 Categories"
+
+[[outputs]]
+id = "Fx25fG74zg9FQJLGcWVVH"
+uri = "file://screenshots/7inch/04-listing-detail.jpeg"
+type = "image"
+title = "7\" — 04 Listing Detail"
+
+[[outputs]]
+id = "wBhE5ovqWrCnbX7rkGyqb"
+uri = "file://screenshots/7inch/05-booking.jpeg"
+type = "image"
+title = "7\" — 05 Booking"
+
+[[outputs]]
+id = "g_C3svmm9QdqEkTfEv2Oh"
+uri = "file://screenshots/7inch/06-wallet.jpeg"
+type = "image"
+title = "7\" — 06 Wallet"
+
+[[outputs]]
+id = "i9zgccb4GrA7DijqicLQH"
+uri = "file://screenshots/7inch/07-gold.jpeg"
+type = "image"
+title = "7\" — 07 Gold Membership"
+
+[[outputs]]
+id = "sGhbYj1N2NeggWrViUrxX"
+uri = "file://screenshots/7inch/08-wheel.jpeg"
+type = "image"
+title = "7\" — 08 Wheel of Fortune"
+
+[[outputs]]
+id = "Jtl0psEUlw9aliSFF59xn"
+uri = "file://screenshots/7inch/09-profile.jpeg"
+type = "image"
+title = "7\" — 09 Profile"
+
+[[outputs]]
+id = "F5L74P9DcCoA3M6Ouk_DR"
+uri = "file://screenshots/7inch/10-referral.jpeg"
+type = "image"
+title = "7\" — 10 Refer a Friend"
+
+[[outputs]]
+id = "lLqtimYQbcIlyoyvXj2-n"
+uri = "file://screenshots/10inch/01-signin.jpeg"
+type = "image"
+title = "10\" — 01 Sign In"
+
+[[outputs]]
+id = "dlWln_vOnQRZTscaAMnfN"
+uri = "file://screenshots/10inch/02-home.jpeg"
+type = "image"
+title = "10\" — 02 Home Feed"
+
+[[outputs]]
+id = "lQDcNC-dGZNen6Nmu2pwQ"
+uri = "file://screenshots/10inch/03-categories.jpeg"
+type = "image"
+title = "10\" — 03 Categories"
+
+[[outputs]]
+id = "gEisnKWYR2lJEMimC323y"
+uri = "file://screenshots/10inch/04-listing-detail.jpeg"
+type = "image"
+title = "10\" — 04 Listing Detail"
+
+[[outputs]]
+id = "UGT7OmI8E8EkAEODnY6bH"
+uri = "file://screenshots/10inch/05-booking.jpeg"
+type = "image"
+title = "10\" — 05 Booking"
+
+[[outputs]]
+id = "yq90K65VoyYauvkELxqiM"
+uri = "file://screenshots/10inch/06-wallet.jpeg"
+type = "image"
+title = "10\" — 06 Wallet"
+
+[[outputs]]
+id = "Q_bDymHdRd_vDdKpRJDr_"
+uri = "file://screenshots/10inch/07-gold.jpeg"
+type = "image"
+title = "10\" — 07 Gold Membership"
+
+[[outputs]]
+id = "R6nzS72DtbMJzu3IkvLra"
+uri = "file://screenshots/10inch/08-wheel.jpeg"
+type = "image"
+title = "10\" — 08 Wheel of Fortune"
+
+[[outputs]]
+id = "RkFlFmgKwQlAM3Zyv2AfF"
+uri = "file://screenshots/10inch/09-profile.jpeg"
+type = "image"
+title = "10\" — 09 Profile"
+
+[[outputs]]
+id = "P4AWHYsxQDHWBj8gaYCGD"
+uri = "file://screenshots/10inch/10-referral.jpeg"
+type = "image"
+title = "10\" — 10 Refer a Friend"
+
+[[outputs]]
+id = "gnllE799C1Qr3zun1hWoV"
+uri = "file://screenshots_7inch.zip"
+type = "unspecified"
+title = "7-inch Tablet Screenshots (10 screens)"
+
+[[outputs]]
+id = "YpNU-SjhwDEguGvnAKw6U"
+uri = "file://screenshots_10inch.zip"
+type = "unspecified"
+title = "10-inch Tablet Screenshots (10 screens)"
+
+[[outputs]]
+id = "P-60tNWPpO99rGPN06CxM"
+uri = "file://feature-graphic.jpeg"
+type = "image"
+title = "Play Store Feature Graphic — 1024×500 px"
+
+[[outputs]]
+id = "xEOtU7hzmLEBj_rjEMeda"
+uri = "file://playstore_10inch_screenshots.zip"
+type = "unspecified"
+title = "Play Store 10-inch Screenshots — 8 screens (1080×1920, 9:16)"
+
+[[outputs]]
+id = "spCyQP9o80w22-VsD2AmX"
+uri = "file://artifacts/mobile/assets/images/playstore-icon-512.png"
+type = "image"
+title = "playstore-icon-512.png — 512×512 PNG, 32 KB"
+
+[[outputs]]
+id = "8c0nmde8ushDKyPcsOvqW"
+uri = "file://artifacts/mobile/assets/images/playstore-banner-4096x2304.jpg"
+type = "image"
+title = "RentZilla — Developer Page Banner (4096×2304 JPEG, 145 KB)"
+
+[[outputs]]
+id = "PI9TZPwOoYcVaGDgntC3i"
+uri = "file://attached_assets/generated_images/rentzilla_workflow.png"
+type = "image"
+title = "RentZilla Workflow Infographic (Image)"
+
+[[outputs]]
+id = "YWwIsyWExZiw24D4ftHpc"
+uri = "file://attached_assets/generated_videos/rentzilla_workflow.mp4"
+type = "video"
+title = "RentZilla Workflow Animation (Video)"
+
+[[outputs]]
+id = "ygfJcLbe3vRzc-tgs8gH1"
+uri = "file://docs/RentZilla-Full-Features-and-Services.md"
+type = "text"
+title = "RentZilla — Full Features, Dependencies & Services"

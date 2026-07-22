@@ -1,6 +1,7 @@
 import { Router, type Request, type Response, type NextFunction } from "express";
 import { db } from "@workspace/db";
-import { sql } from "drizzle-orm";
+import { sql, eq } from "drizzle-orm";
+import { usersTable } from "@workspace/db";
 
 const router = Router();
 
@@ -26,13 +27,14 @@ async function adminMiddleware(req: Request, res: Response, next: NextFunction):
     const decoded = Buffer.from(token, "base64").toString("utf8");
     const userId = decoded.split(":")[0];
     if (!userId) { res.status(401).json({ error: "Invalid token" }); return; }
-    const rows = toRows(await db.execute(sql`SELECT id, email FROM users WHERE id = ${userId}`));
-    const user = rows[0];
-    if (!user || !SUPER_ADMIN_EMAILS.includes(user.email)) {
+    const users = await db.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
+    const user = users[0];
+    if (!user || !user.isAdmin) { res.status(403).json({ error: "Forbidden" }); return; }
+    if (user.email && !SUPER_ADMIN_EMAILS.includes(user.email)) {
       res.status(403).json({ error: "Forbidden" }); return;
     }
     (req as any).userId = userId;
-    (req as any).adminEmail = user.email;
+    (req as any).adminEmail = user.email ?? "unknown";
     next();
   } catch {
     res.status(500).json({ error: "Auth error" });
@@ -124,14 +126,23 @@ function noCache(res: Response) {
 
 // ── Static service-type map (subcategory → service types) ────────────────────
 const SERVICE_TYPE_MAP: Record<string, string[]> = {
-  // Services
+  // ── Services ──────────────────────────────────────────────────────────────
   "Plumbing":     ["Pipe Repair & Leak Fix", "Bathroom Fitting & Installation", "Kitchen Sink & Tap Repair", "Drain & Sewer Cleaning", "Water Tank Service", "Emergency Plumbing Call"],
   "Electrician":  ["Electrical Wiring", "Panel & Board Repair", "Light & Fan Install", "AC Wiring", "Fault Diagnosis", "Safety Inspection"],
   "Beauty":       ["Professional Hair Styling", "Facial & Skin Treatment", "Waxing Services", "Nail Care & Art", "Bridal Makeup", "Beauty Consultation"],
   "Carpenter":    ["Furniture Making & Repair", "Door & Window Fitting", "Cabinet & Wardrobe Work", "Wooden Flooring", "Roof & Framework", "Custom Woodwork"],
   "Painter":      ["Interior Painting", "Exterior Painting", "Wall Texture / Design", "Wood Polish & Paint", "Waterproofing", "Touch-Up & Repair"],
   "AC Repair":    ["AC Installation", "AC Service & Gas Fill", "Deep Cleaning", "AC Repair", "Split AC Fitting", "Central AC Maintenance"],
-  // Equipment
+  // ── Professions ───────────────────────────────────────────────────────────
+  "Doctor (Home Visit)": ["General Consultation", "Paediatric Visit", "Elderly Care Visit", "Post-Surgery Follow-up", "Prescription Renewal", "Emergency Home Visit"],
+  "Lawyer":              ["Legal Consultation", "Property & Land Dispute", "Civil Case Representation", "Family & Divorce Law", "Contract Drafting & Review", "Criminal Defense"],
+  "Accountant":          ["Tax Filing & Returns", "GST Registration & Filing", "Bookkeeping & Accounts", "Business Audit", "Payroll Management", "Financial Planning"],
+  "Tutor":               ["School Subject Tutoring", "Competitive Exam Prep", "English Language Classes", "Maths & Science Coaching", "Online Live Sessions", "Home Visit Tutoring"],
+  "Photographer":        ["Wedding Photography", "Product & Commercial Shoot", "Portrait Session", "Event Coverage", "Real Estate Photography", "Passport / ID Photos"],
+  "Event Manager":       ["Wedding Planning", "Corporate Event", "Birthday Party Setup", "Theme Decoration", "Catering Coordination", "Full Event Management"],
+  "Nutritionist":        ["Diet Plan & Consultation", "Weight Loss Programme", "Sports Nutrition", "Diabetic / Clinical Diet", "Online Follow-up Session", "Meal Planning"],
+  "Yoga Trainer":        ["Morning Yoga Session", "Therapeutic Yoga", "Prenatal Yoga", "Yoga for Kids", "Online Live Class", "Corporate Wellness Session"],
+  // ── Equipment ─────────────────────────────────────────────────────────────
   "Tractor":      ["Ploughing Service", "Sowing & Seeding", "Crop Harvesting", "Land Levelling", "Rotavation", "Multi-Day Farm Work"],
   "Harvester":    ["Wheat Harvesting", "Rice Harvesting", "Crop Cutting", "Threshing & Bundling", "Field Clearance", "Multi-Crop Harvest"],
   "Rotavator":    ["Soil Preparation", "Field Rotavation", "Seedbed Preparation", "Stubble Management", "Inter-Row Cultivation", "Multi-Day Rotavation"],
@@ -153,7 +164,8 @@ const SERVICE_TYPE_MAP: Record<string, string[]> = {
 };
 
 // ── GET /pricing/admin/service-types — list service types for a subcategory ───
-router.get("/admin/service-types", adminMiddleware, async (req: Request, res: Response) => {
+// No auth required — this is a static read-only lookup of hardcoded data.
+router.get("/admin/service-types", async (req: Request, res: Response) => {
   const { subcategory } = req.query as any;
   if (!subcategory) { res.status(400).json({ error: "subcategory is required" }); return; }
   const types = SERVICE_TYPE_MAP[subcategory] ?? [];
@@ -379,8 +391,27 @@ router.get("/calculate", async (req: Request, res: Response) => {
         Number(r.fuel_fee) +
         Number(r.operator_fee) +
         Number(r.platform_fee);
+    } else if (category === "services") {
+      // Services support both day-based and hour-based billing.
+      // If daily_rate is set, use it. If not, fall back to hourly_rate × 8 hrs/day.
+      let rateAmount = 0;
+      if (d > 0) {
+        const effectiveDailyRate = Number(r.daily_rate) > 0
+          ? Number(r.daily_rate)
+          : Number(r.hourly_rate) * 8;       // fallback: 8-hour workday
+        rateAmount = effectiveDailyRate * d;
+      } else {
+        rateAmount = Number(r.hourly_rate) * h;
+      }
+      customer_price =
+        Number(r.base_fee) +
+        rateAmount +
+        Number(r.material_fee) +
+        Number(r.km_rate) * km +
+        Number(r.urgency_fee) +
+        Number(r.platform_fee);
     } else {
-      // services / professions
+      // professions / other
       customer_price =
         Number(r.base_fee) +
         Number(r.hourly_rate) * h +

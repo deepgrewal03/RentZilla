@@ -8,8 +8,9 @@ import React, {
 } from "react";
 
 import { useAuth } from "@/context/AuthContext";
+import { API_BASE_URL } from "@/constants/apiUrl";
 
-const BASE_URL = `https://${process.env.EXPO_PUBLIC_DOMAIN}`;
+const BASE_URL = API_BASE_URL;
 
 interface FavoritesContextType {
   favoriteIds: Set<string>;

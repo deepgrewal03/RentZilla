@@ -29,11 +29,16 @@ const C = Colors.light;
 const TINT = "#FF7A18";
 
 const TIME_SLOTS = [
-  "08:00 AM – 10:00 AM",
-  "10:00 AM – 12:00 PM",
-  "12:00 PM – 02:00 PM",
-  "02:00 PM – 04:00 PM",
-  "04:00 PM – 06:00 PM",
+  "08:00 AM – 09:00 AM",
+  "09:00 AM – 10:00 AM",
+  "10:00 AM – 11:00 AM",
+  "11:00 AM – 12:00 PM",
+  "12:00 PM – 01:00 PM",
+  "01:00 PM – 02:00 PM",
+  "02:00 PM – 03:00 PM",
+  "03:00 PM – 04:00 PM",
+  "04:00 PM – 05:00 PM",
+  "05:00 PM – 06:00 PM",
 ];
 
 const WEEKDAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
@@ -184,6 +189,7 @@ export default function ListingDetailScreen() {
   const [slotsLoading, setSlotsLoading] = useState(false);
   const [notes, setNotes] = useState("");
   const [booking, setBooking] = useState(false);
+  const [bookingSuccess, setBookingSuccess] = useState<string | null>(null);
 
   const [activeImage, setActiveImage] = useState(0);
 
@@ -205,7 +211,9 @@ export default function ListingDetailScreen() {
       ]);
       setListing(l);
       setReviews(r);
-    } catch {
+    } catch (err) {
+      console.error("loadData error", err);
+      Alert.alert("Error", "Could not load listing. Please check your connection and try again.");
     } finally {
       setLoading(false);
     }
@@ -227,12 +235,21 @@ export default function ListingDetailScreen() {
     }
   }
 
+  const PUNJAB_CITIES = new Set([
+    "ludhiana", "amritsar", "jalandhar", "patiala", "bathinda",
+    "mohali", "hoshiarpur", "gurdaspur", "firozpur", "moga",
+    "pathankot", "sangrur", "muktsar", "faridkot", "ferozepur",
+    "fazilka", "mansa", "ropar", "nawanshahr", "taran taran",
+    "kapurthala", "barnala", "fatehgarh sahib",
+  ]);
+
   async function handleBook() {
     if (!listing) return;
 
-    // Restrict bookings to Punjab region
-    const loc = listing.location || "";
-    if (!loc.toLowerCase().includes("punjab")) {
+    const loc = (listing.location || "").toLowerCase().trim();
+    const cityName = loc.split(",")[0].trim();
+    const isInPunjab = loc.includes("punjab") || PUNJAB_CITIES.has(cityName);
+    if (!isInPunjab) {
       Alert.alert(
         "Region Restricted",
         "Services are currently available only in Punjab region. This listing's location is outside our service area.",
@@ -261,16 +278,18 @@ export default function ListingDetailScreen() {
         notes,
       });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      const successMsg = `Booking confirmed for ${bookingDate} at ${selectedSlot}`;
+      setBookingSuccess(successMsg);
+      setShowBooking(false);
+      setSelectedSlot("");
       Alert.alert(
         "Booking Sent!",
         `Your booking for ${bookingDate} at ${selectedSlot} has been sent to the provider.`,
         [
           { text: "View Bookings", onPress: () => router.push("/(tabs)/bookings") },
-          { text: "OK" },
+          { text: "OK", onPress: () => setBookingSuccess(null) },
         ]
       );
-      setShowBooking(false);
-      setSelectedSlot("");
     } catch (e: any) {
       const msg = e?.message || "Could not create booking. Please try again.";
       Alert.alert("Error", msg);
@@ -319,6 +338,17 @@ export default function ListingDetailScreen() {
   return (
     <View style={styles.root}>
       <StatusBar style="light" />
+
+      {bookingSuccess && (
+        <Pressable
+          onPress={() => setBookingSuccess(null)}
+          style={styles.successBanner}
+          accessibilityLabel="booking-success-banner"
+        >
+          <Ionicons name="checkmark-circle" size={20} color="#fff" />
+          <Text style={styles.successBannerText}>{bookingSuccess}</Text>
+        </Pressable>
+      )}
 
       <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
         {/* Images */}
@@ -597,6 +627,12 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: C.background },
   center: { alignItems: "center", justifyContent: "center" },
   scroll: { flex: 1 },
+  successBanner: {
+    flexDirection: "row", alignItems: "center", gap: 8,
+    backgroundColor: "#27AE60", paddingHorizontal: 16, paddingVertical: 12,
+    zIndex: 100,
+  },
+  successBannerText: { color: "#fff", fontSize: 14, fontWeight: "600", flex: 1 },
   imageContainer: { position: "relative" },
   mainImage: { width: "100%", height: 280 },
   imagePlaceholder: { backgroundColor: C.backgroundTertiary, alignItems: "center", justifyContent: "center" },

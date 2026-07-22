@@ -7,6 +7,12 @@
     },
     "android": {
       "package": "com.rentzilla.workspace"
+    },
+    "ios": {
+      "bundleIdentifier": "com.rentzilla.workspace",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     }
   }
 }

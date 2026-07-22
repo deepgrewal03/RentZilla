@@ -24,6 +24,10 @@ import membershipRouter from "./membership.js";
 import wheelRouter from "./wheel.js";
 import promosRouter from "./promos.js";
 import referralRouter from "./referral.js";
+import supportRouter from "./support.js";
+import verificationRouter from "./verification.js";
+import paymentsRouter from "./payments.js";
+import disputesRouter from "./disputes.js";
 
 const router: IRouter = Router();
 
@@ -52,5 +56,9 @@ router.use("/membership", membershipRouter);
 router.use("/wheel", wheelRouter);
 router.use("/promos", promosRouter);
 router.use("/referral", referralRouter);
+router.use("/", supportRouter);
+router.use("/verification", verificationRouter);
+router.use("/payments", paymentsRouter);
+router.use("/disputes", disputesRouter);
 
 export default router;

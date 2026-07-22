@@ -1,0 +1,220 @@
+RUN A FULL REGRESSION TEST SUITE ON ALL RECENTLY PATCHED BOOKING, ESCROW, WALLET, PAYOUT, REFUND, AND CATEGORY PRICING WORKFLOWS IN THE EXISTING RENTZILLA CODEBASE.
+
+ROLE:
+Act as:
+- Senior QA Automation Lead
+- Release Validation Engineer
+- Financial Workflow Tester
+- Supabase Transaction Integrity Auditor
+- Mobile UX Regression Specialist
+- Side-Effect Detection Engineer
+
+STRICT GOAL:
+Verify that all production patches introduced for booking integrity, payment safety, escrow consistency, wallet ledger, payout eligibility, and pricing logic work correctly and did NOT break any previously working flows.
+
+IMPORTANT:
+- Use the actual patched codebase only
+- Use real Supabase schema + RPC functions
+- Use seeded regression data + fresh transactional test data
+- Validate BEFORE/AFTER DB states
+- Detect hidden side effects
+- Auto-fix ONLY clearly safe regression issues
+- No mock simulations if real functions exist
+
+====================================================
+1) BOOKING REGRESSION SUITE
+====================================================
+Re-test all patched booking lifecycle transitions.
+
+Must verify:
+draft → pending → accepted → scheduled → started → in_progress → completed
+cancel_requested → cancelled
+refund_pending → refunded
+disputed → closed
+
+Regression checks:
+- no invalid status jumps
+- no broken old bookings after enum migration
+- historical bookings still render
+- completed bookings still visible in history
+- reviews still unlocked only after completion
+- dispute reopen flow still works
+- admin forced completion still audited
+
+Edge:
+- patch did not break old pending bookings
+- old cancelled bookings still refundable if policy allows
+
+====================================================
+2) DOUBLE BOOKING + OVERLAP REGRESSION
+====================================================
+Re-test patched overlap logic.
+
+Verify:
+- overlapping date rejection works
+- same-day different time valid
+- quantity-based tool bookings still allow remaining stock
+- JCB operator schedule conflict still catches duplicates
+- provider can still accept non-overlapping jobs
+- recurring provider availability rules still work
+- cart multi-asset booking unaffected
+
+Side-effect checks:
+- legitimate repeat bookings are NOT blocked
+- booking edit flow does not false-positive overlap
+- reschedule flow still works
+
+====================================================
+3) ESCROW + PAYMENT REGRESSION
+====================================================
+Re-test:
+- payment success → booking + escrow created exactly once
+- idempotency key prevents duplicate charge
+- retry payment does not duplicate escrow
+- stale pending cleanup does not remove paid bookings
+- fraud hold still blocks release
+- dispute still pauses escrow
+- manual admin release still works
+- wallet top-up separate from escrow unaffected
+
+Check:
+- payment webhooks replay safe
+- app reopen recovery restores checkout
+- failed payment compensating rollback works
+
+====================================================
+4) WALLET LEDGER REGRESSION
+====================================================
+Verify wallet patch did not break:
+- top-up
+- promo credits
+- referral rewards
+- booking debit
+- cancellation refund
+- admin manual adjustment
+- dispute refund
+- partial refund
+- coupon cashback
+- payout debit for provider
+
+Checks:
+- ledger remains append-only
+- running balance accurate
+- no duplicate entries
+- negative balances impossible unless explicitly allowed
+- old balances preserved after migration
+
+====================================================
+5) PROVIDER PAYOUT REGRESSION
+====================================================
+Re-test payout eligibility middleware.
+
+Verify:
+- payout blocked before completion
+- payout blocked during dispute
+- payout blocked during fraud hold
+- verified provider can withdraw after escrow release
+- batch payouts still work
+- admin manual payout override still works
+- payout retries not duplicated
+- failed bank transfer rollback correct
+- settlement fees still deducted correctly
+
+Side effects:
+- existing payout history renders
+- provider earnings analytics unchanged
+- daily/weekly summaries still correct
+
+====================================================
+6) CATEGORY PRICING REGRESSION
+====================================================
+Re-test server pricing engine for ALL categories.
+
+Earthmovers:
+- overtime still correct
+- operator + diesel + transport all included
+
+Cars/Bikes:
+- extra km + deposit + late fee unchanged
+
+Tools:
+- quantity x days still correct
+- stock reservation pricing valid
+
+Generators:
+- diesel + setup + transport still correct
+
+Cross checks:
+- coupons still apply after recalculation
+- taxes/GST still correct
+- provider commissions unchanged
+- surge pricing still works
+- client-side displayed estimate matches server final
+
+====================================================
+7) RLS + PERMISSION REGRESSION
+====================================================
+Verify security patches did NOT break:
+- customer own history
+- provider own listings
+- admin dispute override
+- support tickets
+- verification docs
+- fraud center visibility
+- wallet statements
+- payout dashboard
+
+Check for accidental lockouts:
+- provider cannot lose access to own earnings
+- admin still sees audit logs
+- customer still downloads invoices
+
+====================================================
+8) UI + MOBILE SIDE-EFFECT REGRESSION
+====================================================
+Verify patched flows still have:
+- loaders
+- retry UI
+- no frozen buttons
+- no duplicate disabled states
+- recovery modal works
+- app resume checkout flow works
+- back navigation after payment works
+- wallet balance refreshes live
+- payout success banner works
+- booking history auto-refresh works
+
+====================================================
+9) DATABASE SIDE-EFFECT VERIFICATION
+====================================================
+Check:
+- migrations preserved old data
+- no rows dropped unexpectedly
+- indexes did not slow writes
+- RPC functions backward compatible
+- old mobile app versions fail gracefully
+- audit logs still insert
+- created_at values preserved
+- timezone logic unchanged
+
+====================================================
+10) FINAL RELEASE REPORT
+====================================================
+Return:
+A) PASSED regression suites
+B) FAILED cases
+C) hidden side effects
+D) backward compatibility issues
+E) data migration risks
+F) exact hotfix patches if needed
+G) release go/no-go decision
+H) production deploy checklist
+
+Priority:
+P0 financial integrity
+P1 booking integrity
+P2 backward compatibility
+P3 UI regression polish
+
+Only patch clearly safe regressions.
+Otherwise return exact minimal hotfix diff.

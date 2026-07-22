@@ -88,6 +88,32 @@ router.get("/service-docs", (_req, res) => {
   res.json(SERVICE_DOCS);
 });
 
+// GET /documents/file/:filename — serve an uploaded file (proxy-safe)
+router.get("/file/:filename", async (req: Request, res: Response) => {
+  try {
+    const filename = path.basename(req.params.filename); // prevent path traversal
+    const filePath = path.join(UPLOADS_DIR, filename);
+    if (!fs.existsSync(filePath)) {
+      res.status(404).json({ error: "File not found" });
+      return;
+    }
+    // Determine content type from extension
+    const ext = path.extname(filename).toLowerCase();
+    const mimeMap: Record<string, string> = {
+      ".jpg": "image/jpeg",
+      ".jpeg": "image/jpeg",
+      ".png": "image/png",
+      ".pdf": "application/pdf",
+    };
+    const contentType = mimeMap[ext] || "application/octet-stream";
+    res.setHeader("Content-Type", contentType);
+    res.setHeader("Content-Disposition", `inline; filename="${filename}"`);
+    fs.createReadStream(filePath).pipe(res);
+  } catch (err) {
+    res.status(500).json({ error: "Could not serve file" });
+  }
+});
+
 // GET /documents?service_type= — list my docs (optionally filtered by service)
 router.get("/", authMiddleware, async (req: Request, res: Response) => {
   try {
@@ -200,8 +226,36 @@ router.patch("/admin/:id/approve", authMiddleware, async (req: Request, res: Res
     await db.execute(
       sql`UPDATE provider_documents SET status = 'approved', reviewed_at = NOW(), admin_note = ${req.body.note ?? null} WHERE id = ${req.params.id}`
     );
+    // If this is an identity doc, also update user_verification so trust score updates
+    const docRows = await db.execute(
+      sql`SELECT user_id, service_type, document_type FROM provider_documents WHERE id = ${req.params.id} LIMIT 1`
+    );
+    if (docRows.rows.length) {
+      const doc = docRows.rows[0] as { user_id: string; service_type: string; document_type: string };
+      if (doc.service_type === "identity") {
+        const typeMap: Record<string, string> = {
+          "Government ID": "gov_id",
+          "Selfie": "selfie",
+          "Address Proof": "address",
+        };
+        const field = typeMap[doc.document_type];
+        if (field) {
+          await db.execute(sql.raw(
+            `UPDATE user_verification SET ${field}_status = 'approved', updated_at = NOW() WHERE user_id = '${doc.user_id}'`
+          ));
+          try {
+            const nId = randomUUID();
+            const msg = `Your ${doc.document_type} has been verified! Your trust score has been updated.`;
+            await db.execute(sql.raw(
+              `INSERT INTO notifications (id, user_id, title, message, is_read, created_at) VALUES ('${nId}', '${doc.user_id}', 'Verification Approved', '${msg.replace(/'/g, "''")}', FALSE, NOW())`
+            ));
+          } catch {}
+        }
+      }
+    }
     res.json({ success: true });
   } catch (err) {
+    req.log?.error?.({ err }, "Admin approve doc error");
     res.status(500).json({ error: "Internal server error" });
   }
 });
@@ -209,11 +263,40 @@ router.patch("/admin/:id/approve", authMiddleware, async (req: Request, res: Res
 // PATCH /documents/admin/:id/reject
 router.patch("/admin/:id/reject", authMiddleware, async (req: Request, res: Response) => {
   try {
+    const note = req.body.note ?? "Rejected";
     await db.execute(
-      sql`UPDATE provider_documents SET status = 'rejected', reviewed_at = NOW(), admin_note = ${req.body.note ?? "Rejected"} WHERE id = ${req.params.id}`
+      sql`UPDATE provider_documents SET status = 'rejected', reviewed_at = NOW(), admin_note = ${note} WHERE id = ${req.params.id}`
     );
+    // If identity doc, update user_verification too
+    const docRows = await db.execute(
+      sql`SELECT user_id, service_type, document_type FROM provider_documents WHERE id = ${req.params.id} LIMIT 1`
+    );
+    if (docRows.rows.length) {
+      const doc = docRows.rows[0] as { user_id: string; service_type: string; document_type: string };
+      if (doc.service_type === "identity") {
+        const typeMap: Record<string, string> = {
+          "Government ID": "gov_id",
+          "Selfie": "selfie",
+          "Address Proof": "address",
+        };
+        const field = typeMap[doc.document_type];
+        if (field) {
+          await db.execute(sql.raw(
+            `UPDATE user_verification SET ${field}_status = 'rejected', admin_note = '${note.replace(/'/g, "''")}', updated_at = NOW() WHERE user_id = '${doc.user_id}'`
+          ));
+          try {
+            const nId = randomUUID();
+            const msg = `Your ${doc.document_type} could not be verified. Reason: ${note}. Please resubmit from Trust & Verification.`;
+            await db.execute(sql.raw(
+              `INSERT INTO notifications (id, user_id, title, message, is_read, created_at) VALUES ('${nId}', '${doc.user_id}', 'Verification Needs Resubmission', '${msg.replace(/'/g, "''")}', FALSE, NOW())`
+            ));
+          } catch {}
+        }
+      }
+    }
     res.json({ success: true });
   } catch (err) {
+    req.log?.error?.({ err }, "Admin reject doc error");
     res.status(500).json({ error: "Internal server error" });
   }
 });

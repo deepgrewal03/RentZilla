@@ -24,7 +24,6 @@ import Colors from "@/constants/colors";
 import { StarRating } from "@/components/StarRating";
 import { useAuth } from "@/context/AuthContext";
 import { useApi } from "@/hooks/useApi";
-import { DocumentsDrawer } from "@/components/DocumentsDrawer";
 
 const C = Colors.light;
 const ORANGE = "#E8742A";
@@ -114,7 +113,6 @@ export default function DashboardScreen() {
   const [trips, setTrips] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [showDocsDrawer, setShowDocsDrawer] = useState(false);
 
   const topPad = isWeb ? 67 : insets.top;
 
@@ -206,12 +204,6 @@ export default function DashboardScreen() {
             <Pressable onPress={() => router.push("/add-listing")} style={styles.addListingBtn}>
               <Ionicons name="add" size={16} color="#fff" />
               <Text style={styles.addListingBtnText}>Add Listing</Text>
-            </Pressable>
-            <Pressable
-              onPress={() => { Haptics.selectionAsync(); setShowDocsDrawer(true); }}
-              style={[styles.menuBtn, { backgroundColor: "rgba(232,116,42,0.2)" }]}
-            >
-              <Ionicons name="shield-checkmark-outline" size={18} color={ORANGE} />
             </Pressable>
           </View>
         </View>
@@ -348,6 +340,28 @@ export default function DashboardScreen() {
             </View>
           ))}
         </View>
+
+        {/* ──────────── WALLET SHORTCUT ──────────── */}
+        <Pressable onPress={() => router.push("/(tabs)/wallet" as any)} activeOpacity={0.88} style={styles.walletShortcut}>
+          <LinearGradient colors={[NAVY, "#1a3a6b"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.walletShortcutGrad}>
+            <View style={styles.walletShortcutLeft}>
+              <View style={styles.walletShortcutIconWrap}>
+                <Ionicons name="wallet-outline" size={22} color="#fff" />
+              </View>
+              <View>
+                <Text style={styles.walletShortcutTitle}>Earnings & Wallet</Text>
+                {loading ? (
+                  <Text style={styles.walletShortcutSub}>Loading...</Text>
+                ) : (
+                  <Text style={styles.walletShortcutSub}>
+                    Balance · Payouts · Methods
+                  </Text>
+                )}
+              </View>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.7)" />
+          </LinearGradient>
+        </Pressable>
 
         {/* ──────────── REFER A FRIEND BANNER ──────────── */}
         <Pressable onPress={() => router.push("/referral" as any)} activeOpacity={0.9} style={styles.referBanner}>
@@ -827,7 +841,6 @@ export default function DashboardScreen() {
 
       </ScrollView>
 
-      <DocumentsDrawer visible={showDocsDrawer} onClose={() => setShowDocsDrawer(false)} />
     </View>
   );
 }
@@ -927,6 +940,12 @@ const styles = StyleSheet.create({
   countBadgeText: { fontSize: 12, fontWeight: "700", fontFamily: "Inter_700Bold" },
   driverCard: { borderRadius: 18, overflow: "hidden", shadowColor: NAVY, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.25, shadowRadius: 10, elevation: 5 },
   driverGrad: { padding: 20 },
+  walletShortcut: { marginHorizontal: 16, marginBottom: 14, borderRadius: 16, overflow: "hidden", elevation: 3, shadowColor: "#0F1F3D", shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.25, shadowRadius: 8 },
+  walletShortcutGrad: { flexDirection: "row", alignItems: "center", paddingVertical: 16, paddingHorizontal: 16, justifyContent: "space-between" },
+  walletShortcutLeft: { flexDirection: "row", alignItems: "center", gap: 12 },
+  walletShortcutIconWrap: { width: 42, height: 42, borderRadius: 21, backgroundColor: "rgba(255,255,255,0.15)", alignItems: "center", justifyContent: "center" },
+  walletShortcutTitle: { fontSize: 15, fontFamily: "Inter_700Bold", color: "#fff" },
+  walletShortcutSub: { fontSize: 12, color: "rgba(255,255,255,0.7)", fontFamily: "Inter_400Regular", marginTop: 2 },
   referBanner:     { marginHorizontal: 16, marginBottom: 16, borderRadius: 16, overflow: "hidden", elevation: 4, shadowColor: "#FF7A18", shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 8 },
   referBannerGrad: { flexDirection: "row", alignItems: "center", paddingVertical: 14, paddingHorizontal: 16, gap: 12 },
   referBannerIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: "rgba(255,255,255,0.22)", alignItems: "center", justifyContent: "center" },

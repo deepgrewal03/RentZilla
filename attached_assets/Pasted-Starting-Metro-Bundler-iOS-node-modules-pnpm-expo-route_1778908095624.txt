@@ -1,0 +1,37 @@
+Starting Metro Bundler
+iOS node_modules/.pnpm/expo-router@6.0.23_@types+react-dom@19.1.11_@types+react@19.1.17__@types+react@19.1.17_expo-c_6ztiqbjjbovyyjm55l2ytftzme/node_modules/expo-router/entry.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
+iOS node_modules/.pnpm/expo-router@6.0.23_@types+react-dom@19.1.11_@types+react@19.1.17__@types+react@19.1.17_expo-c_6ztiqbjjbovyyjm55l2ytftzme/node_modules/expo-router/entry.js ▓▓▓▓▓▓▓▓▓▓▓░░░░░ 71.9% (631/744)
+iOS Bundling failed 4843ms node_modules/.pnpm/expo-router@6.0.23_@types+react-dom@19.1.11_@types+react@19.1.17__@types+react@19.1.17_expo-c_6ztiqbjjbovyyjm55l2ytftzme/node_modules/expo-router/entry.js (993 modules)
+Unable to resolve module @/constants/colors from /Users/expo/workingdir/build/artifacts/mobile/app/(tabs)/_layout.tsx: @/constants/colors could not be found within the project or in these directories:
+  node_modules
+  ../../node_modules
+  node_modules
+  ../../node_modules
+   5 | import { useSafeAreaInsets } from "react-native-safe-area-context";
+   6 |
+>  7 | import Colors from "@/constants/colors";
+     |                     ^
+   8 | import { useAuth } from "@/context/AuthContext";
+   9 | import { useLang } from "@/context/LanguageContext";
+  10 | import { useApi } from "@/hooks/useApi";
+Import stack:
+ artifacts/mobile/app/(tabs)/_layout.tsx
+ | import "@/constants/colors"
+ artifacts/mobile/app (require.context)
+Error: Unable to resolve module @/constants/colors from /Users/expo/workingdir/build/artifacts/mobile/app/(tabs)/_layout.tsx: @/constants/colors could not be found within the project or in these directories:
+  node_modules
+  ../../node_modules
+  node_modules
+  ../../node_modules
+   5 | import { useSafeAreaInsets } from "react-native-safe-area-context";
+   6 |
+>  7 | import Colors from "@/constants/colors";
+     |                     ^
+   8 | import { useAuth } from "@/context/AuthContext";
+   9 | import { useLang } from "@/context/LanguageContext";
+  10 | import { useApi } from "@/hooks/useApi";
+Import stack:
+ artifacts/mobile/app/(tabs)/_layout.tsx
+ | import "@/constants/colors"
+ artifacts/mobile/app (require.context)
+pnpm expo export:embed --eager --platform ios --dev false exited with non-zero code: 1

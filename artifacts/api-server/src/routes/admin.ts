@@ -1033,4 +1033,71 @@ router.get("/wheel-analytics", adminMiddleware, async (req: Request, res: Respon
   }
 });
 
+// ── GET /admin/fraud/users ─ list all users with fraud scores ─────────────────
+router.get("/fraud/users", adminMiddleware, async (req: Request, res: Response) => {
+  try {
+    const { computeFraudScore } = await import("../lib/fraudScoring.js");
+    const limit = Math.min(Number(req.query.limit ?? 50), 100);
+    const riskFilter = req.query.risk as string | undefined;
+
+    // Get cached scores first for speed
+    const cached = toRows(await db.execute(sql.raw(`
+      SELECT fs.*, u.name, u.email, u.profile_image, u.role, u.is_suspended, u.created_at AS user_created_at
+      FROM fraud_scores fs
+      JOIN users u ON u.id = fs.user_id
+      ${riskFilter && riskFilter !== "all" ? `WHERE fs.risk_level = '${riskFilter}'` : ""}
+      ORDER BY fs.score DESC
+      LIMIT ${limit}
+    `)));
+
+    // If no cached scores exist yet, compute for top users
+    if (cached.length === 0) {
+      const users = toRows(await db.execute(sql.raw(`
+        SELECT id FROM users WHERE is_admin = false ORDER BY created_at DESC LIMIT 20
+      `)));
+      const scores = await Promise.all(users.map((u: any) => computeFraudScore(u.id)));
+      scores.sort((a, b) => b.score - a.score);
+      return res.json(scores);
+    }
+
+    res.json(cached);
+  } catch (err) {
+    req.log.error({ err }, "fraud users error");
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ── GET /admin/fraud/score/:userId ─ compute detailed fraud score for a user ──
+router.get("/fraud/score/:userId", adminMiddleware, async (req: Request, res: Response) => {
+  try {
+    const { computeFraudScore } = await import("../lib/fraudScoring.js");
+    const result = await computeFraudScore(req.params.userId);
+    res.json(result);
+  } catch (err) {
+    req.log.error({ err }, "fraud score error");
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ── POST /admin/fraud/scan ─ refresh scores for all users ─────────────────────
+router.post("/fraud/scan", adminMiddleware, async (req: Request, res: Response) => {
+  try {
+    const { computeFraudScore } = await import("../lib/fraudScoring.js");
+    const users = toRows(await db.execute(sql.raw(`
+      SELECT id FROM users WHERE is_admin = false ORDER BY created_at DESC LIMIT 100
+    `)));
+    // Background scan — return immediately
+    res.json({ ok: true, scanning: users.length });
+    // Non-blocking
+    setTimeout(async () => {
+      for (const u of users) {
+        await computeFraudScore((u as any).id).catch(() => {});
+      }
+    }, 0);
+  } catch (err) {
+    req.log.error({ err }, "fraud scan error");
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 export default router;

@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
 import * as Haptics from "expo-haptics";
+import { useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
   Animated,
@@ -20,6 +21,7 @@ import { useApi } from "@/hooks/useApi";
 
 const C = Colors.light;
 const ORANGE = "#FF7A18";
+const POLL_INTERVAL_MS = 30_000;
 
 interface Notification {
   id: string;
@@ -76,15 +78,13 @@ function notifIcon(title: string): { name: keyof typeof Ionicons.glyphMap; color
 
 const SPRING = { useNativeDriver: false, tension: 340, friction: 12 };
 
-/* ── view state: "none" | "list" | "detail"
-   We use a SINGLE Modal so there is never more than one open at once.
-   Stacking two Modals simultaneously breaks in published / production builds. */
 type ViewState = "none" | "list" | "detail";
 
 export function NotificationBell() {
   const { get, put } = useApi();
   const { t, language } = useLang();
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const isWeb = Platform.OS === "web";
 
   const [view, setView]                     = useState<ViewState>("none");
@@ -93,14 +93,58 @@ export function NotificationBell() {
   const [copied, setCopied]                 = useState<string | null>(null);
 
   const bellScale    = useRef(new Animated.Value(1)).current;
+  const glowOpacity  = useRef(new Animated.Value(0)).current;
+  const glowScale    = useRef(new Animated.Value(0.9)).current;
+  const badgeScale   = useRef(new Animated.Value(1)).current;
   const detailSlide  = useRef(new Animated.Value(40)).current;
   const detailOpacity = useRef(new Animated.Value(0)).current;
+  const glowLoop     = useRef<Animated.CompositeAnimation | null>(null);
 
   const unreadCount = notifications.filter((n) => !n.isRead).length;
   const topPad      = isWeb ? 67 : insets.top;
   const isPa        = language === "pa";
 
-  useEffect(() => { fetchNotifications(); }, []);
+  useEffect(() => {
+    fetchNotifications();
+    const interval = setInterval(fetchNotifications, POLL_INTERVAL_MS);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    if (glowLoop.current) {
+      glowLoop.current.stop();
+      glowLoop.current = null;
+    }
+
+    if (unreadCount > 0) {
+      // Pulse glow ring
+      glowOpacity.setValue(0);
+      glowScale.setValue(0.88);
+      const loop = Animated.loop(
+        Animated.sequence([
+          Animated.parallel([
+            Animated.timing(glowOpacity, { toValue: 0.7, duration: 700, useNativeDriver: false }),
+            Animated.timing(glowScale,   { toValue: 1.28, duration: 700, useNativeDriver: false }),
+          ]),
+          Animated.parallel([
+            Animated.timing(glowOpacity, { toValue: 0, duration: 900, useNativeDriver: false }),
+            Animated.timing(glowScale,   { toValue: 0.88, duration: 900, useNativeDriver: false }),
+          ]),
+          Animated.delay(1200),
+        ])
+      );
+      glowLoop.current = loop;
+      loop.start();
+
+      // Badge pop
+      Animated.sequence([
+        Animated.spring(badgeScale, { toValue: 1.4, useNativeDriver: false, tension: 400, friction: 6 }),
+        Animated.spring(badgeScale, { toValue: 1,   useNativeDriver: false, tension: 300, friction: 8 }),
+      ]).start();
+    } else {
+      glowOpacity.setValue(0);
+    }
+  }, [unreadCount]);
 
   async function fetchNotifications() {
     try {
@@ -144,7 +188,6 @@ export function NotificationBell() {
     setCopied(null);
     detailSlide.setValue(40);
     detailOpacity.setValue(0);
-    /* Switch to detail view within the SAME modal */
     setView("detail");
     Animated.parallel([
       Animated.spring(detailSlide, { toValue: 0, ...SPRING, tension: 280, friction: 20 }),
@@ -162,7 +205,6 @@ export function NotificationBell() {
         await markOneRead(selected.id);
       }
       setSelected(null);
-      /* go back to list panel after marking read */
       setView("list");
     });
   }
@@ -170,6 +212,11 @@ export function NotificationBell() {
   function closeAll() {
     setView("none");
     setSelected(null);
+  }
+
+  function openNotifSettings() {
+    closeAll();
+    setTimeout(() => router.push("/(tabs)/settings"), 120);
   }
 
   async function copyText(text: string, label: string) {
@@ -181,14 +228,29 @@ export function NotificationBell() {
 
   return (
     <>
-      {/* ── Bell button ── */}
-      <Pressable onPress={openPanel}>
-        <Animated.View style={[styles.bellBtn, { transform: [{ scale: bellScale }] }]}>
-          <Ionicons name="notifications-outline" size={22} color="#fff" />
+      {/* ── Bell button with glow ring ── */}
+      <Pressable onPress={openPanel} style={styles.bellOuter}>
+        {/* Glow ring pulse */}
+        <Animated.View
+          style={[
+            styles.glowRing,
+            {
+              opacity: glowOpacity,
+              transform: [{ scale: glowScale }],
+            },
+          ]}
+        />
+
+        <Animated.View style={[styles.bellBtn, unreadCount > 0 && styles.bellBtnActive, { transform: [{ scale: bellScale }] }]}>
+          <Ionicons
+            name={unreadCount > 0 ? "notifications" : "notifications-outline"}
+            size={22}
+            color="#fff"
+          />
           {unreadCount > 0 && (
-            <View style={styles.badge}>
+            <Animated.View style={[styles.badge, { transform: [{ scale: badgeScale }] }]}>
               <Text style={styles.badgeText}>{unreadCount > 9 ? "9+" : unreadCount}</Text>
-            </View>
+            </Animated.View>
           )}
         </Animated.View>
       </Pressable>
@@ -206,7 +268,15 @@ export function NotificationBell() {
             <Pressable style={styles.modalOverlay} onPress={closeAll} />
             <Animated.View style={[styles.panel, { top: topPad + 56 }]}>
               <View style={styles.panelHeader}>
-                <Text style={styles.panelTitle}>{t.notifications}</Text>
+                <View style={styles.panelTitleRow}>
+                  <Ionicons name="notifications" size={16} color={ORANGE} />
+                  <Text style={styles.panelTitle}>{t.notifications}</Text>
+                  {unreadCount > 0 && (
+                    <View style={styles.unreadPill}>
+                      <Text style={styles.unreadPillText}>{unreadCount} new</Text>
+                    </View>
+                  )}
+                </View>
                 {unreadCount > 0 && (
                   <Pressable onPress={markAllRead}>
                     <Text style={styles.markAllText}>{t.markAllRead}</Text>
@@ -249,8 +319,18 @@ export function NotificationBell() {
                     );
                   })
                 )}
-                <View style={{ height: 16 }} />
+                <View style={{ height: 8 }} />
               </ScrollView>
+
+              {/* ── Quick Settings Footer ── */}
+              <Pressable
+                style={({ pressed }) => [styles.settingsFooter, pressed && styles.settingsFooterPressed]}
+                onPress={openNotifSettings}
+              >
+                <Ionicons name="settings-outline" size={14} color={ORANGE} />
+                <Text style={styles.settingsFooterText}>Notification Settings</Text>
+                <Ionicons name="chevron-forward" size={13} color={ORANGE} />
+              </Pressable>
             </Animated.View>
           </>
         )}
@@ -343,11 +423,28 @@ export function NotificationBell() {
 }
 
 const styles = StyleSheet.create({
+  bellOuter: {
+    width: 44, height: 44,
+    alignItems: "center", justifyContent: "center",
+    position: "relative",
+  },
+  glowRing: {
+    position: "absolute",
+    width: 44, height: 44,
+    borderRadius: 22,
+    backgroundColor: ORANGE,
+    opacity: 0,
+  },
   bellBtn: {
     width: 40, height: 40, borderRadius: 20,
     backgroundColor: "rgba(255,255,255,0.12)",
     alignItems: "center", justifyContent: "center",
     position: "relative",
+  },
+  bellBtnActive: {
+    backgroundColor: `${ORANGE}30`,
+    borderWidth: 1.5,
+    borderColor: `${ORANGE}70`,
   },
   badge: {
     position: "absolute", top: 2, right: 2,
@@ -361,18 +458,26 @@ const styles = StyleSheet.create({
 
   modalOverlay: { ...StyleSheet.absoluteFillObject },
   panel: {
-    position: "absolute", right: 12, width: 320, maxHeight: 440,
+    position: "absolute", right: 12, width: 320, maxHeight: 460,
     backgroundColor: "#fff", borderRadius: 16,
     shadowColor: "#000", shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.18, shadowRadius: 24, elevation: 20, overflow: "hidden",
   },
   panelHeader: {
     flexDirection: "row", justifyContent: "space-between", alignItems: "center",
-    padding: 16, borderBottomWidth: 1, borderBottomColor: C.borderLight,
+    paddingHorizontal: 16, paddingVertical: 14,
+    borderBottomWidth: 1, borderBottomColor: C.borderLight,
+    backgroundColor: "#FAFAFA",
   },
-  panelTitle: { fontSize: 16, fontWeight: "700", fontFamily: "Inter_700Bold", color: C.text },
+  panelTitleRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  panelTitle: { fontSize: 15, fontWeight: "700", fontFamily: "Inter_700Bold", color: C.text },
+  unreadPill: {
+    backgroundColor: `${ORANGE}18`, borderRadius: 8,
+    paddingHorizontal: 7, paddingVertical: 2,
+  },
+  unreadPillText: { fontSize: 10, color: ORANGE, fontWeight: "700", fontFamily: "Inter_700Bold" },
   markAllText: { fontSize: 12, color: C.tint, fontFamily: "Inter_500Medium" },
-  panelList: { flex: 1 },
+  panelList: { flex: 1, maxHeight: 340 },
   emptyBox: { alignItems: "center", padding: 32, gap: 8 },
   emptyText: { fontSize: 14, color: C.textTertiary, fontFamily: "Inter_400Regular" },
 
@@ -391,6 +496,19 @@ const styles = StyleSheet.create({
   unreadDot: { width: 7, height: 7, borderRadius: 3.5, backgroundColor: ORANGE, flexShrink: 0 },
   notifMsg: { fontSize: 12, color: C.textSecondary, fontFamily: "Inter_400Regular", lineHeight: 17 },
   notifTime: { fontSize: 11, color: C.textTertiary, fontFamily: "Inter_400Regular", marginTop: 3 },
+
+  /* ── Quick Settings Footer ── */
+  settingsFooter: {
+    flexDirection: "row", alignItems: "center", gap: 8,
+    paddingHorizontal: 16, paddingVertical: 12,
+    borderTopWidth: 1, borderTopColor: C.borderLight,
+    backgroundColor: `${ORANGE}06`,
+  },
+  settingsFooterPressed: { backgroundColor: `${ORANGE}14` },
+  settingsFooterText: {
+    flex: 1, fontSize: 13, color: ORANGE,
+    fontFamily: "Inter_600SemiBold",
+  },
 
   /* ── Detail popup ── */
   detailOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(0,0,0,0.45)" },

@@ -1,0 +1,330 @@
+Perform a FULL END-TO-END PRODUCTION AUDIT of the entire RentZilla mobile app and admin app.
+
+ROLE:
+Act as:
+- Senior QA Automation Engineer
+- Senior React Native Expo Debugger
+- Senior Backend API Tester
+- Supabase Database Reliability Engineer
+- UI/UX Polish Expert
+- Crash Detection Specialist
+
+GOAL:
+Automatically inspect the whole app and identify:
+1) missing features still not built
+2) broken buttons
+3) dead navigation routes
+4) UI glitches
+5) API crashes
+6) Supabase database issues
+7) auth/session bugs
+8) payment bugs
+9) provider/customer flow gaps
+10) performance bottlenecks
+11) app store rejection risks
+12) state sync bugs
+13) production build issues
+
+====================================================
+1) FULL APP FEATURE SCAN
+====================================================
+Scan all app screens, tabs, stacks, modals, bottom sheets, hidden routes, admin routes, provider routes, customer routes.
+
+Create a report:
+BUILT ✅
+PARTIAL ⚠️
+MISSING ❌
+BROKEN 🚨
+
+Modules to scan:
+- splash
+- onboarding
+- login
+- signup
+- forgot password
+- Google sign in
+- Apple sign in
+- customer dashboard
+- provider dashboard
+- category browsing
+- heavy equipment
+- cars
+- bikes
+- tools
+- earthmovers
+- listing details
+- booking flow
+- ride booking
+- live tracking
+- trip start
+- trip completion
+- wallet
+- escrow
+- payout
+- trust & verification
+- AI fraud
+- support email
+- chat
+- notifications
+- admin verification
+- admin fraud center
+- cancellation
+- refund
+- disputes
+- referral
+- profile edit
+- image upload
+- settings
+- delete account
+- logout
+
+====================================================
+2) BUTTON FUNCTION TESTING
+====================================================
+Automatically inspect EVERY clickable item:
+- buttons
+- touchables
+- cards
+- menu items
+- FAB
+- icon buttons
+- CTA banners
+- bottom tab items
+- dropdown items
+- filters
+- date pickers
+- submit forms
+- upload buttons
+- payout buttons
+- verification buttons
+
+For each clickable item verify:
+- onPress exists
+- navigation route valid
+- route params valid
+- async handlers protected
+- loading state exists
+- duplicate taps prevented
+- disabled states work
+- no console errors
+- success/failure alerts shown
+
+Generate list:
+BROKEN BUTTONS:
+screen → button → issue → exact fix
+
+====================================================
+3) API + BACKEND TESTING
+====================================================
+Test all API calls:
+- auth
+- login
+- signup
+- bookings
+- provider listings
+- payments
+- wallet
+- support email
+- fraud scoring
+- verification uploads
+- payouts
+- admin approvals
+- notifications
+- live tracking
+- chat
+- reviews
+
+For every API verify:
+- loading state
+- retry logic
+- timeout handling
+- empty response handling
+- malformed JSON handling
+- unauthorized token refresh
+- duplicate request race condition
+- network offline fallback
+- proper error toast
+
+Catch:
+- 500 crashes
+- null response crashes
+- promise rejection
+- bad await
+- missing try/catch
+- response shape mismatch
+- env variable missing
+- bad base URL
+- CORS issue
+- auth token expiry bug
+
+====================================================
+4) SUPABASE DATABASE AUDIT
+====================================================
+Audit all tables, RLS, joins, queries, indexes, and storage buckets.
+
+Check:
+- missing columns
+- wrong foreign keys
+- orphan records
+- duplicate constraints missing
+- slow queries
+- failed joins
+- null data crashes
+- bad row-level policies
+- provider can access other users data
+- wallet double update risk
+- payout race condition
+- booking state inconsistency
+- verification status mismatch
+- fraud tables linkage issue
+- admin table permissions
+- storage path mismatch
+- image URL expiration issues
+
+Output:
+- exact SQL fixes
+- exact RLS fixes
+- indexes to add
+- migration files required
+
+====================================================
+5) UI / UX GLITCH TESTING
+====================================================
+Inspect every screen for:
+- overflow
+- broken spacing
+- bad alignment
+- dark mode issues
+- safe area issues
+- keyboard overlap
+- notch issues
+- tablet responsiveness
+- font inconsistency
+- clipping
+- animation lag
+- stale loaders
+- frozen screen
+- improper skeletons
+- image stretching
+- map overlay issue
+- z-index modal issue
+- bottom sheet overlap
+- provider card jitter
+- list flicker
+- dropdown clipping
+
+Check on:
+- iPhone
+- Android small screen
+- Android large screen
+- tablets
+
+====================================================
+6) NAVIGATION STABILITY TEST
+====================================================
+Test:
+- back navigation
+- nested stacks
+- deep linking
+- notification click routes
+- state restore after app reopen
+- logout route reset
+- auth redirect
+- provider/customer role redirects
+- admin protected routes
+- invalid params
+- blank screen after navigation
+
+Catch:
+- route not found
+- stale params
+- duplicate screens in stack
+- memory leaks
+- wrong back destination
+
+====================================================
+7) CRASH + EDGE CASE TESTING
+====================================================
+Force test:
+- no internet
+- slow internet
+- API timeout
+- empty booking list
+- zero listings
+- null profile photo
+- deleted provider
+- deleted booking
+- payout denied
+- rejected verification
+- image upload fail
+- push token missing
+- payment fail midway
+- GPS denied
+- camera denied
+- app resume from background
+- session expired
+- app kill and reopen
+
+====================================================
+8) PERFORMANCE TEST
+====================================================
+Check:
+- unnecessary re-renders
+- huge FlatList lag
+- memory leaks
+- image cache issue
+- map performance
+- duplicated API calls
+- expensive useEffect loops
+- infinite state updates
+- unnecessary Supabase subscriptions
+- heavy admin queries
+- slow search filters
+
+Optimize:
+- memoization
+- lazy loading
+- pagination
+- image compression
+- debouncing
+- caching
+- route preloading
+
+====================================================
+9) APP STORE / PLAY STORE READINESS
+====================================================
+Check rejection risks:
+- broken support button
+- fake placeholder data
+- incomplete screens
+- empty tabs
+- crashes after sign in
+- Sign in with Apple missing
+- privacy links missing
+- delete account missing
+- payment flow unclear
+- location permission text weak
+- notification prompt misuse
+
+====================================================
+10) FINAL OUTPUT REQUIRED
+====================================================
+Return a full engineering audit report:
+
+A) Missing features
+B) Broken buttons
+C) API failures
+D) DB/RLS issues
+E) UI glitches
+F) Crash scenarios
+G) Performance fixes
+H) Release blockers
+I) App Store rejection blockers
+J) Priority order fixes: critical / major / minor
+
+IMPORTANT:
+Auto-fix issues wherever possible.
+Generate exact code patches, SQL migrations, route fixes, and UI improvements.
+Do not give generic advice.
+Inspect actual existing codebase and connected APIs.
+Test every route and component deeply before finalizing.

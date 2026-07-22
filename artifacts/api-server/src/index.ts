@@ -2,6 +2,7 @@ import app from "./app";
 import { logger } from "./lib/logger";
 import { runMigrations } from "./lib/migrate";
 import { seedSuperAdmins } from "./lib/seed-admins";
+import { startPayoutScheduler } from "./lib/payout-scheduler.js";
 
 const rawPort = process.env["PORT"];
 
@@ -27,6 +28,7 @@ runMigrations()
         process.exit(1);
       }
       logger.info({ port }, "Server listening");
+      startPayoutScheduler();
     });
   })
   .catch((err) => {

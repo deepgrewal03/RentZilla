@@ -1,0 +1,131 @@
+Integrate REAL email sending functionality in the RentZilla mobile app Contact Support screen.
+
+GOAL:
+When user fills:
+- Name
+- Email
+- Subject
+- Message
+
+and taps the "Send" button, it must send an actual support email to:
+info.rentzilla@gmail.com
+
+TECH STACK:
+- React Native Expo app
+- Backend: Supabase Edge Function OR Node.js API
+- Use Resend API (recommended) or SendGrid
+- Production-ready secure architecture
+- No frontend-only fake email sending
+- Must work in published Android and iOS apps
+
+REQUIRED FUNCTIONALITY:
+
+1) FRONTEND SEND BUTTON
+- Fix the current Send button
+- On click validate:
+  - name required
+  - valid email required
+  - subject required
+  - message required
+- Disable button while sending
+- Show loading spinner
+- Prevent multiple taps
+- After success:
+  - show toast: "Support message sent successfully"
+  - clear all fields
+  - return to previous screen optional
+- On failure:
+  - show error alert: "Failed to send message. Please try again."
+
+2) BACKEND EMAIL API
+Create secure backend endpoint:
+POST /support/send-email
+
+Payload:
+{
+  "name": "user name",
+  "email": "user@email.com",
+  "subject": "booking issue",
+  "message": "problem details"
+}
+
+The backend must:
+- send email to info.rentzilla@gmail.com
+- reply-to should be user's email
+- include formatted HTML template
+- include app name RentZilla
+- include timestamp
+- include user id if logged in
+- include device platform
+- include app version
+- include support category if available
+
+EMAIL FORMAT:
+Subject:
+[RentZilla Support] {{subject}}
+
+Body:
+Name: {{name}}
+Email: {{email}}
+User ID: {{userId}}
+Platform: {{platform}}
+App Version: {{version}}
+Time: {{timestamp}}
+
+Message:
+{{message}}
+
+3) SECURITY
+- API key must stay in backend env only
+- Never expose Resend/SendGrid API key in frontend
+- Add rate limit max 3 emails per 10 min per user
+- sanitize inputs
+- prevent spam submissions
+- reject empty fields
+- validate email format server-side too
+
+4) RESEND IMPLEMENTATION
+Use Resend API:
+- create helper service
+- use async/await
+- proper try/catch
+- return structured JSON response
+
+5) UX IMPROVEMENTS
+- keyboard avoids covering inputs
+- auto focus next field
+- multiline message box expands
+- send button sticky at bottom
+- success animation optional
+
+6) LOGGING
+- save support ticket in Supabase table:
+support_tickets
+columns:
+id
+user_id
+name
+email
+subject
+message
+status
+created_at
+
+7) ERROR HANDLING
+Handle:
+- network offline
+- API timeout
+- invalid API response
+- resend quota exceeded
+- server 500
+
+OUTPUT REQUIRED:
+Generate:
+- updated ContactSupportScreen.tsx
+- backend API route / edge function
+- Resend email service helper
+- Supabase SQL table schema
+- .env variables required
+- loading + success UI states
+- exact install commands
+- production-ready code only

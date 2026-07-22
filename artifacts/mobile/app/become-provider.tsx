@@ -27,9 +27,8 @@ const C = Colors.light;
 const TINT = "#FF7A18";
 
 type Step = "intro" | "otp" | "role" | "form" | "success";
-type ProviderType = "cars" | "equipment" | "services";
+type ProviderType = "equipment" | "services";
 
-const CAR_TYPES     = ["Sedan", "SUV", "Hatchback", "Station Wagon"];
 const EQUIP_TYPES   = [
   "Tractor", "Harvester", "Rotavator", "Sprayer", "Plough", "Cultivator",
   "JCB", "Excavator", "Bulldozer", "Poclain", "Rock Breaker", "Wheel Loader",
@@ -38,7 +37,6 @@ const EQUIP_TYPES   = [
 const SERVICE_TYPES = ["Plumbing", "Electrician", "Beauty", "Carpenter", "Painter", "AC Repair"];
 
 const ROLES: { id: ProviderType; label: string; icon: string; desc: string; color: string; bg: string }[] = [
-  { id: "cars",      label: "Car Driver",          icon: "car-sport-outline",   desc: "Drive customers & earn per trip",           color: "#0F1F3D", bg: "#E8ECF4" },
   { id: "equipment", label: "Equipment Provider",   icon: "construct-outline",    desc: "Rent tractors, harvesters & farm machinery", color: "#2E7D32", bg: "#E8F5E9" },
   { id: "services",  label: "Service Provider",     icon: "hammer-outline",       desc: "Offer skilled services to customers",       color: "#E65100", bg: "#FBE9E7" },
 ];
@@ -126,13 +124,6 @@ export default function BecomeProviderScreen() {
   const [providerType, setProviderType] = useState<ProviderType | null>(null);
   const [subtype, setSubtype]           = useState("");
 
-  // Car form
-  const [licenseNumber, setLicenseNumber] = useState("");
-  const [vehicleMake, setVehicleMake]     = useState("");
-  const [vehicleModel, setVehicleModel]   = useState("");
-  const [vehicleYear, setVehicleYear]     = useState("");
-  const [vehicleColor, setVehicleColor]   = useState("");
-
   // Equipment form
   const [eqMake, setEqMake]   = useState("");
   const [eqModel, setEqModel] = useState("");
@@ -194,11 +185,7 @@ export default function BecomeProviderScreen() {
   }
 
   async function submitForm() {
-    if (providerType === "cars") {
-      if (!licenseNumber.trim()) { Alert.alert("Required", "License number is required"); return; }
-      if (!vehicleMake.trim())   { Alert.alert("Required", "Vehicle make is required"); return; }
-      if (!vehicleModel.trim())  { Alert.alert("Required", "Vehicle model is required"); return; }
-    } else if (providerType === "equipment") {
+    if (providerType === "equipment") {
       if (!eqMake.trim())    { Alert.alert("Required", "Make is required"); return; }
       if (!eqModel.trim())   { Alert.alert("Required", "Model is required"); return; }
     } else if (providerType === "services") {
@@ -216,9 +203,7 @@ export default function BecomeProviderScreen() {
         providerType: providerType!,
         subtype,
       };
-      if (providerType === "cars") {
-        Object.assign(payload, { licenseNumber, vehicleType: subtype, vehicleMake, vehicleModel, vehicleYear, vehicleColor });
-      } else if (providerType === "equipment") {
+      if (providerType === "equipment") {
         Object.assign(payload, { equipmentName: subtype, licenseNumber: eqLicense, vehicleMake: eqMake, vehicleModel: eqModel, vehicleYear: eqYear });
       } else if (providerType === "services") {
         Object.assign(payload, { fullName, area, address, aadhaarNumber: aadhaar.replace(/\D/g, "") });
@@ -234,7 +219,7 @@ export default function BecomeProviderScreen() {
     } finally { setSubmitting(false); }
   }
 
-  const subtypes = providerType === "cars" ? CAR_TYPES : providerType === "equipment" ? EQUIP_TYPES : SERVICE_TYPES;
+  const subtypes = providerType === "equipment" ? EQUIP_TYPES : SERVICE_TYPES;
 
   return (
     <View style={styles.root}>
@@ -289,6 +274,14 @@ export default function BecomeProviderScreen() {
                   </View>
                 </View>
               ))}
+            </View>
+
+            <View style={styles.carNoteBox}>
+              <Ionicons name="car-sport-outline" size={18} color="#0F1F3D" />
+              <Text style={styles.carNoteText}>
+                <Text style={{ fontWeight: "700" }}>Want to offer car rides?</Text>
+                {" "}Become a provider first, add your car listing from the Dashboard, and then activate Driver mode.
+              </Text>
             </View>
 
             <Text style={styles.noteText}>We'll send a verification code to confirm your identity.</Text>
@@ -410,9 +403,7 @@ export default function BecomeProviderScreen() {
             {providerType && (
               <View style={styles.subtypeSection}>
                 <Text style={styles.subtypeTitle}>
-                  {providerType === "cars"      ? "Select Vehicle Type" :
-                   providerType === "equipment" ? "Select Equipment Type" :
-                                                  "Select Service Type"}
+                  {providerType === "equipment" ? "Select Equipment Type" : "Select Service Type"}
                 </Text>
                 <View style={styles.subtypeGrid}>
                   {subtypes.map((s) => {
@@ -451,37 +442,13 @@ export default function BecomeProviderScreen() {
               <Ionicons name="document-text-outline" size={48} color={TINT} />
             </View>
             <Text style={styles.stepTitle}>
-              {providerType === "cars"      ? "Car Driver Details" :
-               providerType === "equipment" ? "Equipment Details" :
-                                              "Service Provider Details"}
+              {providerType === "equipment" ? "Equipment Details" : "Service Provider Details"}
             </Text>
             <Text style={styles.stepSubtitle}>
               Fill in your details to complete registration as a <Text style={{ color: TINT, fontWeight: "700" }}>{subtype}</Text> provider.
             </Text>
 
             <View style={styles.formCard}>
-              {/* ─── Cars Form ─── */}
-              {providerType === "cars" && (
-                <>
-                  <Text style={styles.formSection}>Driver Information</Text>
-                  <Field label="License Number *" value={licenseNumber} onChange={setLicenseNumber} placeholder="e.g. PB-1234-567890" autoCapitalize="characters" />
-
-                  <Text style={[styles.formSection, { marginTop: 16 }]}>Vehicle Details</Text>
-                  <View style={styles.selectedTypeTag}>
-                    <Ionicons name="car-sport-outline" size={16} color={TINT} />
-                    <Text style={styles.selectedTypeText}>Vehicle Type: <Text style={{ fontWeight: "700", color: TINT }}>{subtype}</Text></Text>
-                  </View>
-                  <View style={styles.row2}>
-                    <Field label="Make *"  value={vehicleMake}  onChange={setVehicleMake}  placeholder="e.g. Maruti" flex />
-                    <Field label="Model *" value={vehicleModel} onChange={setVehicleModel} placeholder="e.g. Swift" flex />
-                  </View>
-                  <View style={styles.row2}>
-                    <Field label="Year"  value={vehicleYear}  onChange={setVehicleYear}  placeholder="2020" keyboardType="number-pad" maxLength={4} flex />
-                    <Field label="Color" value={vehicleColor} onChange={setVehicleColor} placeholder="White" flex />
-                  </View>
-                </>
-              )}
-
               {/* ─── Equipment Form ─── */}
               {providerType === "equipment" && (
                 <>
@@ -547,7 +514,7 @@ export default function BecomeProviderScreen() {
             </View>
             <Text style={styles.successTitle}>You're Live! 🎉</Text>
             <Text style={styles.stepSubtitle}>
-              You're now registered as a <Text style={{ color: TINT, fontWeight: "700" }}>{subtype} {providerType === "services" ? "Provider" : providerType === "equipment" ? "Provider" : "Driver"}</Text>.{"\n"}
+              You're now registered as a <Text style={{ color: TINT, fontWeight: "700" }}>{subtype} Provider</Text>.{"\n"}
               We'll review your documents within 24 hours.
             </Text>
 
@@ -627,7 +594,7 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 18, fontWeight: "700", fontFamily: "Inter_700Bold", color: C.text },
 
   scroll: { flex: 1 },
-  scrollContent: { padding: 20 },
+  scrollContent: { padding: 20, paddingBottom: 60 },
   section: { gap: 16 },
 
   iconCircle: {
@@ -647,6 +614,12 @@ const styles = StyleSheet.create({
   benefitTitle: { fontSize: 15, fontWeight: "600", fontFamily: "Inter_600SemiBold", color: C.text },
   benefitDesc: { fontSize: 13, color: C.textSecondary, fontFamily: "Inter_400Regular", marginTop: 2 },
   noteText: { fontSize: 13, color: C.textSecondary, textAlign: "center", fontFamily: "Inter_400Regular" },
+  carNoteBox: {
+    flexDirection: "row", alignItems: "flex-start", gap: 10,
+    backgroundColor: "#E8ECF4", borderRadius: 12, padding: 14,
+    borderWidth: 1, borderColor: "#CBD2E0", alignSelf: "stretch",
+  },
+  carNoteText: { flex: 1, fontSize: 13, color: "#0F1F3D", fontFamily: "Inter_400Regular", lineHeight: 19 },
   channelCard: {
     backgroundColor: "#F9FAFB", borderRadius: 12, borderWidth: 1.5, borderColor: C.border,
     padding: 14, gap: 10, alignSelf: "stretch",

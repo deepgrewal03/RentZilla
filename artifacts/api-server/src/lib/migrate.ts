@@ -187,6 +187,11 @@ export async function runMigrations() {
 
   const alterStatements = [
     `ALTER TABLE users ADD COLUMN IF NOT EXISTS dob TEXT`,
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS google_id TEXT UNIQUE`,
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS apple_id TEXT UNIQUE`,
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS auth_provider TEXT NOT NULL DEFAULT 'email'`,
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS photo_url TEXT`,
+    `ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_complete BOOLEAN NOT NULL DEFAULT TRUE`,
     `ALTER TABLE bookings ADD COLUMN IF NOT EXISTS booking_date TEXT`,
     `ALTER TABLE bookings ADD COLUMN IF NOT EXISTS time_slot TEXT`,
     `CREATE TABLE IF NOT EXISTS equipment_provider_details (
@@ -376,6 +381,8 @@ export async function runMigrations() {
   const listingEngineColumns = [
     `ALTER TABLE listings ADD COLUMN IF NOT EXISTS engine_size REAL`,
     `ALTER TABLE listings ADD COLUMN IF NOT EXISTS vehicle_type TEXT`,
+    `ALTER TABLE listings ADD COLUMN IF NOT EXISTS latitude NUMERIC(10,6)`,
+    `ALTER TABLE listings ADD COLUMN IF NOT EXISTS longitude NUMERIC(10,6)`,
   ];
   for (const stmt of listingEngineColumns) {
     await db.execute(sql.raw(stmt));
@@ -592,6 +599,270 @@ export async function runMigrations() {
       used_in_booking_id TEXT
     )
   `));
+
+  await db.execute(sql.raw(`
+    CREATE TABLE IF NOT EXISTS support_tickets (
+      id TEXT PRIMARY KEY,
+      user_id TEXT,
+      name TEXT NOT NULL,
+      contact TEXT NOT NULL,
+      issue_type TEXT NOT NULL,
+      message TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending',
+      admin_notes TEXT,
+      created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+      resolved_at TIMESTAMP
+    )
+  `));
+
+  await db.execute(sql.raw(`
+    CREATE TABLE IF NOT EXISTS user_verification (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL UNIQUE,
+      phone_verified BOOLEAN NOT NULL DEFAULT TRUE,
+      email_verified BOOLEAN NOT NULL DEFAULT FALSE,
+      gov_id_status TEXT NOT NULL DEFAULT 'none',
+      gov_id_doc_id TEXT,
+      selfie_status TEXT NOT NULL DEFAULT 'none',
+      selfie_doc_id TEXT,
+      address_status TEXT NOT NULL DEFAULT 'none',
+      address_doc_id TEXT,
+      trust_score INTEGER NOT NULL DEFAULT 0,
+      verification_level TEXT NOT NULL DEFAULT 'unverified',
+      admin_note TEXT,
+      created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+    )
+  `));
+
+  await db.execute(sql.raw(`
+    CREATE TABLE IF NOT EXISTS provider_documents (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      service_type TEXT NOT NULL,
+      document_type TEXT NOT NULL,
+      file_url TEXT NOT NULL,
+      file_name TEXT,
+      file_size INTEGER,
+      mime_type TEXT,
+      status TEXT NOT NULL DEFAULT 'pending',
+      admin_note TEXT,
+      uploaded_at TIMESTAMP NOT NULL DEFAULT NOW(),
+      reviewed_at TIMESTAMP
+    )
+  `));
+
+  // ── P0: Booking integrity — transition audit log ──────────────────────────────
+  await db.execute(sql.raw(`
+    CREATE TABLE IF NOT EXISTS booking_transition_log (
+      id TEXT PRIMARY KEY,
+      booking_id TEXT NOT NULL,
+      from_status TEXT NOT NULL,
+      to_status TEXT NOT NULL,
+      actor_id TEXT NOT NULL,
+      reason TEXT,
+      created_at TIMESTAMP NOT NULL DEFAULT NOW()
+    )
+  `));
+
+  // ── P0: Payment event log for idempotency + reconciliation ───────────────────
+  await db.execute(sql.raw(`
+    CREATE TABLE IF NOT EXISTS payment_event_logs (
+      id TEXT PRIMARY KEY,
+      idempotency_key TEXT UNIQUE NOT NULL,
+      booking_id TEXT NOT NULL,
+      event_type TEXT NOT NULL,
+      amount NUMERIC(10,2) NOT NULL DEFAULT 0,
+      actor_id TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'success',
+      error_message TEXT,
+      created_at TIMESTAMP NOT NULL DEFAULT NOW()
+    )
+  `));
+
+  // ── P1: Idempotency keys for booking creation (prevent duplicate taps) ────────
+  await db.execute(sql.raw(`
+    CREATE TABLE IF NOT EXISTS idempotency_keys (
+      key TEXT PRIMARY KEY,
+      booking_id TEXT NOT NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT NOW()
+    )
+  `));
+
+  // ── Indexes for performance ───────────────────────────────────────────────────
+  const indexes = [
+    `CREATE INDEX IF NOT EXISTS idx_bookings_customer ON bookings(customer_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_bookings_provider ON bookings(provider_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_bookings_listing ON bookings(listing_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_bookings_status ON bookings(status)`,
+    `CREATE INDEX IF NOT EXISTS idx_bookings_date ON bookings(booking_date)`,
+    `CREATE INDEX IF NOT EXISTS idx_wallet_tx_user ON wallet_transactions(user_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_wallet_tx_ref ON wallet_transactions(reference_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_booking_log_booking ON booking_transition_log(booking_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_payment_log_booking ON payment_event_logs(booking_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_listings_provider ON listings(provider_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_listings_category ON listings(category)`,
+  ];
+  for (const stmt of indexes) {
+    await db.execute(sql.raw(stmt));
+  }
+
+  // ── Add updated_at to bookings ────────────────────────────────────────────────
+  const timestampAlters = [
+    `ALTER TABLE bookings ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP NOT NULL DEFAULT NOW()`,
+    `ALTER TABLE bookings ADD COLUMN IF NOT EXISTS dispute_status TEXT`,
+    `ALTER TABLE bookings ADD COLUMN IF NOT EXISTS fraud_hold BOOLEAN NOT NULL DEFAULT FALSE`,
+    `ALTER TABLE bookings ADD COLUMN IF NOT EXISTS cancelled_at TIMESTAMP`,
+    `ALTER TABLE bookings ADD COLUMN IF NOT EXISTS completed_at TIMESTAMP`,
+    `ALTER TABLE bookings ADD COLUMN IF NOT EXISTS idempotency_key TEXT UNIQUE`,
+  ];
+  for (const stmt of timestampAlters) {
+    await db.execute(sql.raw(stmt));
+  }
+
+  // ── P4: Unique index to prevent same listing+date+slot double booking ─────────
+  // Uses a partial unique index only for active bookings
+  try {
+    await db.execute(sql.raw(`
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_booking_slot
+      ON bookings(listing_id, booking_date, time_slot)
+      WHERE status NOT IN ('cancelled', 'refunded', 'closed')
+        AND time_slot IS NOT NULL
+        AND booking_date IS NOT NULL
+    `));
+  } catch (_) { /* Index may already exist or time_slot is null — safe to skip */ }
+
+  // ── P4: Orphan cleanup — cancel bookings with no matching listing ─────────────
+  try {
+    await db.execute(sql.raw(`
+      UPDATE bookings
+      SET status = 'cancelled', updated_at = NOW()
+      WHERE status = 'pending'
+        AND listing_id NOT IN (SELECT id FROM listings)
+    `));
+  } catch (_) { /* Non-critical */ }
+
+  // ── P4: Fix null provider_id bookings (data integrity) ───────────────────────
+  try {
+    await db.execute(sql.raw(`
+      UPDATE bookings
+      SET status = 'cancelled', updated_at = NOW()
+      WHERE (provider_id IS NULL OR provider_id = '')
+        AND status NOT IN ('completed', 'cancelled', 'closed')
+    `));
+  } catch (_) { /* Non-critical */ }
+
+  // ── P4: Stale pending bookings cleanup (older than 48 hours) ─────────────────
+  try {
+    await db.execute(sql.raw(`
+      UPDATE bookings
+      SET status = 'cancelled', updated_at = NOW()
+      WHERE status = 'pending'
+        AND created_at < NOW() - INTERVAL '48 hours'
+    `));
+  } catch (_) { /* Non-critical */ }
+
+  // ── Add dispute tracking columns to bookings ──────────────────────────────────
+  const disputeAlters = [
+    `ALTER TABLE bookings ADD COLUMN IF NOT EXISTS dispute_reason TEXT`,
+    `ALTER TABLE bookings ADD COLUMN IF NOT EXISTS dispute_opened_at TIMESTAMP`,
+    `ALTER TABLE bookings ADD COLUMN IF NOT EXISTS refund_amount NUMERIC(10,2) NOT NULL DEFAULT 0`,
+  ];
+  for (const stmt of disputeAlters) {
+    await db.execute(sql.raw(stmt));
+  }
+
+  // ── Razorpay orders table ─────────────────────────────────────────────────────
+  await db.execute(sql.raw(`
+    CREATE TABLE IF NOT EXISTS razorpay_orders (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      razorpay_order_id TEXT UNIQUE NOT NULL,
+      razorpay_payment_id TEXT,
+      razorpay_signature TEXT,
+      purpose TEXT NOT NULL,
+      amount_inr NUMERIC(10,2) NOT NULL,
+      amount_paise INTEGER NOT NULL,
+      status TEXT NOT NULL DEFAULT 'created',
+      notes JSONB,
+      paid_at TIMESTAMP,
+      created_at TIMESTAMP NOT NULL DEFAULT NOW()
+    )
+  `));
+  await db.execute(sql.raw(`CREATE INDEX IF NOT EXISTS idx_rz_orders_user ON razorpay_orders(user_id)`));
+  await db.execute(sql.raw(`CREATE INDEX IF NOT EXISTS idx_rz_orders_status ON razorpay_orders(status)`));
+
+  // ── dispute_messages table ─────────────────────────────────────────────────
+  await db.execute(sql.raw(`
+    CREATE TABLE IF NOT EXISTS dispute_messages (
+      id TEXT PRIMARY KEY,
+      booking_id TEXT NOT NULL,
+      sender_id TEXT NOT NULL,
+      sender_role TEXT NOT NULL DEFAULT 'customer',
+      content TEXT NOT NULL,
+      attachment_url TEXT,
+      created_at TIMESTAMP NOT NULL DEFAULT NOW()
+    )
+  `));
+  await db.execute(sql.raw(`CREATE INDEX IF NOT EXISTS idx_dispute_msgs_booking ON dispute_messages(booking_id)`));
+  await db.execute(sql.raw(`CREATE INDEX IF NOT EXISTS idx_dispute_msgs_sender ON dispute_messages(sender_id)`));
+
+  // ── fraud_scores cache table ───────────────────────────────────────────────
+  await db.execute(sql.raw(`
+    CREATE TABLE IF NOT EXISTS fraud_scores (
+      user_id TEXT PRIMARY KEY,
+      score INTEGER NOT NULL DEFAULT 0,
+      risk_level TEXT NOT NULL DEFAULT 'low',
+      factors JSONB NOT NULL DEFAULT '[]',
+      computed_at TIMESTAMP NOT NULL DEFAULT NOW()
+    )
+  `));
+
+  // ── Add dispute resolution columns to bookings ────────────────────────────
+  const disputeResolutionAlters = [
+    `ALTER TABLE bookings ADD COLUMN IF NOT EXISTS dispute_resolution TEXT`,
+    `ALTER TABLE bookings ADD COLUMN IF NOT EXISTS dispute_resolved_at TIMESTAMP`,
+    `ALTER TABLE bookings ADD COLUMN IF NOT EXISTS dispute_resolved_by TEXT`,
+  ];
+  for (const stmt of disputeResolutionAlters) {
+    try { await db.execute(sql.raw(stmt)); } catch (_) {}
+  }
+
+  // ── Foreign key constraints (DO block — idempotent, NOT VALID skips existing rows) ──
+  await db.execute(sql.raw(`
+    DO $$ BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_listings_provider') THEN
+        ALTER TABLE listings ADD CONSTRAINT fk_listings_provider FOREIGN KEY (provider_id) REFERENCES users(id) ON DELETE CASCADE NOT VALID;
+      END IF;
+      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_reviews_user') THEN
+        ALTER TABLE reviews ADD CONSTRAINT fk_reviews_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE NOT VALID;
+      END IF;
+      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_reviews_listing') THEN
+        ALTER TABLE reviews ADD CONSTRAINT fk_reviews_listing FOREIGN KEY (listing_id) REFERENCES listings(id) ON DELETE CASCADE NOT VALID;
+      END IF;
+      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_favorites_user') THEN
+        ALTER TABLE favorites ADD CONSTRAINT fk_favorites_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE NOT VALID;
+      END IF;
+      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_favorites_listing') THEN
+        ALTER TABLE favorites ADD CONSTRAINT fk_favorites_listing FOREIGN KEY (listing_id) REFERENCES listings(id) ON DELETE CASCADE NOT VALID;
+      END IF;
+      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_messages_chat') THEN
+        ALTER TABLE messages ADD CONSTRAINT fk_messages_chat FOREIGN KEY (chat_id) REFERENCES chats(id) ON DELETE CASCADE NOT VALID;
+      END IF;
+      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_notifications_user') THEN
+        ALTER TABLE notifications ADD CONSTRAINT fk_notifications_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE NOT VALID;
+      END IF;
+      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_wallet_user') THEN
+        ALTER TABLE wallet_transactions ADD CONSTRAINT fk_wallet_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE NOT VALID;
+      END IF;
+      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_dispute_msgs_booking') THEN
+        ALTER TABLE dispute_messages ADD CONSTRAINT fk_dispute_msgs_booking FOREIGN KEY (booking_id) REFERENCES bookings(id) ON DELETE CASCADE NOT VALID;
+      END IF;
+      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_dispute_msgs_sender') THEN
+        ALTER TABLE dispute_messages ADD CONSTRAINT fk_dispute_msgs_sender FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE CASCADE NOT VALID;
+      END IF;
+    END $$
+  `)).catch(() => {});
 
   logger.info("Database migrations complete.");
 }

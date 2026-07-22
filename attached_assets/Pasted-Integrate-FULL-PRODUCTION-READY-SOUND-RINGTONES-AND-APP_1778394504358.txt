@@ -1,0 +1,256 @@
+Integrate FULL PRODUCTION-READY SOUND, RINGTONES, AND APP AUDIO SYSTEM into the RentZilla mobile app.
+
+TECH STACK:
+- React Native Expo
+- Expo AV / expo-audio
+- EAS Build
+- Android + iOS compatible
+- Production-safe
+- Optimized for performance
+
+ROLE:
+Act as:
+- Senior Mobile Audio Engineer
+- UX Sound Designer
+- Notification System Architect
+- React Native Production Integrator
+
+GOAL:
+Add complete audio experience for:
+- app startup sound
+- booking success sound
+- notifications
+- provider alerts
+- wallet/payment success
+- incoming booking ringtone
+- admin alerts
+- custom notification tones
+- silent/vibrate controls
+- background-safe playback
+
+IMPORTANT:
+- Must work on REAL Android + iPhone devices
+- Must work in release builds
+- Must not crash app
+- Must not block app startup
+- Respect silent mode where appropriate
+- Optimize audio memory usage
+- No autoplay policy violations on iOS
+
+====================================================
+1) INSTALL AUDIO SYSTEM
+====================================================
+Install and configure:
+- expo-av OR expo-audio
+- notification sound assets
+- local audio asset management
+- caching system
+- preload system
+
+Ensure:
+- EAS build compatible
+- Android notification channels supported
+- iOS sound bundle registration supported
+- low latency playback
+
+====================================================
+2) APP STARTUP SOUND
+====================================================
+Add short premium startup sound/logo tone.
+
+Requirements:
+- play only once on splash/app launch
+- non-blocking async playback
+- max 2–3 seconds
+- smooth fade in/out
+- stop immediately if app minimized
+- no repeated replay during navigation
+
+Add:
+- startupSoundEnabled setting
+- mute option
+- admin remote config support
+
+====================================================
+3) NOTIFICATION SOUND SYSTEM
+====================================================
+Create categorized notification sounds:
+
+CUSTOMER:
+- booking confirmed
+- booking cancelled
+- provider accepted
+- payment success
+- refund processed
+- wallet credited
+
+PROVIDER:
+- new booking request
+- payout released
+- dispute alert
+- verification approved
+
+ADMIN:
+- fraud alert
+- high-value booking
+- dispute escalation
+- failed payout
+
+Each notification type must:
+- have unique tone
+- support vibration
+- support silent mode
+- support background notifications
+- support push notification sound
+
+====================================================
+4) PUSH NOTIFICATION TONES
+====================================================
+Integrate with:
+- Expo Notifications
+- Firebase FCM
+- APNs for iOS
+
+Configure:
+Android:
+- notification channels
+- custom sounds
+- high priority alerts
+
+iOS:
+- bundled CAF/WAV sounds
+- APNs payload sound field
+- foreground + background handling
+
+Ensure:
+- sound works when app closed
+- sound works when app backgrounded
+- sound works on lock screen
+
+====================================================
+5) INCOMING BOOKING RINGTONE
+====================================================
+For providers:
+When new booking arrives:
+- play louder incoming ringtone
+- show accept/reject modal
+- vibration pattern
+- auto stop after timeout
+- stop when accepted/rejected
+
+Add:
+- ringtone volume setting
+- custom ringtone selector
+- repeat interval
+- DND support
+
+====================================================
+6) SOUND SETTINGS SCREEN
+====================================================
+Create:
+Settings → Sounds & Notifications
+
+Controls:
+- master sound toggle
+- startup sound toggle
+- booking sound toggle
+- vibration toggle
+- notification tone selector
+- provider ringtone selector
+- test sound button
+
+Persist settings:
+- Supabase profile
+- local cache
+- device restore safe
+
+====================================================
+7) AUDIO FILE MANAGEMENT
+====================================================
+Organize:
+assets/sounds/
+- startup.mp3
+- booking-success.mp3
+- provider-alert.mp3
+- wallet-credit.mp3
+- payout-success.mp3
+- ringtone.mp3
+
+Requirements:
+- compressed optimized files
+- preload critical sounds
+- lazy load secondary sounds
+- prevent memory leaks
+- no duplicate audio instances
+
+====================================================
+8) ERROR HANDLING
+====================================================
+If sound fails:
+- app must continue normally
+- log audio error silently
+- fallback vibration
+- no UI freeze
+- no crash
+
+====================================================
+9) PERFORMANCE OPTIMIZATION
+====================================================
+Implement:
+- audio pooling
+- preload manager
+- cleanup on unmount
+- stop audio on logout
+- background state handling
+- battery optimization
+
+Ensure:
+- smooth startup
+- no lag during booking flow
+- no memory spikes
+- no audio overlap bugs
+
+====================================================
+10) ADMIN SOUND CONTROL
+====================================================
+Create admin remote config:
+- emergency alert tone
+- promotional campaign sounds
+- global mute override
+- seasonal sounds
+- sound version management
+
+====================================================
+11) TESTING SUITE
+====================================================
+Automatically test:
+- Android real device
+- iPhone real device
+- silent mode
+- vibration mode
+- background app state
+- terminated app notification
+- rapid multiple notifications
+- low internet conditions
+
+Verify:
+- no audio crashes
+- notification sounds always play
+- startup sound does not loop
+- ringtone stops correctly
+
+====================================================
+12) OUTPUT REQUIRED
+====================================================
+Generate:
+- complete audio service
+- notification sound manager
+- startup sound integration
+- ringtone system
+- Expo Notifications integration
+- Android notification channels
+- iOS bundled sound setup
+- settings UI
+- sound asset structure
+- production-safe code only
+- EAS build compatibility

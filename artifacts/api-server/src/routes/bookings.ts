@@ -4,6 +4,18 @@ import { bookingsTable, listingsTable, usersTable } from "@workspace/db";
 import { eq, or, and } from "drizzle-orm";
 import { sql } from "drizzle-orm";
 import { authMiddleware } from "./users.js";
+import {
+  validateTransition,
+  transitionBooking,
+  isValidStatus,
+  isPayoutEligible,
+  hasDateOverlap,
+  recalculateBaseAmount,
+  cancelStalePendingBookings,
+  type BookingStatus,
+  InvalidTransitionError,
+  UnauthorisedTransitionError,
+} from "../lib/bookingStateMachine.js";
 
 const router: IRouter = Router();
 
@@ -30,37 +42,68 @@ const TIME_SLOTS = [
 ];
 
 async function enrichBooking(booking: typeof bookingsTable.$inferSelect) {
-  const listing = await db.select().from(listingsTable).where(eq(listingsTable.id, booking.listingId)).limit(1);
-  const customer = await db.select().from(usersTable).where(eq(usersTable.id, booking.customerId)).limit(1);
+  const [listing, customer, provider] = await Promise.all([
+    db.select().from(listingsTable).where(eq(listingsTable.id, booking.listingId)).limit(1),
+    db.select().from(usersTable).where(eq(usersTable.id, booking.customerId)).limit(1),
+    db.select().from(usersTable).where(eq(usersTable.id, booking.providerId)).limit(1),
+  ]);
 
   const b = booking as any;
+  // Drizzle ORM maps snake_case columns to camelCase; support both for raw SQL results too
+  const rawTimeSlots = b.timeSlots ?? b.time_slots ?? null;
+  const rawServiceTypes = b.serviceTypes ?? b.service_types ?? null;
+  const parsedTimeSlots: string[] = rawTimeSlots ? safeParseJson(rawTimeSlots, []) : [];
+  const parsedServiceTypes: string[] = rawServiceTypes ? safeParseJson(rawServiceTypes, []) : [];
+  // totalHours = number of booked time slots (for hourly/service bookings)
+  const totalHours = parsedTimeSlots.length > 0 ? parsedTimeSlots.length : null;
+  const rawDiscountAmount = b.discountAmount ?? b.discount_amount ?? 0;
+  const rawGoldDiscountAmount = b.goldDiscountAmount ?? b.gold_discount_amount ?? 0;
+  const rawFinalAmount = b.finalAmount ?? b.final_amount ?? 0;
+  const rawPromoCode = b.promoCode ?? b.promo_code ?? null;
+  const rawLocation = b.location ?? null;
+  const rawLocationLat = b.locationLat ?? b.location_lat ?? null;
+  const rawLocationLng = b.locationLng ?? b.location_lng ?? null;
+  const goldDiscountAmount = Number(rawGoldDiscountAmount);
+  const totalDiscount = Number(rawDiscountAmount);
+  const promoDiscountAmount = Math.max(0, totalDiscount - goldDiscountAmount);
+  const finalAmt = Number(rawFinalAmount) || Number(booking.totalAmount);
   return {
     id: booking.id,
     customerId: booking.customerId,
     customerName: customer[0]?.name || "Customer",
     customerPhone: customer[0]?.phone || "",
     providerId: booking.providerId,
+    providerName: provider[0]?.name || "Provider",
+    providerPhone: provider[0]?.phone || "",
     listingId: booking.listingId,
     listingTitle: listing[0]?.title || "Listing",
     listingCategory: listing[0]?.category || null,
+    listingSubcategory: listing[0]?.subcategory || null,
     listingImage: ((listing[0]?.images as string[]) || [])[0] || null,
     startDate: booking.startDate,
     endDate: booking.endDate,
     totalDays: booking.totalDays,
+    totalHours,
     totalAmount: booking.totalAmount,
     status: booking.status,
     paymentStatus: booking.paymentStatus,
     notes: booking.notes,
     bookingDate: booking.bookingDate,
     timeSlot: booking.timeSlot,
-    timeSlots: b.time_slots ? safeParseJson(b.time_slots, []) : null,
-    serviceType: b.serviceType || b.service_type || null,
-    serviceTypes: b.service_types ? safeParseJson(b.service_types, []) : null,
-    promoCode: b.promo_code || null,
-    discountAmount: Number(b.discount_amount || 0),
-    serviceFee: Number(b.service_fee || 0),
-    extraCharges: b.extra_charges ? safeParseJson(b.extra_charges, []) : [],
-    finalAmount: Number(b.final_amount || 0) || Number(booking.totalAmount),
+    timeSlots: parsedTimeSlots.length > 0 ? parsedTimeSlots : null,
+    serviceType: b.serviceType || b.service_type || parsedServiceTypes[0] || null,
+    serviceTypes: parsedServiceTypes.length > 0 ? parsedServiceTypes : null,
+    promoCode: rawPromoCode,
+    discountAmount: totalDiscount,
+    promoDiscountAmount,
+    goldDiscountAmount,
+    goldDiscountApplied: !!(b.goldDiscountApplied ?? b.gold_discount_applied),
+    serviceFee: Number(b.serviceFee ?? b.service_fee ?? 0),
+    extraCharges: (b.extraCharges ?? b.extra_charges) ? safeParseJson(b.extraCharges ?? b.extra_charges, []) : [],
+    finalAmount: finalAmt,
+    location: rawLocation,
+    locationLat: rawLocationLat ? Number(rawLocationLat) : null,
+    locationLng: rawLocationLng ? Number(rawLocationLng) : null,
     createdAt: booking.createdAt.toISOString(),
   };
 }
@@ -178,7 +221,7 @@ router.post("/validate-promo", authMiddleware, async (req: Request, res: Respons
     }
 
     let discount = 0;
-    if (promo.type === "percent") {
+    if (promo.type === "percent" || promo.type === "percentage") {
       discount = Math.round(orderAmount * Number(promo.value) / 100);
     } else {
       discount = Math.min(Number(promo.value), orderAmount);
@@ -192,12 +235,150 @@ router.post("/validate-promo", authMiddleware, async (req: Request, res: Respons
       discount,
       finalAmount: Math.max(0, orderAmount - discount),
       description: promo.description || null,
-      message: promo.type === "percent"
+      message: (promo.type === "percent" || promo.type === "percentage")
         ? `${promo.value}% off applied — you save ₹${discount.toLocaleString("en-IN")}`
         : `Flat ₹${discount.toLocaleString("en-IN")} off applied`,
     });
   } catch (err) {
     req.log.error({ err }, "Validate promo error");
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ── POST /bookings/:id/accept — provider accepts a pending booking ─────────────
+router.post("/:id/accept", authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as Request & { userId: string }).userId;
+    const rows = toRows(await db.execute(sql`SELECT * FROM bookings WHERE id = ${req.params.id} LIMIT 1`));
+    if (rows.length === 0) { res.status(404).json({ error: "Booking not found" }); return; }
+    const b = rows[0];
+
+    if (b.provider_id !== userId) { res.status(403).json({ error: "Only the provider can accept this booking" }); return; }
+
+    const from = b.status as BookingStatus;
+    const to: BookingStatus = "confirmed";
+    try {
+      await transitionBooking(req.params.id, from, to, userId, "provider accepted");
+    } catch (e: any) {
+      if (e instanceof InvalidTransitionError) {
+        return res.status(422).json({ error: e.message });
+      }
+      throw e;
+    }
+
+    // Notify customer
+    try {
+      const notifId = generateId();
+      await db.execute(sql`
+        INSERT INTO notifications (id, user_id, title, message)
+        VALUES (${notifId}, ${b.customer_id},
+          'Booking Accepted ✅',
+          ${"Your booking has been accepted by the provider. Get ready!"})
+      `);
+    } catch { /* non-critical */ }
+
+    const updated = await db.select().from(bookingsTable).where(eq(bookingsTable.id, req.params.id)).limit(1);
+    res.json(await enrichBooking(updated[0]));
+  } catch (err) {
+    req.log.error({ err }, "Accept booking error");
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ── POST /bookings/:id/reject — provider rejects a pending booking ─────────────
+router.post("/:id/reject", authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as Request & { userId: string }).userId;
+    const { reason } = req.body;
+    const rows = toRows(await db.execute(sql`SELECT * FROM bookings WHERE id = ${req.params.id} LIMIT 1`));
+    if (rows.length === 0) { res.status(404).json({ error: "Booking not found" }); return; }
+    const b = rows[0];
+
+    if (b.provider_id !== userId) { res.status(403).json({ error: "Only the provider can reject this booking" }); return; }
+    if (b.status !== "pending") { res.status(400).json({ error: `Cannot reject a booking with status "${b.status}"` }); return; }
+
+    await transitionBooking(req.params.id, "pending", "cancelled", userId, reason || "rejected by provider");
+
+    try {
+      const notifId = generateId();
+      await db.execute(sql`
+        INSERT INTO notifications (id, user_id, title, message)
+        VALUES (${notifId}, ${b.customer_id},
+          'Booking Rejected',
+          ${reason ? `Your booking was rejected: ${reason}` : "Your booking request was not accepted. Please try another provider."})
+      `);
+    } catch { /* non-critical */ }
+
+    const updated = await db.select().from(bookingsTable).where(eq(bookingsTable.id, req.params.id)).limit(1);
+    res.json(await enrichBooking(updated[0]));
+  } catch (err: any) {
+    if (err instanceof InvalidTransitionError) { res.status(422).json({ error: err.message }); return; }
+    req.log.error({ err }, "Reject booking error");
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ── POST /bookings/:id/cancel — customer or provider cancels a booking ─────────
+router.post("/:id/cancel", authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as Request & { userId: string }).userId;
+    const { reason } = req.body;
+    const rows = toRows(await db.execute(sql`SELECT * FROM bookings WHERE id = ${req.params.id} LIMIT 1`));
+    if (rows.length === 0) { res.status(404).json({ error: "Booking not found" }); return; }
+    const b = rows[0];
+
+    const isCustomer = b.customer_id === userId;
+    const isProvider = b.provider_id === userId;
+    if (!isCustomer && !isProvider) { res.status(403).json({ error: "Not authorised to cancel this booking" }); return; }
+
+    const from = b.status as BookingStatus;
+
+    // Providers cancel in-progress/confirmed bookings via cancel_requested first
+    let to: BookingStatus = "cancelled";
+    if (isProvider && (from === "confirmed" || from === "in_progress")) {
+      to = "cancel_requested";
+    }
+
+    try {
+      await transitionBooking(req.params.id, from, to, userId, reason || "cancelled by user");
+    } catch (e: any) {
+      if (e instanceof InvalidTransitionError) { return res.status(422).json({ error: e.message }); }
+      throw e;
+    }
+
+    // Notify the other party
+    const notifyUserId = isCustomer ? b.provider_id : b.customer_id;
+    try {
+      const notifId = generateId();
+      const label = isCustomer ? "Customer" : "Provider";
+      await db.execute(sql`
+        INSERT INTO notifications (id, user_id, title, message)
+        VALUES (${notifId}, ${notifyUserId},
+          ${"Booking Cancelled"},
+          ${reason ? `Booking cancelled by ${label}: ${reason}` : `The booking was cancelled by the ${label}.`})
+      `);
+    } catch { /* non-critical */ }
+
+    const updated = await db.select().from(bookingsTable).where(eq(bookingsTable.id, req.params.id)).limit(1);
+    res.json(await enrichBooking(updated[0]));
+  } catch (err: any) {
+    if (err instanceof InvalidTransitionError) { res.status(422).json({ error: err.message }); return; }
+    req.log.error({ err }, "Cancel booking error");
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ── POST /bookings/cleanup/stale — admin: auto-cancel stale pending bookings ───
+router.post("/cleanup/stale", authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as Request & { userId: string }).userId;
+    const callerRows = toRows(await db.execute(sql`SELECT is_admin FROM users WHERE id = ${userId} LIMIT 1`));
+    if (!callerRows[0]?.is_admin) { res.status(403).json({ error: "Admin access required" }); return; }
+    const maxAgeMinutes = Number(req.body.maxAgeMinutes) || 1440;
+    const cancelled = await cancelStalePendingBookings(maxAgeMinutes);
+    res.json({ cancelled, message: `${cancelled} stale pending bookings auto-cancelled` });
+  } catch (err) {
+    req.log.error({ err }, "Cleanup stale error");
     res.status(500).json({ error: "Internal server error" });
   }
 });
@@ -211,7 +392,28 @@ router.post("/", authMiddleware, async (req: Request, res: Response) => {
       bookingDate, timeSlot, timeSlots,
       serviceType, serviceTypes,
       promoCode,
+      idempotencyKey,
     } = req.body;
+
+    // ── P1: Idempotency — prevent double-tap duplicate bookings ──────────────
+    if (idempotencyKey) {
+      const existingKey = toRows(await db.execute(sql`
+        SELECT booking_id FROM idempotency_keys WHERE key = ${idempotencyKey} LIMIT 1
+      `));
+      if (existingKey.length > 0) {
+        const existingBookings = await db
+          .select()
+          .from(bookingsTable)
+          .where(eq(bookingsTable.id, existingKey[0].booking_id))
+          .limit(1);
+        if (existingBookings.length > 0) {
+          const enriched = await enrichBooking(existingBookings[0]);
+          return res.status(200).json({ ...enriched, _idempotent: true });
+        }
+      }
+    }
+
+    // ── No duplicate check needed (callerRole removed; self-booking check below)
 
     const listings = await db.select().from(listingsTable).where(eq(listingsTable.id, listingId)).limit(1);
     if (listings.length === 0) {
@@ -219,6 +421,12 @@ router.post("/", authMiddleware, async (req: Request, res: Response) => {
       return;
     }
     const listing = listings[0];
+
+    // Block provider from booking their own listing
+    if (listing.providerId === userId) {
+      res.status(400).json({ error: "You cannot book your own listing" });
+      return;
+    }
 
     // Normalise slot arrays
     const slotsArray: string[] = Array.isArray(timeSlots) && timeSlots.length > 0
@@ -291,7 +499,7 @@ router.post("/", authMiddleware, async (req: Request, res: Response) => {
           const hasUses = Number(promo.used_count) < Number(promo.max_uses);
           const meetsMin = baseAmount >= Number(promo.min_order);
           if (notExpired && hasUses && meetsMin) {
-            discountAmount = promo.type === "percent"
+            discountAmount = (promo.type === "percent" || promo.type === "percentage")
               ? Math.round(baseAmount * Number(promo.value) / 100)
               : Math.min(Number(promo.value), baseAmount);
             appliedPromo = promoRows[0].code;
@@ -352,6 +560,25 @@ router.post("/", authMiddleware, async (req: Request, res: Response) => {
         WHERE id = ${bookingId}
       `);
 
+      // ── Store idempotency key ─────────────────────────────────────────────────
+      if (idempotencyKey) {
+        await db.execute(sql`
+          INSERT INTO idempotency_keys (key, booking_id, created_at)
+          VALUES (${idempotencyKey}, ${bookingId}, NOW())
+          ON CONFLICT (key) DO NOTHING
+        `);
+      }
+
+      // ── Transition log — initial creation ───────────────────────────────────
+      try {
+        const logId = generateId();
+        await db.execute(sql`
+          INSERT INTO booking_transition_log
+            (id, booking_id, from_status, to_status, actor_id, reason, created_at)
+          VALUES (${logId}, ${bookingId}, 'none', 'pending', ${userId}, 'created', NOW())
+        `);
+      } catch { /* non-critical */ }
+
       // Track savings in user profile
       if (goldDiscountApplied && goldDiscountAmount > 0) {
         await db.execute(sql.raw(`
@@ -374,12 +601,52 @@ router.post("/", authMiddleware, async (req: Request, res: Response) => {
         totalAmount: baseAmount,
       });
     } else {
-      // Legacy date-range booking
+      // Legacy date-range booking — validate dates and amounts
+      if (!startDate || !endDate) {
+        return res.status(400).json({ error: "Start date and end date are required" });
+      }
       const start = new Date(startDate);
       const end = new Date(endDate);
-      const diffTime = Math.abs(end.getTime() - start.getTime());
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) || 1;
-      const baseAmount = Number(listing.price) * diffDays;
+      if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+        return res.status(400).json({ error: "Invalid date format" });
+      }
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      if (start < today) {
+        return res.status(400).json({ error: "Start date cannot be in the past" });
+      }
+      if (end < start) {
+        return res.status(400).json({ error: "End date must be on or after start date" });
+      }
+      const { totalAmount: inputTotalAmount, finalAmount: inputFinalAmount } = req.body;
+      if (inputTotalAmount !== undefined && Number(inputTotalAmount) < 0) {
+        return res.status(400).json({ error: "Booking amount cannot be negative" });
+      }
+      if (inputFinalAmount !== undefined && Number(inputFinalAmount) < 0) {
+        return res.status(400).json({ error: "Final amount cannot be negative" });
+      }
+      // ── Overlap detection — prevent double-booking same listing ────────────
+      const overlap = await hasDateOverlap(listingId, startDate, endDate);
+      if (overlap.conflict) {
+        return res.status(409).json({
+          error: "These dates are not available — another booking already exists for this listing in the selected period",
+          conflictingBookingId: overlap.conflictingId,
+        });
+      }
+
+      const diffTime = end.getTime() - start.getTime();
+      // Inclusive end-date convention: Apr 20 → Apr 21 = 2 service days
+      const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24)) + 1;
+      // ── Server-side canonical base amount ───────────────────────────────────
+      const serverBaseAmount = Number(listing.price) * diffDays;
+      const { totalAmount: inputTA, finalAmount: _ignored } = req.body;
+      // Reject if client sends an amount more than 25% below server calculation (manipulation guard)
+      if (inputTA !== undefined && Number(inputTA) < serverBaseAmount * 0.75) {
+        return res.status(400).json({
+          error: `Amount mismatch: client sent ₹${Number(inputTA).toFixed(2)} but server calculates ₹${serverBaseAmount.toFixed(2)} for ${diffDays} day(s) at ₹${listing.price}/day`,
+        });
+      }
+      const baseAmount = serverBaseAmount;
 
       let discountAmount = 0;
       let appliedPromo: string | null = null;
@@ -393,7 +660,7 @@ router.post("/", authMiddleware, async (req: Request, res: Response) => {
           const hasUses = Number(promo.used_count) < Number(promo.max_uses);
           const meetsMin = baseAmount >= Number(promo.min_order);
           if (notExpired && hasUses && meetsMin) {
-            discountAmount = promo.type === "percent"
+            discountAmount = (promo.type === "percent" || promo.type === "percentage")
               ? Math.round(baseAmount * Number(promo.value) / 100)
               : Math.min(Number(promo.value), baseAmount);
             appliedPromo = promo.code;
@@ -448,6 +715,23 @@ router.post("/", authMiddleware, async (req: Request, res: Response) => {
         WHERE id = ${bookingId}
       `);
 
+      if (idempotencyKey) {
+        await db.execute(sql`
+          INSERT INTO idempotency_keys (key, booking_id, created_at)
+          VALUES (${idempotencyKey}, ${bookingId}, NOW())
+          ON CONFLICT (key) DO NOTHING
+        `);
+      }
+
+      try {
+        const logId = generateId();
+        await db.execute(sql`
+          INSERT INTO booking_transition_log
+            (id, booking_id, from_status, to_status, actor_id, reason, created_at)
+          VALUES (${logId}, ${bookingId}, 'none', 'pending', ${userId}, 'created', NOW())
+        `);
+      } catch { /* non-critical */ }
+
       if (goldDiscountApplied2 && goldDiscountAmount2 > 0) {
         await db.execute(sql.raw(`
           UPDATE users SET total_membership_savings = total_membership_savings + ${goldDiscountAmount2}
@@ -491,20 +775,86 @@ router.get("/:id", authMiddleware, async (req: Request, res: Response) => {
 
 router.put("/:id", authMiddleware, async (req: Request, res: Response) => {
   try {
-    const { status, paymentStatus } = req.body;
-    const updateData: Record<string, unknown> = { status };
-    if (paymentStatus) updateData.paymentStatus = paymentStatus;
+    const userId = (req as Request & { userId: string }).userId;
+    const { status, paymentStatus, reason } = req.body;
 
-    const updated = await db.update(bookingsTable)
-      .set(updateData as { status: typeof bookingsTable.$inferSelect["status"]; paymentStatus?: typeof bookingsTable.$inferSelect["paymentStatus"] })
-      .where(eq(bookingsTable.id, req.params.id))
-      .returning();
+    // Fetch current booking — verify caller is participant or admin
+    const rows = toRows(await db.execute(sql`SELECT * FROM bookings WHERE id = ${req.params.id} LIMIT 1`));
+    if (rows.length === 0) {
+      res.status(404).json({ error: "Booking not found" });
+      return;
+    }
+    const booking = rows[0];
 
+    const callerUser = toRows(await db.execute(sql`SELECT role, is_admin FROM users WHERE id = ${userId} LIMIT 1`));
+    const isAdmin = callerUser[0]?.is_admin === true || callerUser[0]?.is_admin === "t";
+    const isParticipant = booking.customer_id === userId || booking.provider_id === userId;
+    if (!isAdmin && !isParticipant) {
+      res.status(403).json({ error: "Not authorised to update this booking" });
+      return;
+    }
+
+    // Validate state machine transition
+    if (status && status !== booking.status) {
+      if (!isValidStatus(status)) {
+        res.status(400).json({ error: `Unknown booking status: ${status}` });
+        return;
+      }
+      if (!isValidStatus(booking.status)) {
+        res.status(400).json({ error: `Booking has unknown current status: ${booking.status}` });
+        return;
+      }
+
+      // Role guards — only providers can confirm; only customers/admins can cancel
+      if (status === "confirmed" && !isAdmin && booking.provider_id !== userId) {
+        res.status(403).json({ error: "Only the provider can confirm a booking" });
+        return;
+      }
+      if (status === "cancelled" && !isAdmin && booking.provider_id === userId && booking.customer_id !== userId) {
+        // Provider cancellation → go through cancel_requested first
+        if (booking.status === "confirmed" || booking.status === "in_progress") {
+          res.status(400).json({ error: "Providers must use cancel_requested status first" });
+          return;
+        }
+      }
+
+      // Block review-before-completed via status change (reviews have their own endpoint)
+      // Block payout-before-completed
+      if ((status === "closed" || status === "refunded") && !isAdmin) {
+        res.status(403).json({ error: "Only admins can close or refund bookings" });
+        return;
+      }
+
+      try {
+        await transitionBooking(
+          req.params.id,
+          booking.status as BookingStatus,
+          status as BookingStatus,
+          userId,
+          reason
+        );
+      } catch (e: any) {
+        if (e instanceof InvalidTransitionError) {
+          res.status(422).json({ error: e.message });
+          return;
+        }
+        throw e;
+      }
+    }
+
+    // Update paymentStatus if provided (no state machine needed for payment status)
+    if (paymentStatus) {
+      await db.execute(sql`
+        UPDATE bookings SET payment_status = ${paymentStatus}, updated_at = NOW()
+        WHERE id = ${req.params.id}
+      `);
+    }
+
+    const updated = await db.select().from(bookingsTable).where(eq(bookingsTable.id, req.params.id)).limit(1);
     if (updated.length === 0) {
       res.status(404).json({ error: "Booking not found" });
       return;
     }
-
     const enriched = await enrichBooking(updated[0]);
     res.json(enriched);
   } catch (err) {
@@ -522,11 +872,18 @@ router.post("/:id/open-job", authMiddleware, async (req: Request, res: Response)
     const b = rows[0];
     if (b.provider_id !== userId) { res.status(403).json({ error: "Not your booking" }); return; }
     if (b.status !== "confirmed") { res.status(400).json({ error: "Booking must be confirmed to open" }); return; }
-    await db.execute(sql`UPDATE bookings SET status = 'in_progress' WHERE id = ${req.params.id}`);
+
+    // Use state machine for validated transition
+    await transitionBooking(req.params.id, "confirmed", "in_progress", userId, "provider started job");
+
     const updated = await db.select().from(bookingsTable).where(eq(bookingsTable.id, req.params.id)).limit(1);
     const enriched = await enrichBooking(updated[0]);
     res.json(enriched);
-  } catch (err) {
+  } catch (err: any) {
+    if (err instanceof InvalidTransitionError) {
+      res.status(422).json({ error: err.message });
+      return;
+    }
     req.log.error({ err }, "Open job error");
     res.status(500).json({ error: "Internal server error" });
   }
@@ -544,6 +901,14 @@ router.post("/:id/complete-job", authMiddleware, async (req: Request, res: Respo
     if (b.provider_id !== userId) { res.status(403).json({ error: "Not your booking" }); return; }
     if (b.status !== "in_progress" && b.status !== "confirmed") {
       res.status(400).json({ error: "Booking must be confirmed or in progress" }); return;
+    }
+
+    // ── Guard: check payout eligibility (no fraud hold, no open dispute) ───
+    if (b.fraud_hold) {
+      res.status(403).json({ error: "This booking has a fraud hold and cannot be completed" }); return;
+    }
+    if (b.dispute_status && b.dispute_status !== "resolved") {
+      res.status(403).json({ error: "Resolve the open dispute before completing this job" }); return;
     }
 
     // ── Amount calculation ─────────────────────────────────────────────────
@@ -565,63 +930,132 @@ router.post("/:id/complete-job", authMiddleware, async (req: Request, res: Respo
       if (priceRule.length && Number(priceRule[0].commission_percent) > 0) {
         commissionRate = Number(priceRule[0].commission_percent);
       }
-    } catch { /* use default */ }
+    } catch { /* use default 15% */ }
 
     const commissionAmount = Math.round((finalAmount * commissionRate / 100) * 100) / 100;
     const providerEarning = Math.max(0, finalAmount - commissionAmount);
 
-    // ── Update booking ─────────────────────────────────────────────────────
-    await db.execute(sql`
-      UPDATE bookings SET
-        status = 'completed',
-        service_fee = ${extraFee},
-        extra_charges = ${JSON.stringify(chargesArr)},
-        final_amount = ${finalAmount},
-        commission_amount = ${commissionAmount},
-        commission_rate = ${commissionRate},
-        provider_earning = ${providerEarning}
-      WHERE id = ${req.params.id}
-    `);
-
-    // ── Deduct customer wallet (atomic) ────────────────────────────────────
-    const customerRow = toRows(await db.execute(sql`
-      UPDATE users SET wallet_balance = wallet_balance - ${finalAmount}
-      WHERE id = ${b.customer_id} RETURNING wallet_balance
+    // ── Pre-check customer wallet balance before opening transaction ────────
+    const walletCheck = toRows(await db.execute(sql`
+      SELECT wallet_balance FROM users WHERE id = ${b.customer_id} LIMIT 1
     `));
-    const newCustomerBalance = Number(customerRow[0]?.wallet_balance || 0);
+    const customerBalance = Number(walletCheck[0]?.wallet_balance ?? 0);
+    if (customerBalance < finalAmount) {
+      res.status(400).json({
+        error: `Customer has insufficient wallet balance. Required: ₹${finalAmount.toFixed(2)}, Available: ₹${customerBalance.toFixed(2)}`,
+      });
+      return;
+    }
 
-    // ── Record wallet transaction for customer (debit) ──────────────────────
+    // ── Idempotency: prevent double-completion via payment event log ─────────
+    const completeEventKey = `complete-job:${req.params.id}`;
+    const existingEvent = toRows(await db.execute(sql`
+      SELECT id FROM payment_event_logs WHERE idempotency_key = ${completeEventKey} LIMIT 1
+    `));
+    if (existingEvent.length > 0) {
+      const updated = await db.select().from(bookingsTable).where(eq(bookingsTable.id, req.params.id)).limit(1);
+      const enriched = await enrichBooking(updated[0]);
+      return res.json({ ...enriched, commissionAmount, commissionRate, providerEarning, _idempotent: true });
+    }
+
+    // ── Atomic transaction: booking completion + wallet settlement ──────────
+    // All statements run in a single BEGIN/COMMIT block — any failure rolls back all
     const custTxId = `${Date.now()}c${Math.random().toString(36).slice(2, 6)}`;
-    await db.execute(sql`
-      INSERT INTO wallet_transactions
-        (id, user_id, type, amount, balance_after, reference_id, reference_type, description, status)
-      VALUES (
-        ${custTxId}, ${b.customer_id}, 'payment', ${finalAmount}, ${newCustomerBalance},
-        ${req.params.id}, 'booking',
-        ${'Payment for booking – ' + (b.listing_id || 'service')},
-        'completed'
-      )
-    `);
-
-    // ── Credit provider wallet (atomic update) ─────────────────────────────
-    const walletUpdated = toRows(await db.execute(sql`
-      UPDATE users SET wallet_balance = wallet_balance + ${providerEarning}
-      WHERE id = ${userId} RETURNING wallet_balance
-    `));
-    const newProviderBalance = Number(walletUpdated[0]?.wallet_balance || 0);
-
-    // ── Record wallet transaction for provider (credit) ─────────────────────
     const txId = `${Date.now()}p${Math.random().toString(36).slice(2, 6)}`;
-    await db.execute(sql`
-      INSERT INTO wallet_transactions
-        (id, user_id, type, amount, balance_after, reference_id, reference_type, description, status)
-      VALUES (
-        ${txId}, ${userId}, 'earning', ${providerEarning}, ${newProviderBalance},
-        ${req.params.id}, 'booking',
-        ${'Booking earning (after ' + commissionRate + '% platform commission)'},
-        'completed'
-      )
-    `);
+    const eventLogId = `${Date.now()}e${Math.random().toString(36).slice(2, 6)}`;
+
+    let newCustomerBalance = 0;
+    let newProviderBalance = 0;
+
+    try {
+      await db.execute(sql.raw("BEGIN"));
+
+      // 1. Mark booking completed with all financial fields
+      await db.execute(sql`
+        UPDATE bookings SET
+          status = 'completed',
+          completed_at = NOW(),
+          updated_at = NOW(),
+          service_fee = ${extraFee},
+          extra_charges = ${JSON.stringify(chargesArr)},
+          final_amount = ${finalAmount},
+          commission_amount = ${commissionAmount},
+          commission_rate = ${commissionRate},
+          provider_earning = ${providerEarning}
+        WHERE id = ${req.params.id} AND status IN ('confirmed', 'in_progress')
+      `);
+
+      // 2. Deduct customer wallet — conditional on sufficient balance
+      const custRows = toRows(await db.execute(sql`
+        UPDATE users SET wallet_balance = wallet_balance - ${finalAmount}
+        WHERE id = ${b.customer_id} AND wallet_balance >= ${finalAmount}
+        RETURNING wallet_balance
+      `));
+      if (custRows.length === 0) {
+        await db.execute(sql.raw("ROLLBACK"));
+        res.status(400).json({ error: "Customer wallet balance changed — insufficient funds. Please retry." });
+        return;
+      }
+      newCustomerBalance = Number(custRows[0].wallet_balance);
+
+      // 3. Credit provider wallet atomically
+      const provRows = toRows(await db.execute(sql`
+        UPDATE users SET wallet_balance = wallet_balance + ${providerEarning}
+        WHERE id = ${userId}
+        RETURNING wallet_balance
+      `));
+      newProviderBalance = Number(provRows[0]?.wallet_balance ?? 0);
+
+      // 4. Customer wallet debit record
+      await db.execute(sql`
+        INSERT INTO wallet_transactions
+          (id, user_id, type, amount, balance_after, reference_id, reference_type, description, status)
+        VALUES (
+          ${custTxId}, ${b.customer_id}, 'payment', ${finalAmount}, ${newCustomerBalance},
+          ${req.params.id}, 'booking',
+          ${"Payment for booking – " + (b.listing_id || "service")},
+          'completed'
+        )
+      `);
+
+      // 5. Provider wallet credit record
+      await db.execute(sql`
+        INSERT INTO wallet_transactions
+          (id, user_id, type, amount, balance_after, reference_id, reference_type, description, status)
+        VALUES (
+          ${txId}, ${userId}, 'earning', ${providerEarning}, ${newProviderBalance},
+          ${req.params.id}, 'booking',
+          ${"Booking earning (after " + commissionRate + "% platform commission)"},
+          'completed'
+        )
+      `);
+
+      // 6. Payment event log for idempotency
+      await db.execute(sql`
+        INSERT INTO payment_event_logs
+          (id, idempotency_key, booking_id, event_type, amount, actor_id, status)
+        VALUES (
+          ${eventLogId}, ${completeEventKey}, ${req.params.id},
+          'complete_job', ${finalAmount}, ${userId}, 'success'
+        )
+        ON CONFLICT (idempotency_key) DO NOTHING
+      `);
+
+      // 7. Transition audit log
+      try {
+        const logId = generateId();
+        await db.execute(sql`
+          INSERT INTO booking_transition_log
+            (id, booking_id, from_status, to_status, actor_id, reason)
+          VALUES (${logId}, ${req.params.id}, ${b.status}, 'completed', ${userId}, 'job completed by provider')
+        `);
+      } catch { /* non-critical */ }
+
+      await db.execute(sql.raw("COMMIT"));
+    } catch (txErr) {
+      await db.execute(sql.raw("ROLLBACK")).catch(() => {});
+      throw txErr;
+    }
 
     const updated = await db.select().from(bookingsTable).where(eq(bookingsTable.id, req.params.id)).limit(1);
     const enriched = await enrichBooking(updated[0]);

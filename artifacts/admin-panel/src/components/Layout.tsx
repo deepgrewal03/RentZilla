@@ -7,7 +7,7 @@ import {
   LayoutDashboard, Users, Package, CalendarDays, FileCheck,
   AlertTriangle, Settings, LogOut, Menu, X, Bell, ChevronRight,
   Shield, Activity, Calendar, UserPlus, FileText, Flag,
-  CheckCheck, ExternalLink, BadgePercent, CircleDollarSign, Tag, Wallet, Trophy, Dices, Gift,
+  CheckCheck, ExternalLink, BadgePercent, CircleDollarSign, Tag, Wallet, Trophy, Gift, HeadphonesIcon, ShieldCheck, Scale, BrainCircuit,
 } from "lucide-react";
 
 const NAV = [
@@ -16,6 +16,7 @@ const NAV = [
   { path: "/listings", label: "Listings", icon: Package },
   { path: "/bookings", label: "Bookings", icon: CalendarDays },
   { path: "/documents", label: "Documents", icon: FileCheck },
+  { path: "/verification", label: "Verification", icon: ShieldCheck },
   { path: "/reports", label: "Reports", icon: AlertTriangle },
   { path: "/notifications", label: "Notifications", icon: Bell },
   { path: "/logs", label: "Activity Log", icon: Activity },
@@ -24,8 +25,10 @@ const NAV = [
   { path: "/promo-codes", label: "Promo Codes", icon: Tag },
   { path: "/platform-wallet", label: "Platform Wallet", icon: Wallet },
   { path: "/gold-analytics", label: "Gold Membership", icon: Trophy },
-  { path: "/wheel-analytics", label: "Wheel Analytics", icon: Dices },
   { path: "/referral-analytics", label: "Referral Program", icon: Gift },
+  { path: "/support-tickets", label: "Support Tickets", icon: HeadphonesIcon },
+  { path: "/disputes", label: "Disputes", icon: Scale },
+  { path: "/fraud-center", label: "Fraud Center", icon: BrainCircuit },
   { path: "/settings", label: "Settings", icon: Settings },
 ];
 
