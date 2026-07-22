@@ -215,3 +215,9 @@ id = "ygfJcLbe3vRzc-tgs8gH1"
 uri = "file://docs/RentZilla-Full-Features-and-Services.md"
 type = "text"
 title = "RentZilla — Full Features, Dependencies & Services"
+
+[[outputs]]
+id = "fuF2xCLJ7qi6aofTBvNkR"
+uri = "file://docs/RentZilla-Full-Features-and-Services.pdf"
+type = "pdf"
+title = "RentZilla — Full Features, Dependencies & Services (PDF)"
