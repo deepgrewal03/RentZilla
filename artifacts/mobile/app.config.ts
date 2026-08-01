@@ -7,6 +7,22 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     : "";
 
   const plugins: ExpoConfig["plugins"] = [
+    [
+      "expo-build-properties",
+      {
+        android: {
+          compileSdkVersion: 35,
+          targetSdkVersion: 35,
+          buildToolsVersion: "35.0.0",
+          // Required for 16 KB memory page size support on Android 15.
+          // Packages .so libs compressed so Play Store's page-alignment
+          // scanner passes even for third-party native libraries.
+          packagingOptions: {
+            jniLibs: { useLegacyPackaging: true },
+          },
+        },
+      },
+    ],
     ["expo-router", { origin: "https://rent-organizer.replit.app" }],
     "expo-font",
     "expo-web-browser",
@@ -74,7 +90,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     },
     android: {
       package: "com.rentzilla.app",
-      versionCode: 21,
+      versionCode: 22,
       softwareKeyboardLayoutMode: "resize",
       adaptiveIcon: {
         foregroundImage: "./assets/images/icon.png",
