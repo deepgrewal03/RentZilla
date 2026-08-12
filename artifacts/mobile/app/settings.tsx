@@ -23,6 +23,7 @@ import Colors from "@/constants/colors";
 import { useAuth } from "@/context/AuthContext";
 import { useLang } from "@/context/LanguageContext";
 import { useApi } from "@/hooks/useApi";
+import { confirmAction } from "@/lib/confirm";
 
 const C = Colors.light;
 
@@ -496,10 +497,13 @@ export default function SettingsScreen() {
             color={C.error}
             chevron={false}
             onPress={() =>
-              Alert.alert("Logout", "Are you sure?", [
-                { text: "Cancel", style: "cancel" },
-                { text: "Logout", style: "destructive", onPress: async () => { await logout(); router.replace("/sign-in"); } },
-              ])
+              confirmAction({
+                title: "Logout",
+                message: "Are you sure?",
+                confirmText: "Logout",
+                destructive: true,
+                onConfirm: async () => { await logout(); router.replace("/sign-in"); },
+              })
             }
           />
         </Card>

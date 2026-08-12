@@ -311,17 +311,20 @@ export function DocumentsDrawer({ visible, onClose }: Props) {
         fileName = asset.name;
         mimeType = asset.mimeType ?? "application/pdf";
       } else {
-        const perms = await (useCamera
-          ? ImagePicker.requestCameraPermissionsAsync()
-          : ImagePicker.requestMediaLibraryPermissionsAsync());
-        if (!perms.granted) {
-          Alert.alert("Permission Required", `Please allow ${useCamera ? "camera" : "photo library"} access in Settings`);
-          setUploading((p) => ({ ...p, [docName]: false }));
-          return;
+        // Camera still requires an explicit permission grant.
+        // Gallery uses the system Photo Picker on Android 13+ — no permission needed
+        // when READ_MEDIA_IMAGES is absent from the manifest.
+        if (useCamera) {
+          const perms = await ImagePicker.requestCameraPermissionsAsync();
+          if (!perms.granted) {
+            Alert.alert("Permission Required", "Please allow camera access in Settings");
+            setUploading((p) => ({ ...p, [docName]: false }));
+            return;
+          }
         }
         const result = await (useCamera
-          ? ImagePicker.launchCameraAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.8, allowsEditing: true })
-          : ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.8, allowsEditing: true }));
+          ? ImagePicker.launchCameraAsync({ mediaTypes: ["images"], quality: 0.8, allowsEditing: true })
+          : ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], quality: 0.8, allowsEditing: true }));
         if (result.canceled || !result.assets?.[0]) { setUploading((p) => ({ ...p, [docName]: false })); return; }
 
         // Compress image using expo-image-manipulator

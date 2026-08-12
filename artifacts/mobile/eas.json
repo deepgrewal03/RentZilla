@@ -35,7 +35,8 @@
       },
       "env": {
         "EXPO_PUBLIC_DOMAIN": "rent-organizer.replit.app",
-        "EXPO_PUBLIC_REPL_ID": "rentzilla-prod"
+        "EXPO_PUBLIC_REPL_ID": "rentzilla-prod",
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "558670008629-59n7mukqgqumk1cng7dlsrp45s0cohrb.apps.googleusercontent.com"
       }
     }
   },

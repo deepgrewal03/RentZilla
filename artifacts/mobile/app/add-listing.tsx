@@ -113,13 +113,10 @@ export default function AddListingScreen() {
   const topPad = isWeb ? 67 : insets.top;
 
   async function pickPhoto(slotIndex: number) {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== "granted") {
-      Alert.alert("Permission needed", "Please allow access to your photo library to upload photos.");
-      return;
-    }
+    // On Android 13+ the system Photo Picker opens automatically when
+    // READ_MEDIA_IMAGES is absent from the manifest — no permission prompt needed.
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ["images"],
       quality: 1,
       allowsEditing: true,
       aspect: [4, 3],

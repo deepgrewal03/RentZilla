@@ -3,7 +3,6 @@ import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
-  Alert,
   Animated,
   Modal,
   Platform,
@@ -17,6 +16,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Colors from "@/constants/colors";
 import { useAuth } from "@/context/AuthContext";
 import { useLang } from "@/context/LanguageContext";
+import { confirmAction } from "@/lib/confirm";
 
 const C = Colors.light;
 const DRAWER_WIDTH = 300;
@@ -71,17 +71,17 @@ export function SideDrawer({ visible, onClose }: Props) {
     Haptics.selectionAsync();
     onClose();
     setTimeout(() => {
-      Alert.alert(t.logoutConfirmTitle, t.logoutConfirmMsg, [
-        { text: t.cancel, style: "cancel" },
-        {
-          text: t.logout,
-          style: "destructive",
-          onPress: async () => {
-            await logout();
-            router.replace("/sign-in");
-          },
+      confirmAction({
+        title: t.logoutConfirmTitle,
+        message: t.logoutConfirmMsg,
+        confirmText: t.logout,
+        cancelText: t.cancel,
+        destructive: true,
+        onConfirm: async () => {
+          await logout();
+          router.replace("/sign-in");
         },
-      ]);
+      });
     }, 300);
   }
 

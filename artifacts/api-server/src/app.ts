@@ -4,6 +4,7 @@ import pinoHttp from "pino-http";
 import path from "path";
 import fs from "fs";
 import router from "./routes";
+import legalRouter from "./routes/legal.js";
 import { logger } from "./lib/logger";
 
 const app: Express = express();
@@ -52,6 +53,9 @@ app.use(express.urlencoded({ extended: true, limit: "5mb" }));
 const uploadsDir = path.resolve(process.cwd(), "uploads");
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
 app.use("/uploads", express.static(uploadsDir));
+
+// Legal pages — served at root level so /privacy and /terms are direct URLs
+app.use(legalRouter);
 
 app.use("/api", router);
 

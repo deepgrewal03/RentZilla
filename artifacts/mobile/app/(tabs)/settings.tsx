@@ -15,6 +15,7 @@ import { useLang } from "@/context/LanguageContext";
 import { useSound } from "@/context/SoundContext";
 import type { SoundKey } from "@/services/AudioService";
 import { useApi } from "@/hooks/useApi";
+import { confirmAction } from "@/lib/confirm";
 
 const C = Colors.light;
 const ORANGE = "#E8742A";
@@ -1024,10 +1025,13 @@ export default function SettingsTab() {
           <Divider />
           <SettingRow
             icon="log-out-outline" label="Logout" color="#EF4444" chevron={false}
-            onPress={() => Alert.alert("Logout", "Are you sure you want to log out?", [
-              { text: "Cancel", style: "cancel" },
-              { text: "Logout", style: "destructive", onPress: async () => { await logout(); router.replace("/sign-in"); } },
-            ])}
+            onPress={() => confirmAction({
+              title: "Logout",
+              message: "Are you sure you want to log out?",
+              confirmText: "Logout",
+              destructive: true,
+              onConfirm: async () => { await logout(); router.replace("/sign-in"); },
+            })}
           />
         </Card>
 

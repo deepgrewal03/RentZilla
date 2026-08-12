@@ -28,6 +28,7 @@ import { StarRating } from "@/components/StarRating";
 import Colors from "@/constants/colors";
 import { useAuth } from "@/context/AuthContext";
 import { useApi } from "@/hooks/useApi";
+import { confirmAction } from "@/lib/confirm";
 
 const C = Colors.light;
 const ORANGE = "#FF7A18";
@@ -232,19 +233,10 @@ export default function ProfileScreen() {
 
   async function _doPickGallery() {
     try {
-      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (!perm.granted) {
-        Alert.alert(
-          "Permission Required",
-          perm.canAskAgain
-            ? "RentZilla needs photo library access to set your profile picture."
-            : "Photo access is blocked. Go to Settings → RentZilla → Photos and enable access.",
-          [{ text: "OK" }]
-        );
-        return;
-      }
+      // On Android 13+ the system Photo Picker opens automatically when
+      // READ_MEDIA_IMAGES is absent from the manifest — no permission prompt needed.
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ["images"],
         allowsEditing: true,
         aspect: [1, 1],
         quality: 1,
@@ -346,17 +338,16 @@ export default function ProfileScreen() {
   }
 
   async function handleLogout() {
-    Alert.alert("Logout", "Are you sure you want to logout?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Logout",
-        style: "destructive",
-        onPress: async () => {
-          await logout();
-          router.replace("/sign-in");
-        },
+    confirmAction({
+      title: "Logout",
+      message: "Are you sure you want to logout?",
+      confirmText: "Logout",
+      destructive: true,
+      onConfirm: async () => {
+        await logout();
+        router.replace("/sign-in");
       },
-    ]);
+    });
   }
 
   if (!user) return null;

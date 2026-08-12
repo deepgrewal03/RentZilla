@@ -370,19 +370,6 @@ export default function TrustVerificationScreen() {
     return true;
   };
 
-  const requestGalleryPermission = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== "granted") {
-      Alert.alert(
-        "Gallery Permission Required",
-        "RentZilla needs gallery access to choose a document photo. Please allow access in your device Settings.",
-        [{ text: "OK" }]
-      );
-      return false;
-    }
-    return true;
-  };
-
   // ── Compress image ───────────────────────────────────────────────────────
   const compressImage = async (uri: string): Promise<{ uri: string; size: number }> => {
     try {
@@ -408,7 +395,8 @@ export default function TrustVerificationScreen() {
 
   // ── Pick from gallery ────────────────────────────────────────────────────
   const pickFromGallery = async (docKey: string, docLabel: string) => {
-    if (!(await requestGalleryPermission())) return;
+    // On Android 13+ the system Photo Picker opens automatically when
+    // READ_MEDIA_IMAGES is absent from the manifest — no permission prompt needed.
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ["images"],
       allowsEditing: true,

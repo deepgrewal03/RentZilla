@@ -43,8 +43,14 @@ try {
   const iosClientId = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID;
   const webClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
 
-  // On iOS, iosClientId is required — skip Google Sign-In if not configured
-  if (Platform.OS === "ios" && !iosClientId) {
+  // On iOS, iosClientId is required — skip Google Sign-In if not configured.
+  // On Android, webClientId is required — without it (or with a keystore
+  // SHA-1 mismatch) signIn() always throws DEVELOPER_ERROR, so the button
+  // would be a dead UI element (Play Store "Broken Functionality" violation).
+  if (
+    (Platform.OS === "ios" && !iosClientId) ||
+    (Platform.OS === "android" && !webClientId)
+  ) {
     googleNativeAvailable = false;
   } else {
     _GoogleSignin.configure({
@@ -102,11 +108,20 @@ export default function SignInScreen() {
         } else if (e.code === _statusCodes.IN_PROGRESS) {
           // already in progress — silent
         } else {
-          setError(e.message || "Google sign-in failed. Please try again.");
+          // Never surface raw developer errors (e.g. DEVELOPER_ERROR) to users
+          const friendly =
+            language === "pa"
+              ? "Google ਸਾਈਨ-ਇਨ ਇਸ ਵੇਲੇ ਉਪਲਬਧ ਨਹੀਂ ਹੈ। ਕਿਰਪਾ ਕਰਕੇ ਈਮੇਲ ਨਾਲ ਸਾਈਨ ਇਨ ਕਰੋ।"
+              : "Google sign-in is currently unavailable. Please sign in with email instead.";
+          setError(friendly);
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
         }
       } else {
-        setError(e.message || "Google sign-in failed. Please try again.");
+        setError(
+          language === "pa"
+            ? "Google ਸਾਈਨ-ਇਨ ਅਸਫਲ ਰਿਹਾ। ਕਿਰਪਾ ਕਰਕੇ ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੋ।"
+            : "Google sign-in failed. Please try again.",
+        );
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       }
     } finally {
@@ -223,9 +238,13 @@ export default function SignInScreen() {
             <Text style={styles.cardTitle}>{t.welcomeBack}</Text>
             <Text style={styles.cardSubtitle}>{t.signInToContinue}</Text>
 
-            {/* ── Social Login ──────────────────────────────────────────── */}
+            {/* ── Social Login (hidden entirely when nothing can render) ── */}
+            {(googleNativeAvailable || Platform.OS === "ios") && (
+            <>
             <View style={styles.socialGroup}>
-              {/* Google */}
+              {/* Google — only rendered when the native module is present AND
+                  properly configured; otherwise the button can never succeed */}
+              {googleNativeAvailable && (
               <Pressable
                 onPress={handleGoogleSignIn}
                 disabled={anyLoading}
@@ -246,6 +265,7 @@ export default function SignInScreen() {
                   </>
                 )}
               </Pressable>
+              )}
 
               {/* Apple — iOS only */}
               {Platform.OS === "ios" && (
@@ -280,6 +300,8 @@ export default function SignInScreen() {
               </Text>
               <View style={styles.dividerLine} />
             </View>
+            </>
+            )}
 
             {/* Email */}
             <View style={styles.fieldGroup}>

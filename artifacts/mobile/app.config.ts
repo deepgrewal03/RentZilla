@@ -90,7 +90,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     },
     android: {
       package: "com.rentzilla.app",
-      versionCode: 22,
+      versionCode: 23,
       softwareKeyboardLayoutMode: "resize",
       adaptiveIcon: {
         foregroundImage: "./assets/images/icon.png",
@@ -99,7 +99,6 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       permissions: [
         "android.permission.INTERNET",
         "android.permission.CAMERA",
-        "android.permission.READ_MEDIA_IMAGES",
         "android.permission.VIBRATE",
         "android.permission.RECEIVE_BOOT_COMPLETED",
         "android.permission.POST_NOTIFICATIONS",
@@ -107,6 +106,10 @@ export default ({ config }: ConfigContext): ExpoConfig => {
         "android.permission.ACCESS_COARSE_LOCATION",
       ],
       blockedPermissions: [
+        // READ_MEDIA_IMAGES is blocked so Android 13+ uses the system Photo
+        // Picker automatically — no broad storage permission required.
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.READ_MEDIA_VIDEO",
         "android.permission.RECORD_AUDIO",
         "android.permission.READ_EXTERNAL_STORAGE",
         "android.permission.WRITE_EXTERNAL_STORAGE",
