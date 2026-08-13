@@ -52,7 +52,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     ...config,
     name: "RentZilla",
     slug: "rentzilla",
-    version: "1.0.10",
+    version: "24",
     orientation: "portrait",
     icon: "./assets/images/icon.png",
     scheme: "rentzilla",
