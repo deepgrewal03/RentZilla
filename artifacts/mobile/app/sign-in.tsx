@@ -48,6 +48,9 @@ try {
   // SHA-1 mismatch) signIn() always throws DEVELOPER_ERROR, so the button
   // would be a dead UI element (Play Store "Broken Functionality" violation).
   if (
+    // The native Google Sign-In module has no web implementation — the button
+    // would render but always fail in a browser, so hide it on web.
+    Platform.OS === "web" ||
     (Platform.OS === "ios" && !iosClientId) ||
     (Platform.OS === "android" && !webClientId)
   ) {

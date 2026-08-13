@@ -86,7 +86,12 @@ router.post("/register", async (req, res) => {
       lastName: lastName || null,
       name: fullName || null,
       passwordHash,
-      role: (role as "customer" | "provider") || "customer",
+      // Only accept valid enum values; anything else falls back to "customer"
+      // (previously an invalid role crashed the insert with a 500).
+      role: (["customer", "provider", "both"].includes(role) ? role : "customer") as
+        | "customer"
+        | "provider"
+        | "both",
       location: location || null,
       profileImage: null,
       dob: dob || null,
@@ -157,7 +162,10 @@ router.post("/login", async (req, res) => {
         lastName: null,
         name: name || null,
         passwordHash: null,
-        role: (role as "customer" | "provider") || "customer",
+        role: (["customer", "provider", "both"].includes(role) ? role : "customer") as
+          | "customer"
+          | "provider"
+          | "both",
         location: null,
         profileImage: null,
       };
