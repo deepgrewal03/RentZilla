@@ -221,3 +221,10 @@ id = "fuF2xCLJ7qi6aofTBvNkR"
 uri = "file://docs/RentZilla-Full-Features-and-Services.pdf"
 type = "pdf"
 title = "RentZilla — Full Features, Dependencies & Services (PDF)"
+
+[[outputs]]
+id = "S9vI0nCpQN3Bnhzc4kxxa"
+uri = "file://attached_assets/FEATURED_GRAPHIC-without-rating.png"
+type = "image"
+title = "RentZilla featured graphic without rating strip"
+description = "The red-boxed 5.0 Trusted by Punjab section has been removed; the footer and remaining graphic content are preserved."

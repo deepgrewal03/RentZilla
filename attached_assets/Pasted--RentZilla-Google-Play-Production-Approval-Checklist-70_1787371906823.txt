@@ -1,0 +1,261 @@
+# RentZilla – Google Play Production Approval Checklist (70+ Items)
+
+## A. Developer Account & Verification
+
+* [ ] Google Play Developer Account verified
+* [ ] Developer name matches business records
+* [ ] Contact email active and monitored
+* [ ] Phone number verified
+* [ ] Physical business address added
+* [ ] Payment profile configured
+* [ ] Tax information completed
+* [ ] No unresolved policy violations on account
+
+---
+
+## B. App Bundle & Technical Requirements
+
+* [ ] Production AAB generated successfully
+* [ ] Release version number updated
+* [ ] Version code incremented
+* [ ] App signed correctly
+* [ ] No debug build submitted
+* [ ] App installs successfully
+* [ ] App launches without crash
+* [ ] No ANR (Application Not Responding) issues
+* [ ] Target SDK meets current Google requirements
+* [ ] 64-bit support enabled
+* [ ] App size optimized
+* [ ] Proguard/Minify tested
+* [ ] Crashlytics enabled
+* [ ] Release build tested on physical Android devices
+
+---
+
+## C. RentZilla Core Functionality
+
+### Customer Side
+
+* [ ] User registration works
+* [ ] Phone OTP verification works
+* [ ] Login works
+* [ ] Forgot password works
+* [ ] Profile editing works
+* [ ] Location detection works
+* [ ] Search functionality works
+* [ ] Category browsing works
+* [ ] Car rental booking works
+* [ ] Tractor rental booking works
+* [ ] Farm equipment booking works
+* [ ] Service booking works
+* [ ] Booking cancellation works
+* [ ] Booking history visible
+* [ ] Notifications received correctly
+
+### Provider Side
+
+* [ ] Provider registration works
+* [ ] Provider document upload works
+* [ ] Provider verification process works
+* [ ] Equipment listing works
+* [ ] Pricing updates work
+* [ ] Availability calendar works
+* [ ] Booking acceptance works
+* [ ] Booking rejection works
+* [ ] Earnings section works
+
+### Admin Side
+
+* [ ] User management works
+* [ ] Provider approval works
+* [ ] Booking monitoring works
+* [ ] Reports section works
+* [ ] Commission settings work
+* [ ] Emergency disabling of listings works
+
+---
+
+## D. Permissions Review
+
+Only request permissions actually required.
+
+* [ ] Camera permission justified
+* [ ] Photo gallery permission justified
+* [ ] Notification permission justified
+* [ ] Location permission justified
+* [ ] Background location NOT requested unless essential
+* [ ] Contacts permission NOT requested
+* [ ] SMS permission NOT requested
+* [ ] Call Log permission NOT requested
+* [ ] Accessibility permission NOT requested
+* [ ] Permission descriptions are clear
+* [ ] Permission requests occur only when needed
+
+---
+
+## E. Privacy & User Data
+
+* [ ] Privacy Policy published on website
+* [ ] Privacy Policy URL accessible
+* [ ] Privacy Policy linked inside app
+* [ ] User data collection disclosed
+* [ ] User data sharing disclosed
+* [ ] Location data disclosure included
+* [ ] Camera/photo usage disclosed
+* [ ] Payment information handling disclosed
+* [ ] Data deletion process documented
+* [ ] User consent obtained where required
+* [ ] Data Safety form completed accurately
+
+Google specifically reviews privacy disclosures, data safety declarations, login instructions, and sensitive permissions.
+
+---
+
+## F. Login Credentials for Google Review Team
+
+* [ ] Test customer account created
+* [ ] Test provider account created
+* [ ] Username provided
+* [ ] Password provided
+* [ ] OTP instructions provided
+* [ ] Any special login steps documented
+* [ ] Google reviewer can access all major features
+
+Failure to provide valid review credentials is a common reason for rejection.
+
+---
+
+## G. Google Maps & Location
+
+* [ ] Google Maps API functioning
+* [ ] Address search working
+* [ ] Punjab city search working
+* [ ] GPS location working
+* [ ] Marker placement working
+* [ ] Location permission requested correctly
+* [ ] No crashes if location denied
+* [ ] Manual address entry available
+
+---
+
+## H. Payments & Transactions
+
+* [ ] Payment gateway functioning
+* [ ] Successful payment flow tested
+* [ ] Failed payment flow tested
+* [ ] Booking created after payment
+* [ ] Refund policy visible
+* [ ] Cancellation policy visible
+* [ ] Transaction history visible
+* [ ] Invoice generation working
+
+---
+
+## I. User Safety & Trust
+
+* [ ] Block user feature works
+* [ ] Report user feature works
+* [ ] Report listing feature works
+* [ ] Report provider feature works
+* [ ] Terms & Conditions available
+* [ ] Contact support page available
+* [ ] Help/FAQ section available
+* [ ] Emergency contact option available
+
+Apps with user-generated content should include reporting and moderation tools.
+
+---
+
+## J. Store Listing Compliance
+
+### App Name
+
+* [ ] "RentZilla" used consistently
+* [ ] No keyword stuffing
+* [ ] No trademark violations
+
+### App Description
+
+* [ ] Description accurately reflects app
+* [ ] No false claims
+* [ ] Features listed correctly
+* [ ] Punjab service area clearly stated
+
+### Graphics
+
+* [ ] High-quality app icon uploaded
+* [ ] Feature graphic uploaded
+* [ ] Screenshots match actual app
+* [ ] Screenshots show customer flow
+* [ ] Screenshots show provider flow
+* [ ] No misleading graphics
+
+Store listings must accurately match app functionality and screenshots.
+
+---
+
+## K. Play Console App Content
+
+* [ ] Privacy Policy completed
+* [ ] Data Safety completed
+* [ ] Ads declaration completed
+* [ ] Content Rating completed
+* [ ] Target Audience completed
+* [ ] Login Credentials completed
+* [ ] Government App declaration completed (if required)
+* [ ] News declaration marked No
+* [ ] Financial feature declaration completed if applicable
+
+Google reviews these declarations before approval.
+
+---
+
+## L. Performance Testing
+
+* [ ] Tested on Android 12
+* [ ] Tested on Android 13
+* [ ] Tested on Android 14
+* [ ] Tested on Android 15+
+* [ ] Tested on low-end device
+* [ ] Tested on tablet
+* [ ] Slow internet tested
+* [ ] Offline handling tested
+* [ ] No broken links
+* [ ] No blank screens
+
+---
+
+## M. Final Production Submission
+
+* [ ] Internal testing passed
+* [ ] Closed testing passed
+* [ ] Pre-launch report reviewed
+* [ ] No critical warnings in Play Console
+* [ ] No unresolved crashes
+* [ ] Release notes added
+* [ ] Production release created
+* [ ] Review submitted
+* [ ] Monitoring email inbox daily
+* [ ] Ready to respond to Google review feedback
+
+## Approval Readiness Score
+
+* 95–100% completed → Excellent chance of first-time approval
+* 85–94% completed → Good chance of approval
+* 70–84% completed → Risk of rejection
+* Below 70% → Fix before Production submission
+
+### RentZilla Critical Items (Must Pass)
+
+1. Privacy Policy
+2. Data Safety Form
+3. Working Login Credentials
+4. Camera Permission Justification
+5. Location Permission Justification
+6. Functional Booking Flow
+7. Functional Payment Flow
+8. Report/Block User System
+9. Accurate Store Screenshots
+10. No App Crashes During Review
+
+Google reviews every app for policy compliance, privacy, permissions, functionality, and metadata consistency before it goes live on Google Play.
