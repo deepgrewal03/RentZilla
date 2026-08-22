@@ -228,3 +228,17 @@ uri = "file://attached_assets/FEATURED_GRAPHIC-without-rating.png"
 type = "image"
 title = "RentZilla featured graphic without rating strip"
 description = "The red-boxed 5.0 Trusted by Punjab section has been removed; the footer and remaining graphic content are preserved."
+
+[[outputs]]
+id = "byrSMUjhlUHGiUDMaKff4"
+uri = "file://artifacts/mobile/rentzilla-play-store-assets.zip"
+type = "unspecified"
+title = "RentZilla Play Store upload pack"
+description = "Validated upload-ready ZIP with the 1024×500 feature graphic, 512×512 icon, six real 1080×1920 app screenshots, manifest, and upload notes."
+
+[[outputs]]
+id = "UzH3MMYCb8MRloYEK8DEm"
+uri = "file://artifacts/mobile/store-assets/feature-graphic-1024x500.png"
+type = "image"
+title = "RentZilla feature graphic"
+description = "Final Google Play feature graphic at exactly 1024×500 pixels, with no ratings, fabricated reviews, markup, or unsupported claims."

@@ -1,0 +1,85 @@
+{
+  "validated": true,
+  "assets": [
+    {
+      "file": "feature-graphic-1024x500.png",
+      "width": 1024,
+      "height": 500,
+      "format": "PNG",
+      "colorMode": "RGB",
+      "bytes": 101873,
+      "sha256": "eba33401305adbf05b0fc9a303c25059a74ee3248a172b2746b38c74ce02e690",
+      "valid": true
+    },
+    {
+      "file": "play-store-icon-512.png",
+      "width": 512,
+      "height": 512,
+      "format": "PNG",
+      "colorMode": "RGB",
+      "bytes": 32204,
+      "sha256": "b9045d4e87c7582fabbc84cb854609fe65d8ca4a4d5bfa077817f9a6ae856a48",
+      "valid": true
+    },
+    {
+      "file": "screenshots/01-sign-in.png",
+      "width": 1080,
+      "height": 1920,
+      "format": "PNG",
+      "colorMode": "RGB",
+      "bytes": 339948,
+      "sha256": "c79ff1ea1c755c4abb36eadd5e76010d7f8c3ee685a11954df4bebde1e75e554",
+      "valid": true
+    },
+    {
+      "file": "screenshots/02-customer-home.png",
+      "width": 1080,
+      "height": 1920,
+      "format": "PNG",
+      "colorMode": "RGB",
+      "bytes": 239948,
+      "sha256": "44bb940e6f94528f4d63ac271fef2af2ae85a8dea9d74558191686e329ebdaab",
+      "valid": true
+    },
+    {
+      "file": "screenshots/03-customer-search.png",
+      "width": 1080,
+      "height": 1920,
+      "format": "PNG",
+      "colorMode": "RGB",
+      "bytes": 130752,
+      "sha256": "735b633e885a312c09c16cff558b73af72951dd7591b8e085e8251461297e3ae",
+      "valid": true
+    },
+    {
+      "file": "screenshots/04-customer-bookings.png",
+      "width": 1080,
+      "height": 1920,
+      "format": "PNG",
+      "colorMode": "RGB",
+      "bytes": 90351,
+      "sha256": "5fbc0e0c5698c0ab33674835724d45a86453eb68b5d9cb0bc78b5463d8d2a0e1",
+      "valid": true
+    },
+    {
+      "file": "screenshots/05-provider-dashboard.png",
+      "width": 1080,
+      "height": 1920,
+      "format": "PNG",
+      "colorMode": "RGB",
+      "bytes": 241451,
+      "sha256": "7948eef20cbc5eb36e915b72aaf33d2ad9b100ef77ab2027b3eeaa4dbb4da68a",
+      "valid": true
+    },
+    {
+      "file": "screenshots/06-provider-bookings.png",
+      "width": 1080,
+      "height": 1920,
+      "format": "PNG",
+      "colorMode": "RGB",
+      "bytes": 66969,
+      "sha256": "d41977de0402cd51dfe1fac07da30c5c1a6a950a9dcba92ef3b2b6bcc2bc6eff",
+      "valid": true
+    }
+  ]
+}
