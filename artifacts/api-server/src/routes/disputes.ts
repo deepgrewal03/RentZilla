@@ -1,11 +1,12 @@
-import { Router, type IRouter, type Request, type Response } from "express";
+import { Router, type IRouter, type Request as ExpressRequest, type Response } from "express";
 import { db } from "@workspace/db";
-import { usersTable, bookingsTable, notificationsTable } from "@workspace/db";
+import { usersTable, bookingsTable, notificationsTable } from "@workspace/db/schema";
 import { eq, sql } from "drizzle-orm";
 import { authMiddleware } from "./users.js";
 import { logger } from "../lib/logger.js";
 
 const router: IRouter = Router();
+type Request = ExpressRequest<Record<string, string>>;
 function genId() { return Date.now().toString() + Math.random().toString(36).slice(2, 9); }
 function toRows<T = any>(r: any): T[] { return Array.isArray(r) ? r : (r?.rows ?? []); }
 
@@ -36,11 +37,11 @@ router.get("/:bookingId", authMiddleware, async (req: Request, res: Response) =>
       LIMIT 1
     `));
     const booking = bookings[0];
-    if (!booking) return res.status(404).json({ error: "Booking not found" });
+    if (!booking) return void res.status(404).json({ error: "Booking not found" });
 
     const admin = await isAdmin(userId);
     if (!admin && booking.customer_id !== userId && booking.provider_id !== userId) {
-      return res.status(403).json({ error: "Access denied" });
+      return void res.status(403).json({ error: "Access denied" });
     }
 
     const messages = toRows(await db.execute(sql`
@@ -65,18 +66,18 @@ router.post("/:bookingId/open", authMiddleware, async (req: Request, res: Respon
     const userId = (req as any).userId;
     const { reason, message } = req.body as { reason: string; message: string };
 
-    if (!reason?.trim()) return res.status(400).json({ error: "Reason is required" });
-    if (!message?.trim() || message.trim().length < 10) return res.status(400).json({ error: "Message must be at least 10 characters" });
+    if (!reason?.trim()) return void res.status(400).json({ error: "Reason is required" });
+    if (!message?.trim() || message.trim().length < 10) return void res.status(400).json({ error: "Message must be at least 10 characters" });
 
     const bookings = toRows(await db.execute(sql`SELECT * FROM bookings WHERE id = ${bookingId} LIMIT 1`));
     const booking = bookings[0];
-    if (!booking) return res.status(404).json({ error: "Booking not found" });
-    if (booking.customer_id !== userId) return res.status(403).json({ error: "Only the customer can open a dispute" });
+    if (!booking) return void res.status(404).json({ error: "Booking not found" });
+    if (booking.customer_id !== userId) return void res.status(403).json({ error: "Only the customer can open a dispute" });
     if (!["confirmed","completed"].includes(booking.status)) {
-      return res.status(400).json({ error: "Disputes can only be opened on confirmed or completed bookings" });
+      return void res.status(400).json({ error: "Disputes can only be opened on confirmed or completed bookings" });
     }
     if (booking.dispute_status === "open" || booking.dispute_status === "under_review") {
-      return res.status(400).json({ error: "A dispute is already open for this booking" });
+      return void res.status(400).json({ error: "A dispute is already open for this booking" });
     }
 
     await db.execute(sql`
@@ -130,22 +131,22 @@ router.post("/:bookingId/message", authMiddleware, async (req: Request, res: Res
     const userId = (req as any).userId;
     const { content } = req.body as { content: string };
 
-    if (!content?.trim() || content.trim().length < 2) return res.status(400).json({ error: "Message too short" });
+    if (!content?.trim() || content.trim().length < 2) return void res.status(400).json({ error: "Message too short" });
 
     const bookings = toRows(await db.execute(sql`SELECT * FROM bookings WHERE id = ${bookingId} LIMIT 1`));
     const booking = bookings[0];
-    if (!booking) return res.status(404).json({ error: "Booking not found" });
+    if (!booking) return void res.status(404).json({ error: "Booking not found" });
 
     const admin = await isAdmin(userId);
     let senderRole = "admin";
     if (!admin) {
       if (booking.customer_id === userId) senderRole = "customer";
       else if (booking.provider_id === userId) senderRole = "provider";
-      else return res.status(403).json({ error: "Access denied" });
+      else return void res.status(403).json({ error: "Access denied" });
     }
 
     if (!["open","under_review"].includes(booking.dispute_status)) {
-      return res.status(400).json({ error: "Dispute is not active" });
+      return void res.status(400).json({ error: "Dispute is not active" });
     }
 
     const msgId = genId();
@@ -193,11 +194,11 @@ router.patch("/:bookingId/resolve", authMiddleware, async (req: Request, res: Re
       adminNote?: string;
     };
 
-    if (!(await isAdmin(userId))) return res.status(403).json({ error: "Admin access required" });
+    if (!(await isAdmin(userId))) return void res.status(403).json({ error: "Admin access required" });
 
     const bookings = toRows(await db.execute(sql`SELECT * FROM bookings WHERE id = ${bookingId} LIMIT 1`));
     const booking = bookings[0];
-    if (!booking) return res.status(404).json({ error: "Booking not found" });
+    if (!booking) return void res.status(404).json({ error: "Booking not found" });
 
     // Process refund if applicable
     if ((resolution === "refund_customer" || resolution === "refund_provider") && refundAmount && refundAmount > 0) {
@@ -267,7 +268,7 @@ router.patch("/:bookingId/resolve", authMiddleware, async (req: Request, res: Re
 router.get("/", authMiddleware, async (req: Request, res: Response) => {
   try {
     const userId = (req as any).userId;
-    if (!(await isAdmin(userId))) return res.status(403).json({ error: "Admin access required" });
+    if (!(await isAdmin(userId))) return void res.status(403).json({ error: "Admin access required" });
 
     const status = (req.query.status as string) || "all";
     const whereClause = status !== "all" ? `WHERE b.dispute_status = '${status}'` : `WHERE b.dispute_status IS NOT NULL AND b.dispute_status != ''`;

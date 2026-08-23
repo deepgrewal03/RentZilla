@@ -125,7 +125,7 @@ function BlockedUsersModal({ visible, onClose, api }: { visible: boolean; onClos
 
   async function fetchBlocked() {
     setLoading(true);
-    try { setList(await api.get<BlockedUser[]>("/safety/blocked")); } catch { }
+    try { setList(await api.get("/safety/blocked") as BlockedUser[]); } catch { }
     setLoading(false);
   }
 
@@ -892,7 +892,7 @@ export default function SettingsTab() {
             <Card>
               <View style={ss.modeSwitcherCard}>
                 <Pressable
-                  onPress={() => { Haptics.selectionAsync(); setActiveMode("customer"); router.replace("/(tabs)/"); }}
+                  onPress={() => { Haptics.selectionAsync(); setActiveMode("customer"); router.replace("/"); }}
                   style={[ss.modeOption, activeMode === "customer" && ss.modeOptionActive]}
                 >
                   <Ionicons name="person-outline" size={22} color={activeMode === "customer" ? "#fff" : C.text} />

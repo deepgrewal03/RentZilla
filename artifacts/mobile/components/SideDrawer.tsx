@@ -123,7 +123,7 @@ export function SideDrawer({ visible, onClose }: Props) {
         <View style={styles.menu}>
           {MENU_ITEMS.map((item) => (
             <React.Fragment key={item.labelKey}>
-              {item.dividerBefore && <View style={styles.menuDivider} />}
+              {"dividerBefore" in item && item.dividerBefore && <View style={styles.menuDivider} />}
               <Pressable
                 onPress={() => navigate(item.path)}
                 style={({ pressed }) => [styles.menuItem, { backgroundColor: pressed ? C.backgroundTertiary : "transparent" }]}

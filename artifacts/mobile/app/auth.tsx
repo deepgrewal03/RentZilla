@@ -23,7 +23,7 @@ import { useAuth, UserRole } from "@/context/AuthContext";
 const C = Colors.light;
 
 export default function AuthScreen() {
-  const { login } = useAuth();
+  const { loginWithPhone } = useAuth();
   const insets = useSafeAreaInsets();
   const [phone, setPhone] = useState("");
   const [name, setName] = useState("");
@@ -39,7 +39,7 @@ export default function AuthScreen() {
     setError("");
     setLoading(true);
     try {
-      await login(phone.trim(), name.trim(), role);
+      await loginWithPhone(phone.trim(), name.trim(), role);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       router.replace("/(tabs)");
     } catch {

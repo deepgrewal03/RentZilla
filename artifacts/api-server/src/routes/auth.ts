@@ -2,7 +2,7 @@ import { Router, type IRouter } from "express";
 import bcrypt from "bcryptjs";
 import { createHmac, createVerify, createPublicKey } from "crypto";
 import { db } from "@workspace/db";
-import { usersTable } from "@workspace/db";
+import { usersTable } from "@workspace/db/schema";
 import { eq, or, sql } from "drizzle-orm";
 import { sendOtpEmail } from "../lib/email";
 

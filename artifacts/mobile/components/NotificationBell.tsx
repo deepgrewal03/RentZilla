@@ -16,6 +16,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import Colors from "@/constants/colors";
+import { useAuth } from "@/context/AuthContext";
 import { useLang } from "@/context/LanguageContext";
 import { useApi } from "@/hooks/useApi";
 
@@ -82,6 +83,7 @@ type ViewState = "none" | "list" | "detail";
 
 export function NotificationBell() {
   const { get, put } = useApi();
+  const { user } = useAuth();
   const { t, language } = useLang();
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -105,10 +107,15 @@ export function NotificationBell() {
   const isPa        = language === "pa";
 
   useEffect(() => {
+    if (!user) {
+      setNotifications([]);
+      return;
+    }
+
     fetchNotifications();
     const interval = setInterval(fetchNotifications, POLL_INTERVAL_MS);
     return () => clearInterval(interval);
-  }, []);
+  }, [user?.id]);
 
   useEffect(() => {
     if (glowLoop.current) {
@@ -147,6 +154,8 @@ export function NotificationBell() {
   }, [unreadCount]);
 
   async function fetchNotifications() {
+    if (!user) return;
+
     try {
       const data = await get<Notification[]>("/notifications");
       setNotifications(data);
@@ -172,6 +181,8 @@ export function NotificationBell() {
   }
 
   function openPanel() {
+    if (!user) return;
+
     Haptics.selectionAsync();
     Animated.sequence([
       Animated.spring(bellScale, { toValue: 0.82, ...SPRING, tension: 420 }),

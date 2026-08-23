@@ -1,12 +1,13 @@
-import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
+import { Router, type IRouter, type Request as ExpressRequest, type Response, type NextFunction } from "express";
 import { db } from "@workspace/db";
-import { notificationsTable, usersTable } from "@workspace/db";
+import { notificationsTable, usersTable } from "@workspace/db/schema";
 import { eq, sql } from "drizzle-orm";
 import { sendSupportTicketEmail } from "../lib/email.js";
 import { logger } from "../lib/logger.js";
 import { authMiddleware } from "./users.js";
 
 const SUPER_ADMIN_EMAILS = ["admin@rentzilla.com","admin1@rentzilla.com","admin2@rentzilla.com","admin3@rentzilla.com"];
+type Request = ExpressRequest<Record<string, string>>;
 
 async function adminGuard(req: Request, res: Response, next: NextFunction): Promise<void> {
   const userId = (req as any).userId;
@@ -56,7 +57,7 @@ router.post("/support-ticket", async (req: Request, res: Response) => {
   // Rate limit by userId if logged in, otherwise by IP
   const rateLimitKey = userId ?? (req.headers["x-forwarded-for"] as string || req.socket.remoteAddress || "unknown");
   if (!checkRateLimit(rateLimitKey)) {
-    return res.status(429).json({ error: "rate limit exceeded — please wait 10 minutes before sending another request." });
+    return void res.status(429).json({ error: "rate limit exceeded — please wait 10 minutes before sending another request." });
   }
 
   const {
@@ -69,9 +70,9 @@ router.post("/support-ticket", async (req: Request, res: Response) => {
   };
 
   // Field validation
-  if (!name?.trim()) return res.status(400).json({ error: "Name is required." });
-  if (!contact?.trim() || !EMAIL_REGEX.test(contact.trim())) return res.status(400).json({ error: "A valid email address is required." });
-  if (!message?.trim() || message.trim().length < 10) return res.status(400).json({ error: "Message must be at least 10 characters." });
+  if (!name?.trim()) return void res.status(400).json({ error: "Name is required." });
+  if (!contact?.trim() || !EMAIL_REGEX.test(contact.trim())) return void res.status(400).json({ error: "A valid email address is required." });
+  if (!message?.trim() || message.trim().length < 10) return void res.status(400).json({ error: "Message must be at least 10 characters." });
 
   const cleanName     = sanitize(name);
   const cleanContact  = sanitize(contact).toLowerCase();

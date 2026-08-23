@@ -355,7 +355,7 @@ export default function ProviderWalletScreen() {
         <View style={{ width: 36 }} />
       </LinearGradient>
 
-      <FlatList
+      <FlatList<Tx | Payout>
         data={activeTab === "transactions" ? w.transactions : w.payouts}
         keyExtractor={item => item.id}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={ORANGE} />}

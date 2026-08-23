@@ -1,7 +1,7 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { createHmac } from "crypto";
 import { db } from "@workspace/db";
-import { usersTable, reviewsTable } from "@workspace/db";
+import { usersTable, reviewsTable } from "@workspace/db/schema";
 import { eq } from "drizzle-orm";
 import { sql } from "drizzle-orm";
 import { TOKEN_SECRET } from "./auth.js";
@@ -74,7 +74,7 @@ router.get("/profile", authMiddleware, async (req: Request, res: Response) => {
       referredBy: refData.referred_by ?? null,
       referralProgress: refData.referral_progress ?? 0,
       totalReferralRewards: refData.total_referral_rewards ?? 0,
-      isAdmin: !!(user as any).is_admin ?? false,
+      isAdmin: Boolean((user as any).is_admin),
     });
   } catch (err) {
     req.log.error({ err }, "Get user profile error");
@@ -131,7 +131,7 @@ router.get("/me", authMiddleware, async (req: Request, res: Response) => {
       referredBy: refData2.referred_by ?? null,
       referralProgress: refData2.referral_progress ?? 0,
       totalReferralRewards: refData2.total_referral_rewards ?? 0,
-      isAdmin: !!(user as any).is_admin ?? false,
+      isAdmin: Boolean((user as any).is_admin),
     });
   } catch (err) {
     req.log.error({ err }, "Get user error");

@@ -1,18 +1,18 @@
 {
-  "startedAt": "2026-05-04T09:28:51.253Z",
-  "domain": "0c82f1c7-8f9b-46f8-8c4c-f0a644a2be8b-00-ueglwid9s8lg.worf.replit.dev",
-  "baseUrl": "https://0c82f1c7-8f9b-46f8-8c4c-f0a644a2be8b-00-ueglwid9s8lg.worf.replit.dev",
-  "timestamp": "1777886931253-2583",
+  "startedAt": "2026-08-23T06:45:59.230Z",
+  "domain": "0c82f1c7-8f9b-46f8-8c4c-f0a644a2be8b-00-ueglwid9s8lg-jibtfyv4.worf.replit.dev",
+  "baseUrl": "https://0c82f1c7-8f9b-46f8-8c4c-f0a644a2be8b-00-ueglwid9s8lg-jibtfyv4.worf.replit.dev",
+  "timestamp": "1787467559230-3369",
   "platforms": {
     "ios": {
       "status": "ok",
-      "bundleUrl": "https://0c82f1c7-8f9b-46f8-8c4c-f0a644a2be8b-00-ueglwid9s8lg.worf.replit.dev/1777886931253-2583/_expo/static/js/ios/bundle.js"
+      "bundleUrl": "https://0c82f1c7-8f9b-46f8-8c4c-f0a644a2be8b-00-ueglwid9s8lg-jibtfyv4.worf.replit.dev/1787467559230-3369/_expo/static/js/ios/bundle.js"
     },
     "android": {
       "status": "ok",
-      "bundleUrl": "https://0c82f1c7-8f9b-46f8-8c4c-f0a644a2be8b-00-ueglwid9s8lg.worf.replit.dev/1777886931253-2583/_expo/static/js/android/bundle.js"
+      "bundleUrl": "https://0c82f1c7-8f9b-46f8-8c4c-f0a644a2be8b-00-ueglwid9s8lg-jibtfyv4.worf.replit.dev/1787467559230-3369/_expo/static/js/android/bundle.js"
     }
   },
-  "completedAt": "2026-05-04T09:30:24.503Z",
+  "completedAt": "2026-08-23T06:47:00.784Z",
   "anyFailed": false
 }

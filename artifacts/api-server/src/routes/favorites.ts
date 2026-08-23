@@ -1,10 +1,11 @@
-import { Router, type IRouter, type Request, type Response } from "express";
+import { Router, type IRouter, type Request as ExpressRequest, type Response } from "express";
 import { db } from "@workspace/db";
-import { favoritesTable, listingsTable, usersTable, reviewsTable } from "@workspace/db";
+import { favoritesTable, listingsTable, usersTable, reviewsTable } from "@workspace/db/schema";
 import { eq, and } from "drizzle-orm";
 import { authMiddleware } from "./users.js";
 
 const router: IRouter = Router();
+type Request = ExpressRequest<Record<string, string>>;
 
 function generateId(): string {
   return Date.now().toString() + Math.random().toString(36).substr(2, 9);

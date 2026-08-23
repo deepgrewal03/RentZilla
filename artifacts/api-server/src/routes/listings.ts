@@ -1,10 +1,11 @@
-import { Router, type IRouter, type Request, type Response } from "express";
+import { Router, type IRouter, type Request as ExpressRequest, type Response } from "express";
 import { db } from "@workspace/db";
-import { listingsTable, usersTable, reviewsTable } from "@workspace/db";
+import { listingsTable, usersTable, reviewsTable } from "@workspace/db/schema";
 import { eq, ne, and, or, gte, lte, ilike, inArray, sql } from "drizzle-orm";
 import { authMiddleware } from "./users.js";
 
 const router: IRouter = Router();
+type Request = ExpressRequest<Record<string, string>>;
 
 function generateId(): string {
   return Date.now().toString() + Math.random().toString(36).substr(2, 9);
@@ -154,11 +155,11 @@ router.post("/", authMiddleware, async (req: Request, res: Response) => {
       isAvailable: isAvailable !== false,
       operatorIncluded: operatorIncluded === true,
       fuelIncluded: fuelIncluded === true,
-      deliveryCharges: deliveryCharges != null ? Number(deliveryCharges) : null,
+      deliveryCharges: deliveryCharges != null ? String(Number(deliveryCharges)) : null,
       engineSize: engineSize != null ? Number(engineSize) : null,
       vehicleType: vehicleType || null,
-      latitude: latitude != null ? Number(latitude) : null,
-      longitude: longitude != null ? Number(longitude) : null,
+      latitude: latitude != null ? String(Number(latitude)) : null,
+      longitude: longitude != null ? String(Number(longitude)) : null,
     };
 
     const inserted = await db.insert(listingsTable).values(listing).returning();
@@ -190,7 +191,7 @@ router.put("/:id", authMiddleware, async (req: Request, res: Response) => {
         price: Number(price), priceUnit, images, location, isAvailable,
         ...(operatorIncluded !== undefined && { operatorIncluded: operatorIncluded === true }),
         ...(fuelIncluded !== undefined && { fuelIncluded: fuelIncluded === true }),
-        ...(deliveryCharges !== undefined && { deliveryCharges: deliveryCharges != null ? Number(deliveryCharges) : null }),
+        ...(deliveryCharges !== undefined && { deliveryCharges: deliveryCharges != null ? String(Number(deliveryCharges)) : null }),
         ...(engineSize !== undefined && { engineSize: engineSize != null ? Number(engineSize) : null }),
         ...(vehicleType !== undefined && { vehicleType: vehicleType || null }),
         ...(latitude !== undefined && { latitude: latitude != null ? String(Number(latitude)) : null }),

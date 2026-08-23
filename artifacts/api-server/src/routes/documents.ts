@@ -1,4 +1,4 @@
-import { Router, type IRouter, type Request, type Response } from "express";
+import { Router, type IRouter, type Request as ExpressRequest, type Response } from "express";
 import multer from "multer";
 import { randomUUID } from "crypto";
 import path from "path";
@@ -9,6 +9,7 @@ import { eq, and } from "drizzle-orm";
 import { sql } from "drizzle-orm";
 
 const router: IRouter = Router();
+type Request = ExpressRequest<Record<string, string>>;
 type AR = Request & { userId: string };
 
 // Ensure uploads dir exists

@@ -3,10 +3,9 @@ import {
   View, Text, ScrollView, Pressable, StyleSheet, ActivityIndicator, RefreshControl,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { useFocusEffect } from "@react-navigation/native";
 import { useApi } from "@/hooks/useApi";
 
 interface VaultPromo {

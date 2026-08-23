@@ -339,7 +339,7 @@ export default function BecomeCustomerScreen() {
                 style={styles.primaryBtn}
                 onPress={() => {
                   Haptics.selectionAsync();
-                  router.replace("/(tabs)/");
+                  router.replace("/");
                 }}
               >
                 <Ionicons name="home-outline" size={20} color="#fff" />

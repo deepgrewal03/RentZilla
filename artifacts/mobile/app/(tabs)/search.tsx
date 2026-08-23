@@ -172,8 +172,8 @@ export default function SearchScreen() {
   useEffect(() => {
     loadRecentSearches();
     /* Fetch live districts/cities from the DB (users + listings location fields) */
-    get("/search/locations")
-      .then((d: { districts: { name: string; count: number }[] }) => {
+    get<{ districts: { name: string; count: number }[] }>("/search/locations")
+      .then((d) => {
         if (d?.districts?.length) setLiveDistricts(d.districts);
       })
       .catch(() => {/* silently use fallback */});

@@ -1,5 +1,5 @@
 import { db } from "@workspace/db";
-import { usersTable, listingsTable } from "@workspace/db";
+import { usersTable, listingsTable } from "@workspace/db/schema";
 import { sql } from "drizzle-orm";
 
 function id() {

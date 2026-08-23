@@ -231,10 +231,10 @@ export default function FraudCenter() {
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         {[
-          { label: "Critical", count: criticalCount, ...RISK_META.critical },
-          { label: "High",     count: highCount,     ...RISK_META.high     },
-          { label: "Medium",   count: mediumCount,   ...RISK_META.medium   },
-          { label: "Low Risk", count: lowCount,      ...RISK_META.low      },
+          { count: criticalCount, ...RISK_META.critical },
+          { count: highCount,     ...RISK_META.high     },
+          { count: mediumCount,   ...RISK_META.medium   },
+          { count: lowCount,      ...RISK_META.low      },
         ].map(s => (
           <div key={s.label} className={`${s.bg} ${s.border} border rounded-2xl p-4`}>
             <div className={`text-2xl font-black ${s.color}`}>{s.emoji} {s.count}</div>

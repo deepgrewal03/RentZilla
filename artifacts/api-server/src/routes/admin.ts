@@ -1,4 +1,4 @@
-import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
+import { Router, type IRouter, type Request as ExpressRequest, type Response, type NextFunction } from "express";
 import { db } from "@workspace/db";
 import {
   usersTable,
@@ -7,10 +7,11 @@ import {
   reportsTable,
   issuesTable,
   notificationsTable,
-} from "@workspace/db";
-import { eq, desc, sql, count, sum, leftJoin } from "drizzle-orm";
+} from "@workspace/db/schema";
+import { eq, desc, sql, count, sum } from "drizzle-orm";
 
 const router: IRouter = Router();
+type Request = ExpressRequest<Record<string, string>>;
 type AR = Request & { userId: string; adminEmail: string };
 
 // ── Whitelisted super admin emails (exactly 3, no new admins allowed) ─────────
@@ -1057,7 +1058,7 @@ router.get("/fraud/users", adminMiddleware, async (req: Request, res: Response) 
       `)));
       const scores = await Promise.all(users.map((u: any) => computeFraudScore(u.id)));
       scores.sort((a, b) => b.score - a.score);
-      return res.json(scores);
+      return void res.json(scores);
     }
 
     res.json(cached);

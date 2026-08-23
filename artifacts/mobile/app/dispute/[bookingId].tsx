@@ -264,7 +264,7 @@ export default function DisputeScreen() {
   async function load() {
     if (!bookingId) return;
     try {
-      const data = await get(`/disputes/${bookingId}`);
+      const data = await get<{ booking: DisputeBooking; messages?: DisputeMessage[] }>(`/disputes/${bookingId}`);
       setBooking(data.booking);
       setMessages(data.messages ?? []);
       if (!data.booking?.dispute_status) setShowOpenForm(true);

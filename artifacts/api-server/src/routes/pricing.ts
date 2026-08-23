@@ -1,7 +1,7 @@
 import { Router, type Request, type Response, type NextFunction } from "express";
 import { db } from "@workspace/db";
 import { sql, eq } from "drizzle-orm";
-import { usersTable } from "@workspace/db";
+import { usersTable } from "@workspace/db/schema";
 
 const router = Router();
 

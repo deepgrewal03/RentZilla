@@ -2,10 +2,9 @@ import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { useFocusEffect } from "@react-navigation/native";
 import {
   ActivityIndicator,
   Alert,
@@ -125,7 +124,7 @@ export default function DashboardScreen() {
   // When user switches to customer mode, leave the dashboard and go to Home
   useEffect(() => {
     if (user && !inProviderMode) {
-      router.replace("/(tabs)/");
+      router.replace("/");
     }
   }, [inProviderMode, user]);
 
@@ -215,7 +214,7 @@ export default function DashboardScreen() {
               onPress={() => {
                 setActiveMode("customer");
                 Haptics.selectionAsync();
-                router.replace("/(tabs)/");
+                router.replace("/");
               }}
               style={[styles.roleBtn, activeMode === "customer" && styles.roleBtnActive]}
             >
@@ -342,7 +341,7 @@ export default function DashboardScreen() {
         </View>
 
         {/* ──────────── WALLET SHORTCUT ──────────── */}
-        <Pressable onPress={() => router.push("/(tabs)/wallet" as any)} activeOpacity={0.88} style={styles.walletShortcut}>
+        <Pressable onPress={() => router.push("/(tabs)/wallet" as any)} style={styles.walletShortcut}>
           <LinearGradient colors={[NAVY, "#1a3a6b"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.walletShortcutGrad}>
             <View style={styles.walletShortcutLeft}>
               <View style={styles.walletShortcutIconWrap}>
@@ -364,7 +363,7 @@ export default function DashboardScreen() {
         </Pressable>
 
         {/* ──────────── REFER A FRIEND BANNER ──────────── */}
-        <Pressable onPress={() => router.push("/referral" as any)} activeOpacity={0.9} style={styles.referBanner}>
+        <Pressable onPress={() => router.push("/referral" as any)} style={styles.referBanner}>
           <LinearGradient colors={["#FF7A18", "#FF9F43"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.referBannerGrad}>
             <View style={styles.referBannerIcon}><Text style={{ fontSize: 24 }}>🎁</Text></View>
             <View style={{ flex: 1 }}>

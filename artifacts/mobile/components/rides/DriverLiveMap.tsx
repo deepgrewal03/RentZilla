@@ -261,7 +261,7 @@ export default function DriverLiveMap({ requests = [], height = 270 }: Props) {
       {/* Error state */}
       {locErr && (
         <View style={styles.loadOverlay}>
-          <Feather name="map-off" size={28} color="#888" />
+          <Feather name={"map-off" as any} size={28} color="#888" />
           <Text style={[styles.loadText, { color: "#888" }]}>Location access denied</Text>
         </View>
       )}

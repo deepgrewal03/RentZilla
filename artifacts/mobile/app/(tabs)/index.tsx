@@ -6,6 +6,7 @@ import { StatusBar } from "expo-status-bar";
 import React, { useEffect, useRef, useState } from "react";
 import {
   Animated,
+  Alert,
   Platform,
   Pressable,
   RefreshControl,

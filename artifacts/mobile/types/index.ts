@@ -47,6 +47,7 @@ export interface Booking {
   customerName: string | null;
   customerPhone: string | null;
   providerId: string;
+  providerName?: string | null;
   listingId: string;
   listingTitle: string | null;
   listingCategory: string | null;
@@ -62,6 +63,7 @@ export interface Booking {
   timeSlot: string | null;
   serviceType: string | null;
   createdAt: string;
+  dispute_status?: "open" | "under_review" | "resolved" | null;
 }
 
 export interface Review {

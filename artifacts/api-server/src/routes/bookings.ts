@@ -1,6 +1,6 @@
-import { Router, type IRouter, type Request, type Response } from "express";
+import { Router, type IRouter, type Request as ExpressRequest, type Response } from "express";
 import { db } from "@workspace/db";
-import { bookingsTable, listingsTable, usersTable } from "@workspace/db";
+import { bookingsTable, listingsTable, usersTable } from "@workspace/db/schema";
 import { eq, or, and } from "drizzle-orm";
 import { sql } from "drizzle-orm";
 import { authMiddleware } from "./users.js";
@@ -18,6 +18,7 @@ import {
 } from "../lib/bookingStateMachine.js";
 
 const router: IRouter = Router();
+type Request = ExpressRequest<Record<string, string>>;
 
 function generateId(): string {
   return Date.now().toString() + Math.random().toString(36).substr(2, 9);
@@ -261,7 +262,7 @@ router.post("/:id/accept", authMiddleware, async (req: Request, res: Response) =
       await transitionBooking(req.params.id, from, to, userId, "provider accepted");
     } catch (e: any) {
       if (e instanceof InvalidTransitionError) {
-        return res.status(422).json({ error: e.message });
+        return void res.status(422).json({ error: e.message });
       }
       throw e;
     }
@@ -342,7 +343,7 @@ router.post("/:id/cancel", authMiddleware, async (req: Request, res: Response) =
     try {
       await transitionBooking(req.params.id, from, to, userId, reason || "cancelled by user");
     } catch (e: any) {
-      if (e instanceof InvalidTransitionError) { return res.status(422).json({ error: e.message }); }
+      if (e instanceof InvalidTransitionError) { return void res.status(422).json({ error: e.message }); }
       throw e;
     }
 
@@ -408,7 +409,7 @@ router.post("/", authMiddleware, async (req: Request, res: Response) => {
           .limit(1);
         if (existingBookings.length > 0) {
           const enriched = await enrichBooking(existingBookings[0]);
-          return res.status(200).json({ ...enriched, _idempotent: true });
+          return void res.status(200).json({ ...enriched, _idempotent: true });
         }
       }
     }
@@ -588,7 +589,7 @@ router.post("/", authMiddleware, async (req: Request, res: Response) => {
       }
 
       const enriched = await enrichBooking(inserted[0]);
-      return res.status(201).json({
+      return void res.status(201).json({
         ...enriched,
         timeSlots: slotsArray,
         serviceTypes: servicesArray,
@@ -603,32 +604,32 @@ router.post("/", authMiddleware, async (req: Request, res: Response) => {
     } else {
       // Legacy date-range booking — validate dates and amounts
       if (!startDate || !endDate) {
-        return res.status(400).json({ error: "Start date and end date are required" });
+        return void res.status(400).json({ error: "Start date and end date are required" });
       }
       const start = new Date(startDate);
       const end = new Date(endDate);
       if (isNaN(start.getTime()) || isNaN(end.getTime())) {
-        return res.status(400).json({ error: "Invalid date format" });
+        return void res.status(400).json({ error: "Invalid date format" });
       }
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       if (start < today) {
-        return res.status(400).json({ error: "Start date cannot be in the past" });
+        return void res.status(400).json({ error: "Start date cannot be in the past" });
       }
       if (end < start) {
-        return res.status(400).json({ error: "End date must be on or after start date" });
+        return void res.status(400).json({ error: "End date must be on or after start date" });
       }
       const { totalAmount: inputTotalAmount, finalAmount: inputFinalAmount } = req.body;
       if (inputTotalAmount !== undefined && Number(inputTotalAmount) < 0) {
-        return res.status(400).json({ error: "Booking amount cannot be negative" });
+        return void res.status(400).json({ error: "Booking amount cannot be negative" });
       }
       if (inputFinalAmount !== undefined && Number(inputFinalAmount) < 0) {
-        return res.status(400).json({ error: "Final amount cannot be negative" });
+        return void res.status(400).json({ error: "Final amount cannot be negative" });
       }
       // ── Overlap detection — prevent double-booking same listing ────────────
       const overlap = await hasDateOverlap(listingId, startDate, endDate);
       if (overlap.conflict) {
-        return res.status(409).json({
+        return void res.status(409).json({
           error: "These dates are not available — another booking already exists for this listing in the selected period",
           conflictingBookingId: overlap.conflictingId,
         });
@@ -642,7 +643,7 @@ router.post("/", authMiddleware, async (req: Request, res: Response) => {
       const { totalAmount: inputTA, finalAmount: _ignored } = req.body;
       // Reject if client sends an amount more than 25% below server calculation (manipulation guard)
       if (inputTA !== undefined && Number(inputTA) < serverBaseAmount * 0.75) {
-        return res.status(400).json({
+        return void res.status(400).json({
           error: `Amount mismatch: client sent ₹${Number(inputTA).toFixed(2)} but server calculates ₹${serverBaseAmount.toFixed(2)} for ${diffDays} day(s) at ₹${listing.price}/day`,
         });
       }
@@ -740,7 +741,7 @@ router.post("/", authMiddleware, async (req: Request, res: Response) => {
       }
 
       const enriched = await enrichBooking(inserted[0]);
-      return res.status(201).json({
+      return void res.status(201).json({
         ...enriched,
         serviceTypes: servicesArray,
         promoCode: appliedPromo,
@@ -955,7 +956,7 @@ router.post("/:id/complete-job", authMiddleware, async (req: Request, res: Respo
     if (existingEvent.length > 0) {
       const updated = await db.select().from(bookingsTable).where(eq(bookingsTable.id, req.params.id)).limit(1);
       const enriched = await enrichBooking(updated[0]);
-      return res.json({ ...enriched, commissionAmount, commissionRate, providerEarning, _idempotent: true });
+      return void res.json({ ...enriched, commissionAmount, commissionRate, providerEarning, _idempotent: true });
     }
 
     // ── Atomic transaction: booking completion + wallet settlement ──────────

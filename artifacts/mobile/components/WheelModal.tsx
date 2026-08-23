@@ -334,7 +334,7 @@ export default function WheelModal({ visible, onClose }: Props) {
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
       const endpoint = type === "free" ? "/wheel/free-spin" : "/wheel/paid-spin";
-      const data = await post<{ segmentIndex: number; reward: { label: string; discountValue: number; type: string } }>(endpoint);
+      const data = await post<{ segmentIndex: number; reward: { label: string; discountValue: number; type: string } }>(endpoint, undefined);
       doSpin(data.segmentIndex);
 
       // Reveal result after animation completes

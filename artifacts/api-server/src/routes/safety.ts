@@ -1,15 +1,16 @@
-import { Router, type IRouter, type Request, type Response } from "express";
+import { Router, type IRouter, type Request as ExpressRequest, type Response } from "express";
 import { db } from "@workspace/db";
 import {
   blockedUsersTable, reportsTable, emergencyContactsTable,
   issuesTable, otpCodesTable, usersTable, userSettingsTable,
-} from "@workspace/db";
+} from "@workspace/db/schema";
 import { eq, and } from "drizzle-orm";
 import { authMiddleware } from "./users.js";
 import { randomUUID } from "crypto";
 import { send2FAEmail } from "../lib/email.js";
 
 const router: IRouter = Router();
+type Request = ExpressRequest<Record<string, string>>;
 type AR = Request & { userId: string };
 
 // ─── OTP / 2FA ───────────────────────────────────────────────────────────────

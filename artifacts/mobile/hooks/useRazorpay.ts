@@ -34,7 +34,7 @@ type CheckoutState = {
   keyId: string;
   prefill: { name?: string; email?: string; contact?: string };
   description: string;
-  onSuccess: (result: RazorpayVerifyResult) => void;
+  onSuccess: (payload: RazorpaySuccessPayload) => void;
   onDismiss: () => void;
 };
 

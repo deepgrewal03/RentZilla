@@ -33,8 +33,10 @@ export default ({ config }: ConfigContext): ExpoConfig => {
           "RentZilla needs access to your photos to set your profile picture.",
         cameraPermission:
           "RentZilla needs camera access to take your profile photo.",
+        microphonePermission: false,
       },
     ],
+    ["expo-av", { microphonePermission: false }],
     [
       "expo-location",
       {

@@ -1,4 +1,4 @@
-import { Router, type IRouter, type Request, type Response } from "express";
+import { Router, type IRouter, type Request as ExpressRequest, type Response } from "express";
 import multer from "multer";
 import { randomUUID } from "crypto";
 import path from "path";
@@ -9,6 +9,7 @@ import { authMiddleware } from "./users.js";
 import { logger } from "../lib/logger.js";
 
 const router: IRouter = Router();
+type Request = ExpressRequest<Record<string, string>>;
 type AR = Request & { userId: string };
 
 const UPLOADS_DIR = path.resolve(process.cwd(), "uploads");
@@ -153,11 +154,11 @@ router.post("/upload/:type", authMiddleware, upload.single("file"), async (req: 
 
   const validTypes = ["gov_id", "selfie", "address"];
   if (!validTypes.includes(type)) {
-    return res.status(400).json({ error: "Invalid document type. Must be gov_id, selfie, or address." });
+    return void res.status(400).json({ error: "Invalid document type. Must be gov_id, selfie, or address." });
   }
 
   const file = req.file;
-  if (!file) return res.status(400).json({ error: "No file uploaded." });
+  if (!file) return void res.status(400).json({ error: "No file uploaded." });
 
   try {
     const file_url = `/uploads/${file.filename}`;
@@ -245,7 +246,7 @@ router.get("/admin/all", authMiddleware, async (req: Request, res: Response) => 
 router.patch("/admin/:userId/:type/approve", authMiddleware, async (req: Request, res: Response) => {
   const { userId, type } = req.params;
   const validTypes = ["gov_id", "selfie", "address"];
-  if (!validTypes.includes(type)) return res.status(400).json({ error: "Invalid type" });
+  if (!validTypes.includes(type)) return void res.status(400).json({ error: "Invalid type" });
 
   const docField = `${type}_status`;
   const docTypeLabel = type === "gov_id" ? "Government ID" : type === "selfie" ? "Selfie" : "Address Proof";
@@ -276,7 +277,7 @@ router.patch("/admin/:userId/:type/reject", authMiddleware, async (req: Request,
   const { userId, type } = req.params;
   const { reason = "Document could not be verified. Please resubmit." } = req.body;
   const validTypes = ["gov_id", "selfie", "address"];
-  if (!validTypes.includes(type)) return res.status(400).json({ error: "Invalid type" });
+  if (!validTypes.includes(type)) return void res.status(400).json({ error: "Invalid type" });
 
   const docField = `${type}_status`;
   const docTypeLabel = type === "gov_id" ? "Government ID" : type === "selfie" ? "Selfie" : "Address Proof";

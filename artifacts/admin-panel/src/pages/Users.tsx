@@ -291,7 +291,7 @@ export default function Users() {
                       <div>
                         <div className="flex items-center gap-1">
                           <span className="text-sm font-semibold text-gray-900 group-hover:text-orange-600 transition-colors">{u.name || "—"}</span>
-                          {u.isGoldMember && <Trophy size={12} className="text-yellow-500 flex-shrink-0" title="Gold Member" />}
+                          {u.isGoldMember && <Trophy size={12} className="text-yellow-500 flex-shrink-0" {...({ title: "Gold Member" } as any)} />}
                         </div>
                         {u.isAdmin && <div className="text-xs text-orange-500 font-medium">Admin</div>}
                       </div>
