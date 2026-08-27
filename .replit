@@ -38,3 +38,19 @@ SUPPORT_EMAIL = "info.rentzilla@gmail.com"
 SMTP_FROM = "RentZilla Support <info.rentzilla@gmail.com>"
 EXPO_PUBLIC_GOOGLE_CLIENT_ID = "558670008629-hccacctug6of58c0627hq7qht378iunr.apps.googleusercontent.com"
 EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID = "558670008629-59n7mukqgqumk1cng7dlsrp45s0cohrb.apps.googleusercontent.com"
+
+[[ports]]
+localPort = 8080
+externalPort = 8080
+
+[[ports]]
+localPort = 8081
+externalPort = 8081
+
+[[ports]]
+localPort = 18115
+externalPort = 80
+
+[[ports]]
+localPort = 20130
+externalPort = 3000
