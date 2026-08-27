@@ -68,7 +68,7 @@ Open app.json or app.config.js
     "name": "RentZilla",
     "slug": "rentzilla",
     "android": {
-      "package": "com.rentzilla.app"
+      "package": "com.rentzilla.myapp"
     }
   }
 }
@@ -78,7 +78,7 @@ Package name can never change after Play Store launch
 
 Best:
 
-com.rentzilla.app
+com.rentzilla.myapp
 ✅ 6) Build Android App Bundle
 
 Now run:

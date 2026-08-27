@@ -2,7 +2,7 @@
 
 *A rental marketplace for Punjab, India — rent cars, farm equipment (tractors, tools) and services (drivers, repairs) from your phone.*
 
-Version: 1.0.10 (iOS build 20, Android versionCode 21) · Bundle ID: `com.rentzilla.app`
+Version: 24 (iOS build 20, Android versionCode 25) · Android package: `com.rentzilla.myapp`
 
 ---
 
