@@ -4,7 +4,7 @@
 | Field | Value |
 |---|---|
 | App Name | RentZilla |
-| Package | `com.rentzilla.app` |
+| Package | `com.rentzilla.myapp` |
 | Version | 1.0.0 |
 | API Server | https://rent-organizer.replit.app |
 | Build Tool | EAS (Expo Application Services) |
@@ -201,7 +201,7 @@ Then upload the new `.aab` to Play Console → Production → Create new release
 | Problem | Fix |
 |---|---|
 | Build fails with "node version" | eas.json already sets `"node": "20.19.0"` |
-| "Package name already taken" | `com.rentzilla.app` is yours — just log in to the right Google account |
+| "Package name already taken" | `com.rentzilla.myapp` is yours — just log in to the right Google account |
 | Maps not showing | Ensure `GOOGLE_MAPS_API_KEY` is set in Replit Secrets |
 | Notifications not working | Add `google-services.json` from Firebase Console to `artifacts/mobile/` |
 | App rejected for payments | Add privacy policy URL and financial transactions disclosure |
