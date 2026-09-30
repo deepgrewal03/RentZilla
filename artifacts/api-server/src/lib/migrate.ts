@@ -1,6 +1,7 @@
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { logger } from "./logger";
+import { migrateReportTargets } from "./reportMigration";
 
 /**
  * Runs CREATE TABLE IF NOT EXISTS for every table in the schema.
@@ -986,5 +987,6 @@ export async function runMigrations() {
     END $$
   `)).catch(() => {});
 
+  await migrateReportTargets();
   logger.info("Database migrations complete.");
 }

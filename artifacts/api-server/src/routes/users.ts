@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
-import { createHmac } from "crypto";
+import { createHmac, timingSafeEqual } from "crypto";
 import { db } from "@workspace/db";
 import { usersTable, reviewsTable } from "@workspace/db/schema";
 import { eq } from "drizzle-orm";
@@ -8,13 +8,14 @@ import { TOKEN_SECRET } from "./auth.js";
 
 const router: IRouter = Router();
 
-function getUserIdFromToken(req: Request): string | null {
+function getUserIdFromToken(req: Request, requireSignature = false): string | null {
   const auth = req.headers.authorization;
   if (!auth || !auth.startsWith("Bearer ")) return null;
   const token = auth.replace("Bearer ", "");
   try {
     const dotIdx = token.lastIndexOf(".");
     if (dotIdx === -1) {
+      if (requireSignature) return null;
       const decoded = Buffer.from(token, "base64").toString("utf8");
       const userId = decoded.split(":")[0];
       return userId || null;
@@ -22,7 +23,8 @@ function getUserIdFromToken(req: Request): string | null {
     const payload = token.slice(0, dotIdx);
     const providedSig = token.slice(dotIdx + 1);
     const expectedSig = createHmac("sha256", TOKEN_SECRET).update(payload).digest("hex").slice(0, 16);
-    if (providedSig !== expectedSig) return null;
+    if (!/^[a-f0-9]{16}$/.test(providedSig) ||
+        !timingSafeEqual(Buffer.from(providedSig, "hex"), Buffer.from(expectedSig, "hex"))) return null;
     const decoded = Buffer.from(payload, "base64").toString("utf8");
     const userId = decoded.split(":")[0];
     return userId || null;
@@ -35,6 +37,18 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction):
   const userId = getUserIdFromToken(req);
   if (!userId) {
     res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+  (req as Request & { userId: string }).userId = userId;
+  next();
+}
+
+// Safety submissions must never trust the legacy unsigned bearer format.
+// Uses exactly the HMAC token issued by email, registration and social login.
+export function signedAuthMiddleware(req: Request, res: Response, next: NextFunction): void {
+  const userId = getUserIdFromToken(req, true);
+  if (!userId) {
+    res.status(401).json({ error: "Unauthorized. Please sign in again." });
     return;
   }
   (req as Request & { userId: string }).userId = userId;

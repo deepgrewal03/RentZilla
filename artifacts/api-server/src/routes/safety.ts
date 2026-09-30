@@ -5,9 +5,10 @@ import {
   issuesTable, otpCodesTable, usersTable, userSettingsTable,
 } from "@workspace/db/schema";
 import { eq, and } from "drizzle-orm";
-import { authMiddleware } from "./users.js";
+import { authMiddleware, signedAuthMiddleware } from "./users.js";
 import { randomUUID } from "crypto";
 import { send2FAEmail } from "../lib/email.js";
+import { createSafetyReport, ReportError } from "../lib/safetyReports.js";
 
 const router: IRouter = Router();
 type Request = ExpressRequest<Record<string, string>>;
@@ -129,21 +130,15 @@ router.delete("/blocked/:id", authMiddleware, async (req: Request, res: Response
 // ─── REPORT USER ─────────────────────────────────────────────────────────────
 
 // POST /safety/reports — file a report against another user
-router.post("/reports", authMiddleware, async (req: Request, res: Response) => {
+router.post("/reports", signedAuthMiddleware, async (req: Request, res: Response) => {
   try {
     const userId = (req as AR).userId;
-    const { reportedUserId, reason, description } = req.body;
-    if (!reportedUserId || !reason) { res.status(400).json({ error: "reportedUserId and reason are required" }); return; }
-    const validReasons = ["spam", "fraud", "abuse", "fake_listing", "other"];
-    if (!validReasons.includes(reason)) { res.status(400).json({ error: "Invalid reason" }); return; }
-    const users = await db.select().from(usersTable).where(eq(usersTable.id, reportedUserId)).limit(1);
-    const reportedUserName = users[0]?.name ?? users[0]?.email ?? "Unknown";
-    const inserted = await db.insert(reportsTable).values({
-      id: randomUUID(), reporterId: userId, reportedUserId,
-      reportedUserName, reason, description,
-    }).returning();
-    res.json(inserted[0]);
+    res.json(await createSafetyReport(userId, req.body));
   } catch (err) {
+    if (err instanceof ReportError) {
+      res.status(err.status).json({ error: err.message });
+      return;
+    }
     req.log.error({ err }, "Report user error");
     res.status(500).json({ error: "Internal server error" });
   }

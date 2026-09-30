@@ -346,6 +346,9 @@ router.get("/reports", adminMiddleware, async (req: Request, res: Response) => {
       reporterId: reportsTable.reporterId,
       reportedUserId: reportsTable.reportedUserId,
       reportedUserName: reportsTable.reportedUserName,
+      targetType: reportsTable.targetType,
+      targetId: reportsTable.targetId,
+      targetName: reportsTable.targetName,
       reason: reportsTable.reason,
       description: reportsTable.description,
       status: reportsTable.status,
@@ -358,7 +361,8 @@ router.get("/reports", adminMiddleware, async (req: Request, res: Response) => {
 
     if (status) baseQ = baseQ.where(eq(reportsTable.status, status as any));
     const reports = await baseQ.orderBy(desc(reportsTable.createdAt)).limit(parseInt(limit)).offset(offset);
-    const totalR   = await db.select({ c: count() }).from(reportsTable);
+    const totalR = await db.select({ c: count() }).from(reportsTable)
+      .where(status ? eq(reportsTable.status, status) : undefined);
     res.json({ reports, total: Number(totalR[0]?.c ?? 0), page: parseInt(page), limit: parseInt(limit) });
   } catch { res.status(500).json({ error: "Internal server error" }); }
 });
@@ -366,7 +370,11 @@ router.get("/reports", adminMiddleware, async (req: Request, res: Response) => {
 router.patch("/reports/:id", adminMiddleware, async (req: Request, res: Response) => {
   try {
     const { status } = req.body;
-    await db.update(reportsTable).set({ status }).where(eq(reportsTable.id, req.params.id));
+    if (!["pending", "reviewed", "resolved", "dismissed"].includes(status)) {
+      res.status(400).json({ error: "Invalid report status" }); return;
+    }
+    const [report] = await db.update(reportsTable).set({ status }).where(eq(reportsTable.id, req.params.id)).returning();
+    if (!report) { res.status(404).json({ error: "Report not found" }); return; }
     const r = req as AR;
     await logAction(r.userId, r.adminEmail, "UPDATE_REPORT", "report", req.params.id, { status });
     res.json({ success: true });

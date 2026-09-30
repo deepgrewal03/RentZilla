@@ -9,7 +9,7 @@ function netErr(): Error {
 
 function serverErr(status: number, body: Record<string, any>): Error {
   const msg = body?.error || body?.message || `Server error (${status})`;
-  return new Error(msg);
+  return Object.assign(new Error(msg), { status });
 }
 
 async function safeJson(res: Response): Promise<Record<string, any>> {

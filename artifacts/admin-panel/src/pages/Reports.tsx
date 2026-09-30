@@ -9,6 +9,8 @@ interface Report {
   reportedUserName: string | null; reason: string;
   description: string | null; status: string; createdAt: string;
   reporterName: string | null; reporterRole: string | null;
+  targetType: "user" | "listing" | "provider"; targetId: string;
+  targetName: string | null;
 }
 
 interface Issue {
@@ -65,7 +67,7 @@ export default function Reports() {
   const { toast } = useToast();
 
   // ── Safety Reports ──────────────────────────────────────────────────────────
-  const { data: reportData, isLoading: rLoading } = useQuery<{ reports: Report[]; total: number }>({
+  const { data: reportData, isLoading: rLoading, error: reportError } = useQuery<{ reports: Report[]; total: number }>({
     queryKey: ["admin-reports", page, statusFilter, tab],
     queryFn: () => {
       if (tab !== "reports") return Promise.resolve({ reports: [], total: 0 });
@@ -73,6 +75,7 @@ export default function Reports() {
       if (statusFilter) p.set("status", statusFilter);
       return api.get(`/admin/reports?${p}`);
     },
+    refetchInterval: tab === "reports" ? 30_000 : false,
   });
 
   const reportMutation = useMutation({
@@ -160,7 +163,12 @@ export default function Reports() {
       )}
 
       {/* Content */}
-      {isLoading ? (
+      {tab === "reports" && reportError ? (
+        <div role="alert" className="bg-red-50 text-red-700 rounded-2xl p-5">
+          Unable to load safety reports. {reportError.message}
+          <button onClick={() => qc.invalidateQueries({ queryKey: ["admin-reports"] })} className="ml-3 underline">Retry</button>
+        </div>
+      ) : isLoading ? (
         <div className="flex justify-center py-12"><RefreshCw size={24} className="animate-spin text-orange-500" /></div>
       ) : tab === "reports" ? (
         !(reportData?.reports || []).length ? (
@@ -173,6 +181,9 @@ export default function Reports() {
                   <div className="flex-1 min-w-0">
                     {/* Badges */}
                     <div className="flex items-center gap-2 flex-wrap mb-2">
+                      <span className="text-xs px-2.5 py-1 rounded-full font-semibold bg-purple-100 text-purple-700 capitalize">
+                        {r.targetType || "user"}
+                      </span>
                       <span className={`text-xs px-2.5 py-1 rounded-full font-semibold ${REASON_COLOR[r.reason] || "bg-gray-100"}`}>
                         {REASON_LABEL[r.reason] || r.reason}
                       </span>
@@ -181,10 +192,16 @@ export default function Reports() {
                       </span>
                     </div>
 
-                    {/* Reported user */}
+                    {/* Keep the exact reported content distinct from its owner. */}
                     <p className="text-sm font-semibold text-gray-900">
-                      Reported: {r.reportedUserName || `User #${r.reportedUserId.slice(-8)}`}
+                      Reported {r.targetType || "user"}: {r.targetName || r.reportedUserName || "Unavailable"}
                     </p>
+                    <p className="text-xs text-gray-500 mt-1 break-all">
+                      Target ID: {r.targetId || r.reportedUserId}
+                    </p>
+                    {r.targetType === "listing" && (
+                      <p className="text-xs text-gray-500 mt-1">Owner: {r.reportedUserName || r.reportedUserId}</p>
+                    )}
 
                     {/* Description */}
                     {r.description && (
@@ -213,18 +230,18 @@ export default function Reports() {
                   <div className="flex gap-2 flex-shrink-0 flex-col items-end">
                     {r.status === "pending" && (
                       <>
-                        <button onClick={() => reportMutation.mutate({ id: r.id, status: "reviewed" })}
+                        <button disabled={reportMutation.isPending} onClick={() => reportMutation.mutate({ id: r.id, status: "reviewed" })}
                           className="px-3 py-2 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-xl text-xs font-medium transition-colors">
                           Mark Reviewed
                         </button>
-                        <button onClick={() => reportMutation.mutate({ id: r.id, status: "resolved" })}
+                        <button disabled={reportMutation.isPending} onClick={() => reportMutation.mutate({ id: r.id, status: "resolved" })}
                           className="px-3 py-2 bg-green-50 text-green-600 hover:bg-green-100 rounded-xl text-xs font-medium transition-colors">
                           Resolve
                         </button>
                       </>
                     )}
                     {r.status === "reviewed" && (
-                      <button onClick={() => reportMutation.mutate({ id: r.id, status: "resolved" })}
+                      <button disabled={reportMutation.isPending} onClick={() => reportMutation.mutate({ id: r.id, status: "resolved" })}
                         className="px-3 py-2 bg-green-50 text-green-600 hover:bg-green-100 rounded-xl text-xs font-medium transition-colors">
                         Resolve
                       </button>

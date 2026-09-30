@@ -18,6 +18,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { StarRating } from "@/components/StarRating";
+import { ReportForm } from "@/components/ReportForm";
 import Colors from "@/constants/colors";
 import { useAuth } from "@/context/AuthContext";
 import { useFavorites } from "@/context/FavoritesContext";
@@ -192,6 +193,7 @@ export default function ListingDetailScreen() {
   const [bookingSuccess, setBookingSuccess] = useState<string | null>(null);
 
   const [activeImage, setActiveImage] = useState(0);
+  const [showReport, setShowReport] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -517,6 +519,13 @@ export default function ListingDetailScreen() {
             </View>
           )}
 
+          {!isOwner && (
+            <Pressable onPress={() => setShowReport(true)} style={styles.reportAction} testID="report-listing">
+              <Ionicons name="flag-outline" size={18} color={C.textSecondary} />
+              <Text style={styles.reportActionText}>Report Listing</Text>
+            </Pressable>
+          )}
+
           {/* Booking form — date + slot picker */}
           {showBooking && isCustomer && !isCarListing && (
             <View style={styles.bookingForm}>
@@ -605,6 +614,8 @@ export default function ListingDetailScreen() {
           <View style={{ height: 100 }} />
         </View>
       </ScrollView>
+
+      <ReportForm visible={showReport} onClose={() => setShowReport(false)} targetType="listing" targetId={listing.id} />
 
       {/* Bottom action bar */}
       {!isOwner && listing.isAvailable && isCustomer && !showBooking && !isCarListing && (
@@ -697,6 +708,8 @@ const styles = StyleSheet.create({
   providerName: { fontSize: 15, fontWeight: "600", fontFamily: "Inter_600SemiBold", color: C.text },
   providerRating: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 3 },
   providerRatingText: { fontSize: 12, color: C.textSecondary, fontFamily: "Inter_400Regular" },
+  reportAction: { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 12, marginBottom: 14 },
+  reportActionText: { fontFamily: "Inter_500Medium", fontSize: 14, color: C.textSecondary },
   msgBtn: {
     width: 40, height: 40, borderRadius: 20,
     backgroundColor: `${TINT}15`,

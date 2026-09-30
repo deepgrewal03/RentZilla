@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, boolean, index } from "drizzle-orm/pg-core";
 
 export const blockedUsersTable = pgTable("blocked_users", {
   id: text("id").primaryKey(),
@@ -13,11 +13,17 @@ export const reportsTable = pgTable("reports", {
   reporterId: text("reporter_id").notNull(),
   reportedUserId: text("reported_user_id").notNull(),
   reportedUserName: text("reported_user_name"),
+  targetType: text("target_type").notNull().default("user"),
+  targetId: text("target_id").notNull(),
+  targetName: text("target_name"),
   reason: text("reason").notNull().default("other"),
   description: text("description"),
   status: text("status").notNull().default("pending"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
-});
+}, (table) => [
+  index("reports_reporter_target_idx").on(table.reporterId, table.targetType, table.targetId),
+  index("reports_reporter_created_idx").on(table.reporterId, table.createdAt),
+]);
 
 export const emergencyContactsTable = pgTable("emergency_contacts", {
   id: text("id").primaryKey(),

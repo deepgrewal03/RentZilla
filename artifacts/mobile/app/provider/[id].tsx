@@ -14,8 +14,10 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { ListingCard } from "@/components/ListingCard";
+import { ReportForm } from "@/components/ReportForm";
 import { StarRating } from "@/components/StarRating";
 import Colors from "@/constants/colors";
+import { useAuth } from "@/context/AuthContext";
 import { useApi } from "@/hooks/useApi";
 import { Listing, Review } from "@/types";
 
@@ -24,6 +26,7 @@ const C = Colors.light;
 export default function ProviderProfileScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { get } = useApi();
+  const { user } = useAuth();
   const insets = useSafeAreaInsets();
   const isWeb = Platform.OS === "web";
 
@@ -32,6 +35,7 @@ export default function ProviderProfileScreen() {
   const [loading, setLoading] = useState(true);
   const [providerName, setProviderName] = useState<string | null>(null);
   const [avgRating, setAvgRating] = useState<number | null>(null);
+  const [showReport, setShowReport] = useState(false);
 
   const topPad = isWeb ? 67 : insets.top;
 
@@ -127,8 +131,16 @@ export default function ProviderProfileScreen() {
           </>
         )}
 
+        {!loading && id && !(listings.length > 0 && user?.id === listings[0].providerId) && (
+          <Pressable onPress={() => setShowReport(true)} style={styles.reportAction} testID="report-provider">
+            <Ionicons name="flag-outline" size={18} color={C.textSecondary} />
+            <Text style={styles.reportActionText}>Report Provider</Text>
+          </Pressable>
+        )}
+
         <View style={{ height: isWeb ? 34 : 80 }} />
       </ScrollView>
+      {!!id && <ReportForm visible={showReport} onClose={() => setShowReport(false)} targetType="provider" targetId={id} />}
     </View>
   );
 }
@@ -195,4 +207,6 @@ const styles = StyleSheet.create({
   reviewUser: { fontSize: 14, fontWeight: "600", fontFamily: "Inter_600SemiBold", color: C.text },
   reviewDate: { fontSize: 11, color: C.textTertiary, fontFamily: "Inter_400Regular" },
   reviewComment: { fontSize: 13, color: C.textSecondary, fontFamily: "Inter_400Regular", lineHeight: 20 },
+  reportAction: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 20, paddingVertical: 12 },
+  reportActionText: { fontSize: 14, fontFamily: "Inter_500Medium", color: C.textSecondary },
 });
