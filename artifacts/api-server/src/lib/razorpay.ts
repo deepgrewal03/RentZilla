@@ -36,18 +36,23 @@ export function verifyPaymentSignature(params: {
 }
 
 export function verifyWebhookSignature(body: string, signature: string): boolean {
-  const secret = process.env.RAZORPAY_WEBHOOK_SECRET!;
-  const expectedSig = crypto.createHmac("sha256", secret).update(body).digest("hex");
-  return crypto.timingSafeEqual(
-    Buffer.from(expectedSig, "hex"),
-    Buffer.from(signature, "hex")
-  );
+  try {
+    const secret = process.env.RAZORPAY_WEBHOOK_SECRET!;
+    if (!secret || !/^[0-9a-f]{64}$/i.test(signature)) return false;
+    const expectedSig = crypto.createHmac("sha256", secret).update(body).digest("hex");
+    const expected = Buffer.from(expectedSig, "hex");
+    const provided = Buffer.from(signature, "hex");
+    return expected.length === provided.length && crypto.timingSafeEqual(expected, provided);
+  } catch {
+    return false;
+  }
 }
 
 export const PURPOSES = {
   WALLET_TOPUP: "wallet_topup",
   GOLD_MEMBERSHIP: "gold_membership",
   WHEEL_SPIN: "wheel_spin",
+  BOOKING_PAYMENT: "booking_payment",
 } as const;
 
 export type RazorpayPurpose = typeof PURPOSES[keyof typeof PURPOSES];

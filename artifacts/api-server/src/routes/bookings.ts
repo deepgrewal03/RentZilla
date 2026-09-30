@@ -88,6 +88,10 @@ async function enrichBooking(booking: typeof bookingsTable.$inferSelect) {
     totalAmount: booking.totalAmount,
     status: booking.status,
     paymentStatus: booking.paymentStatus,
+    paymentDueAmount: Number(b.paymentDueAmount ?? b.payment_due_amount ?? finalAmt),
+    amountPaid: Number(b.amountPaid ?? b.amount_paid ?? 0),
+    paidAt: b.paidAt ?? b.paid_at ?? null,
+    invoiceId: b.invoiceId ?? b.invoice_id ?? null,
     notes: booking.notes,
     bookingDate: booking.bookingDate,
     timeSlot: booking.timeSlot,
@@ -255,6 +259,10 @@ router.post("/:id/accept", authMiddleware, async (req: Request, res: Response) =
     const b = rows[0];
 
     if (b.provider_id !== userId) { res.status(403).json({ error: "Only the provider can accept this booking" }); return; }
+    if (b.payment_status !== "paid") {
+      res.status(409).json({ error: "The customer must complete payment before this booking can be accepted" });
+      return;
+    }
 
     const from = b.status as BookingStatus;
     const to: BookingStatus = "confirmed";
@@ -408,6 +416,10 @@ router.post("/", authMiddleware, async (req: Request, res: Response) => {
           .where(eq(bookingsTable.id, existingKey[0].booking_id))
           .limit(1);
         if (existingBookings.length > 0) {
+          if (existingBookings[0].customerId !== userId) {
+            res.status(409).json({ error: "Idempotency key is already in use" });
+            return;
+          }
           const enriched = await enrichBooking(existingBookings[0]);
           return void res.status(200).json({ ...enriched, _idempotent: true });
         }
@@ -504,10 +516,7 @@ router.post("/", authMiddleware, async (req: Request, res: Response) => {
               ? Math.round(baseAmount * Number(promo.value) / 100)
               : Math.min(Number(promo.value), baseAmount);
             appliedPromo = promoRows[0].code;
-            // Increment used_count
-            await db.execute(sql`
-              UPDATE promo_codes SET used_count = used_count + 1 WHERE id = ${promo.id}
-            `);
+            // Redemption is recorded only after verified payment capture.
           }
         }
       }
@@ -557,7 +566,8 @@ router.post("/", authMiddleware, async (req: Request, res: Response) => {
           discount_amount = ${totalDiscount},
           final_amount = ${finalAmount},
           gold_discount_applied = ${goldDiscountApplied},
-          gold_discount_amount = ${goldDiscountAmount}
+          gold_discount_amount = ${goldDiscountAmount},
+          payment_due_amount = ${finalAmount}
         WHERE id = ${bookingId}
       `);
 
@@ -579,14 +589,6 @@ router.post("/", authMiddleware, async (req: Request, res: Response) => {
           VALUES (${logId}, ${bookingId}, 'none', 'pending', ${userId}, 'created', NOW())
         `);
       } catch { /* non-critical */ }
-
-      // Track savings in user profile
-      if (goldDiscountApplied && goldDiscountAmount > 0) {
-        await db.execute(sql.raw(`
-          UPDATE users SET total_membership_savings = total_membership_savings + ${goldDiscountAmount}
-          WHERE id = '${userId}'
-        `));
-      }
 
       const enriched = await enrichBooking(inserted[0]);
       return void res.status(201).json({
@@ -665,7 +667,7 @@ router.post("/", authMiddleware, async (req: Request, res: Response) => {
               ? Math.round(baseAmount * Number(promo.value) / 100)
               : Math.min(Number(promo.value), baseAmount);
             appliedPromo = promo.code;
-            await db.execute(sql`UPDATE promo_codes SET used_count = used_count + 1 WHERE id = ${promo.id}`);
+            // Redemption is recorded only after verified payment capture.
           }
         }
       }
@@ -712,7 +714,8 @@ router.post("/", authMiddleware, async (req: Request, res: Response) => {
           discount_amount = ${totalDiscount2},
           final_amount = ${finalAmount},
           gold_discount_applied = ${goldDiscountApplied2},
-          gold_discount_amount = ${goldDiscountAmount2}
+          gold_discount_amount = ${goldDiscountAmount2},
+          payment_due_amount = ${finalAmount}
         WHERE id = ${bookingId}
       `);
 
@@ -733,13 +736,6 @@ router.post("/", authMiddleware, async (req: Request, res: Response) => {
         `);
       } catch { /* non-critical */ }
 
-      if (goldDiscountApplied2 && goldDiscountAmount2 > 0) {
-        await db.execute(sql.raw(`
-          UPDATE users SET total_membership_savings = total_membership_savings + ${goldDiscountAmount2}
-          WHERE id = '${userId}'
-        `));
-      }
-
       const enriched = await enrichBooking(inserted[0]);
       return void res.status(201).json({
         ...enriched,
@@ -759,11 +755,67 @@ router.post("/", authMiddleware, async (req: Request, res: Response) => {
   }
 });
 
+// ── GET /bookings/:id/invoice — immutable paid transaction invoice ──────────
+router.get("/:id/invoice", authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as Request & { userId: string }).userId;
+    const callerRows = toRows(await db.execute(sql`SELECT is_admin FROM users WHERE id = ${userId} LIMIT 1`));
+    const isAdmin = callerRows[0]?.is_admin === true || callerRows[0]?.is_admin === "t";
+    const rows = toRows(await db.execute(sql`
+      SELECT i.*, b.customer_id, b.provider_id, l.title AS listing_title,
+             u.name AS customer_name
+      FROM invoices i
+      JOIN bookings b ON b.id = i.booking_id
+      LEFT JOIN listings l ON l.id = b.listing_id
+      LEFT JOIN users u ON u.id = b.customer_id
+      WHERE i.booking_id = ${req.params.id}
+      LIMIT 1
+    `));
+    const invoice = rows[0];
+    if (!invoice) {
+      res.status(404).json({ error: "Invoice is not available until payment is verified" });
+      return;
+    }
+    if (!isAdmin && invoice.customer_id !== userId) {
+      res.status(403).json({ error: "Not authorised to view this invoice" });
+      return;
+    }
+    const response = {
+      id: invoice.id,
+      invoiceNumber: invoice.invoice_number,
+      bookingId: invoice.booking_id,
+      listingTitle: invoice.listing_title,
+      customerName: invoice.customer_name,
+      paymentId: invoice.razorpay_payment_id,
+      currency: invoice.currency,
+      subtotal: Number(invoice.subtotal),
+      discountAmount: Number(invoice.discount_amount),
+      totalAmount: Number(invoice.total_amount),
+      status: invoice.status,
+      issuedAt: invoice.issued_at,
+    };
+    if (req.query.download === "1") {
+      res.setHeader("Content-Disposition", `attachment; filename="${invoice.invoice_number}.json"`);
+    }
+    res.json(response);
+  } catch (err) {
+    req.log.error({ err }, "Get booking invoice error");
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 router.get("/:id", authMiddleware, async (req: Request, res: Response) => {
   try {
+    const userId = (req as Request & { userId: string }).userId;
     const bookings = await db.select().from(bookingsTable).where(eq(bookingsTable.id, req.params.id)).limit(1);
     if (bookings.length === 0) {
       res.status(404).json({ error: "Booking not found" });
+      return;
+    }
+    const callerRows = toRows(await db.execute(sql`SELECT is_admin FROM users WHERE id = ${userId} LIMIT 1`));
+    const isAdmin = callerRows[0]?.is_admin === true || callerRows[0]?.is_admin === "t";
+    if (!isAdmin && bookings[0].customerId !== userId && bookings[0].providerId !== userId) {
+      res.status(403).json({ error: "Not authorised to view this booking" });
       return;
     }
     const enriched = await enrichBooking(bookings[0]);
@@ -777,7 +829,11 @@ router.get("/:id", authMiddleware, async (req: Request, res: Response) => {
 router.put("/:id", authMiddleware, async (req: Request, res: Response) => {
   try {
     const userId = (req as Request & { userId: string }).userId;
-    const { status, paymentStatus, reason } = req.body;
+    const { status, reason } = req.body;
+    if (req.body.paymentStatus !== undefined) {
+      res.status(400).json({ error: "Payment status can only be changed by verified payment processing" });
+      return;
+    }
 
     // Fetch current booking — verify caller is participant or admin
     const rows = toRows(await db.execute(sql`SELECT * FROM bookings WHERE id = ${req.params.id} LIMIT 1`));
@@ -811,6 +867,10 @@ router.put("/:id", authMiddleware, async (req: Request, res: Response) => {
         res.status(403).json({ error: "Only the provider can confirm a booking" });
         return;
       }
+      if (status === "confirmed" && booking.payment_status !== "paid") {
+        res.status(409).json({ error: "Payment must be verified before this booking can be confirmed" });
+        return;
+      }
       if (status === "cancelled" && !isAdmin && booking.provider_id === userId && booking.customer_id !== userId) {
         // Provider cancellation → go through cancel_requested first
         if (booking.status === "confirmed" || booking.status === "in_progress") {
@@ -841,14 +901,6 @@ router.put("/:id", authMiddleware, async (req: Request, res: Response) => {
         }
         throw e;
       }
-    }
-
-    // Update paymentStatus if provided (no state machine needed for payment status)
-    if (paymentStatus) {
-      await db.execute(sql`
-        UPDATE bookings SET payment_status = ${paymentStatus}, updated_at = NOW()
-        WHERE id = ${req.params.id}
-      `);
     }
 
     const updated = await db.select().from(bookingsTable).where(eq(bookingsTable.id, req.params.id)).limit(1);
@@ -920,6 +972,16 @@ router.post("/:id/complete-job", authMiddleware, async (req: Request, res: Respo
       Array.isArray(extraCharges) ? extraCharges : [];
     const chargesTotal = chargesArr.reduce((s, c) => s + (Number(c.amount) || 0), 0);
     const finalAmount = Math.max(0, baseAmount + extraFee + chargesTotal - discount);
+    const isPrepaid = b.payment_status === "paid";
+    if (isPrepaid && (extraFee > 0 || chargesTotal > 0)) {
+      res.status(409).json({
+        error: "Extra charges require a separate customer payment and cannot be added to an already paid invoice",
+      });
+      return;
+    }
+    const settlementAmount = isPrepaid
+      ? Number(b.amount_paid || b.final_amount || finalAmount)
+      : finalAmount;
 
     // ── Commission calculation — use pricing_rules if available, else 15% ──
     let commissionRate = 15;
@@ -933,19 +995,22 @@ router.post("/:id/complete-job", authMiddleware, async (req: Request, res: Respo
       }
     } catch { /* use default 15% */ }
 
-    const commissionAmount = Math.round((finalAmount * commissionRate / 100) * 100) / 100;
-    const providerEarning = Math.max(0, finalAmount - commissionAmount);
+    const commissionAmount = Math.round((settlementAmount * commissionRate / 100) * 100) / 100;
+    const providerEarning = Math.max(0, settlementAmount - commissionAmount);
 
     // ── Pre-check customer wallet balance before opening transaction ────────
-    const walletCheck = toRows(await db.execute(sql`
-      SELECT wallet_balance FROM users WHERE id = ${b.customer_id} LIMIT 1
-    `));
-    const customerBalance = Number(walletCheck[0]?.wallet_balance ?? 0);
-    if (customerBalance < finalAmount) {
-      res.status(400).json({
-        error: `Customer has insufficient wallet balance. Required: ₹${finalAmount.toFixed(2)}, Available: ₹${customerBalance.toFixed(2)}`,
-      });
-      return;
+    let customerBalance = 0;
+    if (!isPrepaid) {
+      const walletCheck = toRows(await db.execute(sql`
+        SELECT wallet_balance FROM users WHERE id = ${b.customer_id} LIMIT 1
+      `));
+      customerBalance = Number(walletCheck[0]?.wallet_balance ?? 0);
+      if (customerBalance < settlementAmount) {
+        res.status(400).json({
+          error: `Customer has insufficient wallet balance. Required: ₹${settlementAmount.toFixed(2)}, Available: ₹${customerBalance.toFixed(2)}`,
+        });
+        return;
+      }
     }
 
     // ── Idempotency: prevent double-completion via payment event log ─────────
@@ -959,68 +1024,89 @@ router.post("/:id/complete-job", authMiddleware, async (req: Request, res: Respo
       return void res.json({ ...enriched, commissionAmount, commissionRate, providerEarning, _idempotent: true });
     }
 
-    // ── Atomic transaction: booking completion + wallet settlement ──────────
-    // All statements run in a single BEGIN/COMMIT block — any failure rolls back all
+    // ── Atomic transaction: claim completion + settle exactly once ──────────
     const custTxId = `${Date.now()}c${Math.random().toString(36).slice(2, 6)}`;
     const txId = `${Date.now()}p${Math.random().toString(36).slice(2, 6)}`;
     const eventLogId = `${Date.now()}e${Math.random().toString(36).slice(2, 6)}`;
 
-    let newCustomerBalance = 0;
-    let newProviderBalance = 0;
+    const settlement = await db.transaction(async (tx) => {
+      // 1. Claim the unique completion event before any balance mutation.
+      // Concurrent retries block here; only one receives a returned row.
+      const eventRows = toRows(await tx.execute(sql`
+        INSERT INTO payment_event_logs
+          (id, idempotency_key, booking_id, event_type, amount, actor_id, status)
+        VALUES (
+          ${eventLogId}, ${completeEventKey}, ${req.params.id},
+          'complete_job', ${settlementAmount}, ${userId}, 'success'
+        )
+        ON CONFLICT (idempotency_key) DO NOTHING
+        RETURNING id
+      `));
+      if (eventRows.length === 0) {
+        return { idempotent: true, newCustomerBalance: 0, newProviderBalance: 0 };
+      }
 
-    try {
-      await db.execute(sql.raw("BEGIN"));
-
-      // 1. Mark booking completed with all financial fields
-      await db.execute(sql`
+      // 2. Mark booking completed with all financial fields. A zero-row result
+      // rolls back the event claim, so no payout can happen for stale state.
+      const completedRows = toRows(await tx.execute(sql`
         UPDATE bookings SET
           status = 'completed',
           completed_at = NOW(),
           updated_at = NOW(),
           service_fee = ${extraFee},
           extra_charges = ${JSON.stringify(chargesArr)},
-          final_amount = ${finalAmount},
+          final_amount = ${settlementAmount},
           commission_amount = ${commissionAmount},
           commission_rate = ${commissionRate},
           provider_earning = ${providerEarning}
         WHERE id = ${req.params.id} AND status IN ('confirmed', 'in_progress')
-      `);
-
-      // 2. Deduct customer wallet — conditional on sufficient balance
-      const custRows = toRows(await db.execute(sql`
-        UPDATE users SET wallet_balance = wallet_balance - ${finalAmount}
-        WHERE id = ${b.customer_id} AND wallet_balance >= ${finalAmount}
-        RETURNING wallet_balance
+        RETURNING id
       `));
-      if (custRows.length === 0) {
-        await db.execute(sql.raw("ROLLBACK"));
-        res.status(400).json({ error: "Customer wallet balance changed — insufficient funds. Please retry." });
-        return;
+      if (completedRows.length === 0) {
+        throw new Error("BOOKING_ALREADY_COMPLETED");
       }
-      newCustomerBalance = Number(custRows[0].wallet_balance);
 
-      // 3. Credit provider wallet atomically
-      const provRows = toRows(await db.execute(sql`
+      // 3. Legacy unpaid bookings settle from wallet. Razorpay-paid bookings
+      // were already collected, so completion must never charge the customer again.
+      let newCustomerBalance = 0;
+      if (!isPrepaid) {
+        const custRows = toRows(await tx.execute(sql`
+          UPDATE users SET wallet_balance = wallet_balance - ${settlementAmount}
+          WHERE id = ${b.customer_id} AND wallet_balance >= ${settlementAmount}
+          RETURNING wallet_balance
+        `));
+        if (custRows.length === 0) {
+          throw new Error("INSUFFICIENT_WALLET_BALANCE");
+        }
+        newCustomerBalance = Number(custRows[0].wallet_balance);
+      } else {
+        newCustomerBalance = customerBalance;
+      }
+
+      // 4. Credit provider wallet atomically
+      const provRows = toRows(await tx.execute(sql`
         UPDATE users SET wallet_balance = wallet_balance + ${providerEarning}
         WHERE id = ${userId}
         RETURNING wallet_balance
       `));
-      newProviderBalance = Number(provRows[0]?.wallet_balance ?? 0);
+      const newProviderBalance = Number(provRows[0]?.wallet_balance ?? 0);
 
-      // 4. Customer wallet debit record
-      await db.execute(sql`
-        INSERT INTO wallet_transactions
-          (id, user_id, type, amount, balance_after, reference_id, reference_type, description, status)
-        VALUES (
-          ${custTxId}, ${b.customer_id}, 'payment', ${finalAmount}, ${newCustomerBalance},
-          ${req.params.id}, 'booking',
-          ${"Payment for booking – " + (b.listing_id || "service")},
-          'completed'
-        )
-      `);
+      // 5. Customer wallet debit record (legacy wallet settlement only)
+      if (!isPrepaid) {
+        await tx.execute(sql`
+          INSERT INTO wallet_transactions
+            (id, user_id, type, amount, balance_after, reference_id, reference_type, description, status)
+          VALUES (
+            ${custTxId}, ${b.customer_id}, 'payment', ${settlementAmount}, ${newCustomerBalance},
+            ${req.params.id}, 'booking',
+            ${"Payment for booking – " + (b.listing_id || "service")},
+            'completed'
+          )
+        `);
+      }
 
-      // 5. Provider wallet credit record
-      await db.execute(sql`
+      // 6. Provider wallet credit record
+      await tx.execute(sql`
         INSERT INTO wallet_transactions
           (id, user_id, type, amount, balance_after, reference_id, reference_type, description, status)
         VALUES (
@@ -1031,40 +1117,43 @@ router.post("/:id/complete-job", authMiddleware, async (req: Request, res: Respo
         )
       `);
 
-      // 6. Payment event log for idempotency
-      await db.execute(sql`
-        INSERT INTO payment_event_logs
-          (id, idempotency_key, booking_id, event_type, amount, actor_id, status)
-        VALUES (
-          ${eventLogId}, ${completeEventKey}, ${req.params.id},
-          'complete_job', ${finalAmount}, ${userId}, 'success'
-        )
-        ON CONFLICT (idempotency_key) DO NOTHING
-      `);
-
       // 7. Transition audit log
       try {
         const logId = generateId();
-        await db.execute(sql`
+        await tx.execute(sql`
           INSERT INTO booking_transition_log
             (id, booking_id, from_status, to_status, actor_id, reason)
           VALUES (${logId}, ${req.params.id}, ${b.status}, 'completed', ${userId}, 'job completed by provider')
         `);
       } catch { /* non-critical */ }
 
-      await db.execute(sql.raw("COMMIT"));
-    } catch (txErr) {
-      await db.execute(sql.raw("ROLLBACK")).catch(() => {});
-      throw txErr;
+      return { idempotent: false, newCustomerBalance, newProviderBalance };
+    });
+
+    if (settlement.idempotent) {
+      const updated = await db.select().from(bookingsTable).where(eq(bookingsTable.id, req.params.id)).limit(1);
+      const enriched = await enrichBooking(updated[0]);
+      return void res.json({ ...enriched, commissionAmount, commissionRate, providerEarning, _idempotent: true });
     }
 
     const updated = await db.select().from(bookingsTable).where(eq(bookingsTable.id, req.params.id)).limit(1);
     const enriched = await enrichBooking(updated[0]);
-    res.json({ ...enriched, commissionAmount, commissionRate, providerEarning, newProviderBalance, newCustomerBalance });
+    res.json({
+      ...enriched,
+      commissionAmount,
+      commissionRate,
+      providerEarning,
+      newProviderBalance: settlement.newProviderBalance,
+      newCustomerBalance: settlement.newCustomerBalance,
+    });
 
     // ── Fire-and-forget: process referral progress ─────────────────────────
     processReferralCompletion(b.customer_id, userId, req.params.id).catch(() => {});
   } catch (err) {
+    if (err instanceof Error && err.message === "INSUFFICIENT_WALLET_BALANCE") {
+      res.status(409).json({ error: "Customer wallet balance changed — insufficient funds. Please retry." });
+      return;
+    }
     req.log.error({ err }, "Complete job error");
     res.status(500).json({ error: "Internal server error" });
   }

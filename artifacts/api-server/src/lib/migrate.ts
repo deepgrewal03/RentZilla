@@ -732,36 +732,6 @@ export async function runMigrations() {
     `));
   } catch (_) { /* Index may already exist or time_slot is null — safe to skip */ }
 
-  // ── P4: Orphan cleanup — cancel bookings with no matching listing ─────────────
-  try {
-    await db.execute(sql.raw(`
-      UPDATE bookings
-      SET status = 'cancelled', updated_at = NOW()
-      WHERE status = 'pending'
-        AND listing_id NOT IN (SELECT id FROM listings)
-    `));
-  } catch (_) { /* Non-critical */ }
-
-  // ── P4: Fix null provider_id bookings (data integrity) ───────────────────────
-  try {
-    await db.execute(sql.raw(`
-      UPDATE bookings
-      SET status = 'cancelled', updated_at = NOW()
-      WHERE (provider_id IS NULL OR provider_id = '')
-        AND status NOT IN ('completed', 'cancelled', 'closed')
-    `));
-  } catch (_) { /* Non-critical */ }
-
-  // ── P4: Stale pending bookings cleanup (older than 48 hours) ─────────────────
-  try {
-    await db.execute(sql.raw(`
-      UPDATE bookings
-      SET status = 'cancelled', updated_at = NOW()
-      WHERE status = 'pending'
-        AND created_at < NOW() - INTERVAL '48 hours'
-    `));
-  } catch (_) { /* Non-critical */ }
-
   // ── Add dispute tracking columns to bookings ──────────────────────────────────
   const disputeAlters = [
     `ALTER TABLE bookings ADD COLUMN IF NOT EXISTS dispute_reason TEXT`,
@@ -791,6 +761,158 @@ export async function runMigrations() {
   `));
   await db.execute(sql.raw(`CREATE INDEX IF NOT EXISTS idx_rz_orders_user ON razorpay_orders(user_id)`));
   await db.execute(sql.raw(`CREATE INDEX IF NOT EXISTS idx_rz_orders_status ON razorpay_orders(status)`));
+
+  // ── Booking payment + invoice records ──────────────────────────────────────
+  // Bookings remain payment-pending until a verified Razorpay capture updates
+  // these fields. Keeping the invoice as an immutable record makes retries safe.
+  const bookingPaymentAlters = [
+    `ALTER TABLE bookings ADD COLUMN IF NOT EXISTS payment_due_amount NUMERIC(10,2) NOT NULL DEFAULT 0`,
+    `ALTER TABLE bookings ADD COLUMN IF NOT EXISTS amount_paid NUMERIC(10,2) NOT NULL DEFAULT 0`,
+    `ALTER TABLE bookings ADD COLUMN IF NOT EXISTS paid_at TIMESTAMP`,
+    `ALTER TABLE bookings ADD COLUMN IF NOT EXISTS payment_order_id TEXT`,
+    `ALTER TABLE bookings ADD COLUMN IF NOT EXISTS invoice_id TEXT`,
+    `ALTER TABLE bookings ADD COLUMN IF NOT EXISTS promo_reserved_order_id TEXT`,
+    `ALTER TABLE bookings ADD COLUMN IF NOT EXISTS promo_released_at TIMESTAMP`,
+    `ALTER TABLE razorpay_orders ADD COLUMN IF NOT EXISTS booking_id TEXT`,
+    `ALTER TABLE razorpay_orders ADD COLUMN IF NOT EXISTS fulfilled_at TIMESTAMP`,
+    `ALTER TABLE razorpay_orders ADD COLUMN IF NOT EXISTS refund_id TEXT`,
+    `ALTER TABLE razorpay_orders ADD COLUMN IF NOT EXISTS refunded_at TIMESTAMP`,
+  ];
+  for (const stmt of bookingPaymentAlters) {
+    await db.execute(sql.raw(stmt));
+  }
+  await db.execute(sql.raw(`
+    UPDATE bookings
+    SET payment_due_amount = COALESCE(NULLIF(final_amount, 0), total_amount)
+    WHERE payment_due_amount = 0 AND payment_status = 'pending'
+  `));
+  await db.execute(sql.raw(`
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_rz_booking_open_order
+    ON razorpay_orders(booking_id) WHERE booking_id IS NOT NULL AND status = 'created'
+  `));
+  await db.execute(sql.raw(`
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_rz_payment_id
+    ON razorpay_orders(razorpay_payment_id) WHERE razorpay_payment_id IS NOT NULL
+  `));
+
+  // ── P4: Booking cleanup ──────────────────────────────────────────────────────
+  // A merely-created checkout may be cancelled; a late capture is refunded by
+  // the webhook path. Already-collected payments require the refund workflow.
+  try {
+    await db.execute(sql.raw(`
+      WITH cancelled AS (
+        UPDATE bookings b
+        SET status = 'cancelled',
+            updated_at = NOW(),
+            promo_released_at = CASE
+              WHEN promo_reserved_order_id IS NOT NULL AND promo_released_at IS NULL THEN NOW()
+              ELSE promo_released_at
+            END
+        WHERE b.status = 'pending'
+          AND b.listing_id NOT IN (SELECT id FROM listings)
+          AND NOT EXISTS (
+            SELECT 1 FROM razorpay_orders ro
+            WHERE ro.booking_id = b.id
+              AND ro.purpose = 'booking_payment'
+              AND ro.status = 'paid'
+          )
+        RETURNING b.promo_code, b.promo_reserved_order_id, b.promo_released_at
+      ), released AS (
+        SELECT UPPER(promo_code) AS code, COUNT(*)::INTEGER AS count
+        FROM cancelled
+        WHERE promo_code IS NOT NULL
+          AND promo_reserved_order_id IS NOT NULL
+          AND promo_released_at IS NOT NULL
+        GROUP BY UPPER(promo_code)
+      )
+      UPDATE promo_codes p
+      SET used_count = GREATEST(0, p.used_count - released.count)
+      FROM released WHERE UPPER(p.code) = released.code
+    `));
+  } catch (_) { /* Non-critical */ }
+  try {
+    await db.execute(sql.raw(`
+      WITH cancelled AS (
+        UPDATE bookings b
+        SET status = 'cancelled',
+            updated_at = NOW(),
+            promo_released_at = CASE
+              WHEN promo_reserved_order_id IS NOT NULL AND promo_released_at IS NULL THEN NOW()
+              ELSE promo_released_at
+            END
+        WHERE (b.provider_id IS NULL OR b.provider_id = '')
+          AND b.status NOT IN ('completed', 'cancelled', 'closed')
+          AND NOT EXISTS (
+            SELECT 1 FROM razorpay_orders ro
+            WHERE ro.booking_id = b.id
+              AND ro.purpose = 'booking_payment'
+              AND ro.status = 'paid'
+          )
+        RETURNING b.promo_code, b.promo_reserved_order_id, b.promo_released_at
+      ), released AS (
+        SELECT UPPER(promo_code) AS code, COUNT(*)::INTEGER AS count
+        FROM cancelled
+        WHERE promo_code IS NOT NULL
+          AND promo_reserved_order_id IS NOT NULL
+          AND promo_released_at IS NOT NULL
+        GROUP BY UPPER(promo_code)
+      )
+      UPDATE promo_codes p
+      SET used_count = GREATEST(0, p.used_count - released.count)
+      FROM released WHERE UPPER(p.code) = released.code
+    `));
+  } catch (_) { /* Non-critical */ }
+  try {
+    await db.execute(sql.raw(`
+      WITH cancelled AS (
+        UPDATE bookings b
+        SET status = 'cancelled',
+            updated_at = NOW(),
+            promo_released_at = CASE
+              WHEN promo_reserved_order_id IS NOT NULL AND promo_released_at IS NULL THEN NOW()
+              ELSE promo_released_at
+            END
+        WHERE b.status = 'pending'
+          AND b.created_at < NOW() - INTERVAL '48 hours'
+          AND NOT EXISTS (
+            SELECT 1 FROM razorpay_orders ro
+            WHERE ro.booking_id = b.id
+              AND ro.purpose = 'booking_payment'
+              AND ro.status = 'paid'
+          )
+        RETURNING b.promo_code, b.promo_reserved_order_id, b.promo_released_at
+      ), released AS (
+        SELECT UPPER(promo_code) AS code, COUNT(*)::INTEGER AS count
+        FROM cancelled
+        WHERE promo_code IS NOT NULL
+          AND promo_reserved_order_id IS NOT NULL
+          AND promo_released_at IS NOT NULL
+        GROUP BY UPPER(promo_code)
+      )
+      UPDATE promo_codes p
+      SET used_count = GREATEST(0, p.used_count - released.count)
+      FROM released WHERE UPPER(p.code) = released.code
+    `));
+  } catch (_) { /* Non-critical */ }
+
+  await db.execute(sql.raw(`
+    CREATE TABLE IF NOT EXISTS invoices (
+      id TEXT PRIMARY KEY,
+      invoice_number TEXT UNIQUE NOT NULL,
+      booking_id TEXT UNIQUE NOT NULL,
+      user_id TEXT NOT NULL,
+      payment_order_id TEXT NOT NULL,
+      razorpay_payment_id TEXT NOT NULL,
+      currency TEXT NOT NULL DEFAULT 'INR',
+      subtotal NUMERIC(10,2) NOT NULL,
+      discount_amount NUMERIC(10,2) NOT NULL DEFAULT 0,
+      total_amount NUMERIC(10,2) NOT NULL,
+      status TEXT NOT NULL DEFAULT 'issued',
+      issued_at TIMESTAMP NOT NULL DEFAULT NOW(),
+      created_at TIMESTAMP NOT NULL DEFAULT NOW()
+    )
+  `));
+  await db.execute(sql.raw(`CREATE INDEX IF NOT EXISTS idx_invoices_user ON invoices(user_id)`));
 
   // ── dispute_messages table ─────────────────────────────────────────────────
   await db.execute(sql.raw(`

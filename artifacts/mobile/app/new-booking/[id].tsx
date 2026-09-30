@@ -22,8 +22,10 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import Colors from "@/constants/colors";
 import { useApi } from "@/hooks/useApi";
+import { useRazorpay } from "@/hooks/useRazorpay";
 import { Listing } from "@/types";
 import GlowButton from "@/components/GlowButton";
+import RazorpayCheckout from "@/components/RazorpayCheckout";
 import * as AudioService from "@/services/AudioService";
 
 const C = Colors.light;
@@ -228,6 +230,7 @@ function addDays(iso: string, n: number): string {
 export default function NewBookingScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { get, post } = useApi();
+  const { initiatePayment, checkout, loading: paymentLoading } = useRazorpay();
   const insets = useSafeAreaInsets();
   const isWeb = Platform.OS === "web";
   const topPad = isWeb ? 67 : insets.top;
@@ -538,6 +541,7 @@ export default function NewBookingScreen() {
           notes: notes.trim() || undefined,
           promoCode: promoApplied ? promoCode.trim() : undefined,
           location: bookingLocation.trim() || undefined,
+          idempotencyKey: `booking-${id}-${Date.now()}`,
         };
         successMsg = `${listing?.title} booked for ${numDays} day${numDays > 1 ? "s" : ""} starting ${selectedDate}.`;
       } else {
@@ -550,6 +554,7 @@ export default function NewBookingScreen() {
           notes: notes.trim() || undefined,
           promoCode: promoApplied ? promoCode.trim() : undefined,
           location: bookingLocation.trim() || undefined,
+          idempotencyKey: `booking-${id}-${Date.now()}`,
         };
         const slotLabel = selectedSlots.length === 1
           ? selectedSlots[0]
@@ -557,14 +562,32 @@ export default function NewBookingScreen() {
         successMsg = `${listing?.title} booked on ${selectedDate} at ${slotLabel}.`;
       }
 
-      const result = await post<{ id: string }>("/bookings", payload);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      AudioService.playBookingSuccess().catch(() => {});
-      Alert.alert(
-        "Booking Confirmed! 🎉",
-        successMsg,
-        [{ text: "View Booking", onPress: () => router.replace(`/booking/${result.id}` as any) }]
-      );
+      const result = await post<{ id: string; finalAmount: number }>("/bookings", payload);
+      await initiatePayment({
+        purpose: "booking_payment",
+        bookingId: result.id,
+        description: `Payment for ${listing?.title || "booking"}`,
+        onSuccess: () => {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          AudioService.playBookingSuccess().catch(() => {});
+          Alert.alert(
+            "Payment Complete",
+            `${successMsg}\n\nYour payment is verified and the provider can now accept the booking.`,
+            [{ text: "View Booking", onPress: () => router.replace(`/booking/${result.id}` as any) }]
+          );
+        },
+        onError: () => {
+          Alert.alert(
+            "Payment Verification Pending",
+            "Your booking has not been marked paid. You can safely retry from booking details.",
+            [{ text: "View Booking", onPress: () => router.replace(`/booking/${result.id}` as any) }]
+          );
+        },
+        onDismiss: () => {
+          Alert.alert("Payment Cancelled", "No paid booking was created. You can retry payment from booking details.");
+          router.replace(`/booking/${result.id}` as any);
+        },
+      });
     } catch (e: any) {
       const raw = e?.message || "";
       const msg = raw.includes("409") || raw.includes("already booked")
@@ -1184,17 +1207,17 @@ export default function NewBookingScreen() {
                 <Text style={[styles.summaryNote, { color: "#AEAEAE" }]}>Price from provider listing</Text>
               )
           }
-          <Text style={styles.summaryNote}>Payment will be collected after confirmation</Text>
+          <Text style={styles.summaryNote}>The server will confirm the final amount before secure payment</Text>
         </View>
         )}
 
         {/* ── Confirm Button ── */}
         <GlowButton
-          title="Confirm Booking"
+          title="Pay & Request Booking"
           color={ORANGE}
           onPress={handleConfirm}
-          loading={submitting}
-          disabled={submitting}
+          loading={submitting || paymentLoading}
+          disabled={submitting || paymentLoading}
           iconLeft={<Ionicons name="checkmark-circle-outline" size={22} color="#fff" />}
           iconRight={
             (isDayMode || selectedSlots.length > 0) ? (
@@ -1218,6 +1241,7 @@ export default function NewBookingScreen() {
         <View style={{ height: isWeb ? 30 : insets.bottom + 50 }} />
       </ScrollView>
       </KeyboardAvoidingView>
+      {checkout && <RazorpayCheckout {...checkout} />}
     </View>
   );
 }

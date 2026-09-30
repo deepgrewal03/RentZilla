@@ -11,7 +11,11 @@ export const razorpayOrdersTable = pgTable("razorpay_orders", {
   amountPaise: integer("amount_paise").notNull(),
   status: text("status").notNull().default("created"),
   notes: jsonb("notes"),
+  bookingId: text("booking_id"),
   paidAt: timestamp("paid_at"),
+  fulfilledAt: timestamp("fulfilled_at"),
+  refundId: text("refund_id"),
+  refundedAt: timestamp("refunded_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

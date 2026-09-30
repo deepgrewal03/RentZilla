@@ -114,35 +114,75 @@ export async function transitionBooking(
 ): Promise<boolean> {
   validateTransition(from, to);
 
-  const updated = toRows(await db.execute(sql`
-    UPDATE bookings
-    SET status = ${to}, updated_at = NOW()
-    WHERE id = ${bookingId} AND status = ${from}
-    RETURNING id
-  `));
-
-  if (updated.length === 0) {
-    const current = toRows(await db.execute(sql`
-      SELECT status FROM bookings WHERE id = ${bookingId} LIMIT 1
+  return db.transaction(async (tx) => {
+    // Order creation locks this same row before exposing a Razorpay order.
+    // Locking here makes cancellation and order creation/capture mutually
+    // exclusive, so a collected payment cannot lose its payable booking target.
+    const current = toRows(await tx.execute(sql`
+      SELECT status, promo_code, promo_reserved_order_id, promo_released_at
+      FROM bookings WHERE id = ${bookingId} FOR UPDATE LIMIT 1
     `));
     if (current.length === 0) throw new Error(`Booking ${bookingId} not found`);
     const actualStatus = current[0].status as BookingStatus;
     if (actualStatus === to) return true; // idempotent
+    if (actualStatus !== from) {
+      throw new Error(
+        `Race conflict on booking ${bookingId}: expected "${from}", found "${actualStatus}"`
+      );
+    }
+
+    if (to === "cancelled") {
+      const activeOrders = toRows(await tx.execute(sql`
+        SELECT id, status FROM razorpay_orders
+        WHERE booking_id = ${bookingId}
+          AND purpose = 'booking_payment'
+          AND status IN ('created', 'paid')
+      `));
+      if (activeOrders.some((order) => order.status === "paid")) {
+        throw new InvalidTransitionError(
+          from,
+          to,
+          "payment is already collected; use the refund workflow before cancellation"
+        );
+      }
+      // A created order is only a checkout intent. Cancellation is allowed and
+      // any late capture is handled by the durable refund path in payments.
+      if (current[0].promo_reserved_order_id && !current[0].promo_released_at) {
+        await tx.execute(sql`
+          UPDATE promo_codes
+          SET used_count = GREATEST(0, used_count - 1)
+          WHERE UPPER(code) = UPPER(${current[0].promo_code})
+        `);
+        await tx.execute(sql`
+          UPDATE bookings SET promo_released_at = NOW()
+          WHERE id = ${bookingId} AND promo_released_at IS NULL
+        `);
+      }
+    }
+
+    const updated = toRows(await tx.execute(sql`
+      UPDATE bookings
+      SET status = ${to}, updated_at = NOW()
+      WHERE id = ${bookingId} AND status = ${from}
+      RETURNING id
+    `));
+    if (updated.length === 0) {
     throw new Error(
-      `Race conflict on booking ${bookingId}: expected "${from}", found "${actualStatus}"`
-    );
-  }
+        `Race conflict on booking ${bookingId}: expected "${from}"`
+      );
+    }
 
-  try {
-    const logId = generateId();
-    await db.execute(sql`
-      INSERT INTO booking_transition_log
-        (id, booking_id, from_status, to_status, actor_id, reason, created_at)
-      VALUES (${logId}, ${bookingId}, ${from}, ${to}, ${actorId}, ${reason ?? null}, NOW())
-    `);
-  } catch { /* non-critical */ }
+    try {
+      const logId = generateId();
+      await tx.execute(sql`
+        INSERT INTO booking_transition_log
+          (id, booking_id, from_status, to_status, actor_id, reason, created_at)
+        VALUES (${logId}, ${bookingId}, ${from}, ${to}, ${actorId}, ${reason ?? null}, NOW())
+      `);
+    } catch { /* non-critical */ }
 
-  return true;
+    return true;
+  });
 }
 
 /**
@@ -243,16 +283,13 @@ export async function cancelStalePendingBookings(maxAgeMinutes = 1440): Promise<
   let cancelled = 0;
   for (const row of rows) {
     try {
-      await db.execute(sql`
-        UPDATE bookings SET status = 'cancelled', updated_at = NOW()
-        WHERE id = ${row.id} AND status = 'pending'
-      `);
-      const logId = generateId();
-      await db.execute(sql`
-        INSERT INTO booking_transition_log
-          (id, booking_id, from_status, to_status, actor_id, reason, created_at)
-        VALUES (${logId}, ${row.id}, 'pending', 'cancelled', ${actorId}, 'auto-cancelled: stale pending', NOW())
-      `);
+      await transitionBooking(
+        row.id,
+        "pending",
+        "cancelled",
+        actorId,
+        "auto-cancelled: stale pending"
+      );
       cancelled++;
     } catch { /* skip individual failures */ }
   }

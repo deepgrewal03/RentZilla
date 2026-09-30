@@ -13,7 +13,7 @@ import { useState, useCallback } from "react";
 import { useApi } from "./useApi";
 import type { RazorpaySuccessPayload } from "@/components/RazorpayCheckout";
 
-export type RazorpayPurpose = "wallet_topup" | "gold_membership" | "wheel_spin";
+export type RazorpayPurpose = "wallet_topup" | "gold_membership" | "wheel_spin" | "booking_payment";
 
 export type RazorpayVerifyResult = {
   success: boolean;
@@ -25,6 +25,19 @@ export type RazorpayVerifyResult = {
   transactionId?: string;
   paymentId?: string;
   alreadyFulfilled?: boolean;
+  booking?: { id: string; paymentStatus: "paid"; invoiceId: string | null };
+  invoice?: {
+    id: string;
+    invoiceNumber: string;
+    bookingId: string;
+    paymentId: string;
+    currency: string;
+    subtotal: number;
+    discountAmount: number;
+    totalAmount: number;
+    status: string;
+    issuedAt: string;
+  };
 };
 
 type CheckoutState = {
@@ -48,6 +61,7 @@ export function useRazorpay() {
     async ({
       purpose,
       amount,
+      bookingId,
       description,
       onSuccess,
       onError,
@@ -55,6 +69,7 @@ export function useRazorpay() {
     }: {
       purpose: RazorpayPurpose;
       amount?: number;
+      bookingId?: string;
       description?: string;
       onSuccess: (result: RazorpayVerifyResult) => void;
       onError?: (msg: string) => void;
@@ -70,7 +85,7 @@ export function useRazorpay() {
           prefill: { name?: string; email?: string; contact?: string };
           purpose: string;
           amountINR: number;
-        }>("/payments/create-order", { purpose, amount });
+        }>("/payments/create-order", { purpose, amount, bookingId });
 
         const desc =
           description ||
@@ -78,6 +93,8 @@ export function useRazorpay() {
             ? `Wallet Top-up ₹${order.amountINR}`
             : purpose === "gold_membership"
             ? "Gold Membership — ₹2.49/year"
+            : purpose === "booking_payment"
+            ? `Booking payment — ₹${order.amountINR}`
             : "Wheel of Fortune Spin — ₹1");
 
         setCheckout({

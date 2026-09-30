@@ -1,0 +1,1 @@
+- [Paid booking settlement](paid-booking-settlement.md) — Razorpay capture collects once; job completion releases earnings and never re-debits the customer.

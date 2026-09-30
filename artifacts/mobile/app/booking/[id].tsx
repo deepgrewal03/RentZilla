@@ -11,6 +11,7 @@ import {
   Platform,
   Pressable,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   TextInput,
@@ -23,7 +24,9 @@ import { StarRating } from "@/components/StarRating";
 import Colors from "@/constants/colors";
 import { useAuth } from "@/context/AuthContext";
 import { useApi } from "@/hooks/useApi";
+import { useRazorpay } from "@/hooks/useRazorpay";
 import { Booking } from "@/types";
+import RazorpayCheckout from "@/components/RazorpayCheckout";
 
 const C = Colors.light;
 
@@ -31,6 +34,7 @@ export default function BookingDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user } = useAuth();
   const { get, post, put } = useApi();
+  const { initiatePayment, checkout, loading: paymentLoading } = useRazorpay();
   const insets = useSafeAreaInsets();
   const isWeb = Platform.OS === "web";
 
@@ -146,6 +150,59 @@ export default function BookingDetailScreen() {
       Alert.alert("Error", msg);
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function payBooking() {
+    if (!booking) return;
+    await initiatePayment({
+      purpose: "booking_payment",
+      bookingId: booking.id,
+      description: `Payment for ${booking.listingTitle || "booking"}`,
+      onSuccess: () => {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        Alert.alert("Payment Complete", "Payment was verified and your invoice is ready.");
+        loadBooking();
+      },
+      onError: (message) => {
+        Alert.alert("Payment Not Verified", message || "No paid booking was created. Please retry.");
+        loadBooking();
+      },
+      onDismiss: () => {
+        Alert.alert("Payment Cancelled", "The booking is still unpaid. No charge was applied.");
+      },
+    });
+  }
+
+  async function viewInvoice() {
+    if (!booking) return;
+    try {
+      const invoice = await get<{
+        invoiceNumber: string;
+        listingTitle: string;
+        customerName: string;
+        paymentId: string;
+        currency: string;
+        subtotal: number;
+        discountAmount: number;
+        totalAmount: number;
+        issuedAt: string;
+      }>(`/bookings/${booking.id}/invoice`);
+      const text = [
+        `RentZilla Invoice ${invoice.invoiceNumber}`,
+        invoice.listingTitle || booking.listingTitle || "Booking",
+        `Issued: ${new Date(invoice.issuedAt).toLocaleString("en-IN")}`,
+        `Subtotal: ₹${invoice.subtotal.toLocaleString("en-IN")}`,
+        `Discount: ₹${invoice.discountAmount.toLocaleString("en-IN")}`,
+        `Paid: ₹${invoice.totalAmount.toLocaleString("en-IN")}`,
+        `Transaction: ${invoice.paymentId}`,
+      ].join("\n");
+      Alert.alert("Transaction Invoice", text, [
+        { text: "Close", style: "cancel" },
+        { text: "Share / Save", onPress: () => { void Share.share({ title: invoice.invoiceNumber, message: text }); } },
+      ]);
+    } catch (e: any) {
+      Alert.alert("Invoice Unavailable", e?.message || "Could not open this invoice.");
     }
   }
 
@@ -453,6 +510,22 @@ export default function BookingDetailScreen() {
         {/* Actions */}
         <View style={styles.actions}>
           {/* Customer actions */}
+          {isCustomer && booking.paymentStatus !== "paid" && booking.status !== "cancelled" && (
+            <Pressable onPress={payBooking} disabled={paymentLoading} style={styles.payBtn}>
+              {paymentLoading
+                ? <ActivityIndicator color="#fff" size="small" />
+                : <>
+                    <Ionicons name="card-outline" size={19} color="#fff" />
+                    <Text style={styles.payBtnText}>Pay Securely</Text>
+                  </>}
+            </Pressable>
+          )}
+          {isCustomer && booking.paymentStatus === "paid" && (
+            <Pressable onPress={viewInvoice} style={styles.invoiceBtn}>
+              <Ionicons name="receipt-outline" size={19} color={C.tint} />
+              <Text style={styles.invoiceBtnText}>View or Save Invoice</Text>
+            </Pressable>
+          )}
           {isCustomer && booking.status === "completed" && !showReview && (
             hasReview ? (
               <View style={styles.reviewedBadge}>
@@ -468,7 +541,7 @@ export default function BookingDetailScreen() {
           )}
 
           {/* ── Provider: accept/reject for pending bookings ── */}
-          {isProvider && booking.status === "pending" && (
+          {isProvider && booking.status === "pending" && booking.paymentStatus === "paid" && (
             <View style={styles.acceptRejectPanel}>
               <View style={styles.acceptRejectHeader}>
                 <Ionicons name="notifications-outline" size={18} color="#D97706" />
@@ -623,6 +696,7 @@ export default function BookingDetailScreen() {
 
         <View style={{ height: isWeb ? 34 : 60 }} />
       </ScrollView>
+      {checkout && <RazorpayCheckout {...checkout} />}
     </View>
   );
 }
@@ -762,6 +836,17 @@ const styles = StyleSheet.create({
   submitReviewBtn: { flex: 2, backgroundColor: C.tint, borderRadius: 12, paddingVertical: 12, alignItems: "center", justifyContent: "center" },
   submitReviewText: { fontSize: 14, fontWeight: "700", fontFamily: "Inter_700Bold", color: "#fff" },
   actions: { marginHorizontal: 20, marginTop: 16, gap: 10 },
+  payBtn: {
+    flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8,
+    borderRadius: 14, paddingVertical: 14, backgroundColor: C.tint,
+  },
+  payBtnText: { color: "#fff", fontSize: 15, fontWeight: "700", fontFamily: "Inter_700Bold" },
+  invoiceBtn: {
+    flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8,
+    borderWidth: 1.5, borderColor: C.tint, borderRadius: 14, paddingVertical: 13,
+    backgroundColor: "#FFF7F0",
+  },
+  invoiceBtnText: { color: C.tint, fontSize: 15, fontWeight: "600", fontFamily: "Inter_600SemiBold" },
   reviewBtn: {
     borderWidth: 2,
     borderColor: C.tint,
