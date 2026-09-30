@@ -1,1 +1,2 @@
 - [Paid booking settlement](paid-booking-settlement.md) — Razorpay capture collects once; job completion releases earnings and never re-debits the customer.
+- [Additive report migrations](report-migrations.md) — preserve legacy reports when adding target fields; verify schema after workflow reconciliation.

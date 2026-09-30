@@ -11,7 +11,6 @@ export async function migrateReportTargets() {
       ALTER TABLE reports ADD COLUMN IF NOT EXISTS target_name TEXT;
       UPDATE reports SET target_id = reported_user_id, target_name = reported_user_name
         WHERE target_id IS NULL;
-      ALTER TABLE reports ALTER COLUMN target_id SET NOT NULL;
       CREATE INDEX IF NOT EXISTS reports_reporter_target_idx ON reports (reporter_id, target_type, target_id);
       CREATE INDEX IF NOT EXISTS reports_reporter_created_idx ON reports (reporter_id, created_at);
     `);

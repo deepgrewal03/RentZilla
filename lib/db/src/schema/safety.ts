@@ -14,7 +14,9 @@ export const reportsTable = pgTable("reports", {
   reportedUserId: text("reported_user_id").notNull(),
   reportedUserName: text("reported_user_name"),
   targetType: text("target_type").notNull().default("user"),
-  targetId: text("target_id").notNull(),
+  // Legacy reports identify the target through reported_user_id.
+  // Keep this nullable so Publish can add it without deleting existing reports.
+  targetId: text("target_id"),
   targetName: text("target_name"),
   reason: text("reason").notNull().default("other"),
   description: text("description"),
