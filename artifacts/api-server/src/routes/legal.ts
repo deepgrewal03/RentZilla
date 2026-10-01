@@ -108,7 +108,8 @@ router.get("/privacy", (_req, res) => {
     <li><strong>Access:</strong> Request a copy of the personal data we hold about you.</li>
     <li><strong>Correction:</strong> Update inaccurate or incomplete information via your profile
     settings.</li>
-    <li><strong>Deletion:</strong> Delete your account from Settings → Delete Account. This
+    <li><strong>Deletion:</strong> Delete your account from Settings → Delete Account, or
+    <a href="/delete-account">request account deletion without the app</a>. This
     permanently removes your profile, listings, and personal data from our systems within 30 days.
     </li>
     <li><strong>Portability:</strong> Request a structured export of your data.</li>
@@ -283,6 +284,71 @@ router.get("/terms", (_req, res) => {
     &nbsp;·&nbsp; <a href="/privacy">Privacy Policy</a>
   </p>
 </div>
+</body>
+</html>`);
+});
+
+// Public request instructions: no sign-in or app installation is required.
+router.get("/delete-account", (_req, res) => {
+  const requestUrl = "mailto:privacy@rentzilla.in?subject=" +
+    encodeURIComponent("RentZilla account deletion request") + "&body=" +
+    encodeURIComponent("Hello RentZilla Privacy Team,\n\nPlease delete my RentZilla account and associated personal data.\n\nRegistered email or phone number: \n\nPlease confirm receipt and let me know how to verify account ownership.\n");
+  res.type("html").send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Delete Your Account – RentZilla</title>
+  <meta name="description" content="Request deletion of your RentZilla account and personal data, with or without the app." />
+  <meta property="og:title" content="Delete Your Account – RentZilla" />
+  <meta property="og:description" content="How to request account deletion and understand data retention." />
+  <meta property="og:type" content="website" />
+  ${HTML_STYLE}
+  <style>
+    a { color: #9c3b00; text-decoration: underline; overflow-wrap: anywhere; }
+    h1 { color: #9c3b00; }
+    .request-button { display: inline-block; background: #9c3b00; color: white;
+      padding: 12px 20px; border-radius: 8px; font-weight: 600; text-decoration: none; margin: 8px 0 16px; }
+    a:focus-visible { outline: 3px solid #222; outline-offset: 4px; }
+    .notice { padding: 16px; background: #fff5ec; border-left: 4px solid #9c3b00; margin: 20px 0; }
+    .subtitle, .footer { color: #595959; }
+    ol { padding-left: 24px; margin-bottom: 16px; }
+  </style>
+</head>
+<body>
+<main class="container">
+  <h1>Delete your RentZilla account</h1>
+  <p class="subtitle">Account and personal-data deletion</p>
+  <p>You can request deletion of your RentZilla account without installing the app or signing in to this website.</p>
+
+  <h2>Request deletion by email</h2>
+  <ol>
+    <li>Email <a href="mailto:privacy@rentzilla.in">privacy@rentzilla.in</a> with the subject <strong>RentZilla account deletion request</strong>.</li>
+    <li>Include the email address or phone number registered to your account. Where possible, send the request from your registered email address.</li>
+    <li>The privacy team may ask you to verify account ownership before processing the request.</li>
+  </ol>
+  <a class="request-button" href="${requestUrl}">Email a deletion request</a>
+  <p>This button opens a draft in your email app. You must send the email to submit your request.
+  If no email app opens, copy the address above and send the request using your usual email service.</p>
+  <p><strong>Never send your password, payment details, or sign-in verification codes.</strong></p>
+
+  <h2>Delete from the app</h2>
+  <ol>
+    <li>Open RentZilla and sign in to your account.</li>
+    <li>Open <strong>Settings → Delete Account</strong>.</li>
+    <li>Review the warning and follow the confirmation steps.</li>
+  </ol>
+
+  <h2>What happens to your data?</h2>
+  <p>As described in our <a href="/privacy">Privacy Policy</a>, account deletion removes your profile,
+  listings, and associated personal information within 30 days, except where retention is required by law.</p>
+  <p>Financial records, such as transaction and invoice records, may be retained where legally required.
+  The retention period depends on the applicable legal requirement. Anonymised, aggregated data may be retained indefinitely.</p>
+  <div class="notice"><strong>Deletion is permanent.</strong> You will lose access to the deleted account.
+  Opening this page or the email draft does not delete your account.</div>
+  <hr />
+  <footer class="footer">RentZilla · <a href="/privacy">Privacy Policy</a> · <a href="/terms">Terms of Service</a></footer>
+</main>
 </body>
 </html>`);
 });

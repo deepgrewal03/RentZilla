@@ -23,204 +23,238 @@ id = "EaCukmMXpNPpTQII20DKk"
 uri = "file://artifacts/mobile/assets/images/icon.png"
 type = "image"
 title = "RentZilla App Icon (ЯZ logo)"
+logical_id = "682c3cf3-11a2-45c0-830f-b4d6016e11a4"
 
 [[outputs]]
 id = "EY8VoK7DoYwamKCeNLWfZ"
 uri = "file://artifacts/mobile/PLAY_STORE.md"
 type = "text"
 title = "RentZilla — Google Play Store Deployment Guide"
+logical_id = "fb9bbd36-c604-4c85-a3ba-f5b67d0ead08"
 
 [[outputs]]
 id = "8I4a3ZO8sqkZORYBGV-jg"
 uri = "file://screenshots/rentzilla_appstore_screenshots.zip"
 type = "unspecified"
 title = "RentZilla — App Store Screenshots (10 screens)"
+logical_id = "94688a12-45df-453e-9cbf-9c9e0580fc80"
 
 [[outputs]]
 id = "SJQx9tcST0LDnafFTnRLb"
 uri = "file://screenshots/rentzilla_appstore_screenshots_PNG.zip"
 type = "unspecified"
 title = "RentZilla — App Store Screenshots PNG (10 screens, 6 MB)"
+logical_id = "0e4dc01f-6323-449f-bc88-0e3fbaddc217"
 
 [[outputs]]
 id = "xCY_wHhZ79uIzpVXKOZ5O"
 uri = "file://screenshots/7inch/01-signin.jpeg"
 type = "image"
 title = "7\" — 01 Sign In"
+logical_id = "bf37549b-e937-4680-a6c2-f6af2d99edb1"
 
 [[outputs]]
 id = "2YwgMHrXqp0916ODK8xbi"
 uri = "file://screenshots/7inch/02-home.jpeg"
 type = "image"
 title = "7\" — 02 Home Feed"
+logical_id = "8ad25d2a-e24b-4619-85d8-08b88e60259d"
 
 [[outputs]]
 id = "wWZ-Qb00MVJLCsUGnoAQE"
 uri = "file://screenshots/7inch/03-categories.jpeg"
 type = "image"
 title = "7\" — 03 Categories"
+logical_id = "8838f470-f2a7-4e2e-a184-f637c0fc8a8b"
 
 [[outputs]]
 id = "Fx25fG74zg9FQJLGcWVVH"
 uri = "file://screenshots/7inch/04-listing-detail.jpeg"
 type = "image"
 title = "7\" — 04 Listing Detail"
+logical_id = "80e33237-0c02-48d3-8593-bff075262217"
 
 [[outputs]]
 id = "wBhE5ovqWrCnbX7rkGyqb"
 uri = "file://screenshots/7inch/05-booking.jpeg"
 type = "image"
 title = "7\" — 05 Booking"
+logical_id = "657048b0-6c02-462f-9074-979f61aa9d03"
 
 [[outputs]]
 id = "g_C3svmm9QdqEkTfEv2Oh"
 uri = "file://screenshots/7inch/06-wallet.jpeg"
 type = "image"
 title = "7\" — 06 Wallet"
+logical_id = "bac717bd-f52b-4465-980d-e61655674d5f"
 
 [[outputs]]
 id = "i9zgccb4GrA7DijqicLQH"
 uri = "file://screenshots/7inch/07-gold.jpeg"
 type = "image"
 title = "7\" — 07 Gold Membership"
+logical_id = "3ecc62cd-abf3-4762-9f44-f538955a789f"
 
 [[outputs]]
 id = "sGhbYj1N2NeggWrViUrxX"
 uri = "file://screenshots/7inch/08-wheel.jpeg"
 type = "image"
 title = "7\" — 08 Wheel of Fortune"
+logical_id = "edd8e076-8cf8-44b0-a60e-7e706cb223bb"
 
 [[outputs]]
 id = "Jtl0psEUlw9aliSFF59xn"
 uri = "file://screenshots/7inch/09-profile.jpeg"
 type = "image"
 title = "7\" — 09 Profile"
+logical_id = "6fe99323-3824-44eb-a933-1d6dc753601e"
 
 [[outputs]]
 id = "F5L74P9DcCoA3M6Ouk_DR"
 uri = "file://screenshots/7inch/10-referral.jpeg"
 type = "image"
 title = "7\" — 10 Refer a Friend"
+logical_id = "520302a5-02bc-497f-97a6-d51a7c642a8c"
 
 [[outputs]]
 id = "lLqtimYQbcIlyoyvXj2-n"
 uri = "file://screenshots/10inch/01-signin.jpeg"
 type = "image"
 title = "10\" — 01 Sign In"
+logical_id = "2b649039-f933-4f8a-876e-37837e45669d"
 
 [[outputs]]
 id = "dlWln_vOnQRZTscaAMnfN"
 uri = "file://screenshots/10inch/02-home.jpeg"
 type = "image"
 title = "10\" — 02 Home Feed"
+logical_id = "f5a188c7-3cd7-4359-bf79-ae12941cc692"
 
 [[outputs]]
 id = "lQDcNC-dGZNen6Nmu2pwQ"
 uri = "file://screenshots/10inch/03-categories.jpeg"
 type = "image"
 title = "10\" — 03 Categories"
+logical_id = "b8cfe542-ca01-47dd-b6b5-7d87290b6ed9"
 
 [[outputs]]
 id = "gEisnKWYR2lJEMimC323y"
 uri = "file://screenshots/10inch/04-listing-detail.jpeg"
 type = "image"
 title = "10\" — 04 Listing Detail"
+logical_id = "2ff2ef34-853e-459a-b5d3-b68f77527747"
 
 [[outputs]]
 id = "UGT7OmI8E8EkAEODnY6bH"
 uri = "file://screenshots/10inch/05-booking.jpeg"
 type = "image"
 title = "10\" — 05 Booking"
+logical_id = "6e415dc7-9649-421e-8e49-420f3dd62cc7"
 
 [[outputs]]
 id = "yq90K65VoyYauvkELxqiM"
 uri = "file://screenshots/10inch/06-wallet.jpeg"
 type = "image"
 title = "10\" — 06 Wallet"
+logical_id = "dc79f02b-0b01-4eb0-9624-b9d1f60ea1a7"
 
 [[outputs]]
 id = "Q_bDymHdRd_vDdKpRJDr_"
 uri = "file://screenshots/10inch/07-gold.jpeg"
 type = "image"
 title = "10\" — 07 Gold Membership"
+logical_id = "a3df16ac-b459-4880-ae8b-fae9efaea2fe"
 
 [[outputs]]
 id = "R6nzS72DtbMJzu3IkvLra"
 uri = "file://screenshots/10inch/08-wheel.jpeg"
 type = "image"
 title = "10\" — 08 Wheel of Fortune"
+logical_id = "d8e6a67b-a896-4267-bb7d-b1cd6c814a69"
 
 [[outputs]]
 id = "RkFlFmgKwQlAM3Zyv2AfF"
 uri = "file://screenshots/10inch/09-profile.jpeg"
 type = "image"
 title = "10\" — 09 Profile"
+logical_id = "71e8619a-1c61-41fa-9fef-09e2cac3a12e"
 
 [[outputs]]
 id = "P4AWHYsxQDHWBj8gaYCGD"
 uri = "file://screenshots/10inch/10-referral.jpeg"
 type = "image"
 title = "10\" — 10 Refer a Friend"
+logical_id = "710d81fa-25a9-43cc-87c4-34ec943ecdbc"
 
 [[outputs]]
 id = "gnllE799C1Qr3zun1hWoV"
 uri = "file://screenshots_7inch.zip"
 type = "unspecified"
 title = "7-inch Tablet Screenshots (10 screens)"
+logical_id = "8a22d7ad-5f89-4548-8dc9-e854e5017b13"
 
 [[outputs]]
 id = "YpNU-SjhwDEguGvnAKw6U"
 uri = "file://screenshots_10inch.zip"
 type = "unspecified"
 title = "10-inch Tablet Screenshots (10 screens)"
+logical_id = "5b6889b6-274a-43f3-b586-59f2b6909abb"
 
 [[outputs]]
 id = "P-60tNWPpO99rGPN06CxM"
 uri = "file://feature-graphic.jpeg"
 type = "image"
 title = "Play Store Feature Graphic — 1024×500 px"
+logical_id = "9db4974d-8227-4a4f-9586-1a5048b12354"
 
 [[outputs]]
 id = "xEOtU7hzmLEBj_rjEMeda"
 uri = "file://playstore_10inch_screenshots.zip"
 type = "unspecified"
 title = "Play Store 10-inch Screenshots — 8 screens (1080×1920, 9:16)"
+logical_id = "d85f8777-594b-4779-8963-839941ceb72b"
 
 [[outputs]]
 id = "spCyQP9o80w22-VsD2AmX"
 uri = "file://artifacts/mobile/assets/images/playstore-icon-512.png"
 type = "image"
 title = "playstore-icon-512.png — 512×512 PNG, 32 KB"
+logical_id = "239ffb98-e833-4a34-8ba7-e2d7b49e9da5"
 
 [[outputs]]
 id = "8c0nmde8ushDKyPcsOvqW"
 uri = "file://artifacts/mobile/assets/images/playstore-banner-4096x2304.jpg"
 type = "image"
 title = "RentZilla — Developer Page Banner (4096×2304 JPEG, 145 KB)"
+logical_id = "f64b07c5-a3dd-4450-a5c6-69513b26a73c"
 
 [[outputs]]
 id = "PI9TZPwOoYcVaGDgntC3i"
 uri = "file://attached_assets/generated_images/rentzilla_workflow.png"
 type = "image"
 title = "RentZilla Workflow Infographic (Image)"
+logical_id = "fdba929c-3c19-419e-9eca-19c1623d6587"
 
 [[outputs]]
 id = "YWwIsyWExZiw24D4ftHpc"
 uri = "file://attached_assets/generated_videos/rentzilla_workflow.mp4"
 type = "video"
 title = "RentZilla Workflow Animation (Video)"
+logical_id = "aa3aacd0-af49-411f-82bb-7a21ab568ef3"
 
 [[outputs]]
 id = "ygfJcLbe3vRzc-tgs8gH1"
 uri = "file://docs/RentZilla-Full-Features-and-Services.md"
 type = "text"
 title = "RentZilla — Full Features, Dependencies & Services"
+logical_id = "5144e019-c594-481d-934e-49ec953002ee"
 
 [[outputs]]
 id = "fuF2xCLJ7qi6aofTBvNkR"
 uri = "file://docs/RentZilla-Full-Features-and-Services.pdf"
 type = "pdf"
 title = "RentZilla — Full Features, Dependencies & Services (PDF)"
+logical_id = "5762e164-4710-4ae4-b3ef-f3a8dcdc23d7"
 
 [[outputs]]
 id = "S9vI0nCpQN3Bnhzc4kxxa"
@@ -228,6 +262,7 @@ uri = "file://attached_assets/FEATURED_GRAPHIC-without-rating.png"
 type = "image"
 title = "RentZilla featured graphic without rating strip"
 description = "The red-boxed 5.0 Trusted by Punjab section has been removed; the footer and remaining graphic content are preserved."
+logical_id = "ada88320-a488-4c6d-9693-4104a5432394"
 
 [[outputs]]
 id = "byrSMUjhlUHGiUDMaKff4"
@@ -235,10 +270,18 @@ uri = "file://artifacts/mobile/rentzilla-play-store-assets.zip"
 type = "unspecified"
 title = "RentZilla Play Store upload pack"
 description = "Validated upload-ready ZIP with the 1024×500 feature graphic, 512×512 icon, six real 1080×1920 app screenshots, manifest, and upload notes."
+logical_id = "a34408f6-a82b-4020-94b4-a0a0441de799"
 
 [[outputs]]
 id = "UzH3MMYCb8MRloYEK8DEm"
 uri = "file://artifacts/mobile/store-assets/feature-graphic-1024x500.png"
 type = "image"
-title = "RentZilla feature graphic"
-description = "Final Google Play feature graphic at exactly 1024×500 pixels, with no ratings, fabricated reviews, markup, or unsupported claims."
+title = "RentZilla Google Play Feature Graphic"
+description = "PNG image, verified 1,024 × 500 pixels, approximately 102 KB—below the 15 MB limit."
+logical_id = "694a8af1-0187-456a-9fcc-86577900ea13"
+content_hash = "sha256:eba33401305adbf05b0fc9a303c25059a74ee3248a172b2746b38c74ce02e690"
+size = 101873
+mtime_ms = 1787373878000
+storage_uri = "gcs://replit-rams-assets-kirk/rams/assets/repl:0c82f1c7-8f9b-46f8-8c4c-f0a644a2be8b/694a8af1-0187-456a-9fcc-86577900ea13/02c97662-7604-4157-86c7-04b388beb92a"
+storage_version_token = "1790815315233654"
+content_type = "image/png"
