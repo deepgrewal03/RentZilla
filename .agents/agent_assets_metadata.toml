@@ -285,3 +285,17 @@ mtime_ms = 1787373878000
 storage_uri = "gcs://replit-rams-assets-kirk/rams/assets/repl:0c82f1c7-8f9b-46f8-8c4c-f0a644a2be8b/694a8af1-0187-456a-9fcc-86577900ea13/02c97662-7604-4157-86c7-04b388beb92a"
 storage_version_token = "1790815315233654"
 content_type = "image/png"
+
+[[outputs]]
+id = "uOHA1q8_1tB9SMjW08oL4"
+uri = "file://artifacts/mobile/rentzilla-10-inch-tablet-screenshots.zip"
+type = "unspecified"
+title = "RentZilla — 10 Tablet-Size Screenshots"
+description = "Ten PNG screenshots at 1080 × 1920 (9:16), each under 8 MB, with suggested eight-screen upload order. Captured from the Expo web preview, not a native Android tablet."
+logical_id = "6d64512e-0e25-4d7d-8781-8eec267f613a"
+content_hash = "sha256:2e481526acd0e5eafe8b7fc542ce5af1e0e3018979ff2e08aec09425c099c903"
+size = 1903502
+mtime_ms = 1790816351429
+storage_uri = "gcs://replit-rams-assets-kirk/rams/assets/repl:0c82f1c7-8f9b-46f8-8c4c-f0a644a2be8b/6d64512e-0e25-4d7d-8781-8eec267f613a/9dc03fc4-4897-4477-9c10-517e914711b9"
+storage_version_token = "1790816358043012"
+content_type = "application/octet-stream"
