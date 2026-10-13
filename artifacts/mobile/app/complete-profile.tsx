@@ -3,6 +3,7 @@
  * Shown to new users who signed in via Google or Apple.
  * Collects: mobile number, DOB, Punjab location, and role intent.
  */
+import Button3D from "@/components/Button3D";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
@@ -225,10 +226,10 @@ export default function CompleteProfileScreen() {
               </View>
             ) : null}
 
-            <Pressable
+            <Button3D
               onPress={handleSubmit}
               disabled={loading}
-              style={({ pressed }) => [styles.submitBtn, { opacity: pressed || loading ? 0.8 : 1 }]}
+              faceStyle={({ pressed }) => [styles.submitBtn, { opacity: pressed || loading ? 0.8 : 1 }]}
             >
               {loading ? (
                 <ActivityIndicator color="#fff" />
@@ -238,7 +239,7 @@ export default function CompleteProfileScreen() {
                   <Ionicons name="checkmark-circle" size={20} color="#fff" />
                 </>
               )}
-            </Pressable>
+            </Button3D>
 
             {/* Skip link */}
             <Pressable

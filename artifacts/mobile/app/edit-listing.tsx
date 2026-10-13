@@ -1,3 +1,4 @@
+import Button3D from "@/components/Button3D";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
@@ -166,13 +167,13 @@ export default function EditListingScreen() {
           <Ionicons name="arrow-back" size={22} color="#fff" />
         </Pressable>
         <Text style={styles.headerTitle}>Edit Listing</Text>
-        <Pressable onPress={handleSave} disabled={saving} style={styles.saveBtn}>
+        <Button3D onPress={handleSave} disabled={saving} faceStyle={styles.saveBtn}>
           {saving ? (
             <ActivityIndicator color={ORANGE} size="small" />
           ) : (
             <Text style={styles.saveBtnText}>Save</Text>
           )}
-        </Pressable>
+        </Button3D>
       </LinearGradient>
 
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1 }}>
@@ -217,13 +218,13 @@ export default function EditListingScreen() {
             <Text style={styles.fieldLabel}>Type</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
               {SUBCATEGORIES[category].map((s) => (
-                <Pressable
+                <Button3D
                   key={s}
                   onPress={() => setSubcategory(s === subcategory ? "" : s)}
-                  style={[styles.chipBtn, subcategory === s && styles.chipBtnActive]}
+                  faceStyle={[styles.chipBtn, subcategory === s && styles.chipBtnActive]}
                 >
                   <Text style={[styles.chipText, subcategory === s && styles.chipTextActive]}>{s}</Text>
-                </Pressable>
+                </Button3D>
               ))}
             </ScrollView>
           </View>
@@ -273,13 +274,13 @@ export default function EditListingScreen() {
               </View>
               <View style={styles.unitRow}>
                 {PRICE_UNITS.map((u) => (
-                  <Pressable
+                  <Button3D
                     key={u.id}
                     onPress={() => setPriceUnit(u.id)}
-                    style={[styles.unitBtn, priceUnit === u.id && styles.unitBtnActive]}
+                    faceStyle={[styles.unitBtn, priceUnit === u.id && styles.unitBtnActive]}
                   >
                     <Text style={[styles.unitText, priceUnit === u.id && styles.unitTextActive]}>{u.label}</Text>
-                  </Pressable>
+                  </Button3D>
                 ))}
               </View>
             </View>
@@ -290,13 +291,13 @@ export default function EditListingScreen() {
             <Text style={styles.fieldLabel}>Location *</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, marginBottom: 10 }}>
               {LOCATIONS.map((l) => (
-                <Pressable
+                <Button3D
                   key={l}
                   onPress={() => setLocation(l === location ? "" : l)}
-                  style={[styles.chipBtn, location === l && styles.chipBtnActive]}
+                  faceStyle={[styles.chipBtn, location === l && styles.chipBtnActive]}
                 >
                   <Text style={[styles.chipText, location === l && styles.chipTextActive]}>{l}</Text>
-                </Pressable>
+                </Button3D>
               ))}
             </ScrollView>
             <TextInput
@@ -331,25 +332,25 @@ export default function EditListingScreen() {
               </View>
 
               <View style={styles.toggleRow}>
-                <Pressable
+                <Button3D
                   onPress={() => { Haptics.selectionAsync(); setOperatorIncluded((v) => !v); }}
-                  style={[styles.toggleBtn, operatorIncluded && styles.toggleBtnOn]}
+                  faceStyle={[styles.toggleBtn, operatorIncluded && styles.toggleBtnOn]}
                 >
                   <Ionicons name={operatorIncluded ? "person" : "person-outline"} size={15} color={operatorIncluded ? "#fff" : C.textSecondary} />
                   <Text style={[styles.toggleBtnText, operatorIncluded && styles.toggleBtnTextOn]}>
                     {operatorIncluded ? "Operator Included" : "Operator Not Included"}
                   </Text>
-                </Pressable>
+                </Button3D>
 
-                <Pressable
+                <Button3D
                   onPress={() => { Haptics.selectionAsync(); setFuelIncluded((v) => !v); }}
-                  style={[styles.toggleBtn, fuelIncluded && styles.toggleBtnOn]}
+                  faceStyle={[styles.toggleBtn, fuelIncluded && styles.toggleBtnOn]}
                 >
                   <Ionicons name={fuelIncluded ? "flame" : "flame-outline"} size={15} color={fuelIncluded ? "#fff" : C.textSecondary} />
                   <Text style={[styles.toggleBtnText, fuelIncluded && styles.toggleBtnTextOn]}>
                     {fuelIncluded ? "Fuel Included" : "Fuel Not Included"}
                   </Text>
-                </Pressable>
+                </Button3D>
               </View>
 
               <Text style={[styles.fieldLabel, { marginTop: 14 }]}>Delivery Charges (₹)</Text>
@@ -367,10 +368,10 @@ export default function EditListingScreen() {
             </View>
           )}
 
-          <Pressable
+          <Button3D
             onPress={handleSave}
             disabled={saving}
-            style={({ pressed }) => [styles.bottomSaveBtn, { opacity: pressed || saving ? 0.8 : 1 }]}
+            faceStyle={({ pressed }) => [styles.bottomSaveBtn, { opacity: pressed || saving ? 0.8 : 1 }]}
           >
             {saving ? (
               <ActivityIndicator color="#fff" size="small" />
@@ -380,7 +381,7 @@ export default function EditListingScreen() {
                 <Text style={styles.bottomSaveBtnText}>Save Changes</Text>
               </>
             )}
-          </Pressable>
+          </Button3D>
 
           <View style={{ height: isWeb ? 40 : 100 }} />
         </ScrollView>

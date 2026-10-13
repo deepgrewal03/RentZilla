@@ -4,6 +4,7 @@ import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { useRef } from "react";
+import Button3D from "@/components/Button3D";
 import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
 
 import Colors from "@/constants/colors";
@@ -114,9 +115,20 @@ export function ListingCard({ listing, style, isCustomer }: Props) {
           )}
 
           {/* Favorite heart button */}
-          <Pressable onPress={handleFavorite} hitSlop={10} style={styles.heartBtn}>
+          <Button3D
+            onPress={handleFavorite}
+            hitSlop={10}
+            style={styles.heartBtn}
+            color={faved ? "#FFF0F3" : "#FFFFFF"}
+            edgeColor="#D2D6DF"
+            radius={17}
+            depth={3}
+            haptics={false}
+            clipFace={false}
+            accessibilityLabel={faved ? "Remove from favourites" : "Add to favourites"}
+          >
             <Animated.View style={{ transform: [{ scale: heartScale }] }}>
-              <View style={[styles.heartBg, faved && styles.heartBgActive]}>
+              <View style={[styles.heartBg, { backgroundColor: "#FFFFFF" }, faved && styles.heartBgActive]}>
                 <Ionicons
                   name={faved ? "heart" : "heart-outline"}
                   size={18}
@@ -124,7 +136,7 @@ export function ListingCard({ listing, style, isCustomer }: Props) {
                 />
               </View>
             </Animated.View>
-          </Pressable>
+          </Button3D>
 
           {/* Category label */}
           <View style={[styles.catLabel, { backgroundColor: `${accent.fg}DD` }]}>
@@ -167,18 +179,23 @@ export function ListingCard({ listing, style, isCustomer }: Props) {
       {/* Book Now CTA — customers only, available listings only */}
       {showBookBtn && (
         <Animated.View style={[styles.bookBtnWrap, { transform: [{ scale: bookScale }] }]}>
-          <Pressable onPress={handleBookNow} style={styles.bookBtnPress}>
-            <LinearGradient
-              colors={["#FF7A18", "#FF9F43"]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.bookBtn}
-            >
-              <Ionicons name="calendar-outline" size={15} color="#fff" />
-              <Text style={styles.bookBtnText}>Book Now</Text>
-              <Ionicons name="arrow-forward" size={14} color="rgba(255,255,255,0.8)" />
-            </LinearGradient>
-          </Pressable>
+          <Button3D
+            onPress={handleBookNow}
+            color="#FF7A18"
+            edgeColor="#D16412"
+            radius={12}
+            depth={4}
+            haptics={false}
+            gradientColors={["#FF7A18", "#FF9F43"]}
+            gradientStart={{ x: 0, y: 0 }}
+            gradientEnd={{ x: 1, y: 0 }}
+            faceStyle={styles.bookBtn}
+            accessibilityLabel="Book Now"
+          >
+            <Ionicons name="calendar-outline" size={15} color="#fff" />
+            <Text style={styles.bookBtnText}>Book Now</Text>
+            <Ionicons name="arrow-forward" size={14} color="rgba(255,255,255,0.8)" />
+          </Button3D>
         </Animated.View>
       )}
     </Animated.View>

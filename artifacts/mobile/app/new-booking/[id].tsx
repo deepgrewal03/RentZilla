@@ -1,3 +1,4 @@
+import Button3D from "@/components/Button3D";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
@@ -709,9 +710,9 @@ export default function NewBookingScreen() {
               <Text style={styles.unitToggleTitle}>How would you like to book?</Text>
             </View>
             <View style={styles.unitToggleRow}>
-              <Pressable
+              <Button3D
                 onPress={() => { Haptics.selectionAsync(); setBookingUnit("days"); setSelectedSlots([]); }}
-                style={[styles.unitToggleOpt, bookingUnit === "days" && styles.unitToggleOptActive]}
+                faceStyle={[styles.unitToggleOpt, bookingUnit === "days" && styles.unitToggleOptActive]}
               >
                 <Ionicons name="calendar-outline" size={22} color={bookingUnit === "days" ? "#fff" : ORANGE} />
                 <Text style={[styles.unitToggleOptTitle, bookingUnit === "days" && styles.unitToggleOptTitleActive]}>Per Day</Text>
@@ -721,10 +722,10 @@ export default function NewBookingScreen() {
                     <Ionicons name="checkmark-circle" size={16} color="#fff" />
                   </View>
                 )}
-              </Pressable>
-              <Pressable
+              </Button3D>
+              <Button3D
                 onPress={() => { Haptics.selectionAsync(); setBookingUnit("hours"); setNumDays(1); }}
-                style={[styles.unitToggleOpt, bookingUnit === "hours" && styles.unitToggleOptActive]}
+                faceStyle={[styles.unitToggleOpt, bookingUnit === "hours" && styles.unitToggleOptActive]}
               >
                 <Ionicons name="time-outline" size={22} color={bookingUnit === "hours" ? "#fff" : ORANGE} />
                 <Text style={[styles.unitToggleOptTitle, bookingUnit === "hours" && styles.unitToggleOptTitleActive]}>Per Hour</Text>
@@ -734,7 +735,7 @@ export default function NewBookingScreen() {
                     <Ionicons name="checkmark-circle" size={16} color="#fff" />
                   </View>
                 )}
-              </Pressable>
+              </Button3D>
             </View>
           </View>
         )}
@@ -758,24 +759,24 @@ export default function NewBookingScreen() {
             />
             {/* Pick-mode indicator */}
             <View style={styles.calModeRow}>
-              <Pressable
+              <Button3D
                 onPress={() => setCalPickMode("start")}
-                style={[styles.calModeBtn, calPickMode === "start" && styles.calModeBtnActive]}
+                faceStyle={[styles.calModeBtn, calPickMode === "start" && styles.calModeBtnActive]}
               >
                 <Ionicons name="play-circle-outline" size={14} color={calPickMode === "start" ? "#fff" : ORANGE} />
                 <Text style={[styles.calModeBtnText, calPickMode === "start" && styles.calModeBtnTextActive]}>
                   Start: {selectedDate}
                 </Text>
-              </Pressable>
-              <Pressable
+              </Button3D>
+              <Button3D
                 onPress={() => setCalPickMode("end")}
-                style={[styles.calModeBtn, calPickMode === "end" && styles.calModeBtnActive]}
+                faceStyle={[styles.calModeBtn, calPickMode === "end" && styles.calModeBtnActive]}
               >
                 <Ionicons name="stop-circle-outline" size={14} color={calPickMode === "end" ? "#fff" : ORANGE} />
                 <Text style={[styles.calModeBtnText, calPickMode === "end" && styles.calModeBtnTextActive]}>
                   End: {addDays(selectedDate, numDays)}
                 </Text>
-              </Pressable>
+              </Button3D>
             </View>
           </>
         ) : (
@@ -958,9 +959,9 @@ export default function NewBookingScreen() {
                     multiline={false}
                     returnKeyType="done"
                   />
-                  <Pressable
+                  <Button3D
                     onPress={getGpsLocation}
-                    style={styles.gpsBtn}
+                    faceStyle={styles.gpsBtn}
                     disabled={gpsLoading}
                   >
                     {gpsLoading ? (
@@ -968,7 +969,7 @@ export default function NewBookingScreen() {
                     ) : (
                       <Ionicons name="navigate" size={18} color={ORANGE} />
                     )}
-                  </Pressable>
+                  </Button3D>
                 </View>
                 {bookingLocation.length > 0 && (
                   <Pressable onPress={() => setBookingLocation("")} style={styles.locationClear}>
@@ -1039,17 +1040,17 @@ export default function NewBookingScreen() {
                 <Text style={[styles.promoActionText, { color: RED }]}>Remove</Text>
               </Pressable>
             ) : (
-              <Pressable
+              <Button3D
                 onPress={applyPromo}
                 disabled={promoLoading || !promoCode.trim()}
-                style={[styles.promoApplyBtn, (!promoCode.trim()) && styles.promoApplyBtnDisabled]}
+                faceStyle={[styles.promoApplyBtn, (!promoCode.trim()) && styles.promoApplyBtnDisabled]}
               >
                 {promoLoading ? (
                   <ActivityIndicator size="small" color="#fff" />
                 ) : (
                   <Text style={styles.promoApplyText}>Apply</Text>
                 )}
-              </Pressable>
+              </Button3D>
             )}
           </View>
           {promoResult && (

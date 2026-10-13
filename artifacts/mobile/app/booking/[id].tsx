@@ -1,3 +1,4 @@
+import Button3D from "@/components/Button3D";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
@@ -496,12 +497,12 @@ export default function BookingDetailScreen() {
               numberOfLines={4}
             />
             <View style={styles.reviewActions}>
-              <Pressable onPress={() => setShowReview(false)} style={styles.cancelReviewBtn}>
+              <Button3D onPress={() => setShowReview(false)} faceStyle={styles.cancelReviewBtn}>
                 <Text style={styles.cancelReviewText}>Cancel</Text>
-              </Pressable>
-              <Pressable onPress={submitReview} disabled={submitting} style={styles.submitReviewBtn}>
+              </Button3D>
+              <Button3D onPress={submitReview} disabled={submitting} faceStyle={styles.submitReviewBtn}>
                 {submitting ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitReviewText}>Submit</Text>}
-              </Pressable>
+              </Button3D>
             </View>
           </View>
         )}
@@ -511,20 +512,20 @@ export default function BookingDetailScreen() {
         <View style={styles.actions}>
           {/* Customer actions */}
           {isCustomer && booking.paymentStatus !== "paid" && booking.status !== "cancelled" && (
-            <Pressable onPress={payBooking} disabled={paymentLoading} style={styles.payBtn}>
+            <Button3D onPress={payBooking} disabled={paymentLoading} faceStyle={styles.payBtn}>
               {paymentLoading
                 ? <ActivityIndicator color="#fff" size="small" />
                 : <>
                     <Ionicons name="card-outline" size={19} color="#fff" />
                     <Text style={styles.payBtnText}>Pay Securely</Text>
                   </>}
-            </Pressable>
+            </Button3D>
           )}
           {isCustomer && booking.paymentStatus === "paid" && (
-            <Pressable onPress={viewInvoice} style={styles.invoiceBtn}>
+            <Button3D onPress={viewInvoice} faceStyle={styles.invoiceBtn}>
               <Ionicons name="receipt-outline" size={19} color={C.tint} />
               <Text style={styles.invoiceBtnText}>View or Save Invoice</Text>
-            </Pressable>
+            </Button3D>
           )}
           {isCustomer && booking.status === "completed" && !showReview && (
             hasReview ? (
@@ -533,10 +534,10 @@ export default function BookingDetailScreen() {
                 <Text style={styles.reviewedBadgeText}>Review Submitted</Text>
               </View>
             ) : (
-              <Pressable onPress={() => { Haptics.selectionAsync(); setShowReview(true); }} style={styles.reviewBtn}>
+              <Button3D onPress={() => { Haptics.selectionAsync(); setShowReview(true); }} faceStyle={styles.reviewBtn}>
                 <Ionicons name="star-outline" size={18} color={C.tint} />
                 <Text style={styles.reviewBtnText}>Leave a Review</Text>
-              </Pressable>
+              </Button3D>
             )
           )}
 
@@ -549,14 +550,14 @@ export default function BookingDetailScreen() {
               </View>
               <Text style={styles.acceptRejectSub}>Accept or reject this booking request from the customer.</Text>
               <View style={styles.acceptRejectRow}>
-                <Pressable onPress={rejectBooking} style={styles.rejectBtn}>
+                <Button3D onPress={rejectBooking} faceStyle={styles.rejectBtn}>
                   <Ionicons name="close-circle-outline" size={18} color="#DC2626" />
                   <Text style={styles.rejectBtnText}>Reject</Text>
-                </Pressable>
-                <Pressable onPress={acceptBooking} style={styles.acceptBtn}>
+                </Button3D>
+                <Button3D onPress={acceptBooking} faceStyle={styles.acceptBtn}>
                   <Ionicons name="checkmark-circle-outline" size={18} color="#fff" />
                   <Text style={styles.acceptBtnText}>Accept</Text>
-                </Pressable>
+                </Button3D>
               </View>
             </View>
           )}
@@ -625,15 +626,15 @@ export default function BookingDetailScreen() {
                 </View>
               ))}
 
-              <Pressable
+              <Button3D
                 onPress={() => setProviderExtraCharges([...providerExtraCharges, { id: Date.now().toString(), label: "", amount: "", description: "" }])}
-                style={styles.addExtraBtn}
+                faceStyle={styles.addExtraBtn}
               >
                 <Ionicons name="add-circle-outline" size={16} color={C.tint} />
                 <Text style={styles.addExtraBtnText}>Add Another Charge</Text>
-              </Pressable>
+              </Button3D>
 
-              <Pressable onPress={completeJob} disabled={completing} style={styles.completeConfirmBtn}>
+              <Button3D onPress={completeJob} disabled={completing} faceStyle={styles.completeConfirmBtn}>
                 {completing ? (
                   <ActivityIndicator color="#fff" size="small" />
                 ) : (
@@ -642,22 +643,22 @@ export default function BookingDetailScreen() {
                     <Text style={styles.completeConfirmBtnText}>Mark as Complete</Text>
                   </>
                 )}
-              </Pressable>
+              </Button3D>
             </View>
           )}
 
           {/* Cancel (both roles, only if not yet started) */}
           {(booking.status === "pending" || booking.status === "confirmed") && (
-            <Pressable onPress={cancelBooking} style={styles.cancelBtn}>
+            <Button3D onPress={cancelBooking} faceStyle={styles.cancelBtn}>
               <Text style={styles.cancelBtnText}>Cancel Booking</Text>
-            </Pressable>
+            </Button3D>
           )}
 
           {/* Open / View Dispute (customer only, confirmed or completed) */}
           {user?.role !== "provider" && (booking.status === "confirmed" || booking.status === "completed") && (
-            <Pressable
+            <Button3D
               onPress={() => router.push(`/dispute/${booking.id}` as any)}
-              style={[styles.cancelBtn, {
+              faceStyle={[styles.cancelBtn, {
                 backgroundColor: booking.dispute_status === "resolved" ? "#D1FAE5"
                   : booking.dispute_status === "open" || booking.dispute_status === "under_review" ? "#FEF3C7"
                   : "#FFF7F0",
@@ -690,7 +691,7 @@ export default function BookingDetailScreen() {
                   : booking.dispute_status === "under_review" ? "Dispute Under Review"
                   : "Open a Dispute"}
               </Text>
-            </Pressable>
+            </Button3D>
           )}
         </View>
 

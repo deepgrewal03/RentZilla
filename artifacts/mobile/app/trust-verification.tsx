@@ -1,3 +1,4 @@
+import Button3D from "@/components/Button3D";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImageManipulator from "expo-image-manipulator";
 import * as ImagePicker from "expo-image-picker";
@@ -225,10 +226,10 @@ function UploadPreviewModal({
 
           {/* Action buttons */}
           <View style={s.previewActions}>
-            <Pressable style={s.cancelBtn} onPress={onCancel} disabled={uploading}>
+            <Button3D faceStyle={s.cancelBtn} onPress={onCancel} disabled={uploading}>
               <Text style={s.cancelBtnText}>Choose Again</Text>
-            </Pressable>
-            <Pressable style={[s.confirmBtn, uploading && s.btnDisabled]} onPress={onConfirm} disabled={uploading}>
+            </Button3D>
+            <Button3D faceStyle={[s.confirmBtn, uploading && s.btnDisabled]} onPress={onConfirm} disabled={uploading}>
               {uploading ? (
                 <View style={s.uploadingRow}>
                   <ActivityIndicator color="#fff" size="small" />
@@ -240,7 +241,7 @@ function UploadPreviewModal({
                   <Text style={s.confirmBtnText}>Submit for Verification</Text>
                 </View>
               )}
-            </Pressable>
+            </Button3D>
           </View>
         </View>
       </View>
@@ -297,8 +298,8 @@ function VerifCard({
       </View>
 
       {canAct && item.status !== "approved" && item.status !== "pending" && (
-        <Pressable
-          style={[s.uploadBtn, isUploading && s.btnDisabled]}
+        <Button3D
+          faceStyle={[s.uploadBtn, isUploading && s.btnDisabled]}
           onPress={() => onUpload(item.key)}
           disabled={isUploading}
         >
@@ -314,7 +315,7 @@ function VerifCard({
               <Text style={s.uploadBtnText}>{isRejected ? "Resubmit" : "Upload"}</Text>
             </>
           )}
-        </Pressable>
+        </Button3D>
       )}
 
       {item.status === "pending" && canAct && (

@@ -1,3 +1,4 @@
+import Button3D from "@/components/Button3D";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
@@ -292,12 +293,12 @@ export default function WalletScreen() {
 
                   <View style={s.quickRow}>
                     {QUICK_AMOUNTS.map(a => (
-                      <Pressable key={a} style={[s.quickBtn, topupAmount === String(a) && s.quickBtnActive]}
+                      <Button3D key={a} faceStyle={[s.quickBtn, topupAmount === String(a) && s.quickBtnActive]}
                         onPress={() => setTopupAmount(String(a))}>
                         <Text style={[s.quickBtnText, topupAmount === String(a) && s.quickBtnTextActive]}>
                           ₹{a.toLocaleString("en-IN")}
                         </Text>
-                      </Pressable>
+                      </Button3D>
                     ))}
                   </View>
 
@@ -316,9 +317,9 @@ export default function WalletScreen() {
                   </View>
 
                   <View style={s.sheetActions}>
-                    <Pressable style={s.cancelBtn} onPress={() => { setShowTopup(false); setTopupAmount(""); }}>
+                    <Button3D faceStyle={s.cancelBtn} onPress={() => { setShowTopup(false); setTopupAmount(""); }}>
                       <Text style={s.cancelText}>Cancel</Text>
-                    </Pressable>
+                    </Button3D>
                     <GlowButton
                       title={`Add ₹${parseFloat(topupAmount || "0").toLocaleString("en-IN") || "0"}`}
                       color={ORANGE}
@@ -443,17 +444,17 @@ export default function WalletScreen() {
                   </View>
 
                   <View style={s.sheetActions}>
-                    <Pressable style={s.cancelBtn} onPress={() => { setShowAddMethod(false); resetAddForm(); }}>
+                    <Button3D faceStyle={s.cancelBtn} onPress={() => { setShowAddMethod(false); resetAddForm(); }}>
                       <Text style={s.cancelText}>Cancel</Text>
-                    </Pressable>
-                    <Pressable style={[s.confirmBtn, addingMethod && { opacity: 0.6 }]} onPress={handleAddMethod} disabled={addingMethod}>
+                    </Button3D>
+                    <Button3D faceStyle={[s.confirmBtn, addingMethod && { opacity: 0.6 }]} onPress={handleAddMethod} disabled={addingMethod}>
                       {addingMethod ? <ActivityIndicator color="#fff" size="small" /> : (
                         <>
                           <Ionicons name="shield-checkmark" size={15} color="#fff" />
                           <Text style={s.confirmText}>Save Securely</Text>
                         </>
                       )}
-                    </Pressable>
+                    </Button3D>
                   </View>
                 </View>
             )}

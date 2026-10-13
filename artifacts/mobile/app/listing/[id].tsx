@@ -1,3 +1,4 @@
+import Button3D from "@/components/Button3D";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
@@ -492,9 +493,9 @@ export default function ListingDetailScreen() {
               )}
             </View>
             {!isOwner && (
-              <Pressable onPress={handleChat} style={styles.msgBtn}>
+              <Button3D onPress={handleChat} faceStyle={styles.msgBtn}>
                 <Ionicons name="chatbubble-outline" size={18} color={C.tint} />
-              </Pressable>
+              </Button3D>
             )}
           </View>
 
@@ -547,14 +548,14 @@ export default function ListingDetailScreen() {
                   {(slotStatus.length ? slotStatus : TIME_SLOTS.map((s) => ({ slot: s, available: true }))).map(({ slot, available }) => {
                     const isSel = selectedSlot === slot;
                     return (
-                      <Pressable
+                      <Button3D
                         key={slot}
                         onPress={() => {
                           if (!available) return;
                           Haptics.selectionAsync();
                           setSelectedSlot(isSel ? "" : slot);
                         }}
-                        style={[
+                        faceStyle={[
                           styles.slotBtn,
                           isSel && styles.slotBtnSelected,
                           !available && styles.slotBtnBooked,
@@ -569,7 +570,7 @@ export default function ListingDetailScreen() {
                           {slot}
                         </Text>
                         {!available && <Text style={styles.bookedBadge}>Booked</Text>}
-                      </Pressable>
+                      </Button3D>
                     );
                   })}
                 </View>
@@ -597,16 +598,16 @@ export default function ListingDetailScreen() {
               )}
 
               <View style={styles.formActions}>
-                <Pressable onPress={() => { setShowBooking(false); setSelectedSlot(""); }} style={styles.cancelFormBtn}>
+                <Button3D onPress={() => { setShowBooking(false); setSelectedSlot(""); }} faceStyle={styles.cancelFormBtn}>
                   <Text style={styles.cancelFormText}>Cancel</Text>
-                </Pressable>
-                <Pressable onPress={handleBook} disabled={booking || !selectedSlot} style={[styles.confirmBookBtn, (!selectedSlot || booking) && styles.confirmBookBtnDisabled]}>
+                </Button3D>
+                <Button3D onPress={handleBook} disabled={booking || !selectedSlot} faceStyle={[styles.confirmBookBtn, (!selectedSlot || booking) && styles.confirmBookBtnDisabled]}>
                   {booking ? (
                     <ActivityIndicator color="#fff" />
                   ) : (
                     <Text style={styles.confirmBookText}>Confirm Booking</Text>
                   )}
-                </Pressable>
+                </Button3D>
               </View>
             </View>
           )}
@@ -624,10 +625,10 @@ export default function ListingDetailScreen() {
             <Text style={styles.bottomPriceLabel}>Pricing set by admin</Text>
             <Text style={styles.bottomUnit}>Select time to see rates</Text>
           </View>
-          <Pressable onPress={() => { Haptics.selectionAsync(); setShowBooking(true); }} style={styles.bookNowBtn}>
+          <Button3D onPress={() => { Haptics.selectionAsync(); setShowBooking(true); }} faceStyle={styles.bookNowBtn}>
             <Ionicons name="calendar-outline" size={18} color="#fff" />
             <Text style={styles.bookNowText}>Book Now</Text>
-          </Pressable>
+          </Button3D>
         </View>
       )}
     </View>

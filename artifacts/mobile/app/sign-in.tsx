@@ -2,6 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as AppleAuthentication from "expo-apple-authentication";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
+import Button3D from "@/components/Button3D";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useState } from "react";
@@ -203,9 +204,9 @@ export default function SignInScreen() {
       <LinearGradient colors={["#FF7A18", "#FF9F43"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
 
       {/* Language toggle */}
-      <Pressable onPress={toggleLanguage} style={[styles.langToggle, { top: topPad + 12 }]}>
+      <Button3D onPress={toggleLanguage} faceStyle={[styles.langToggle, { top: topPad + 12 }]}>
         <Text style={styles.langToggleText}>{language === "en" ? "ਪੰਜਾਬੀ" : "EN"}</Text>
-      </Pressable>
+      </Button3D>
 
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1 }}>
         <ScrollView
@@ -248,10 +249,10 @@ export default function SignInScreen() {
               {/* Google — only rendered when the native module is present AND
                   properly configured; otherwise the button can never succeed */}
               {googleNativeAvailable && (
-              <Pressable
+              <Button3D
                 onPress={handleGoogleSignIn}
                 disabled={anyLoading}
-                style={({ pressed }) => [
+                faceStyle={({ pressed }) => [
                   styles.socialBtn,
                   styles.googleBtn,
                   { opacity: pressed || anyLoading ? 0.7 : 1 },
@@ -267,15 +268,15 @@ export default function SignInScreen() {
                     </Text>
                   </>
                 )}
-              </Pressable>
+              </Button3D>
               )}
 
               {/* Apple — iOS only */}
               {Platform.OS === "ios" && (
-                <Pressable
+                <Button3D
                   onPress={handleAppleSignIn}
                   disabled={anyLoading}
-                  style={({ pressed }) => [
+                  faceStyle={({ pressed }) => [
                     styles.socialBtn,
                     styles.appleBtn,
                     { opacity: pressed || anyLoading ? 0.7 : 1 },
@@ -291,7 +292,7 @@ export default function SignInScreen() {
                       </Text>
                     </>
                   )}
-                </Pressable>
+                </Button3D>
               )}
             </View>
 
@@ -357,10 +358,15 @@ export default function SignInScreen() {
               </Text>
             </Pressable>
 
-            <Pressable
+            <Button3D
               onPress={handleLogin}
               disabled={anyLoading}
-              style={({ pressed }) => [styles.loginBtn, { opacity: pressed || anyLoading ? 0.8 : 1 }]}
+              color="#FF7A18"
+              edgeColor="#D16412"
+              radius={14}
+              depth={4}
+              faceStyle={styles.loginBtn}
+              accessibilityLabel={t.signIn}
             >
               {loading ? <ActivityIndicator color="#fff" /> : (
                 <>
@@ -368,7 +374,7 @@ export default function SignInScreen() {
                   <Ionicons name="arrow-forward" size={20} color="#fff" />
                 </>
               )}
-            </Pressable>
+            </Button3D>
 
             {/* Sign up link */}
             <View style={styles.switchRow}>

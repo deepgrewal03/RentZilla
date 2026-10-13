@@ -1,3 +1,4 @@
+import Button3D from "@/components/Button3D";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import React, { useRef, useState } from "react";
@@ -108,9 +109,9 @@ export function ReportForm({ visible, onClose, targetType, targetId }: ReportFor
               <Ionicons name="checkmark-circle" size={48} color={C.success} />
               <Text style={styles.successTitle}>Report submitted</Text>
               <Text style={styles.hint}>Thank you for helping keep RentZilla safe. Our team will review your report.</Text>
-              <Pressable onPress={close} style={styles.submit} testID="report-done">
+              <Button3D onPress={close} faceStyle={styles.submit} testID="report-done">
                 <Text style={styles.submitText}>Done</Text>
-              </Pressable>
+              </Button3D>
             </View>
           ) : (
             <>
@@ -152,14 +153,14 @@ export function ReportForm({ visible, onClose, targetType, targetId }: ReportFor
               />
               <Text style={styles.count}>{notes.length}/2000</Text>
               {!!error && <Text style={styles.error} accessibilityRole="alert">{error}</Text>}
-              <Pressable
+              <Button3D
                 onPress={submit}
                 disabled={!reason || submitting || isLoading || !user || !token}
-                style={[styles.submit, (!reason || submitting || isLoading || !user || !token) && styles.disabled]}
+                faceStyle={[styles.submit, (!reason || submitting || isLoading || !user || !token) && styles.disabled]}
                 testID="report-submit"
               >
                 {submitting ? <ActivityIndicator color={C.card} /> : <Text style={styles.submitText}>Submit Report</Text>}
-              </Pressable>
+              </Button3D>
             </>
           )}
         </ScrollView>

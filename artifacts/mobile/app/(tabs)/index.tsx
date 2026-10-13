@@ -17,6 +17,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import Button3D, { shadeColor } from "@/components/Button3D";
 import { ListingCard } from "@/components/ListingCard";
 import { ListingCardSkeleton } from "@/components/SkeletonLoader";
 import { NotificationBell } from "@/components/NotificationBell";
@@ -123,9 +124,18 @@ export default function HomeScreen() {
       >
         {/* Top row */}
         <View style={styles.headerTop}>
-          <Pressable onPress={() => setDrawerOpen(true)} style={styles.menuBtn}>
+          <Button3D
+            onPress={() => setDrawerOpen(true)}
+            color="rgba(255,255,255,0.2)"
+            edgeColor="#C65F16"
+            radius={19}
+            depth={3}
+            faceStyle={styles.menuBtn}
+            hitSlop={4}
+            accessibilityLabel="Open menu"
+          >
             <Ionicons name="menu" size={22} color="#fff" />
-          </Pressable>
+          </Button3D>
 
           <View style={styles.headerMid}>
             <Text style={styles.greeting}>
@@ -138,15 +148,24 @@ export default function HomeScreen() {
           </View>
 
           <View style={styles.headerActions}>
-            <Pressable onPress={toggleLanguage} style={styles.langPill}>
+            <Button3D
+              onPress={toggleLanguage}
+              color="rgba(255,255,255,0.2)"
+              edgeColor="#C65F16"
+              radius={12}
+              depth={3}
+              faceStyle={styles.langPill}
+              hitSlop={{ top: 10, bottom: 10, left: 4, right: 4 }}
+              accessibilityLabel={isPa ? "Switch to English" : "Switch to Punjabi"}
+            >
               <Text style={styles.langPillText}>{isPa ? "EN" : "ਪੰਜਾਬੀ"}</Text>
-            </Pressable>
+            </Button3D>
             <View style={styles.bellStack}>
               <NotificationBell />
               {isGoldMember && (
-                <Pressable onPress={() => router.push("/gold-membership")} style={styles.goldCoin}>
+                <Button3D onPress={() => router.push("/gold-membership")} faceStyle={styles.goldCoin}>
                   <Text style={styles.goldCoinText}>🏆</Text>
-                </Pressable>
+                </Button3D>
               )}
             </View>
           </View>
@@ -155,24 +174,24 @@ export default function HomeScreen() {
         {/* Dual-role switcher */}
         {isBoth && (
           <View style={styles.modeRow}>
-            <Pressable
+            <Button3D
               onPress={() => { Haptics.selectionAsync(); setActiveMode("customer"); }}
-              style={[styles.modeBtn, activeMode === "customer" && styles.modeBtnOn]}
+              faceStyle={[styles.modeBtn, activeMode === "customer" && styles.modeBtnOn]}
             >
               <Ionicons name="person-outline" size={13} color={activeMode === "customer" ? "#FF7A18" : "rgba(255,255,255,0.8)"} />
               <Text style={[styles.modeTxt, activeMode === "customer" && styles.modeTxtOn]}>Customer</Text>
-            </Pressable>
-            <Pressable
+            </Button3D>
+            <Button3D
               onPress={() => {
                 Haptics.selectionAsync();
                 setActiveMode("provider");
                 router.replace("/(tabs)/dashboard");
               }}
-              style={[styles.modeBtn, activeMode === "provider" && styles.modeBtnOn]}
+              faceStyle={[styles.modeBtn, activeMode === "provider" && styles.modeBtnOn]}
             >
               <Ionicons name="briefcase-outline" size={13} color={activeMode === "provider" ? "#FF7A18" : "rgba(255,255,255,0.8)"} />
               <Text style={[styles.modeTxt, activeMode === "provider" && styles.modeTxtOn]}>Provider</Text>
-            </Pressable>
+            </Button3D>
           </View>
         )}
 
@@ -180,9 +199,20 @@ export default function HomeScreen() {
         <Pressable onPress={() => router.push("/(tabs)/search")} style={styles.searchBar}>
           <Ionicons name="search" size={17} color="#AEAEAE" />
           <Text style={styles.searchHint}>{t.searchPlaceholder}</Text>
-          <View style={styles.micBtn}>
+          <Button3D
+            onPress={() => router.push("/(tabs)/search")}
+            color="#FDF0E6"
+            edgeColor="#E9B993"
+            radius={16}
+            depth={3}
+            reserveSpace={false}
+            shadow={0.5}
+            faceStyle={[styles.micBtn, { backgroundColor: "#FDF0E6" }]}
+            hitSlop={6}
+            accessibilityLabel="Voice search"
+          >
             <Ionicons name="mic" size={15} color="#FF7A18" />
-          </View>
+          </Button3D>
         </Pressable>
       </LinearGradient>
 
@@ -221,10 +251,19 @@ export default function HomeScreen() {
                   <Text style={styles.goldBannerSub}>4% off every booking. ₹2.49/year — less than a chai!</Text>
                 </View>
               </View>
-              <View style={styles.goldBannerCta}>
+              <Button3D
+                onPress={() => router.push("/gold-membership")}
+                color="#BCA032"
+                edgeColor="#8C7517"
+                radius={20}
+                depth={4}
+                faceStyle={[styles.goldBannerCta, { backgroundColor: "#BCA032" }]}
+                hitSlop={{ top: 10, bottom: 10, left: 6, right: 6 }}
+                accessibilityLabel="Unlock Gold"
+              >
                 <Text style={styles.goldBannerCtaText}>Unlock</Text>
                 <Ionicons name="chevron-forward" size={13} color="#1A1A0D" />
-              </View>
+              </Button3D>
             </LinearGradient>
           </Pressable>
         )}
@@ -242,10 +281,19 @@ export default function HomeScreen() {
                 <Text style={styles.referBannerTitle}>Refer a Friend, Earn 10% Off</Text>
                 <Text style={styles.referBannerSub}>Share your code · 5 friends = reward!</Text>
               </View>
-              <View style={styles.referBannerCta}>
+              <Button3D
+                onPress={() => router.push("/referral" as any)}
+                color="rgba(255,255,255,0.3)"
+                edgeColor="#C65F16"
+                radius={20}
+                depth={4}
+                faceStyle={[styles.referBannerCta, { backgroundColor: "rgba(255,255,255,0.3)" }]}
+                hitSlop={{ top: 10, bottom: 10, left: 6, right: 6 }}
+                accessibilityLabel="Share referral code"
+              >
                 <Text style={styles.referBannerCtaTxt}>Share</Text>
                 <Ionicons name="chevron-forward" size={12} color="#fff" />
-              </View>
+              </Button3D>
             </LinearGradient>
           </Pressable>
         )}
@@ -277,14 +325,15 @@ export default function HomeScreen() {
           ].map((item) => {
             const active = selectedCategory === "equipment" && selectedSubcat === item.label;
             return (
-              <Pressable
+              <Button3D
                 key={item.label}
                 onPress={() => pickSubcat("equipment", item.label)}
-                style={({ pressed }) => [
-                  styles.chip,
-                  { backgroundColor: active ? item.color : item.bg },
-                  pressed && { transform: [{ scale: 0.91 }], opacity: 0.82 },
-                ]}
+                color={active ? item.color : item.bg}
+                edgeColor={shadeColor(active ? item.color : item.bg, 0.12)}
+                radius={14}
+                depth={3}
+                faceStyle={[styles.chip, { backgroundColor: active ? item.color : item.bg }]}
+                accessibilityLabel={item.label}
               >
                 <View style={[styles.chipIcon, { backgroundColor: active ? "rgba(255,255,255,0.25)" : `${item.color}22` }]}>
                   <Ionicons name={item.icon as keyof typeof Ionicons.glyphMap} size={22} color={active ? "#fff" : item.color} />
@@ -292,7 +341,7 @@ export default function HomeScreen() {
                 <Text style={[styles.chipLabel, { color: active ? "#fff" : item.color }]} numberOfLines={2}>
                   {isPa ? item.labelPa : item.label}
                 </Text>
-              </Pressable>
+              </Button3D>
             );
           })}
         </ScrollView>
@@ -317,14 +366,15 @@ export default function HomeScreen() {
           ].map((item) => {
             const active = selectedCategory === "services" && selectedSubcat === item.label;
             return (
-              <Pressable
+              <Button3D
                 key={item.label}
                 onPress={() => pickSubcat("services", item.label)}
-                style={({ pressed }) => [
-                  styles.chip,
-                  { backgroundColor: active ? item.color : item.bg },
-                  pressed && { transform: [{ scale: 0.91 }], opacity: 0.82 },
-                ]}
+                color={active ? item.color : item.bg}
+                edgeColor={shadeColor(active ? item.color : item.bg, 0.12)}
+                radius={14}
+                depth={3}
+                faceStyle={[styles.chip, { backgroundColor: active ? item.color : item.bg }]}
+                accessibilityLabel={item.label}
               >
                 <View style={[styles.chipIcon, { backgroundColor: active ? "rgba(255,255,255,0.25)" : `${item.color}22` }]}>
                   <Ionicons name={item.icon as keyof typeof Ionicons.glyphMap} size={22} color={active ? "#fff" : item.color} />
@@ -332,7 +382,7 @@ export default function HomeScreen() {
                 <Text style={[styles.chipLabel, { color: active ? "#fff" : item.color }]} numberOfLines={2}>
                   {isPa ? item.labelPa : item.label}
                 </Text>
-              </Pressable>
+              </Button3D>
             );
           })}
         </ScrollView>
@@ -376,14 +426,20 @@ export default function HomeScreen() {
 
       {/* FAB for providers */}
       {(user?.role === "provider" || (user?.role === "both" && activeMode === "provider")) && (
-        <Pressable
+        <Button3D
           onPress={() => router.push("/add-listing")}
+          color="#FF7A18"
+          edgeColor="#D16412"
+          radius={28}
+          depth={4}
+          gradientColors={GRADIENT_ORANGE}
+          faceStyle={styles.fabFace}
+          reserveSpace={false}
           style={[styles.fab, { bottom: (isWeb ? 34 : insets.bottom) + 80 }]}
+          accessibilityLabel="Add listing"
         >
-          <LinearGradient colors={GRADIENT_ORANGE} style={styles.fabGrad}>
-            <Ionicons name="add" size={28} color="#fff" />
-          </LinearGradient>
-        </Pressable>
+          <Ionicons name="add" size={28} color="#fff" />
+        </Button3D>
       )}
 
     </View>
@@ -582,11 +638,12 @@ const styles = StyleSheet.create({
   // FAB
   fab: {
     position: "absolute", right: 20,
-    width: 56, height: 56, borderRadius: 28, overflow: "hidden",
+    width: 56, height: 56, borderRadius: 28,
     shadowColor: "#FF7A18", shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.45, shadowRadius: 10, elevation: 8,
   },
   fabGrad: { flex: 1, alignItems: "center", justifyContent: "center" },
+  fabFace: { width: 56, height: 56, alignItems: "center", justifyContent: "center" },
 
   // Gold membership banner
   goldBanner: {

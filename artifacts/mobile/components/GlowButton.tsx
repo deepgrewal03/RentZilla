@@ -11,6 +11,7 @@
  *  • Fully memoized – safe inside FlatList / ScrollView
  */
 
+import Button3D, { shadeColor } from "@/components/Button3D";
 import React, { useCallback, useRef, memo } from "react";
 import {
   Animated,
@@ -197,116 +198,32 @@ const GlowButton = memo(function GlowButton({
       ? { elevation: Math.round(10 * gs) }
       : {};
 
-  // ── Render ──────────────────────────────────────────────────────────────────
+  // ── Render (3D raised button) ───────────────────────────────────────────
 
   return (
-    <View
-      style={[
-        styles.wrapper,
-        fullWidth ? styles.fullWidth : undefined,
-        // Reserve space below for the bottom glow strip
-        gs > 0 ? { paddingBottom: BOTTOM_GLOW_SLOT } : undefined,
-        { opacity: isDisabled ? 0.45 : 1 },
-        style,
-      ]}
-      // "box-none" lets touches reach the Pressable inside but blocks nothing
-      pointerEvents={isDisabled ? "none" : "box-none"}
+    <Button3D
+      onPress={onPress}
+      disabled={isDisabled}
+      color={color}
+      edgeColor={shadeColor(color, 0.18)}
+      radius={borderRadius}
+      depth={4}
+      accessibilityLabel={title}
+      style={[fullWidth ? styles.fullWidth : styles.wrapper, style]}
+      faceStyle={[styles.pressable, { height }]}
     >
-      {/* ── Android: colored glow layer beneath button ────────────────────── */}
-      {Platform.OS === "android" && gs > 0 && (
-        <View
-          style={[
-            styles.androidGlow,
-            {
-              borderRadius,
-              backgroundColor: hexWithAlpha(glowColor, 0.28 * gs),
-              elevation: Math.round(14 * gs),
-              bottom: BOTTOM_GLOW_SLOT - 6,
-            },
-          ]}
-        />
-      )}
-
-      {/* ── Main button (scale-animated) ─────────────────────────────────── */}
-      <Animated.View
-        style={[
-          styles.button,
-          {
-            height,
-            borderRadius,
-            backgroundColor: color,
-            borderColor,
-            transform: [{ scale }],
-          },
-          iosShadowStyle,
-          androidElevation,
-        ]}
-      >
-        <Pressable
-          onPress={onPress}
-          onPressIn={handlePressIn}
-          onPressOut={handlePressOut}
-          style={[styles.pressable, { borderRadius: borderRadius - 1 }]}
-          android_ripple={{
-            color: hexWithAlpha("#ffffff", 0.18),
-            borderless: false,
-          }}
-        >
-          {/* Top-edge glass reflection */}
-          <View
-            style={[
-              styles.topReflection,
-              { borderRadius: borderRadius - 1 },
-            ]}
-            pointerEvents="none"
-          />
-
-          {/* Content row */}
-          <View style={styles.row}>
-            {!!iconLeft && <View style={styles.iconLeft}>{iconLeft}</View>}
-            {loading ? (
-              <ActivityIndicator color="#fff" size="small" />
-            ) : (
-              <Text
-                style={[styles.label, { fontSize }, textStyle]}
-                numberOfLines={1}
-              >
-                {title}
-              </Text>
-            )}
-            {!!iconRight && <View style={styles.iconRight}>{iconRight}</View>}
-          </View>
-        </Pressable>
-      </Animated.View>
-
-      {/* ── Bottom glow strip (floating 3-D base) ────────────────────────── */}
-      {gs > 0 && (
-        <Animated.View
-          style={[
-            styles.bottomGlow,
-            {
-              backgroundColor: hexWithAlpha(bottomGlowColor, 0.38 * gs),
-              borderRadius: borderRadius * 2,
-              opacity: glowAnim.interpolate({
-                inputRange: [1, 1.4],
-                outputRange: [1, 1.25],
-                extrapolate: "clamp",
-              }),
-              // iOS: colored shadow on the glow strip = extra depth
-              ...(Platform.OS === "ios"
-                ? {
-                    shadowColor: bottomGlowColor,
-                    shadowOffset: { width: 0, height: 4 },
-                    shadowOpacity: 0.5 * gs,
-                    shadowRadius: 10 * gs,
-                  }
-                : { elevation: Math.round(6 * gs) }),
-            },
-          ]}
-          pointerEvents="none"
-        />
-      )}
-    </View>
+      <View style={styles.row}>
+        {!!iconLeft && <View style={styles.iconLeft}>{iconLeft}</View>}
+        {loading ? (
+          <ActivityIndicator color="#fff" size="small" />
+        ) : (
+          <Text style={[styles.label, { fontSize }, textStyle]} numberOfLines={1}>
+            {title}
+          </Text>
+        )}
+        {!!iconRight && <View style={styles.iconRight}>{iconRight}</View>}
+      </View>
+    </Button3D>
   );
 });
 

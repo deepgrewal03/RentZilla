@@ -1,3 +1,4 @@
+import Button3D from "@/components/Button3D";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
@@ -229,31 +230,31 @@ export default function BecomeCustomerScreen() {
               <View style={styles.channelCard}>
                 <Text style={styles.channelLabel}>Receive OTP via</Text>
                 <View style={styles.channelRow}>
-                  <Pressable
+                  <Button3D
                     onPress={() => { setOtpChannel("sms"); Haptics.selectionAsync(); }}
-                    style={[styles.channelBtn, otpChannel === "sms" && styles.channelBtnActive]}
+                    faceStyle={[styles.channelBtn, otpChannel === "sms" && styles.channelBtnActive]}
                   >
                     <Ionicons name="chatbubble-outline" size={18} color={otpChannel === "sms" ? "#fff" : TINT} />
                     <Text style={[styles.channelBtnText, otpChannel === "sms" && styles.channelBtnTextActive]}>SMS</Text>
-                  </Pressable>
-                  <Pressable
+                  </Button3D>
+                  <Button3D
                     onPress={() => { setOtpChannel("whatsapp"); Haptics.selectionAsync(); }}
-                    style={[styles.channelBtn, otpChannel === "whatsapp" && styles.channelBtnActive]}
+                    faceStyle={[styles.channelBtn, otpChannel === "whatsapp" && styles.channelBtnActive]}
                   >
                     <Ionicons name="logo-whatsapp" size={18} color={otpChannel === "whatsapp" ? "#fff" : "#25D366"} />
                     <Text style={[styles.channelBtnText, otpChannel === "whatsapp" && styles.channelBtnTextActive]}>WhatsApp</Text>
-                  </Pressable>
+                  </Button3D>
                 </View>
               </View>
 
-              <Pressable onPress={sendOtp} disabled={sending} style={styles.primaryBtn}>
+              <Button3D onPress={sendOtp} disabled={sending} faceStyle={styles.primaryBtn}>
                 {sending ? <ActivityIndicator color="#fff" /> : (
                   <>
                     <Ionicons name="shield-checkmark-outline" size={20} color="#fff" />
                     <Text style={styles.primaryBtnText}>Send Verification Code</Text>
                   </>
                 )}
-              </Pressable>
+              </Button3D>
             </View>
           )}
 
@@ -284,10 +285,10 @@ export default function BecomeCustomerScreen() {
                 textAlign="center"
               />
 
-              <Pressable
+              <Button3D
                 onPress={verifyAndUpgrade}
                 disabled={verifying || submitting || otp.length !== 6}
-                style={[styles.primaryBtn, otp.length !== 6 && styles.btnDisabled]}
+                faceStyle={[styles.primaryBtn, otp.length !== 6 && styles.btnDisabled]}
               >
                 {(verifying || submitting) ? <ActivityIndicator color="#fff" /> : (
                   <>
@@ -295,17 +296,17 @@ export default function BecomeCustomerScreen() {
                     <Text style={styles.primaryBtnText}>Verify & Enable Customer</Text>
                   </>
                 )}
-              </Pressable>
+              </Button3D>
 
-              <Pressable
+              <Button3D
                 onPress={otpTimer > 0 ? undefined : sendOtp}
                 disabled={otpTimer > 0 || sending}
-                style={styles.resendBtn}
+                faceStyle={styles.resendBtn}
               >
                 <Text style={[styles.resendText, otpTimer > 0 && { color: C.textTertiary }]}>
                   {otpTimer > 0 ? `Resend in ${otpTimer}s` : "Resend code"}
                 </Text>
-              </Pressable>
+              </Button3D>
             </View>
           )}
 
@@ -335,8 +336,8 @@ export default function BecomeCustomerScreen() {
                 ))}
               </View>
 
-              <Pressable
-                style={styles.primaryBtn}
+              <Button3D
+                faceStyle={styles.primaryBtn}
                 onPress={() => {
                   Haptics.selectionAsync();
                   router.replace("/");
@@ -344,7 +345,7 @@ export default function BecomeCustomerScreen() {
               >
                 <Ionicons name="home-outline" size={20} color="#fff" />
                 <Text style={styles.primaryBtnText}>Go to Customer Home</Text>
-              </Pressable>
+              </Button3D>
             </View>
           )}
         </ScrollView>

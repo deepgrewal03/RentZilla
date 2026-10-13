@@ -1,3 +1,4 @@
+import Button3D from "@/components/Button3D";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
@@ -314,12 +315,12 @@ export default function SettingsScreen() {
                 <TextInput style={ss.editInput} value={email} onChangeText={setEmail} placeholder="Email" placeholderTextColor={C.textTertiary} keyboardType="email-address" autoCapitalize="none" />
               </View>
               <View style={ss.editActions}>
-                <Pressable onPress={() => setEditingAccount(false)} style={ss.editCancelBtn}>
+                <Button3D onPress={() => setEditingAccount(false)} faceStyle={ss.editCancelBtn}>
                   <Text style={ss.editCancelText}>Cancel</Text>
-                </Pressable>
-                <Pressable onPress={saveAccount} disabled={savingAccount} style={ss.editSaveBtn}>
+                </Button3D>
+                <Button3D onPress={saveAccount} disabled={savingAccount} faceStyle={ss.editSaveBtn}>
                   {savingAccount ? <ActivityIndicator color="#fff" size="small" /> : <Text style={ss.editSaveText}>Save</Text>}
-                </Pressable>
+                </Button3D>
               </View>
             </View>
           ) : (
@@ -355,12 +356,12 @@ export default function SettingsScreen() {
               <TextInput style={ss.editInput} value={confirmPwd} onChangeText={setConfirmPwd} secureTextEntry placeholder="Repeat new password" placeholderTextColor={C.textTertiary} />
             </View>
             <View style={ss.editActions}>
-              <Pressable onPress={() => setShowPasswordModal(false)} style={ss.editCancelBtn}>
+              <Button3D onPress={() => setShowPasswordModal(false)} faceStyle={ss.editCancelBtn}>
                 <Text style={ss.editCancelText}>Cancel</Text>
-              </Pressable>
-              <Pressable onPress={changePassword} disabled={savingPwd} style={ss.editSaveBtn}>
+              </Button3D>
+              <Button3D onPress={changePassword} disabled={savingPwd} faceStyle={ss.editSaveBtn}>
                 {savingPwd ? <ActivityIndicator color="#fff" size="small" /> : <Text style={ss.editSaveText}>Update</Text>}
-              </Pressable>
+              </Button3D>
             </View>
           </View>
         )}
@@ -549,15 +550,15 @@ export default function SettingsScreen() {
                 ))}
 
                 <View style={ss.modalBtns}>
-                  <Pressable onPress={() => setDeleteStep(0)} style={ss.modalCancelBtn}>
+                  <Button3D onPress={() => setDeleteStep(0)} faceStyle={ss.modalCancelBtn}>
                     <Text style={ss.modalCancelTxt}>Cancel</Text>
-                  </Pressable>
-                  <Pressable
+                  </Button3D>
+                  <Button3D
                     onPress={() => { if (!deleteReason) { Alert.alert("Select a reason", "Please choose one."); return; } setDeleteStep(2); }}
-                    style={[ss.modalNextBtn, !deleteReason && { opacity: 0.4 }]}
+                    faceStyle={[ss.modalNextBtn, !deleteReason && { opacity: 0.4 }]}
                   >
                     <Text style={ss.modalNextTxt}>Continue →</Text>
-                  </Pressable>
+                  </Button3D>
                 </View>
               </>
             ) : (
@@ -577,16 +578,16 @@ export default function SettingsScreen() {
                   </Text>
                 </View>
 
-                <Pressable
+                <Button3D
                   onPress={handleDeleteAccount}
                   disabled={isDeleting}
-                  style={[ss.deleteBtn, isDeleting && { opacity: 0.6 }]}
+                  faceStyle={[ss.deleteBtn, isDeleting && { opacity: 0.6 }]}
                 >
                   {isDeleting
                     ? <ActivityIndicator color="#fff" />
                     : <><Ionicons name="trash" size={18} color="#fff" /><Text style={ss.deleteBtnTxt}>Yes, Delete My Account</Text></>
                   }
-                </Pressable>
+                </Button3D>
 
                 <Pressable onPress={() => setDeleteStep(1)} style={ss.modalBackBtn}>
                   <Text style={ss.modalBackTxt}>← Go back</Text>

@@ -1,3 +1,4 @@
+import Button3D from "@/components/Button3D";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
@@ -65,17 +66,17 @@ export default function ForgotPasswordScreen() {
             <Text style={{ fontWeight: "700" }}>{email.trim().toLowerCase()}</Text>
             {"\n\n"}Check your inbox (and spam folder).
           </Text>
-          <Pressable
+          <Button3D
             onPress={() =>
               router.push({ pathname: "/reset-password", params: { email: email.trim().toLowerCase() } })
             }
-            style={styles.continueBtn}
+            faceStyle={styles.continueBtn}
           >
             <LinearGradient colors={["#fff", "#fff"]} style={styles.continueBtnInner}>
               <Text style={styles.continueBtnText}>Enter OTP</Text>
               <Ionicons name="arrow-forward" size={18} color="#FF7A18" />
             </LinearGradient>
-          </Pressable>
+          </Button3D>
           <Pressable onPress={() => router.back()} style={{ marginTop: 20 }}>
             <Text style={styles.backLink}>Back to Sign In</Text>
           </Pressable>
@@ -131,10 +132,10 @@ export default function ForgotPasswordScreen() {
 
             {!!error && <Text style={styles.errorText}>{error}</Text>}
 
-            <Pressable
+            <Button3D
               onPress={handleSend}
               disabled={loading}
-              style={({ pressed }) => [styles.sendBtn, { opacity: pressed || loading ? 0.8 : 1 }]}
+              faceStyle={({ pressed }) => [styles.sendBtn, { opacity: pressed || loading ? 0.8 : 1 }]}
             >
               {loading ? (
                 <ActivityIndicator color="#fff" />
@@ -144,7 +145,7 @@ export default function ForgotPasswordScreen() {
                   <Ionicons name="send-outline" size={18} color="#fff" />
                 </>
               )}
-            </Pressable>
+            </Button3D>
 
             <Pressable onPress={() => router.back()} style={styles.switchRow}>
               <Ionicons name="arrow-back-outline" size={14} color={C.textSecondary} />

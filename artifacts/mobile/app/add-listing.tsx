@@ -1,3 +1,4 @@
+import Button3D from "@/components/Button3D";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import * as ImageManipulator from "expo-image-manipulator";
@@ -222,8 +223,8 @@ export default function AddListingScreen() {
             </View>
           </Pressable>
         ) : canAdd ? (
-          <Pressable
-            style={[styles.photoAddBtn, compressing && { opacity: 0.5 }]}
+          <Button3D
+            faceStyle={[styles.photoAddBtn, compressing && { opacity: 0.5 }]}
             onPress={() => pickPhoto(index)}
             disabled={compressing}
           >
@@ -236,7 +237,7 @@ export default function AddListingScreen() {
                 {hint && <Text style={styles.photoAddHint}>{hint}</Text>}
               </>
             )}
-          </Pressable>
+          </Button3D>
         ) : (
           <View style={[styles.photoAddBtn, { opacity: 0.35 }]}>
             <Ionicons name="lock-closed-outline" size={20} color={C.textTertiary} />
@@ -265,9 +266,9 @@ export default function AddListingScreen() {
           <Ionicons name="close" size={22} color="#fff" />
         </Pressable>
         <Text style={styles.headerTitle}>New Listing</Text>
-        <Pressable onPress={handleSave} disabled={saving || compressing} style={styles.saveBtn}>
+        <Button3D onPress={handleSave} disabled={saving || compressing} faceStyle={styles.saveBtn}>
           {saving ? <ActivityIndicator color={ORANGE} size="small" /> : <Text style={styles.saveBtnText}>Post</Text>}
-        </Pressable>
+        </Button3D>
       </LinearGradient>
 
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1 }}>
@@ -294,13 +295,13 @@ export default function AddListingScreen() {
             <Text style={styles.fieldLabel}>Type</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
               {SUBCATEGORIES[category].map((s) => (
-                <Pressable
+                <Button3D
                   key={s}
                   onPress={() => setSubcategory(s === subcategory ? "" : s)}
-                  style={[styles.chipBtn, subcategory === s && styles.chipBtnActive]}
+                  faceStyle={[styles.chipBtn, subcategory === s && styles.chipBtnActive]}
                 >
                   <Text style={[styles.chipText, subcategory === s && styles.chipTextActive]}>{s}</Text>
-                </Pressable>
+                </Button3D>
               ))}
             </ScrollView>
           </View>
@@ -309,12 +310,12 @@ export default function AddListingScreen() {
           {isCar && (
             <View style={styles.section}>
               <Text style={styles.fieldLabel}>Engine Size *</Text>
-              <Pressable onPress={() => setShowEnginePicker((v) => !v)} style={styles.dropdownBtn}>
+              <Button3D onPress={() => setShowEnginePicker((v) => !v)} faceStyle={styles.dropdownBtn}>
                 <Text style={engineSize ? styles.dropdownValue : styles.dropdownPlaceholder}>
                   {engineSize ? `${engineSize}L` : "Select engine size"}
                 </Text>
                 <Ionicons name={showEnginePicker ? "chevron-up" : "chevron-down"} size={16} color={C.textSecondary} />
-              </Pressable>
+              </Button3D>
               {showEnginePicker && (
                 <View style={styles.dropdownList}>
                   {ENGINE_SIZES.map((s) => (
@@ -366,10 +367,10 @@ export default function AddListingScreen() {
               </View>
               <View style={styles.unitRow}>
                 {PRICE_UNITS.map((u) => (
-                  <Pressable key={u.id} onPress={() => setPriceUnit(u.id)}
-                    style={[styles.unitBtn, priceUnit === u.id && styles.unitBtnActive]}>
+                  <Button3D key={u.id} onPress={() => setPriceUnit(u.id)}
+                    faceStyle={[styles.unitBtn, priceUnit === u.id && styles.unitBtnActive]}>
                     <Text style={[styles.unitText, priceUnit === u.id && styles.unitTextActive]}>{u.label}</Text>
-                  </Pressable>
+                  </Button3D>
                 ))}
               </View>
             </View>
@@ -380,10 +381,10 @@ export default function AddListingScreen() {
             <Text style={styles.fieldLabel}>Location *</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, marginBottom: 10 }}>
               {LOCATIONS.map((l) => (
-                <Pressable key={l} onPress={() => setLocation(l === location ? "" : l)}
-                  style={[styles.chipBtn, location === l && styles.chipBtnActive]}>
+                <Button3D key={l} onPress={() => setLocation(l === location ? "" : l)}
+                  faceStyle={[styles.chipBtn, location === l && styles.chipBtnActive]}>
                   <Text style={[styles.chipText, location === l && styles.chipTextActive]}>{l}</Text>
-                </Pressable>
+                </Button3D>
               ))}
             </ScrollView>
             <TextInput style={styles.input} value={location} onChangeText={setLocation}
@@ -398,16 +399,16 @@ export default function AddListingScreen() {
                 <Text style={styles.earthMoverBannerText}>Earth Mover Options</Text>
               </View>
               <View style={styles.toggleRow}>
-                <Pressable onPress={() => { Haptics.selectionAsync(); setOperatorIncluded((v) => !v); }}
-                  style={[styles.toggleBtn, operatorIncluded && styles.toggleBtnOn]}>
+                <Button3D onPress={() => { Haptics.selectionAsync(); setOperatorIncluded((v) => !v); }}
+                  faceStyle={[styles.toggleBtn, operatorIncluded && styles.toggleBtnOn]}>
                   <Ionicons name={operatorIncluded ? "person" : "person-outline"} size={16} color={operatorIncluded ? "#fff" : C.textSecondary} />
                   <Text style={[styles.toggleText, operatorIncluded && styles.toggleTextOn]}>Operator Included</Text>
-                </Pressable>
-                <Pressable onPress={() => { Haptics.selectionAsync(); setFuelIncluded((v) => !v); }}
-                  style={[styles.toggleBtn, fuelIncluded && styles.toggleBtnOn]}>
+                </Button3D>
+                <Button3D onPress={() => { Haptics.selectionAsync(); setFuelIncluded((v) => !v); }}
+                  faceStyle={[styles.toggleBtn, fuelIncluded && styles.toggleBtnOn]}>
                   <Ionicons name={fuelIncluded ? "flame" : "flame-outline"} size={16} color={fuelIncluded ? "#fff" : C.textSecondary} />
                   <Text style={[styles.toggleText, fuelIncluded && styles.toggleTextOn]}>Fuel Included</Text>
-                </Pressable>
+                </Button3D>
               </View>
               <Text style={[styles.fieldLabel, { marginTop: 14 }]}>Delivery Charges (₹, optional)</Text>
               <View style={styles.priceInputWrap}>

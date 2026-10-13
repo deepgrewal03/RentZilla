@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
+import Button3D from "@/components/Button3D";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useState } from "react";
@@ -115,29 +116,34 @@ export default function AuthScreen() {
             <View style={styles.fieldGroup}>
               <Text style={styles.fieldLabel}>I want to</Text>
               <View style={styles.roleRow}>
-                <Pressable
+                <Button3D
                   onPress={() => { Haptics.selectionAsync(); setRole("customer"); }}
-                  style={[styles.roleBtn, role === "customer" && styles.roleBtnActive]}
+                  faceStyle={[styles.roleBtn, role === "customer" && styles.roleBtnActive]}
                 >
                   <Ionicons name="search-outline" size={18} color={role === "customer" ? "#fff" : C.text} />
                   <Text style={[styles.roleBtnText, role === "customer" && styles.roleBtnTextActive]}>Rent Things</Text>
-                </Pressable>
-                <Pressable
+                </Button3D>
+                <Button3D
                   onPress={() => { Haptics.selectionAsync(); setRole("provider"); }}
-                  style={[styles.roleBtn, role === "provider" && styles.roleBtnActive]}
+                  faceStyle={[styles.roleBtn, role === "provider" && styles.roleBtnActive]}
                 >
                   <Ionicons name="storefront-outline" size={18} color={role === "provider" ? "#fff" : C.text} />
                   <Text style={[styles.roleBtnText, role === "provider" && styles.roleBtnTextActive]}>List & Earn</Text>
-                </Pressable>
+                </Button3D>
               </View>
             </View>
 
             {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-            <Pressable
+            <Button3D
               onPress={handleLogin}
               disabled={loading}
-              style={({ pressed }) => [styles.loginBtn, { opacity: pressed || loading ? 0.8 : 1 }]}
+              color="#FF7A18"
+              edgeColor="#D16412"
+              radius={14}
+              depth={4}
+              faceStyle={styles.loginBtn}
+              accessibilityLabel={"Continue"}
             >
               {loading ? (
                 <ActivityIndicator color="#fff" />
@@ -147,7 +153,7 @@ export default function AuthScreen() {
                   <Ionicons name="arrow-forward" size={20} color="#fff" />
                 </>
               )}
-            </Pressable>
+            </Button3D>
 
             <Text style={styles.disclaimer}>
               By continuing, you agree to our Terms of Service and Privacy Policy

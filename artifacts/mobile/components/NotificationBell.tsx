@@ -1,3 +1,4 @@
+import Button3D from "@/components/Button3D";
 import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
 import * as Haptics from "expo-haptics";
@@ -240,7 +241,17 @@ export function NotificationBell() {
   return (
     <>
       {/* ── Bell button with glow ring ── */}
-      <Pressable onPress={openPanel} style={styles.bellOuter}>
+      <Button3D
+        onPress={openPanel}
+        color="rgba(255,255,255,0.2)"
+        edgeColor="#C65F16"
+        radius={22}
+        depth={3}
+        clipFace={false}
+        style={styles.bell3DOuter}
+        faceStyle={styles.bellOuter}
+        accessibilityLabel="Notifications"
+      >
         {/* Glow ring pulse */}
         <Animated.View
           style={[
@@ -264,7 +275,7 @@ export function NotificationBell() {
             </Animated.View>
           )}
         </Animated.View>
-      </Pressable>
+      </Button3D>
 
       {/* ── Single Modal — switches between list and detail views ── */}
       <Modal
@@ -434,6 +445,7 @@ export function NotificationBell() {
 }
 
 const styles = StyleSheet.create({
+  bell3DOuter: { width: 44 },
   bellOuter: {
     width: 44, height: 44,
     alignItems: "center", justifyContent: "center",

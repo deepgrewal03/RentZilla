@@ -1,3 +1,4 @@
+import Button3D from "@/components/Button3D";
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import * as Haptics from "expo-haptics";
@@ -200,34 +201,34 @@ export default function DashboardScreen() {
             <Text style={styles.nameText}>{firstName} 👋</Text>
           </View>
           <View style={styles.headerActions}>
-            <Pressable onPress={() => router.push("/add-listing")} style={styles.addListingBtn}>
+            <Button3D onPress={() => router.push("/add-listing")} faceStyle={styles.addListingBtn}>
               <Ionicons name="add" size={16} color="#fff" />
               <Text style={styles.addListingBtnText}>Add Listing</Text>
-            </Pressable>
+            </Button3D>
           </View>
         </View>
 
         {/* Role toggle — only for "both" role users */}
         {isBoth && (
           <View style={styles.roleToggle}>
-            <Pressable
+            <Button3D
               onPress={() => {
                 setActiveMode("customer");
                 Haptics.selectionAsync();
                 router.replace("/");
               }}
-              style={[styles.roleBtn, activeMode === "customer" && styles.roleBtnActive]}
+              faceStyle={[styles.roleBtn, activeMode === "customer" && styles.roleBtnActive]}
             >
               <Ionicons name="person-outline" size={13} color={activeMode === "customer" ? ORANGE : "rgba(255,255,255,0.55)"} />
               <Text style={[styles.roleBtnText, activeMode === "customer" && styles.roleBtnTextActive]}>Customer</Text>
-            </Pressable>
-            <Pressable
+            </Button3D>
+            <Button3D
               onPress={() => { setActiveMode("provider"); Haptics.selectionAsync(); }}
-              style={[styles.roleBtn, activeMode === "provider" && styles.roleBtnActive]}
+              faceStyle={[styles.roleBtn, activeMode === "provider" && styles.roleBtnActive]}
             >
               <Ionicons name="briefcase-outline" size={13} color={activeMode === "provider" ? ORANGE : "rgba(255,255,255,0.55)"} />
               <Text style={[styles.roleBtnText, activeMode === "provider" && styles.roleBtnTextActive]}>Provider</Text>
-            </Pressable>
+            </Button3D>
           </View>
         )}
       </LinearGradient>
@@ -522,12 +523,12 @@ export default function DashboardScreen() {
                   <Text style={styles.bookingAmount}>₹{displayAmount(b).toLocaleString("en-IN")}</Text>
                 </View>
                 <View style={styles.bookingBtns}>
-                  <Pressable onPress={() => updateBookingStatus(b.id, "confirmed")} style={styles.confirmBtn}>
+                  <Button3D onPress={() => updateBookingStatus(b.id, "confirmed")} faceStyle={styles.confirmBtn}>
                     <Ionicons name="checkmark" size={17} color="#fff" />
-                  </Pressable>
-                  <Pressable onPress={() => updateBookingStatus(b.id, "cancelled")} style={styles.rejectBtn}>
+                  </Button3D>
+                  <Button3D onPress={() => updateBookingStatus(b.id, "cancelled")} faceStyle={styles.rejectBtn}>
                     <Ionicons name="close" size={17} color="#fff" />
-                  </Pressable>
+                  </Button3D>
                 </View>
               </View>
             ))}
@@ -647,9 +648,9 @@ export default function DashboardScreen() {
               <Ionicons name="cube-outline" size={44} color={C.textTertiary} />
               <Text style={styles.emptyTitle}>No listings yet</Text>
               <Text style={styles.emptyText}>Create your first listing to start earning</Text>
-              <Pressable onPress={() => router.push("/add-listing")} style={styles.createBtn}>
+              <Button3D onPress={() => router.push("/add-listing")} faceStyle={styles.createBtn}>
                 <Text style={styles.createBtnText}>+ Create Listing</Text>
-              </Pressable>
+              </Button3D>
             </View>
           ) : (
             listings.map((l) => (
@@ -672,21 +673,21 @@ export default function DashboardScreen() {
                   </View>
                 </View>
                 <View style={styles.listingActions}>
-                  <Pressable
+                  <Button3D
                     onPress={() => router.push({ pathname: "/listing/[id]", params: { id: l.id } })}
-                    style={styles.iconBtn}
+                    faceStyle={styles.iconBtn}
                   >
                     <Ionicons name="eye-outline" size={17} color={ORANGE} />
-                  </Pressable>
-                  <Pressable
+                  </Button3D>
+                  <Button3D
                     onPress={() => router.push({ pathname: "/edit-listing", params: { id: l.id } })}
-                    style={styles.iconBtn}
+                    faceStyle={styles.iconBtn}
                   >
                     <Ionicons name="create-outline" size={17} color="#3B82F6" />
-                  </Pressable>
-                  <Pressable onPress={() => deleteListing(l.id)} style={styles.iconBtn}>
+                  </Button3D>
+                  <Button3D onPress={() => deleteListing(l.id)} faceStyle={styles.iconBtn}>
                     <Ionicons name="trash-outline" size={17} color={C.error} />
-                  </Pressable>
+                  </Button3D>
                 </View>
               </View>
             ))

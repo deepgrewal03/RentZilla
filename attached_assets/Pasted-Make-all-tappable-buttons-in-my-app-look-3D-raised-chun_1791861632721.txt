@@ -1,0 +1,28 @@
+Make all tappable buttons in my app look 3D (raised, chunky) and press down when tapped. Do NOT change any colors, fonts, text, layout, spacing, navigation or app logic. Only change the button styling and press behavior.
+
+1) Create one reusable component: components/Button3D.tsx
+- Built with Pressable (react-native), no new heavy libraries. Use react-native-reanimated only if it is already installed; otherwise use the built-in Animated API.
+- Props: children, onPress, color (face color), edgeColor (darker bottom edge), radius (default 22), depth (default 4), disabled, style, accessibilityLabel.
+- Structure: an outer View with the bottom edge (a darker copy of the button offset down by `depth`), and an inner face View on top. Add a soft drop shadow under the whole button.
+- Face: slightly lighter at the top (use expo-linear-gradient if installed, otherwise a flat color plus a 1px white-ish top border at about 40% opacity for the highlight).
+- On press in: move the face down by `depth - 1` px (translateY) so the edge nearly disappears, and reduce the shadow. On press out: spring back smoothly (about 80-120 ms).
+- Light haptic feedback on press with expo-haptics (only if installed; wrap in try/catch so it never crashes).
+- Disabled state: reduce opacity to 0.5 and remove the press animation.
+- Minimum touch target 44x44. Keep the existing label font, size and weight.
+- The bottom edge and the shadow must not shift the surrounding layout (reserve `depth` px of space below the button).
+- Add iOS shadow (shadowColor, shadowOffset, shadowOpacity, shadowRadius) and Android elevation so it looks good on both platforms.
+
+2) Apply Button3D to these existing buttons, keeping their current colors as the face color:
+- Gold banner "Unlock" button: face #BCA032, edge #8C7517
+- Orange banner "Share" button: face is a translucent white (rgba(255,255,255,0.3)), edge #C65F16
+- Header circle buttons (menu, bell) and the Punjabi language pill: translucent white face, edge #C65F16
+- Search bar mic button: face #FDF0E6, edge #E9B993
+- Heart (favourite) button on rental cards: face white, edge #D2D6DF
+- Category tiles (Equipment and Services): keep each tile's current pastel background as the face, use a slightly darker shade of the same color as the edge, and use depth 3 for tiles
+- Primary action buttons everywhere else (Sign In, Continue, Book Now, Pay, Add Listing, Accept/Decline, etc.): keep their current color as the face and use a 15-20% darker shade of it as the edge
+
+3) Rules
+- Keep every button's existing onPress logic exactly as it is.
+- Do not touch the bottom tab bar except to leave it as is.
+- Make sure nothing gets clipped (check parents for overflow: 'hidden') and that the iOS and Android builds both still work.
+- Test on the Home screen and Login screen, then tell me which files you changed.

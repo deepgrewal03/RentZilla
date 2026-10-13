@@ -1,3 +1,4 @@
+import Button3D from "@/components/Button3D";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
@@ -140,15 +141,15 @@ export default function ReferralScreen() {
           <Text style={ss.cardLabel}>Your Referral Code</Text>
           <View style={ss.codeRow}>
             <Text style={ss.code}>{status?.referralCode ?? "———"}</Text>
-            <Pressable onPress={copyCode} style={ss.copyBtn}>
+            <Button3D onPress={copyCode} faceStyle={ss.copyBtn}>
               <Ionicons name="copy-outline" size={20} color={ORANGE} />
               <Text style={ss.copyText}>Copy</Text>
-            </Pressable>
+            </Button3D>
           </View>
-          <Pressable onPress={shareWhatsApp} style={ss.shareBtn}>
+          <Button3D onPress={shareWhatsApp} faceStyle={ss.shareBtn}>
             <Ionicons name="share-social-outline" size={20} color="#fff" />
             <Text style={ss.shareBtnText}>Share via WhatsApp / SMS</Text>
-          </Pressable>
+          </Button3D>
         </View>
 
         {/* Progress */}
@@ -223,15 +224,15 @@ export default function ReferralScreen() {
                 autoCapitalize="characters"
                 returnKeyType="done"
               />
-              <Pressable
+              <Button3D
                 onPress={handleApplyCode}
                 disabled={applying || !applyCode.trim()}
-                style={[ss.applyBtn, (!applyCode.trim() || applying) && { opacity: 0.5 }]}
+                faceStyle={[ss.applyBtn, (!applyCode.trim() || applying) && { opacity: 0.5 }]}
               >
                 {applying
                   ? <ActivityIndicator color="#fff" size="small" />
                   : <Text style={ss.applyBtnText}>Apply</Text>}
-              </Pressable>
+              </Button3D>
             </View>
           </View>
         )}

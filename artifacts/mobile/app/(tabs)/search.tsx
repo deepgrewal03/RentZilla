@@ -1,3 +1,4 @@
+import Button3D from "@/components/Button3D";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
@@ -365,12 +366,12 @@ export default function SearchScreen() {
               </Pressable>
             )}
           </View>
-          <Pressable
+          <Button3D
             onPress={() => { setShowFilters(!showFilters); }}
-            style={[styles.filterBtn, showFilters && styles.filterBtnActive]}
+            faceStyle={[styles.filterBtn, showFilters && styles.filterBtnActive]}
           >
             <Ionicons name="options-outline" size={18} color={showFilters ? "#fff" : C.text} />
-          </Pressable>
+          </Button3D>
         </View>
 
         {/* Filters panel */}
@@ -401,12 +402,12 @@ export default function SearchScreen() {
                   placeholderTextColor={C.textTertiary}
                 />
               </View>
-              <Pressable
+              <Button3D
                 onPress={() => { setMinPrice(""); setMaxPrice(""); setMinRating(null); }}
-                style={styles.resetBtn}
+                faceStyle={styles.resetBtn}
               >
                 <Text style={styles.resetBtnText}>Reset</Text>
-              </Pressable>
+              </Button3D>
             </View>
             {/* Rating Filter */}
             <View style={styles.ratingFilterRow}>

@@ -1,3 +1,4 @@
+import Button3D from "@/components/Button3D";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
@@ -419,9 +420,9 @@ export default function ProfileScreen() {
                 placeholder="Your full name"
                 placeholderTextColor={C.textTertiary}
               />
-              <Pressable onPress={saveProfile} disabled={saving} style={styles.saveBtn}>
+              <Button3D onPress={saveProfile} disabled={saving} faceStyle={styles.saveBtn}>
                 <Text style={styles.saveBtnText}>{saving ? "Saving..." : "Save Changes"}</Text>
-              </Pressable>
+              </Button3D>
             </View>
           ) : (
             <>
@@ -434,10 +435,10 @@ export default function ProfileScreen() {
                   <Ionicons name="pencil" size={11} color={C.textTertiary} />
                 </Pressable>
               ) : (
-                <Pressable onPress={() => { setManualLocation(""); setShowLocationModal(true); }} style={styles.addLocationBtn}>
+                <Button3D onPress={() => { setManualLocation(""); setShowLocationModal(true); }} faceStyle={styles.addLocationBtn}>
                   <Ionicons name="location-outline" size={14} color={ORANGE} />
                   <Text style={styles.addLocationText}>Add your location</Text>
-                </Pressable>
+                </Button3D>
               )}
               <View style={styles.roleBadge}>
                 <Ionicons name={user.role === "provider" ? "storefront-outline" : "search-outline"} size={13} color={C.tint} />
@@ -518,7 +519,7 @@ export default function ProfileScreen() {
             <Text style={styles.sheetSubtitle}>Choose how to update your photo</Text>
 
             {!isWeb && (
-              <Pressable onPress={takePhoto} style={styles.sheetBtn}>
+              <Button3D onPress={takePhoto} faceStyle={styles.sheetBtn}>
                 <View style={[styles.sheetBtnIcon, { backgroundColor: "#F0FDF4" }]}>
                   <Ionicons name="camera-outline" size={22} color="#22C55E" />
                 </View>
@@ -527,10 +528,10 @@ export default function ProfileScreen() {
                   <Text style={styles.sheetBtnSub}>Use your device camera</Text>
                 </View>
                 <Ionicons name="chevron-forward" size={18} color={C.textTertiary} />
-              </Pressable>
+              </Button3D>
             )}
 
-            <Pressable onPress={pickPhotoFromGallery} style={styles.sheetBtn}>
+            <Button3D onPress={pickPhotoFromGallery} faceStyle={styles.sheetBtn}>
               <View style={[styles.sheetBtnIcon, { backgroundColor: "#EEF2FF" }]}>
                 <Ionicons name="images-outline" size={22} color="#6366F1" />
               </View>
@@ -539,10 +540,10 @@ export default function ProfileScreen() {
                 <Text style={styles.sheetBtnSub}>Pick an existing photo</Text>
               </View>
               <Ionicons name="chevron-forward" size={18} color={C.textTertiary} />
-            </Pressable>
+            </Button3D>
 
             {(user.profileImage || previewUri) && (
-              <Pressable onPress={removePhoto} style={styles.sheetBtn}>
+              <Button3D onPress={removePhoto} faceStyle={styles.sheetBtn}>
                 <View style={[styles.sheetBtnIcon, { backgroundColor: "#FEF2F2" }]}>
                   <Ionicons name="trash-outline" size={22} color="#EF4444" />
                 </View>
@@ -550,12 +551,12 @@ export default function ProfileScreen() {
                   <Text style={[styles.sheetBtnLabel, { color: "#EF4444" }]}>Remove Photo</Text>
                   <Text style={styles.sheetBtnSub}>Revert to initials</Text>
                 </View>
-              </Pressable>
+              </Button3D>
             )}
 
-            <Pressable onPress={() => setShowPhotoMenu(false)} style={[styles.sheetBtn, styles.sheetCancelBtn]}>
+            <Button3D onPress={() => setShowPhotoMenu(false)} faceStyle={[styles.sheetBtn, styles.sheetCancelBtn]}>
               <Text style={styles.sheetCancelText}>❌  Cancel</Text>
-            </Pressable>
+            </Button3D>
           </Pressable>
         </Pressable>
       </Modal>
@@ -575,10 +576,10 @@ export default function ProfileScreen() {
 
             {/* GPS button */}
             {!isWeb && (
-              <Pressable
+              <Button3D
                 onPress={useGpsLocation}
                 disabled={gpsLoading}
-                style={({ pressed }) => [styles.gpsBtn, pressed && { opacity: 0.8 }]}
+                faceStyle={({ pressed }) => [styles.gpsBtn, pressed && { opacity: 0.8 }]}
               >
                 <LinearGradient
                   colors={["#0EA5E9", "#0284C7"]}
@@ -594,7 +595,7 @@ export default function ProfileScreen() {
                     {gpsLoading ? "Detecting location..." : "Use My Current Location"}
                   </Text>
                 </LinearGradient>
-              </Pressable>
+              </Button3D>
             )}
 
             <View style={styles.orRow}>
@@ -621,10 +622,10 @@ export default function ProfileScreen() {
               )}
             </View>
 
-            <Pressable
+            <Button3D
               onPress={saveLocation}
               disabled={locationSaving || !manualLocation.trim()}
-              style={[styles.saveLocationBtn, (!manualLocation.trim() || locationSaving) && { opacity: 0.5 }]}
+              faceStyle={[styles.saveLocationBtn, (!manualLocation.trim() || locationSaving) && { opacity: 0.5 }]}
             >
               <LinearGradient
                 colors={["#FF7A18", "#FF9F43"]}
@@ -640,11 +641,11 @@ export default function ProfileScreen() {
                   {locationSaving ? "Saving..." : "Save Location"}
                 </Text>
               </LinearGradient>
-            </Pressable>
+            </Button3D>
 
-            <Pressable onPress={() => setShowLocationModal(false)} style={styles.cancelLocationBtn}>
+            <Button3D onPress={() => setShowLocationModal(false)} faceStyle={styles.cancelLocationBtn}>
               <Text style={styles.sheetCancelText}>Cancel</Text>
-            </Pressable>
+            </Button3D>
           </Pressable>
         </Pressable>
       </Modal>

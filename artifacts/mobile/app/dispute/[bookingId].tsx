@@ -1,3 +1,4 @@
+import Button3D from "@/components/Button3D";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams } from "expo-router";
@@ -146,14 +147,14 @@ function OpenDisputeForm({ bookingId, onSuccess }: { bookingId: string; onSucces
               </Pressable>
             ))}
           </View>
-          <Pressable
-            style={[styles.nextBtn, !reason && { opacity: 0.4 }]}
+          <Button3D
+            faceStyle={[styles.nextBtn, !reason && { opacity: 0.4 }]}
             onPress={() => reason && setStep(2)}
             disabled={!reason}
           >
             <Text style={styles.nextBtnText}>Next: Describe Issue</Text>
             <Ionicons name="arrow-forward" size={18} color="#fff" />
-          </Pressable>
+          </Button3D>
         </>
       ) : (
         <>
@@ -183,7 +184,7 @@ function OpenDisputeForm({ bookingId, onSuccess }: { bookingId: string; onSucces
             <Ionicons name="information-circle-outline" size={16} color="#2563EB" />
             <Text style={styles.noteText}>Our team reviews disputes within 48 hours. Both parties can add messages to the thread.</Text>
           </View>
-          <Pressable style={[styles.submitBtn, submitting && { opacity: 0.6 }]} onPress={submit} disabled={submitting}>
+          <Button3D faceStyle={[styles.submitBtn, submitting && { opacity: 0.6 }]} onPress={submit} disabled={submitting}>
             {submitting ? (
               <ActivityIndicator color="#fff" size="small" />
             ) : (
@@ -192,7 +193,7 @@ function OpenDisputeForm({ bookingId, onSuccess }: { bookingId: string; onSucces
                 <Text style={styles.submitBtnText}>File Dispute</Text>
               </>
             )}
-          </Pressable>
+          </Button3D>
         </>
       )}
     </ScrollView>
@@ -400,8 +401,8 @@ export default function DisputeScreen() {
                 maxLength={500}
                 returnKeyType="default"
               />
-              <Pressable
-                style={[styles.sendBtn, (!newMsg.trim() || sending) && { opacity: 0.4 }]}
+              <Button3D
+                faceStyle={[styles.sendBtn, (!newMsg.trim() || sending) && { opacity: 0.4 }]}
                 onPress={sendMessage}
                 disabled={!newMsg.trim() || sending}
               >
@@ -410,7 +411,7 @@ export default function DisputeScreen() {
                 ) : (
                   <Ionicons name="send" size={18} color="#fff" />
                 )}
-              </Pressable>
+              </Button3D>
             </View>
           ) : (
             <View style={[styles.closedBar, { paddingBottom: Math.max(insets.bottom, 12) }]}>

@@ -1,3 +1,4 @@
+import Button3D from "@/components/Button3D";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
@@ -693,9 +694,9 @@ export default function SignUpScreen() {
       </Modal>
 
       {/* Language toggle */}
-      <Pressable onPress={toggleLanguage} style={[styles.langToggle, { top: topPad + 12 }]}>
+      <Button3D onPress={toggleLanguage} faceStyle={[styles.langToggle, { top: topPad + 12 }]}>
         <Text style={styles.langToggleText}>{language === "en" ? "ਪੰਜਾਬੀ" : "EN"}</Text>
-      </Pressable>
+      </Button3D>
 
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1 }}>
         <ScrollView
@@ -766,11 +767,11 @@ export default function SignUpScreen() {
             <View style={styles.fieldGroup}>
               <Text style={styles.fieldLabel}>{t.mobileNumber} <Text style={styles.optional}>({t.optional})</Text></Text>
               <View style={[styles.iconInput, errors.mobile && styles.inputError, { paddingHorizontal: 0 }]}>
-                <Pressable onPress={() => setShowCountryPicker(true)} style={styles.countryBtn}>
+                <Button3D onPress={() => setShowCountryPicker(true)} faceStyle={styles.countryBtn}>
                   <Text style={styles.countryFlag}>{selectedCountry.flag}</Text>
                   <Text style={styles.countryCode}>{selectedCountry.code}</Text>
                   <Ionicons name="chevron-down" size={13} color={C.textTertiary} />
-                </Pressable>
+                </Button3D>
                 <View style={styles.countryDivider} />
                 <TextInput
                   style={[styles.iconInputText, { paddingHorizontal: 10 }]}
@@ -942,14 +943,14 @@ export default function SignUpScreen() {
             <View style={styles.fieldGroup}>
               <Text style={styles.fieldLabel}>{t.iWantTo}</Text>
               <View style={styles.roleRow}>
-                <Pressable onPress={() => { Haptics.selectionAsync(); setRole("customer"); }} style={[styles.roleBtn, role === "customer" && styles.roleBtnActive]}>
+                <Button3D onPress={() => { Haptics.selectionAsync(); setRole("customer"); }} faceStyle={[styles.roleBtn, role === "customer" && styles.roleBtnActive]}>
                   <Ionicons name="search-outline" size={17} color={role === "customer" ? "#fff" : C.text} />
                   <Text style={[styles.roleBtnText, role === "customer" && styles.roleBtnTextActive]}>{t.rentThings}</Text>
-                </Pressable>
-                <Pressable onPress={() => { Haptics.selectionAsync(); setRole("provider"); }} style={[styles.roleBtn, role === "provider" && styles.roleBtnActive]}>
+                </Button3D>
+                <Button3D onPress={() => { Haptics.selectionAsync(); setRole("provider"); }} faceStyle={[styles.roleBtn, role === "provider" && styles.roleBtnActive]}>
                   <Ionicons name="storefront-outline" size={17} color={role === "provider" ? "#fff" : C.text} />
                   <Text style={[styles.roleBtnText, role === "provider" && styles.roleBtnTextActive]}>{t.listAndEarn}</Text>
-                </Pressable>
+                </Button3D>
               </View>
             </View>
 
@@ -982,10 +983,10 @@ export default function SignUpScreen() {
             {errors.terms ? <Text style={styles.fieldError}>{errors.terms}</Text> : null}
 
             {/* Submit */}
-            <Pressable
+            <Button3D
               onPress={handleRegister}
               disabled={loading}
-              style={({ pressed }) => [styles.signUpBtn, { opacity: pressed || loading ? 0.8 : 1 }]}
+              faceStyle={({ pressed }) => [styles.signUpBtn, { opacity: pressed || loading ? 0.8 : 1 }]}
             >
               {loading ? <ActivityIndicator color="#fff" /> : (
                 <>
@@ -993,7 +994,7 @@ export default function SignUpScreen() {
                   <Ionicons name="arrow-forward" size={20} color="#fff" />
                 </>
               )}
-            </Pressable>
+            </Button3D>
 
             <View style={styles.switchRow}>
               <Text style={styles.switchText}>{t.alreadyHaveAccount} </Text>

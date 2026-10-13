@@ -1,3 +1,4 @@
+import Button3D from "@/components/Button3D";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
@@ -290,20 +291,20 @@ export default function BecomeProviderScreen() {
             <View style={styles.channelCard}>
               <Text style={styles.channelLabel}>Receive OTP via</Text>
               <View style={styles.channelRow}>
-                <Pressable
+                <Button3D
                   onPress={() => { setOtpChannel("sms"); Haptics.selectionAsync(); }}
-                  style={[styles.channelBtn, otpChannel === "sms" && styles.channelBtnActive]}
+                  faceStyle={[styles.channelBtn, otpChannel === "sms" && styles.channelBtnActive]}
                 >
                   <Ionicons name="chatbubble-outline" size={18} color={otpChannel === "sms" ? "#fff" : TINT} />
                   <Text style={[styles.channelBtnText, otpChannel === "sms" && styles.channelBtnTextActive]}>SMS</Text>
-                </Pressable>
-                <Pressable
+                </Button3D>
+                <Button3D
                   onPress={() => { setOtpChannel("whatsapp"); Haptics.selectionAsync(); }}
-                  style={[styles.channelBtn, otpChannel === "whatsapp" && styles.channelBtnActive]}
+                  faceStyle={[styles.channelBtn, otpChannel === "whatsapp" && styles.channelBtnActive]}
                 >
                   <Ionicons name="logo-whatsapp" size={18} color={otpChannel === "whatsapp" ? "#fff" : "#25D366"} />
                   <Text style={[styles.channelBtnText, otpChannel === "whatsapp" && styles.channelBtnTextActive]}>WhatsApp</Text>
-                </Pressable>
+                </Button3D>
               </View>
               <Text style={styles.channelNote}>
                 {otpChannel === "whatsapp"
@@ -312,14 +313,14 @@ export default function BecomeProviderScreen() {
               </Text>
             </View>
 
-            <Pressable onPress={sendOtp} disabled={sending} style={styles.primaryBtn}>
+            <Button3D onPress={sendOtp} disabled={sending} faceStyle={styles.primaryBtn}>
               {sending ? <ActivityIndicator color="#fff" /> : (
                 <>
                   <Ionicons name="shield-checkmark-outline" size={20} color="#fff" />
                   <Text style={styles.primaryBtnText}>Send Verification Code</Text>
                 </>
               )}
-            </Pressable>
+            </Button3D>
           </View>
         )}
 
@@ -350,20 +351,20 @@ export default function BecomeProviderScreen() {
               textAlign="center"
             />
 
-            <Pressable onPress={verifyOtp} disabled={verifying || otp.length !== 6} style={[styles.primaryBtn, otp.length !== 6 && styles.btnDisabled]}>
+            <Button3D onPress={verifyOtp} disabled={verifying || otp.length !== 6} faceStyle={[styles.primaryBtn, otp.length !== 6 && styles.btnDisabled]}>
               {verifying ? <ActivityIndicator color="#fff" /> : (
                 <>
                   <Ionicons name="checkmark-circle-outline" size={20} color="#fff" />
                   <Text style={styles.primaryBtnText}>Verify Code</Text>
                 </>
               )}
-            </Pressable>
+            </Button3D>
 
-            <Pressable onPress={otpTimer > 0 ? undefined : sendOtp} disabled={otpTimer > 0 || sending} style={styles.resendBtn}>
+            <Button3D onPress={otpTimer > 0 ? undefined : sendOtp} disabled={otpTimer > 0 || sending} faceStyle={styles.resendBtn}>
               <Text style={[styles.resendText, otpTimer > 0 && { color: C.textTertiary }]}>
                 {otpTimer > 0 ? `Resend in ${otpTimer}s` : "Resend code"}
               </Text>
-            </Pressable>
+            </Button3D>
           </View>
         )}
 
@@ -424,14 +425,14 @@ export default function BecomeProviderScreen() {
               </View>
             )}
 
-            <Pressable
+            <Button3D
               onPress={proceedToForm}
               disabled={!providerType || !subtype}
-              style={[styles.primaryBtn, (!providerType || !subtype) && styles.btnDisabled]}
+              faceStyle={[styles.primaryBtn, (!providerType || !subtype) && styles.btnDisabled]}
             >
               <Ionicons name="arrow-forward-circle-outline" size={20} color="#fff" />
               <Text style={styles.primaryBtnText}>Continue</Text>
-            </Pressable>
+            </Button3D>
           </View>
         )}
 
@@ -495,14 +496,14 @@ export default function BecomeProviderScreen() {
               <Text style={styles.approvalText}>Your application will be reviewed within 24 hours. We'll notify you once approved.</Text>
             </View>
 
-            <Pressable onPress={submitForm} disabled={submitting} style={styles.primaryBtn}>
+            <Button3D onPress={submitForm} disabled={submitting} faceStyle={styles.primaryBtn}>
               {submitting ? <ActivityIndicator color="#fff" /> : (
                 <>
                   <Ionicons name="checkmark-done-outline" size={20} color="#fff" />
                   <Text style={styles.primaryBtnText}>Submit Application</Text>
                 </>
               )}
-            </Pressable>
+            </Button3D>
           </View>
         )}
 
@@ -543,10 +544,10 @@ export default function BecomeProviderScreen() {
               ))}
             </View>
 
-            <Pressable onPress={() => router.replace("/(tabs)/dashboard")} style={styles.primaryBtn}>
+            <Button3D onPress={() => router.replace("/(tabs)/dashboard")} faceStyle={styles.primaryBtn}>
               <Ionicons name="grid-outline" size={20} color="#fff" />
               <Text style={styles.primaryBtnText}>Go to My Dashboard</Text>
-            </Pressable>
+            </Button3D>
           </View>
         )}
 

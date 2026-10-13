@@ -1,3 +1,4 @@
+import Button3D from "@/components/Button3D";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useFocusEffect } from "expo-router";
@@ -349,15 +350,15 @@ export default function ProviderWalletTab() {
             )}
 
             <View style={s.modalActions}>
-              <Pressable style={s.cancelBtn} onPress={() => { setShowPayoutModal(false); setSelectedMethod(null); setAdHocUpi(""); }}>
+              <Button3D faceStyle={s.cancelBtn} onPress={() => { setShowPayoutModal(false); setSelectedMethod(null); setAdHocUpi(""); }}>
                 <Text style={s.cancelText}>Cancel</Text>
-              </Pressable>
-              <Pressable style={[s.payoutConfirmBtn, payingOut && { opacity: 0.6 }]}
+              </Button3D>
+              <Button3D faceStyle={[s.payoutConfirmBtn, payingOut && { opacity: 0.6 }]}
                 onPress={handleInstantPayout} disabled={payingOut}>
                 {payingOut
                   ? <ActivityIndicator color="#fff" size="small" />
                   : <><Ionicons name="flash" size={16} color="#fff" /><Text style={s.payoutConfirmText}>Confirm Payout</Text></>}
-              </Pressable>
+              </Button3D>
             </View>
           </View>
         </View>
@@ -391,18 +392,18 @@ export default function ProviderWalletTab() {
 
         {/* Payout action buttons */}
         <View style={s.actionRow}>
-          <Pressable style={s.actionBtn}
+          <Button3D faceStyle={s.actionBtn}
             onPress={() => { setSelectedMethod(defaultMethod); setShowPayoutModal(true); }}>
             <Ionicons name="flash-outline" size={18} color="#fff" />
             <Text style={s.actionBtnText}>Instant{"\n"}Payout</Text>
-          </Pressable>
+          </Button3D>
           <View style={s.actionDivider} />
-          <Pressable style={s.actionBtn} onPress={() => setShowAddMethod(v => !v)}>
+          <Button3D faceStyle={s.actionBtn} onPress={() => setShowAddMethod(v => !v)}>
             <Ionicons name="card-outline" size={18} color="#fff" />
             <Text style={s.actionBtnText}>Payment{"\n"}Methods</Text>
-          </Pressable>
+          </Button3D>
           <View style={s.actionDivider} />
-          <Pressable style={s.actionBtn}
+          <Button3D faceStyle={s.actionBtn}
             onPress={() => handleSavePref(currentPref === "weekly" ? "wallet" : "weekly")}>
             {savingPref
               ? <ActivityIndicator color="#fff" size="small" />
@@ -410,7 +411,7 @@ export default function ProviderWalletTab() {
             <Text style={s.actionBtnText}>
               {currentPref === "weekly" ? "Weekly\nAuto ✓" : "Weekly\nAuto"}
             </Text>
-          </Pressable>
+          </Button3D>
         </View>
 
         {/* Monday payout banner */}
@@ -522,15 +523,15 @@ export default function ProviderWalletTab() {
                   </View>
 
                   <View style={s.sheetActions}>
-                    <Pressable style={s.cancelBtn} onPress={() => { setShowAddMethod(false); resetAddForm(); }}>
+                    <Button3D faceStyle={s.cancelBtn} onPress={() => { setShowAddMethod(false); resetAddForm(); }}>
                       <Text style={s.cancelText}>Cancel</Text>
-                    </Pressable>
-                    <Pressable style={[s.confirmBtn, addingMethod && { opacity: 0.6 }]}
+                    </Button3D>
+                    <Button3D faceStyle={[s.confirmBtn, addingMethod && { opacity: 0.6 }]}
                       onPress={handleAddMethod} disabled={addingMethod}>
                       {addingMethod
                         ? <ActivityIndicator color="#fff" size="small" />
                         : <><Ionicons name="shield-checkmark" size={14} color="#fff" /><Text style={s.confirmText}>Save Securely</Text></>}
-                    </Pressable>
+                    </Button3D>
                   </View>
                 </View>
               )}

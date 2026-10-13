@@ -1,3 +1,4 @@
+import Button3D from "@/components/Button3D";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
@@ -386,8 +387,8 @@ export default function ProviderWalletScreen() {
 
             {/* ── Quick Actions ── */}
             <View style={s.quickRow}>
-              <Pressable
-                style={[s.quickBtn, { borderColor: ORANGE }]}
+              <Button3D
+                faceStyle={[s.quickBtn, { borderColor: ORANGE }]}
                 onPress={() => setShowPayoutModal(true)}
               >
                 <LinearGradient colors={[ORANGE, ORANGE2]} style={s.quickGrad} start={{x:0,y:0}} end={{x:1,y:0}}>
@@ -397,9 +398,9 @@ export default function ProviderWalletScreen() {
                     <Text style={s.quickBtnSub}>₹5 instant fee</Text>
                   </View>
                 </LinearGradient>
-              </Pressable>
-              <Pressable
-                style={[s.quickBtn, { borderColor: GREEN }]}
+              </Button3D>
+              <Button3D
+                faceStyle={[s.quickBtn, { borderColor: GREEN }]}
                 onPress={() => setShowAddMethod(v => !v)}
               >
                 <LinearGradient colors={["#16A34A","#22C55E"]} style={s.quickGrad} start={{x:0,y:0}} end={{x:1,y:0}}>
@@ -409,7 +410,7 @@ export default function ProviderWalletScreen() {
                     <Text style={s.quickBtnSub}>Bank / UPI / Card</Text>
                   </View>
                 </LinearGradient>
-              </Pressable>
+              </Button3D>
             </View>
 
             {/* ── Saved Payout Methods ── */}
@@ -476,17 +477,17 @@ export default function ProviderWalletScreen() {
                   <Text style={s.secNoteText}>AES-256-GCM encrypted · Numbers never shown again</Text>
                 </View>
                 <View style={{ flexDirection:"row", gap:10, marginTop:14 }}>
-                  <Pressable style={s.cancelBtn} onPress={() => setShowAddMethod(false)}>
+                  <Button3D faceStyle={s.cancelBtn} onPress={() => setShowAddMethod(false)}>
                     <Text style={s.cancelBtnText}>Cancel</Text>
-                  </Pressable>
-                  <Pressable style={[s.saveBtn, addingMethod && { opacity: 0.6 }]} onPress={handleAddMethod} disabled={addingMethod}>
+                  </Button3D>
+                  <Button3D faceStyle={[s.saveBtn, addingMethod && { opacity: 0.6 }]} onPress={handleAddMethod} disabled={addingMethod}>
                     {addingMethod ? <ActivityIndicator color="#fff" size="small" /> : (
                       <>
                         <Ionicons name="shield-checkmark" size={14} color="#fff" />
                         <Text style={s.saveBtnText}>Save Securely</Text>
                       </>
                     )}
-                  </Pressable>
+                  </Button3D>
                 </View>
               </View>
             )}
@@ -645,12 +646,12 @@ export default function ProviderWalletScreen() {
                   placeholderTextColor={C.textTertiary}
                   keyboardType="decimal-pad"
                 />
-                <Pressable
-                  style={s.maxBtn}
+                <Button3D
+                  faceStyle={s.maxBtn}
                   onPress={() => setPayoutAmount(String(Math.max(0, w.balance - INSTANT_FEE)))}
                 >
                   <Text style={s.maxBtnText}>MAX</Text>
-                </Pressable>
+                </Button3D>
               </View>
 
               {/* Fee summary */}
@@ -671,8 +672,8 @@ export default function ProviderWalletScreen() {
                 </View>
               )}
 
-              <Pressable
-                style={[s.payBtn, payingOut && { opacity:0.6 }]}
+              <Button3D
+                faceStyle={[s.payBtn, payingOut && { opacity:0.6 }]}
                 onPress={handleInstantPayout}
                 disabled={payingOut}
               >
@@ -684,7 +685,7 @@ export default function ProviderWalletScreen() {
                     </>
                   )}
                 </LinearGradient>
-              </Pressable>
+              </Button3D>
 
               <Pressable onPress={() => setShowPayoutModal(false)} style={{ marginTop: 12, alignItems:"center" }}>
                 <Text style={{ color: C.textSecondary, fontFamily:"Inter_400Regular", fontSize:14 }}>Cancel</Text>

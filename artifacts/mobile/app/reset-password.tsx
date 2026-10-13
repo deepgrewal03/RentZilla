@@ -1,3 +1,4 @@
+import Button3D from "@/components/Button3D";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
@@ -99,9 +100,9 @@ export default function ResetPasswordScreen() {
           <Text style={styles.doneMsg}>
             Your password has been updated. You can now sign in with your new password.
           </Text>
-          <Pressable onPress={() => router.replace("/sign-in")} style={styles.doneBtn}>
+          <Button3D onPress={() => router.replace("/sign-in")} faceStyle={styles.doneBtn}>
             <Text style={styles.doneBtnText}>Back to Sign In</Text>
-          </Pressable>
+          </Button3D>
         </View>
       </View>
     );
@@ -200,10 +201,10 @@ export default function ResetPasswordScreen() {
             {!!info  && <Text style={styles.infoText}>{info}</Text>}
             {!!error && <Text style={styles.errorText}>{error}</Text>}
 
-            <Pressable
+            <Button3D
               onPress={handleReset}
               disabled={loading}
-              style={({ pressed }) => [styles.resetBtn, { opacity: pressed || loading ? 0.8 : 1 }]}
+              faceStyle={({ pressed }) => [styles.resetBtn, { opacity: pressed || loading ? 0.8 : 1 }]}
             >
               {loading ? (
                 <ActivityIndicator color="#fff" />
@@ -213,7 +214,7 @@ export default function ResetPasswordScreen() {
                   <Ionicons name="checkmark-circle-outline" size={20} color="#fff" />
                 </>
               )}
-            </Pressable>
+            </Button3D>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
