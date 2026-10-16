@@ -209,3 +209,7 @@ All 30 mobile-facing endpoints returning correctly (no 500s) — full test log i
 
 ### Build Command
 `eas build --platform android --profile production`
+
+### Repeatable Release Validation
+Run `pnpm release:check` from the repository root before release review.
+See [docs/release-checks.md](docs/release-checks.md) for checks, requirements, and output locations.
