@@ -61,7 +61,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     ...config,
     name: "RentZilla",
     slug: "rentzilla",
-    version: "24",
+    version: "27",
     orientation: "portrait",
     icon: "./assets/images/icon.png",
     scheme: "rentzilla",
@@ -81,7 +81,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     ios: {
       supportsTablet: false,
       bundleIdentifier: "com.rentzilla.app",
-      buildNumber: "30",
+      buildNumber: "31",
       usesAppleSignIn: true,
       infoPlist: {
         NSCameraUsageDescription:
@@ -99,7 +99,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     },
     android: {
       package: "com.rentzillaapp.app",
-      versionCode: 30,
+      versionCode: 31,
       softwareKeyboardLayoutMode: "resize",
       adaptiveIcon: {
         foregroundImage: "./assets/images/icon.png",

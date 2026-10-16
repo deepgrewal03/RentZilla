@@ -1,5 +1,6 @@
 {
   "expo": {
+    "version": "27",
     "extra": {
       "eas": {
         "projectId": "975587e1-7c61-42ae-8995-b1c34641c478"
@@ -7,9 +8,10 @@
     },
     "android": {
       "package": "com.rentzillaapp.app",
-      "versionCode": 30
+      "versionCode": 31
     },
     "ios": {
+      "buildNumber": "31",
       "bundleIdentifier": "com.rentzilla.workspace",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
