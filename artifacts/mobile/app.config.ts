@@ -99,7 +99,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     },
     android: {
       package: "com.rentzillaapp.app",
-      versionCode: 26,
+      versionCode: 30,
       softwareKeyboardLayoutMode: "resize",
       adaptiveIcon: {
         foregroundImage: "./assets/images/icon.png",

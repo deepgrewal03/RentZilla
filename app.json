@@ -7,7 +7,7 @@
     },
     "android": {
       "package": "com.rentzillaapp.app",
-      "versionCode": 26
+      "versionCode": 30
     },
     "ios": {
       "bundleIdentifier": "com.rentzilla.workspace",
