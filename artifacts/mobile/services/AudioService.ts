@@ -1,9 +1,9 @@
 /**
  * AudioService — centralised sound manager for RentZilla.
- * Uses expo-av under the hood.  All public methods are fire-and-forget and
+ * Uses expo-audio under the hood. All public methods are fire-and-forget and
  * NEVER throw — any failure is logged silently so the app keeps running.
  */
-import { Audio } from "expo-av";
+import { createAudioPlayer, setAudioModeAsync, type AudioPlayer } from "expo-audio";
 import { Platform } from "react-native";
 
 // ── Sound file map ──────────────────────────────────────────────────────────
@@ -40,23 +40,26 @@ let _ringtoneEnabled  = true;
 let _notifEnabled     = true;
 
 let _audioModeSet = false;
-let _ringtoneObj: Audio.Sound | null = null;
+let _ringtoneObj: AudioPlayer | null = null;
+let _ringtoneGeneration = 0;
+let _cacheGeneration = 0;
 let _startupPlayed = false;
 
-// Pre-loaded cache: key → Sound object
-const _cache: Partial<Record<SoundKey, Audio.Sound>> = {};
+// Keep at most one player per cue until unloadAll; expo-audio players do not
+// rewind automatically after finishing, so cached players must seek before replay.
+const _cache: Partial<Record<SoundKey, AudioPlayer>> = {};
 
 // ── Setup ───────────────────────────────────────────────────────────────────
 
 async function ensureAudioMode() {
   if (_audioModeSet) return;
   try {
-    await Audio.setAudioModeAsync({
-      allowsRecordingIOS:        false,
-      staysActiveInBackground:   false,
-      playsInSilentModeIOS:      false,  // respect iOS silent switch
-      shouldDuckAndroid:         true,
-      playThroughEarpieceAndroid: false,
+    await setAudioModeAsync({
+      allowsRecording: false,
+      shouldPlayInBackground: false,
+      playsInSilentMode: false, // respect iOS silent switch
+      interruptionMode: Platform.OS === "ios" ? "mixWithOthers" : "duckOthers",
+      shouldRouteThroughEarpiece: false,
     });
     _audioModeSet = true;
   } catch (e) {
@@ -68,19 +71,17 @@ async function ensureAudioMode() {
 
 /** Eagerly load the most-used sounds so first play has no latency. */
 export async function preloadCriticalSounds() {
+  const generation = _cacheGeneration;
   const critical: SoundKey[] = [
     "startup", "bookingSuccess", "notification", "walletCredit",
   ];
   await ensureAudioMode();
+  if (generation !== _cacheGeneration) return;
   await Promise.all(
     critical.map(async (key) => {
       try {
         if (_cache[key]) return;
-        const { sound } = await Audio.Sound.createAsync(SOUND_FILES[key], {
-          shouldPlay: false,
-          volume: 1,
-        });
-        _cache[key] = sound;
+        _cache[key] = createAudioPlayer(SOUND_FILES[key]);
       } catch (e) {
         console.warn(`[AudioService] preload ${key} failed:`, e);
       }
@@ -93,30 +94,23 @@ export async function preloadCriticalSounds() {
 async function _play(
   key: SoundKey,
   { volume = 1, loop = false }: { volume?: number; loop?: boolean } = {}
-): Promise<Audio.Sound | null> {
+): Promise<AudioPlayer | null> {
+  const generation = _cacheGeneration;
   try {
     await ensureAudioMode();
+    if (generation !== _cacheGeneration) return null;
     let sound = _cache[key];
     if (sound) {
-      await sound.setPositionAsync(0);
-      await sound.setVolumeAsync(volume);
-      await sound.setIsLoopingAsync(loop);
-      await sound.playAsync();
-      return sound;
+      await sound.seekTo(0);
+      if (generation !== _cacheGeneration) return null;
+    } else {
+      sound = createAudioPlayer(SOUND_FILES[key]);
+      _cache[key] = sound;
     }
-    const { sound: newSound } = await Audio.Sound.createAsync(
-      SOUND_FILES[key],
-      { shouldPlay: true, volume, isLooping: loop }
-    );
-    newSound.setOnPlaybackStatusUpdate((status) => {
-      if (!loop && status.isLoaded && status.didJustFinish) {
-        newSound.unloadAsync().catch(() => {});
-        if (_cache[key] !== newSound) return;
-        delete _cache[key];
-      }
-    });
-    _cache[key] = newSound;
-    return newSound;
+    sound.volume = volume;
+    sound.loop = loop;
+    sound.play();
+    return sound;
   } catch (e) {
     console.warn(`[AudioService] play ${key} failed:`, e);
     return null;
@@ -200,21 +194,25 @@ export async function playNotification() {
 /** Start the incoming-booking ringtone (loops until stopRingtone called). */
 export async function startRingtone() {
   if (!_masterEnabled || !_ringtoneEnabled) return;
-  await stopRingtone();
+  const stopping = stopRingtone();
+  const generation = _ringtoneGeneration;
+  await stopping;
   try {
-    await Audio.setAudioModeAsync({
-      allowsRecordingIOS:        false,
-      staysActiveInBackground:   true,
-      playsInSilentModeIOS:      true,   // ringtone overrides silent switch
-      shouldDuckAndroid:         false,
-      playThroughEarpieceAndroid: false,
+    if (generation !== _ringtoneGeneration) return;
+    await setAudioModeAsync({
+      allowsRecording: false,
+      shouldPlayInBackground: true,
+      playsInSilentMode: true, // ringtone overrides silent switch
+      interruptionMode: Platform.OS === "ios" ? "mixWithOthers" : "doNotMix",
+      shouldRouteThroughEarpiece: false,
     });
     _audioModeSet = false; // force reset next time
-    const { sound } = await Audio.Sound.createAsync(
-      SOUND_FILES["ringtone"],
-      { shouldPlay: true, isLooping: true, volume: 1 }
-    );
+    if (generation !== _ringtoneGeneration) return;
+    const sound = createAudioPlayer(SOUND_FILES.ringtone);
     _ringtoneObj = sound;
+    sound.loop = true;
+    sound.volume = 1;
+    sound.play();
   } catch (e) {
     console.warn("[AudioService] startRingtone failed:", e);
   }
@@ -222,13 +220,16 @@ export async function startRingtone() {
 
 /** Stop and clean up the incoming-booking ringtone. */
 export async function stopRingtone() {
-  if (!_ringtoneObj) return;
-  try {
-    await _ringtoneObj.stopAsync();
-    await _ringtoneObj.unloadAsync();
-  } catch { }
+  _ringtoneGeneration++;
+  const sound = _ringtoneObj;
   _ringtoneObj = null;
   _audioModeSet = false;
+  if (!sound) return;
+  try {
+    sound.remove();
+  } catch (e) {
+    console.warn("[AudioService] stopRingtone failed:", e);
+  }
 }
 
 /** Play any sound by key — useful for "Test Sound" button. */
@@ -238,11 +239,13 @@ export async function playTest(key: SoundKey) {
 
 /** Unload every cached sound (call on logout / app background). */
 export async function unloadAll() {
+  _cacheGeneration++;
   await stopRingtone();
-  await Promise.all(
-    Object.entries(_cache).map(async ([, s]) => {
-      try { await (s as Audio.Sound).unloadAsync(); } catch { }
-    })
-  );
-  for (const k in _cache) delete _cache[k as SoundKey];
+  for (const key of Object.keys(_cache) as SoundKey[]) {
+    const sound = _cache[key];
+    delete _cache[key];
+    try { sound?.remove(); } catch (e) {
+      console.warn(`[AudioService] unload ${key} failed:`, e);
+    }
+  }
 }

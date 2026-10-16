@@ -43,7 +43,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
         microphonePermission: false,
       },
     ],
-    ["expo-av", { microphonePermission: false }],
+    ["expo-audio", { microphonePermission: false, recordAudioAndroid: false }],
     [
       "expo-location",
       {
