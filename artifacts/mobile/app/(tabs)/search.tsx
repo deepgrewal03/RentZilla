@@ -457,7 +457,7 @@ export default function SearchScreen() {
         <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
 
             {/* Loading */}
-            {suggestionsLoading && query.trim() && (
+            {suggestionsLoading && !!query.trim() && (
               <View style={styles.dropLoadingRow}>
                 <ActivityIndicator size="small" color={ORANGE} />
                 <Text style={styles.dropLoadingText}>Searching...</Text>
@@ -531,7 +531,7 @@ export default function SearchScreen() {
             )}
 
             {/* No results message */}
-            {!suggestionsLoading && query.trim() && !hasSuggestions && (
+            {!suggestionsLoading && !!query.trim() && !hasSuggestions && (
               <View style={styles.noResultsRow}>
                 <Ionicons name="search-outline" size={20} color={C.textTertiary} />
                 <Text style={styles.noResultsText}>No suggestions for "{query}"</Text>
