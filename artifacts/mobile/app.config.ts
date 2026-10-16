@@ -81,7 +81,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     ios: {
       supportsTablet: false,
       bundleIdentifier: "com.rentzilla.app",
-      buildNumber: "20",
+      buildNumber: "30",
       usesAppleSignIn: true,
       infoPlist: {
         NSCameraUsageDescription:
