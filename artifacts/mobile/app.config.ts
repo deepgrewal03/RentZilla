@@ -10,6 +10,14 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     [
       "expo-build-properties",
       {
+        ios: {
+          // AppCheckCore imports these Objective-C dependencies from Swift.
+          // Generate module maps only for these pods, not all React Native pods.
+          extraPods: [
+            { name: "GoogleUtilities", modular_headers: true },
+            { name: "RecaptchaInterop", modular_headers: true },
+          ],
+        },
         android: {
           compileSdkVersion: 36,
           targetSdkVersion: 36,

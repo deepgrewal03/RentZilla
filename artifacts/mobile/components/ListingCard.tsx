@@ -8,6 +8,7 @@ import Button3D from "@/components/Button3D";
 import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
 
 import Colors from "@/constants/colors";
+import HomeVisual from "@/constants/homeVisualTokens";
 import { useFavorites } from "@/context/FavoritesContext";
 import { Listing } from "@/types";
 
@@ -24,10 +25,10 @@ function getCategoryIcon(category: string, subcategory?: string | null) {
 }
 
 function getCategoryAccent(category: string) {
-  if (category === "cars")      return { bg: "#FFF3E9", fg: "#FF7A18" };
-  if (category === "equipment") return { bg: "#E8F5E9", fg: "#2E7D32" };
-  if (category === "services")  return { bg: "#E0F7FA", fg: "#0288D1" };
-  return { bg: "#FFF3E9", fg: "#FF7A18" };
+  if (category === "cars")      return { bg: "#FFF0E1", fg: HomeVisual.orange };
+  if (category === "equipment") return { bg: HomeVisual.greenSoft, fg: HomeVisual.green };
+  if (category === "services")  return { bg: HomeVisual.blueSoft, fg: "#2789A5" };
+  return { bg: "#FFF0E1", fg: HomeVisual.orange };
 }
 
 function formatPrice(price: number, unit: string) {
@@ -106,6 +107,13 @@ export function ListingCard({ listing, style, isCustomer }: Props) {
               </View>
             </View>
           )}
+          <LinearGradient
+            pointerEvents="none"
+            colors={["transparent", "rgba(28,35,24,0.28)"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 0, y: 1 }}
+            style={styles.imageShade}
+          />
 
           {/* Unavailable overlay */}
           {!listing.isAvailable && (
@@ -204,37 +212,38 @@ export function ListingCard({ listing, style, isCustomer }: Props) {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: "#fff",
-    borderRadius: 16,
+    backgroundColor: HomeVisual.surface,
+    borderRadius: 21,
     overflow: "hidden",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
+    shadowColor: HomeVisual.shadow,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.11,
+    shadowRadius: 14,
     elevation: 3,
     borderWidth: 1,
-    borderColor: "#EAEAEA",
+    borderColor: HomeVisual.border,
   },
 
   imgWrap: { position: "relative" },
-  img: { width: "100%", height: 160 },
+  img: { width: "100%", height: 178 },
   imgPlaceholder: { alignItems: "center", justifyContent: "center" },
   iconCircle: { width: 64, height: 64, borderRadius: 32, alignItems: "center", justifyContent: "center" },
+  imageShade: { position: "absolute", left: 0, right: 0, bottom: 0, height: 72 },
 
   unavailBadge: {
     position: "absolute", top: 10, left: 10,
-    backgroundColor: "#EF4444", borderRadius: 8,
+    backgroundColor: "#D65248", borderRadius: 10,
     paddingHorizontal: 8, paddingVertical: 3,
   },
   unavailText: { color: "#fff", fontSize: 10, fontWeight: "700", fontFamily: "Inter_700Bold" },
 
   heartBtn: {
-    position: "absolute", top: 10, right: 10,
+    position: "absolute", top: 12, right: 12,
     zIndex: 10,
   },
   heartBg: {
-    width: 34, height: 34, borderRadius: 17,
-    backgroundColor: "rgba(255,255,255,0.92)",
+    width: 38, height: 38, borderRadius: 19,
+    backgroundColor: "rgba(255,255,255,0.96)",
     alignItems: "center", justifyContent: "center",
     shadowColor: "#000", shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.12, shadowRadius: 4, elevation: 3,
@@ -244,14 +253,14 @@ const styles = StyleSheet.create({
   },
 
   catLabel: {
-    position: "absolute", bottom: 10, left: 10,
-    borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3,
+    position: "absolute", bottom: 11, left: 12,
+    borderRadius: 9, paddingHorizontal: 10, paddingVertical: 5,
   },
   catLabelText: { color: "#fff", fontSize: 10, fontWeight: "600", fontFamily: "Inter_600SemiBold", textTransform: "capitalize" },
 
-  info: { padding: 14, gap: 5 },
+  info: { padding: 15, gap: 5 },
   infoWithBtn: { paddingBottom: 10 },
-  title: { fontSize: 15, fontWeight: "700", fontFamily: "Inter_700Bold", color: "#2C2C2C" },
+  title: { fontSize: 16, fontWeight: "700", fontFamily: "Inter_700Bold", color: HomeVisual.ink },
 
   metaRow: { flexDirection: "row", alignItems: "center", gap: 3 },
   location: { fontSize: 12, color: "#7A7A7A", fontFamily: "Inter_400Regular", flex: 1 },
@@ -261,8 +270,8 @@ const styles = StyleSheet.create({
   rating: { fontSize: 13, fontWeight: "700", fontFamily: "Inter_700Bold", color: "#2C2C2C" },
   ratingCount: { fontSize: 11, color: "#AEAEAE", fontFamily: "Inter_400Regular" },
   quoteChip: {
-    backgroundColor: "#FFF0E6", paddingHorizontal: 8, paddingVertical: 3,
-    borderRadius: 6, borderWidth: 1, borderColor: "#FFD4B0",
+    backgroundColor: "#FFF1E5", paddingHorizontal: 9, paddingVertical: 4,
+    borderRadius: 8, borderWidth: 1, borderColor: "#F7D6B9",
   },
   quoteChipText: { fontSize: 11, fontWeight: "600", fontFamily: "Inter_600SemiBold", color: "#FF7A18" },
 
@@ -271,7 +280,7 @@ const styles = StyleSheet.create({
 
   providerText: { fontSize: 11, color: "#AEAEAE", fontFamily: "Inter_400Regular" },
 
-  bookBtnWrap: { paddingHorizontal: 14, paddingBottom: 14 },
+  bookBtnWrap: { paddingHorizontal: 15, paddingBottom: 15 },
   bookBtnPress: { borderRadius: 12, overflow: "hidden" },
   bookBtn: {
     flexDirection: "row",
@@ -279,7 +288,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: 7,
     paddingVertical: 11,
-    borderRadius: 12,
+    borderRadius: 14,
   },
   bookBtnText: {
     color: "#fff",

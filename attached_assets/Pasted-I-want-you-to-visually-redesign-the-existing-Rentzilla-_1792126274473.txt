@@ -1,0 +1,328 @@
+I want you to visually redesign the existing Rentzilla app home screen to closely match the attached UI reference.
+
+IMPORTANT: This is a UI-ONLY redesign.
+
+DO NOT:
+- Change any existing functionality.
+- Change navigation logic.
+- Change routes.
+- Change API calls, backend logic, database logic, authentication, or state management.
+- Remove or rename existing functions, handlers, variables, components, props, IDs, or data models unless absolutely necessary for styling.
+- Change what happens when buttons/cards/navigation items are clicked.
+- Rebuild the app from scratch.
+- Change the fundamental page layout or order of sections.
+- Add fake functionality.
+- Replace dynamic data with hardcoded data.
+
+KEEP the existing Rentzilla functionality exactly as it currently works.
+
+Your task is to improve ONLY the presentation layer: styling, spacing, typography, imagery, icons, shadows, borders, backgrounds, gradients, card appearance, and micro-interactions.
+
+REFERENCE DESIGN
+
+Use the attached screenshot as the visual target.
+
+The overall design should feel:
+- Modern
+- Premium
+- Friendly
+- Rural/agriculture focused
+- Bright but clean
+- Highly polished
+- Mobile-first
+- Smooth and consistent
+- Similar to a professionally designed marketplace/rental app
+
+1. HEADER / HERO AREA
+
+Keep the existing header structure and functionality, but redesign its appearance.
+
+Use a warm orange → golden/yellow gradient background.
+
+Add a subtle countryside/farming visual treatment behind the header content, inspired by the reference:
+- farmland
+- fields
+- barn/farmhouse
+- tractor
+- windmill
+- soft hills
+
+The artwork must remain decorative and must not interfere with readability or existing interactions.
+
+Keep:
+- hamburger/menu button
+- greeting
+- user name
+- location
+- language selector
+- notification button
+
+Style them with:
+- rounded translucent/white surfaces
+- clean icons
+- strong white typography
+- generous spacing
+- subtle shadows
+- consistent touch targets
+
+2. SEARCH BAR
+
+Do not modify search functionality.
+
+Make the existing search bar larger and more premium:
+- white background
+- large rounded/pill shape
+- subtle shadow
+- comfortable horizontal padding
+- clean gray search icon
+- existing placeholder text
+- voice/microphone action on the right
+
+Style the microphone control as a circular soft-orange button.
+
+3. QUICK CATEGORY CHIPS
+
+If these categories/actions already exist in the app, visually present them as compact rounded chips beneath the search field.
+
+Examples:
+Tractors
+Farm Equipments
+Home Services
+Cars
+
+IMPORTANT:
+Do not create new navigation functionality just to match the screenshot.
+
+Only expose these chips when corresponding functionality already exists.
+
+Use:
+- white/light backgrounds
+- rounded pill shapes
+- small colorful icons
+- subtle shadows/borders
+- comfortable spacing
+
+4. GOLD / PREMIUM BANNER
+
+Keep the current Gold membership functionality unchanged.
+
+Restyle the Gold card using:
+- gold/yellow gradient
+- premium crown/trophy icon
+- bold heading
+- smaller supporting copy
+- high-contrast CTA button
+- rounded corners
+- subtle highlights/sparkles
+- soft shadow
+
+The CTA must call the SAME existing handler/navigation logic.
+
+5. REFER-A-FRIEND BANNER
+
+Preserve existing referral functionality.
+
+Restyle the referral card using a vibrant pink/red/orange gradient.
+
+Include:
+- gift icon
+- strong white title
+- supporting copy
+- rounded white/light CTA
+- subtle decorative shapes/confetti
+
+Do not change referral calculations, codes, links, or handlers.
+
+6. EQUIPMENT SECTION
+
+Keep the Equipment section in the exact same position and preserve all existing category behavior.
+
+Improve the category cards.
+
+For Tractor, Harvester, Rotavator, Sprayer, etc. use:
+- softly tinted backgrounds
+- rounded corners
+- high-quality equipment images where assets already exist
+- consistent image sizing
+- bold category labels
+- optional small circular arrow indicator
+- subtle card shadow
+- pressed/tap feedback
+
+Keep the existing "See all" functionality.
+
+Do NOT change what each equipment card opens.
+
+7. SERVICES SECTION
+
+Keep all existing service categories and functionality.
+
+Restyle the cards to resemble the reference:
+- Plumbing → light blue
+- Electrician → pale yellow/orange
+- Beauty → soft pink
+- Carpenter → warm neutral
+
+Use existing service images/assets when available.
+
+Cards should have:
+- rounded 18–24px corners
+- clean icon/label area
+- image area
+- subtle shadow
+- consistent dimensions
+- clear typography
+
+Do not change click handlers.
+
+8. AVAILABLE RENTALS
+
+Keep the existing rental data and functionality.
+
+Upgrade the rental cards visually:
+- larger imagery
+- rounded 20–24px corners
+- subtle image overlay/gradient for text readability
+- favorite/heart button in a white circular surface
+- optional existing status badges such as "Popular"
+- better title hierarchy
+- readable supporting text
+- smooth card shadow
+
+If the current component already supports carousel/swiping/pagination, style the indicators elegantly.
+
+Do NOT introduce carousel logic if it does not already exist.
+
+9. BOTTOM NAVIGATION
+
+Do not modify navigation destinations or navigation logic.
+
+Restyle the existing bottom navigation:
+- clean white floating/sticky surface
+- subtle top shadow
+- large touch targets
+- consistent outlined icons
+- gray inactive items
+- orange active item
+- orange active indicator underneath
+
+Keep exactly the same tabs currently used by the app.
+
+10. TYPOGRAPHY
+
+Use the project's existing font where appropriate. If the app already has a typography system, preserve it.
+
+Improve hierarchy:
+- page/section titles: bold
+- card titles: semibold/bold
+- supporting text: regular
+- secondary text: muted gray
+
+Avoid unnecessarily adding a new font dependency.
+
+11. DESIGN SYSTEM
+
+Create/reuse shared style tokens instead of scattering random values throughout components.
+
+Suggested visual tokens:
+
+Primary Orange: #FF6A1A
+Secondary Orange: #FF8A32
+Warm Yellow: #FFD84D
+Gold: #F5C518
+Background: #F8F9FC
+Surface: #FFFFFF
+Primary Text: #17181C
+Secondary Text: #737780
+Border: rgba(20,20,20,0.06)
+
+Suggested radii:
+- Small controls: 12–16px
+- Cards: 18–22px
+- Large promotional cards: 22–26px
+- Pills/buttons: fully rounded where appropriate
+
+Use soft shadows rather than heavy shadows.
+
+12. SPACING
+
+Make spacing more consistent throughout the screen.
+
+Use a consistent spacing system such as:
+4, 8, 12, 16, 20, 24, 32px.
+
+Keep existing section order and general layout.
+
+Do not dramatically increase screen height unnecessarily.
+
+13. MICRO-INTERACTIONS
+
+Where supported by the existing framework, add subtle UI-only interactions:
+- button press scale around 0.97–0.98
+- smooth 150–250ms transitions
+- card press feedback
+- subtle elevation change
+- smooth active navigation state
+
+Do not add animations that interfere with performance or functionality.
+
+14. RESPONSIVENESS
+
+The redesign must remain responsive.
+
+It should work on different mobile screen widths without:
+- horizontal overflow
+- clipped text
+- overlapping cards
+- broken navigation
+- stretched images
+
+Respect safe areas/notches where applicable.
+
+15. ASSET HANDLING
+
+Reuse the app's current images and icons wherever possible.
+
+Do not replace working dynamic assets with hardcoded external URLs.
+
+If an asset from the reference does not exist, create the visual treatment using CSS/styles or use an appropriate asset already available in the project.
+
+Do not introduce unnecessary dependencies.
+
+CRITICAL IMPLEMENTATION RULE
+
+Before editing anything:
+
+1. Inspect the existing project structure.
+2. Identify the current home screen and its child components.
+3. Identify all existing click handlers, navigation calls, API calls, state, props, and data sources.
+4. Preserve those exactly.
+5. Modify the smallest possible number of files.
+6. Focus changes on styles and presentation components.
+7. Reuse existing components where possible.
+8. Do not rewrite working business logic.
+
+After making the changes, verify:
+- Home screen still loads.
+- Search still works.
+- Menu still works.
+- Notifications still work.
+- Language selector still works.
+- Equipment cards still open the same destinations.
+- Service cards still work.
+- See All buttons still work.
+- Rental cards still work.
+- Favorite buttons still work.
+- Gold CTA still works.
+- Referral CTA still works.
+- Bottom navigation still goes to exactly the same screens.
+- Existing API/database data still appears.
+- There are no new console/runtime errors.
+
+Most important requirement:
+
+MATCH THE ATTACHED REFERENCE'S VISUAL QUALITY while preserving the EXISTING RENTZILLA APP'S LAYOUT, DATA, FUNCTIONALITY, NAVIGATION, AND BUSINESS LOGIC.
+
+Treat the screenshot as a VISUAL STYLE REFERENCE, not as instructions to rebuild or replace the app.
+
+Start by inspecting the current implementation, then apply the redesign incrementally. Do not change functionality just because the reference screenshot contains a visual element that the current app does not support.

@@ -5,11 +5,21 @@ import { Platform, StyleSheet, View, useColorScheme } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import Colors from "@/constants/colors";
+import HomeVisual from "@/constants/homeVisualTokens";
 import { useAuth } from "@/context/AuthContext";
 import { useLang } from "@/context/LanguageContext";
 import { useApi } from "@/hooks/useApi";
 
 const C = Colors.light;
+
+function TabIcon({ name, color, focused }: { name: keyof typeof Feather.glyphMap; color: string; focused: boolean }) {
+  return (
+    <View style={styles.tabIconWrap}>
+      <Feather name={name} size={22} color={color} />
+      <View style={[styles.activeMark, focused && styles.activeMarkVisible]} />
+    </View>
+  );
+}
 
 export default function TabLayout() {
   const { user, activeMode } = useAuth();
@@ -59,25 +69,27 @@ export default function TabLayout() {
         tabBarActiveTintColor: C.tint,
         tabBarInactiveTintColor: isDark ? "#888888" : "#999999",
         tabBarStyle: {
-          backgroundColor: isDark ? "#1a1a1a" : "#ffffff",
+          backgroundColor: "#FFFFFF",
           borderTopWidth: 1,
-          borderTopColor: isDark ? "#2a2a2a" : "#e8e8e8",
+          borderTopColor: isDark ? "#353A32" : "#ECEAE3",
           elevation: 12,
-          shadowColor: "#000",
-          shadowOffset: { width: 0, height: -3 },
-          shadowOpacity: 0.08,
-          shadowRadius: 8,
-          height: isWeb ? 64 : 60 + bottomInset,
+          shadowColor: "#404C34",
+          shadowOffset: { width: 0, height: -4 },
+          shadowOpacity: 0.1,
+          shadowRadius: 12,
+          height: isWeb ? 68 : 66 + bottomInset,
           paddingBottom: isIOS ? 8 : bottomInset + 6,
-          paddingTop: 6,
+          paddingTop: 7,
         },
         tabBarBackground: () => (
-          <View style={[StyleSheet.absoluteFill, { backgroundColor: isDark ? "#1a1a1a" : "#ffffff" }]} />
+          <View style={[StyleSheet.absoluteFill, { backgroundColor: "#FFFFFF" }]} />
         ),
         tabBarLabelStyle: {
           fontFamily: "Inter_500Medium",
-          fontSize: 11,
+          fontSize: 10.5,
+          marginTop: 1,
         },
+        tabBarItemStyle: { paddingTop: 1 },
       }}
     >
       {/* ── Dashboard: FIRST for providers ── */}
@@ -86,7 +98,7 @@ export default function TabLayout() {
         options={{
           title: t.dashboard,
           href: inProviderMode ? undefined : null,
-          tabBarIcon: ({ color }) => <Feather name="bar-chart-2" size={22} color={color} />,
+          tabBarIcon: ({ color, focused }) => <TabIcon name="bar-chart-2" color={color} focused={focused} />,
         }}
       />
 
@@ -96,7 +108,7 @@ export default function TabLayout() {
         options={{
           title: t.home,
           href: inCustomerMode ? undefined : null,
-          tabBarIcon: ({ color }) => <Feather name="home" size={22} color={color} />,
+          tabBarIcon: ({ color, focused }) => <TabIcon name="home" color={color} focused={focused} />,
         }}
       />
 
@@ -106,7 +118,7 @@ export default function TabLayout() {
         options={{
           title: t.search,
           href: inCustomerMode ? undefined : null,
-          tabBarIcon: ({ color }) => <Feather name="search" size={22} color={color} />,
+          tabBarIcon: ({ color, focused }) => <TabIcon name="search" color={color} focused={focused} />,
         }}
       />
 
@@ -115,7 +127,7 @@ export default function TabLayout() {
         name="bookings"
         options={{
           title: t.bookings,
-          tabBarIcon: ({ color }) => <Feather name="calendar" size={22} color={color} />,
+          tabBarIcon: ({ color, focused }) => <TabIcon name="calendar" color={color} focused={focused} />,
         }}
       />
 
@@ -125,7 +137,7 @@ export default function TabLayout() {
         options={{
           title: "Cars",
           href: carsHref,
-          tabBarIcon: ({ color }) => <Feather name="truck" size={22} color={color} />,
+          tabBarIcon: ({ color, focused }) => <TabIcon name="truck" color={color} focused={focused} />,
         }}
       />
 
@@ -135,7 +147,7 @@ export default function TabLayout() {
         options={{
           title: "Wallet",
           href: inProviderMode ? undefined : null,
-          tabBarIcon: ({ color }) => <Feather name="credit-card" size={22} color={color} />,
+          tabBarIcon: ({ color, focused }) => <TabIcon name="credit-card" color={color} focused={focused} />,
         }}
       />
 
@@ -145,7 +157,7 @@ export default function TabLayout() {
         options={{
           title: t.favourites,
           href: null,
-          tabBarIcon: ({ color }) => <Feather name="heart" size={22} color={color} />,
+          tabBarIcon: ({ color, focused }) => <TabIcon name="heart" color={color} focused={focused} />,
         }}
       />
       <Tabs.Screen
@@ -153,7 +165,7 @@ export default function TabLayout() {
         options={{
           title: t.messages,
           href: null,
-          tabBarIcon: ({ color }) => <Feather name="message-circle" size={22} color={color} />,
+          tabBarIcon: ({ color, focused }) => <TabIcon name="message-circle" color={color} focused={focused} />,
         }}
       />
       <Tabs.Screen
@@ -161,7 +173,7 @@ export default function TabLayout() {
         options={{
           title: t.profile,
           href: null,
-          tabBarIcon: ({ color }) => <Feather name="user" size={22} color={color} />,
+          tabBarIcon: ({ color, focused }) => <TabIcon name="user" color={color} focused={focused} />,
         }}
       />
 
@@ -170,9 +182,15 @@ export default function TabLayout() {
         name="settings"
         options={{
           title: "Settings",
-          tabBarIcon: ({ color }) => <Feather name="settings" size={22} color={color} />,
+          tabBarIcon: ({ color, focused }) => <TabIcon name="settings" color={color} focused={focused} />,
         }}
       />
     </Tabs>
   );
 }
+
+const styles = StyleSheet.create({
+  tabIconWrap: { alignItems: "center", justifyContent: "flex-start", height: 28, gap: 1 },
+  activeMark: { width: 14, height: 3, borderRadius: 3, backgroundColor: "transparent" },
+  activeMarkVisible: { backgroundColor: HomeVisual.orange },
+});

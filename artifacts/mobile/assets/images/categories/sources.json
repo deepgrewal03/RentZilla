@@ -1,0 +1,28 @@
+{
+  "reference_crops": {
+    "source": "User-provided xxssswwd reference image",
+    "categories": [
+      "tractor",
+      "harvester",
+      "rotavator",
+      "sprayer",
+      "plumbing",
+      "electrician",
+      "beauty",
+      "carpenter"
+    ]
+  },
+  "web_images": {
+    "plough": "https://images.tractorgyan.com/uploads/plough/Field-king-reversible-mould-board-plough-tractorgyan.webp",
+    "cultivator": "https://2.imimg.com/data2/YJ/SA/MY-3957480/fieldking-heavy-duty-spring-cultivator-1000x1000.jpg",
+    "jcb": "https://img.linemedia.com/img/s/construction-equipment-backhoe-loader-JCB-3DX-Plus---1779374645643951223_common--26052117422033078100.jpg",
+    "excavator": "https://i.machinio.com/thumb/1mbv63/257754491_2/ddf6/2017-komatsu-pc210-lc-10.jpg",
+    "poclain": "https://images.tractorjunction.com/Infrajunction-prod/Tata_Hitachi_EX_210_LC_Super_Full_View_7325bfa480.webp?format=webp&quality=40",
+    "rock-breaker": "https://jtattach.com/wp-content/uploads/2021/12/Oem-hydraulic-rock-breaker-for-excavator-JIANGTU-excavator-with-rock-breaker.jpg",
+    "bulldozer": "https://www.lamersmachinery.com/wp-content/uploads/hexon/53964979/caterpillar-d6-xl-next-gen-bulldozer-14-1000x750.jpg",
+    "wheel-loader": "https://static.vecteezy.com/system/resources/thumbnails/069/892/308/small/yellow-wheel-loader-earthmover-machine-working-on-construction-site-at-sunset-with-dramatic-clouds-free-photo.jpg",
+    "chhota-hathi": "https://cmv360.s3.ap-southeast-1.amazonaws.com/small_tata_ace_gold_g_white_side_16ac0befbf.jpg",
+    "painter": "https://images.pexels.com/photos/5493653/pexels-photo-5493653.jpeg?auto=compress&w=500",
+    "ac-repair": "https://static.vecteezy.com/system/resources/thumbnails/071/837/068/small/technician-repairing-white-wall-mounted-air-conditioner-in-modern-indoor-setting-free-photo.jpg"
+  }
+}

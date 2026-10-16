@@ -14,6 +14,7 @@ import {
   StyleSheet,
   Text,
   View,
+  useWindowDimensions,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -22,7 +23,9 @@ import { ListingCard } from "@/components/ListingCard";
 import { ListingCardSkeleton } from "@/components/SkeletonLoader";
 import { NotificationBell } from "@/components/NotificationBell";
 import { SideDrawer } from "@/components/SideDrawer";
+import { CategoryArtwork, CountrysideHeaderArt } from "@/components/HomeArtwork";
 import Colors, { GRADIENT_ORANGE } from "@/constants/colors";
+import HomeVisual from "@/constants/homeVisualTokens";
 import { useAuth } from "@/context/AuthContext";
 import { useLang } from "@/context/LanguageContext";
 import { useApi } from "@/hooks/useApi";
@@ -43,6 +46,7 @@ export default function HomeScreen() {
   const { get }       = useApi();
   const { t, language, toggleLanguage } = useLang();
   const insets        = useSafeAreaInsets();
+  const { width: screenWidth } = useWindowDimensions();
   const isWeb         = Platform.OS === "web";
   const isPa          = language === "pa";
 
@@ -109,6 +113,7 @@ export default function HomeScreen() {
 
   const topPad    = isWeb ? 67 : insets.top;
   const firstName = user?.firstName || user?.name?.split(" ")[0] || "Friend";
+  const categoryCardWidth = Math.max(72, Math.min(98, (screenWidth - 36 - 24) / 4));
 
   return (
     <View style={styles.root}>
@@ -117,11 +122,12 @@ export default function HomeScreen() {
 
       {/* ─── HEADER: orange gradient with rounded bottom ─── */}
       <LinearGradient
-        colors={GRADIENT_ORANGE}
+        colors={["#F36D26", "#FF9638", "#FFD34D"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={[styles.header, { paddingTop: topPad + 14 }]}
       >
+        <CountrysideHeaderArt />
         {/* Top row */}
         <View style={styles.headerTop}>
           <Button3D
@@ -164,7 +170,7 @@ export default function HomeScreen() {
               <NotificationBell />
               {isGoldMember && (
                 <Button3D onPress={() => router.push("/gold-membership")} faceStyle={styles.goldCoin}>
-                  <Text style={styles.goldCoinText}>🏆</Text>
+                  <Ionicons name="trophy" size={13} color={HomeVisual.gold} />
                 </Button3D>
               )}
             </View>
@@ -197,7 +203,7 @@ export default function HomeScreen() {
 
         {/* ─── Floating search bar (inside header, visually floats) ─── */}
         <Pressable onPress={() => router.push("/(tabs)/search")} style={styles.searchBar}>
-          <Ionicons name="search" size={17} color="#AEAEAE" />
+          <Ionicons name="search" size={19} color="#8C908A" />
           <Text style={styles.searchHint}>{t.searchPlaceholder}</Text>
           <Button3D
             onPress={() => router.push("/(tabs)/search")}
@@ -214,6 +220,29 @@ export default function HomeScreen() {
             <Ionicons name="mic" size={15} color="#FF7A18" />
           </Button3D>
         </Pressable>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.quickCategoryScroll}
+          contentContainerStyle={styles.quickCategories}
+        >
+          <Pressable onPress={() => pickSubcat("equipment", "Tractor")} style={styles.quickCategory}>
+            <Ionicons name="cog-outline" size={15} color={HomeVisual.orange} />
+            <Text style={styles.quickCategoryText}>{isPa ? "ਟਰੈਕਟਰ" : "Tractors"}</Text>
+          </Pressable>
+          <Pressable onPress={() => pickCategory("equipment")} style={styles.quickCategory}>
+            <Ionicons name="leaf-outline" size={15} color={HomeVisual.green} />
+            <Text style={styles.quickCategoryText}>{isPa ? "ਮਸ਼ੀਨਰੀ" : "Farm Equipment"}</Text>
+          </Pressable>
+          <Pressable onPress={() => pickCategory("services")} style={styles.quickCategory}>
+            <Ionicons name="construct-outline" size={15} color="#8257A6" />
+            <Text style={styles.quickCategoryText}>{isPa ? "ਸੇਵਾਵਾਂ" : "Home Services"}</Text>
+          </Pressable>
+          <Pressable onPress={() => router.push("/(tabs)/cars")} style={styles.quickCategory}>
+            <Ionicons name="car-outline" size={15} color="#C85C43" />
+            <Text style={styles.quickCategoryText}>{isPa ? "ਕਾਰਾਂ" : "Cars"}</Text>
+          </Pressable>
+        </ScrollView>
       </LinearGradient>
 
       {/* ─── SCROLLABLE CONTENT ─── */}
@@ -272,27 +301,29 @@ export default function HomeScreen() {
         {!inProviderMode && (
           <Pressable onPress={() => router.push("/referral" as any)} style={styles.referBanner}>
             <LinearGradient
-              colors={["#FF7A18", "#FF9F43"]}
+              colors={["#E93478", "#F14D62", "#FF9141"]}
               start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
               style={styles.referBannerGrad}
             >
-              <Text style={{ fontSize: 22 }}>🎁</Text>
+              <View style={styles.referGiftIcon}>
+                <Ionicons name="gift-outline" size={23} color="#fff" />
+              </View>
               <View style={styles.referBannerTexts}>
                 <Text style={styles.referBannerTitle}>Refer a Friend, Earn 10% Off</Text>
                 <Text style={styles.referBannerSub}>Share your code · 5 friends = reward!</Text>
               </View>
               <Button3D
                 onPress={() => router.push("/referral" as any)}
-                color="rgba(255,255,255,0.3)"
-                edgeColor="#C65F16"
+                color="#FFF8F5"
+                edgeColor="#E8B9AE"
                 radius={20}
                 depth={4}
-                faceStyle={[styles.referBannerCta, { backgroundColor: "rgba(255,255,255,0.3)" }]}
+                faceStyle={[styles.referBannerCta, { backgroundColor: "#FFF8F5" }]}
                 hitSlop={{ top: 10, bottom: 10, left: 6, right: 6 }}
                 accessibilityLabel="Share referral code"
               >
                 <Text style={styles.referBannerCtaTxt}>Share</Text>
-                <Ionicons name="chevron-forward" size={12} color="#fff" />
+                <Ionicons name="chevron-forward" size={12} color={HomeVisual.orange} />
               </Button3D>
             </LinearGradient>
           </Pressable>
@@ -332,15 +363,20 @@ export default function HomeScreen() {
                 edgeColor={shadeColor(active ? item.color : item.bg, 0.12)}
                 radius={14}
                 depth={3}
-                faceStyle={[styles.chip, { backgroundColor: active ? item.color : item.bg }]}
+                faceStyle={[styles.chip, { width: categoryCardWidth, backgroundColor: active ? item.color : HomeVisual.surface }]}
                 accessibilityLabel={item.label}
               >
-                <View style={[styles.chipIcon, { backgroundColor: active ? "rgba(255,255,255,0.25)" : `${item.color}22` }]}>
-                  <Ionicons name={item.icon as keyof typeof Ionicons.glyphMap} size={22} color={active ? "#fff" : item.color} />
+                <View style={[styles.artworkWrap, { backgroundColor: active ? "rgba(255,255,255,0.25)" : item.bg }]}>
+                  <CategoryArtwork kind="equipment" name={item.label} color={active ? "#fff" : item.color} />
                 </View>
-                <Text style={[styles.chipLabel, { color: active ? "#fff" : item.color }]} numberOfLines={2}>
-                  {isPa ? item.labelPa : item.label}
-                </Text>
+                <View style={styles.chipLabelRow}>
+                  <Text style={[styles.chipLabel, { color: active ? "#fff" : HomeVisual.ink }]} numberOfLines={2}>
+                    {isPa ? item.labelPa : item.label}
+                  </Text>
+                  <View style={[styles.miniArrow, active && styles.miniArrowActive]}>
+                    <Ionicons name="chevron-forward" size={10} color={active ? item.color : HomeVisual.ink} />
+                  </View>
+                </View>
               </Button3D>
             );
           })}
@@ -373,15 +409,20 @@ export default function HomeScreen() {
                 edgeColor={shadeColor(active ? item.color : item.bg, 0.12)}
                 radius={14}
                 depth={3}
-                faceStyle={[styles.chip, { backgroundColor: active ? item.color : item.bg }]}
+                faceStyle={[styles.chip, { width: categoryCardWidth, backgroundColor: active ? item.color : HomeVisual.surface }]}
                 accessibilityLabel={item.label}
               >
-                <View style={[styles.chipIcon, { backgroundColor: active ? "rgba(255,255,255,0.25)" : `${item.color}22` }]}>
-                  <Ionicons name={item.icon as keyof typeof Ionicons.glyphMap} size={22} color={active ? "#fff" : item.color} />
+                <View style={[styles.artworkWrap, { backgroundColor: active ? "rgba(255,255,255,0.25)" : item.bg }]}>
+                  <CategoryArtwork kind="service" name={item.label} color={active ? "#fff" : item.color} />
                 </View>
-                <Text style={[styles.chipLabel, { color: active ? "#fff" : item.color }]} numberOfLines={2}>
-                  {isPa ? item.labelPa : item.label}
-                </Text>
+                <View style={styles.chipLabelRow}>
+                  <Text style={[styles.chipLabel, { color: active ? "#fff" : HomeVisual.ink }]} numberOfLines={2}>
+                    {isPa ? item.labelPa : item.label}
+                  </Text>
+                  <View style={[styles.miniArrow, active && styles.miniArrowActive]}>
+                    <Ionicons name="chevron-forward" size={10} color={active ? item.color : HomeVisual.ink} />
+                  </View>
+                </View>
               </Button3D>
             );
           })}
@@ -447,47 +488,49 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#F5F6FA" },
+  root: { flex: 1, backgroundColor: HomeVisual.canvas },
 
   // ── Header ──────────────────────────────────────────────────
   header: {
     paddingHorizontal: 18,
-    paddingBottom: 24,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
+    paddingBottom: 14,
+    borderBottomLeftRadius: 26,
+    borderBottomRightRadius: 26,
   },
-  headerTop: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 18 },
+  headerTop: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 16 },
   menuBtn: {
-    width: 38, height: 38, borderRadius: 19,
-    backgroundColor: "rgba(255,255,255,0.2)",
+    width: 42, height: 42, borderRadius: 21,
+    backgroundColor: "rgba(255,255,255,0.19)",
+    borderWidth: 1, borderColor: "rgba(255,255,255,0.28)",
     alignItems: "center", justifyContent: "center",
   },
   headerMid: { flex: 1 },
-  greeting: { fontSize: 17, fontWeight: "700", fontFamily: "Inter_700Bold", color: "#fff" },
-  locRow: { flexDirection: "row", alignItems: "center", gap: 3, marginTop: 3 },
-  locText: { fontSize: 12, color: "rgba(255,255,255,0.85)", fontFamily: "Inter_400Regular" },
+  greeting: { fontSize: 17, fontWeight: "700", fontFamily: "Inter_700Bold", color: "#fff", letterSpacing: -0.25 },
+  locRow: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 4 },
+  locText: { fontSize: 12, color: "rgba(255,255,255,0.92)", fontFamily: "Inter_400Regular" },
   headerActions: { flexDirection: "row", alignItems: "center", gap: 8 },
   bellStack: { alignItems: "center", gap: 3 },
   goldCoin: {
     alignItems: "center", justifyContent: "center",
     marginTop: 6,
-    backgroundColor: "#1A1A0D", borderRadius: 12,
-    width: 24, height: 24,
-    borderWidth: 1.5, borderColor: "#F5C518",
-    shadowColor: "#F5C518", shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.7, shadowRadius: 4, elevation: 4,
+    backgroundColor: "#72531D", borderRadius: 12,
+    width: 25, height: 25,
+    borderWidth: 1.5, borderColor: HomeVisual.gold,
+    shadowColor: HomeVisual.gold, shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.36, shadowRadius: 4, elevation: 3,
   },
   goldCoinText: { fontSize: 12, lineHeight: 13 },
 
-  referBanner:      { marginHorizontal: 16, marginTop: 8, marginBottom: 4, borderRadius: 16, overflow: "hidden", elevation: 4, shadowColor: "#FF7A18", shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.35, shadowRadius: 8 },
-  referBannerGrad:  { flexDirection: "row", alignItems: "center", paddingVertical: 12, paddingHorizontal: 14, gap: 10 },
+  referBanner:      { marginHorizontal: 16, marginTop: 10, marginBottom: 6, borderRadius: 20, overflow: "hidden", elevation: 3, shadowColor: "#CE4A58", shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.19, shadowRadius: 10 },
+  referBannerGrad:  { flexDirection: "row", alignItems: "center", paddingVertical: 13, paddingHorizontal: 14, gap: 10 },
+  referGiftIcon: { width: 40, height: 40, borderRadius: 14, backgroundColor: "rgba(255,255,255,0.17)", alignItems: "center", justifyContent: "center" },
   referBannerTexts: { flex: 1 },
   referBannerTitle: { fontSize: 13, fontWeight: "800", fontFamily: "Inter_700Bold", color: "#fff" },
   referBannerSub:   { fontSize: 11, color: "rgba(255,255,255,0.88)", fontFamily: "Inter_400Regular", marginTop: 1 },
-  referBannerCta:   { flexDirection: "row", alignItems: "center", gap: 2, backgroundColor: "rgba(255,255,255,0.22)", borderRadius: 20, paddingHorizontal: 10, paddingVertical: 5 },
-  referBannerCtaTxt: { fontSize: 12, fontWeight: "700", fontFamily: "Inter_700Bold", color: "#fff" },
+  referBannerCta:   { flexDirection: "row", alignItems: "center", gap: 2, backgroundColor: "#FFF8F5", borderRadius: 20, paddingHorizontal: 11, paddingVertical: 7 },
+  referBannerCtaTxt: { fontSize: 12, fontWeight: "700", fontFamily: "Inter_700Bold", color: HomeVisual.orange },
   langPill: {
-    backgroundColor: "rgba(255,255,255,0.2)", borderRadius: 12,
-    paddingHorizontal: 10, paddingVertical: 5,
+    backgroundColor: "rgba(255,255,255,0.18)", borderRadius: 16,
+    paddingHorizontal: 11, paddingVertical: 7,
     borderWidth: 1, borderColor: "rgba(255,255,255,0.3)",
   },
   langPillText: { color: "#fff", fontSize: 11, fontWeight: "700", fontFamily: "Inter_700Bold" },
@@ -495,7 +538,7 @@ const styles = StyleSheet.create({
   // Mode switcher
   modeRow: {
     flexDirection: "row", alignSelf: "center",
-    backgroundColor: "rgba(0,0,0,0.15)", borderRadius: 20, padding: 3,
+    backgroundColor: "rgba(82,45,16,0.18)", borderRadius: 20, padding: 3,
     marginBottom: 16, borderWidth: 1, borderColor: "rgba(255,255,255,0.15)",
   },
   modeBtn: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 16, paddingVertical: 6, borderRadius: 17 },
@@ -506,25 +549,37 @@ const styles = StyleSheet.create({
   // Search bar (inside header, floats visually)
   searchBar: {
     flexDirection: "row", alignItems: "center", gap: 10,
-    backgroundColor: "#fff",
+    backgroundColor: HomeVisual.surface,
     borderRadius: 28,
-    paddingHorizontal: 16, paddingVertical: 13,
-    shadowColor: "#000",
+    paddingHorizontal: 16, paddingVertical: 10,
+    minHeight: 56,
+    borderWidth: 1, borderColor: "rgba(255,255,255,0.65)",
+    shadowColor: "#734B22",
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
+    shadowOpacity: 0.16,
     shadowRadius: 12,
-    elevation: 6,
+    elevation: 5,
   },
   searchHint: { flex: 1, fontSize: 14, color: "#AEAEAE", fontFamily: "Inter_400Regular" },
   micBtn: {
-    width: 32, height: 32, borderRadius: 16,
-    backgroundColor: "#FFF3E9",
+    width: 36, height: 36, borderRadius: 18,
+    backgroundColor: "#FFF0E1",
     alignItems: "center", justifyContent: "center",
   },
+  quickCategoryScroll: { backgroundColor: "transparent", borderRadius: 22, overflow: "hidden" },
+  quickCategories: { backgroundColor: "transparent", paddingTop: 11, paddingBottom: 1, gap: 8, alignItems: "center" },
+  quickCategory: {
+    flexDirection: "row", alignItems: "center", gap: 6,
+    backgroundColor: "rgba(255,255,255,0.94)", borderRadius: 18,
+    paddingHorizontal: 11, paddingVertical: 8,
+    borderWidth: 1, borderColor: "rgba(255,255,255,0.85)",
+    shadowColor: "#754A1D", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.11, shadowRadius: 4, elevation: 2,
+  },
+  quickCategoryText: { color: HomeVisual.ink, fontFamily: "Inter_600SemiBold", fontSize: 10.5 },
 
   // ── Scroll ───────────────────────────────────────────────────
   scroll: { flex: 1 },
-  scrollContent: { paddingTop: 8 },
+  scrollContent: { paddingTop: 8, paddingBottom: 8 },
 
   // Feature cards row
   featureRow: {
@@ -562,13 +617,13 @@ const styles = StyleSheet.create({
   // Section header
   sectionHeader: {
     flexDirection: "row", justifyContent: "space-between", alignItems: "center",
-    paddingHorizontal: 18, marginBottom: 12,
+    paddingHorizontal: 18, marginBottom: 10,
   },
   sectionTitle: {
-    fontSize: 16, fontWeight: "700", fontFamily: "Inter_700Bold", color: "#2C2C2C",
+    fontSize: 17, fontWeight: "700", fontFamily: "Inter_700Bold", color: HomeVisual.ink, letterSpacing: -0.25,
   },
   sectionLink: {
-    fontSize: 13, fontWeight: "600", fontFamily: "Inter_600SemiBold", color: "#FF7A18",
+    fontSize: 12, fontWeight: "700", fontFamily: "Inter_600SemiBold", color: HomeVisual.orange,
   },
   sectionLinkActive: {
     textDecorationLine: "underline",
@@ -578,30 +633,36 @@ const styles = StyleSheet.create({
   // Subcategory chip rows
   chipRow: {
     paddingHorizontal: 18,
-    paddingBottom: 14,
-    gap: 10,
+    paddingBottom: 15,
+    gap: 8,
   },
   chip: {
-    width: 84,
-    paddingVertical: 12,
-    paddingHorizontal: 8,
-    borderRadius: 14,
+    paddingTop: 6,
+    paddingBottom: 8,
+    paddingHorizontal: 5,
+    borderRadius: 17,
     alignItems: "center",
-    gap: 7,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 5,
+    gap: 5,
+    borderWidth: 1,
+    borderColor: HomeVisual.border,
+    shadowColor: HomeVisual.shadow,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.09,
+    shadowRadius: 7,
     elevation: 2,
   },
-  chipIcon: {
-    width: 42, height: 42, borderRadius: 21,
+  artworkWrap: {
+    width: "100%", height: 65, borderRadius: 12,
     alignItems: "center", justifyContent: "center",
+    overflow: "hidden",
   },
+  chipLabelRow: { width: "100%", minHeight: 26, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 1 },
   chipLabel: {
-    fontSize: 10, fontWeight: "700", fontFamily: "Inter_700Bold",
-    textAlign: "center", lineHeight: 13,
+    flexShrink: 1, fontSize: 9.5, fontWeight: "700", fontFamily: "Inter_700Bold",
+    textAlign: "center", lineHeight: 12,
   },
+  miniArrow: { width: 16, height: 16, borderRadius: 8, backgroundColor: "#F2F3EE", alignItems: "center", justifyContent: "center" },
+  miniArrowActive: { backgroundColor: "#FFFFFF" },
 
   // Category tabs
   tabsRow: {
@@ -609,7 +670,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingTop: 16,
     paddingBottom: 4,
-    backgroundColor: "#F5F6FA",
+    backgroundColor: HomeVisual.canvas,
     borderBottomWidth: 1,
     borderBottomColor: "#EAEAEA",
     marginBottom: 16,
@@ -630,7 +691,7 @@ const styles = StyleSheet.create({
   },
 
   // Listings
-  listingsWrap: { paddingHorizontal: 18, gap: 14 },
+  listingsWrap: { paddingHorizontal: 16, gap: 14 },
   center: { alignItems: "center", justifyContent: "center", paddingVertical: 60, gap: 10 },
   emptyTitle: { fontSize: 16, fontWeight: "600", fontFamily: "Inter_600SemiBold", color: "#2C2C2C" },
   emptyHint: { fontSize: 13, color: "#AEAEAE", fontFamily: "Inter_400Regular" },
@@ -647,12 +708,12 @@ const styles = StyleSheet.create({
 
   // Gold membership banner
   goldBanner: {
-    marginHorizontal: 16, marginTop: 14, marginBottom: 4, borderRadius: 16, overflow: "hidden",
-    shadowColor: "#F5C518", shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.4, shadowRadius: 8, elevation: 5,
+    marginHorizontal: 16, marginTop: 14, marginBottom: 6, borderRadius: 20, overflow: "hidden",
+    shadowColor: "#B78B20", shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.2, shadowRadius: 9, elevation: 4,
   },
   goldBannerGrad: {
     flexDirection: "row", alignItems: "center", justifyContent: "space-between",
-    paddingVertical: 13, paddingHorizontal: 14,
+    paddingVertical: 14, paddingHorizontal: 14,
   },
   goldBannerLeft: { flexDirection: "row", alignItems: "center", gap: 10, flex: 1 },
   goldIconWrap: {
