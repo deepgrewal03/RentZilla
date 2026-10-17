@@ -1,8 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator, Alert, KeyboardAvoidingView, Modal, Platform, Pressable,
   ScrollView, StyleSheet, Switch, Text, TextInput, View,
@@ -365,6 +365,19 @@ export default function SettingsTab() {
   const { t, language, toggleLanguage } = useLang();
   const { settings: snd, toggle: toggleSnd, testSound } = useSound();
   const insets = useSafeAreaInsets();
+  // Deep-link support: /(tabs)/settings?section=help scrolls to Help & Support
+  const { section } = useLocalSearchParams<{ section?: string }>();
+  const scrollRef = useRef<ScrollView>(null);
+  const [helpY, setHelpY] = useState<number | null>(null);
+  useEffect(() => {
+    if (section !== "help" || helpY === null) return;
+    const frame = requestAnimationFrame(() => {
+      if (!scrollRef.current) return;
+      scrollRef.current.scrollTo({ y: Math.max(0, helpY - 12), animated: true });
+      router.setParams({ section: undefined });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [section, helpY]);
   const isWeb = Platform.OS === "web";
   const topPad = isWeb ? 67 : insets.top;
   const botPad = isWeb ? 34 : insets.bottom;
@@ -656,7 +669,7 @@ export default function SettingsTab() {
       </View>
 
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1 }}>
-      <ScrollView style={ss.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+      <ScrollView ref={scrollRef} style={ss.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
 
         {/* ── Profile card ── */}
         <View style={ss.profileCard}>
@@ -995,6 +1008,7 @@ export default function SettingsTab() {
         </Card>
 
         {/* ── 8. Help & Support ── */}
+        <View onLayout={(e) => setHelpY(e.nativeEvent.layout.y)} />
         <SectionHeader title="Help & Support" icon="help-circle-outline" />
         <Card>
           <SettingRow icon="document-text-outline" label="FAQ" sublabel={`${faqs.length} answers to common questions`} onPress={() => setShowFAQModal(true)} />

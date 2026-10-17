@@ -1,48 +1,60 @@
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import { router } from "expo-router";
+import { Image } from "expo-image";
+import { router, usePathname } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
   Animated,
   Modal,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import Colors from "@/constants/colors";
+import { DrawerTokens as D } from "@/constants/drawerTokens";
 import { useAuth } from "@/context/AuthContext";
 import { useLang } from "@/context/LanguageContext";
 import { confirmAction } from "@/lib/confirm";
 
-const C = Colors.light;
-const DRAWER_WIDTH = 300;
+const FARM_BG = require("@/assets/images/home-farm-background.jpg");
+const MAX_DRAWER_WIDTH = 320;
+
+// Drawer-only inline translations for entries not in the shared dictionary
+const EXTRA = {
+  en: { gold: "RentZilla Gold", goldSub: "Get 4% off every booking", settings: "Settings", help: "Help & Support", unread: "unread", close: "Close menu", tagline: "Farm. Rent. Grow." },
+  pa: { gold: "ਰੈਂਟਜ਼ਿਲਾ ਗੋਲਡ", goldSub: "ਹਰ ਬੁਕਿੰਗ 'ਤੇ 4% ਛੋਟ", settings: "ਸੈਟਿੰਗਾਂ", help: "ਮਦਦ ਅਤੇ ਸਹਾਇਤਾ", unread: "ਨਾ ਪੜ੍ਹੇ", close: "ਮੀਨੂ ਬੰਦ ਕਰੋ", tagline: "ਖੇਤੀ. ਕਿਰਾਇਆ. ਤਰੱਕੀ." },
+} as const;
 
 interface Props {
   visible: boolean;
   onClose: () => void;
 }
 
+const MENU_ITEMS = [
+  { icon: "home-outline", activeIcon: "home", labelKey: "home", path: "/(tabs)", match: ["/", "/index"] },
+  { icon: "search-outline", activeIcon: "search", labelKey: "searchEquipment", path: "/(tabs)/search", match: ["/search"] },
+  { icon: "calendar-outline", activeIcon: "calendar", labelKey: "myBookings", path: "/(tabs)/bookings", match: ["/bookings"] },
+  { icon: "heart-outline", activeIcon: "heart", labelKey: "favourites", path: "/(tabs)/favorites", match: ["/favorites"] },
+  { icon: "person-outline", activeIcon: "person", labelKey: "myProfile", path: "/(tabs)/profile", match: ["/profile"] },
+] as const;
+
 export function SideDrawer({ visible, onClose }: Props) {
   const { user, logout } = useAuth();
   const { t, language, toggleLanguage } = useLang();
+  const x = EXTRA[language === "pa" ? "pa" : "en"];
   const insets = useSafeAreaInsets();
-  const slideAnim = useRef(new Animated.Value(-DRAWER_WIDTH)).current;
+  const pathname = usePathname();
+  const { width: screenW } = useWindowDimensions();
+  const DRAWER_WIDTH = Math.min(MAX_DRAWER_WIDTH, Math.round(screenW * 0.86));
+  const slideAnim = useRef(new Animated.Value(-MAX_DRAWER_WIDTH)).current;
   const overlayAnim = useRef(new Animated.Value(0)).current;
   // `mounted` lags behind `visible` so the close animation can play before unmount
   const [mounted, setMounted] = useState(false);
-
-  const MENU_ITEMS = [
-    { icon: "home-outline", labelKey: "home", path: "/(tabs)" },
-    { icon: "search-outline", labelKey: "searchEquipment", path: "/(tabs)/search" },
-    { icon: "calendar-outline", labelKey: "myBookings", path: "/(tabs)/bookings" },
-    { icon: "heart-outline", labelKey: "favourites", path: "/(tabs)/favorites" },
-    { icon: "chatbubble-outline", labelKey: "messages", path: "/(tabs)/messages" },
-    { icon: "person-outline", labelKey: "myProfile", path: "/(tabs)/profile", dividerBefore: true },
-  ] as const;
 
   useEffect(() => {
     if (visible) {
@@ -53,7 +65,7 @@ export function SideDrawer({ visible, onClose }: Props) {
       ]).start();
     } else {
       Animated.parallel([
-        Animated.timing(slideAnim, { toValue: -DRAWER_WIDTH, duration: 220, useNativeDriver: true }),
+        Animated.timing(slideAnim, { toValue: -MAX_DRAWER_WIDTH, duration: 220, useNativeDriver: true }),
         Animated.timing(overlayAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
       ]).start(() => setMounted(false));
     }
@@ -86,146 +98,275 @@ export function SideDrawer({ visible, onClose }: Props) {
   }
 
   const displayName = user?.name || [user?.firstName, user?.lastName].filter(Boolean).join(" ") || "Guest";
+  const roleLabel = user?.role === "provider" ? t.provider : t.customer;
   const isWeb = Platform.OS === "web";
   const topPad = isWeb ? 67 : insets.top;
+  const bottomPad = (isWeb ? 34 : insets.bottom) + 16;
+  const isActive = (match: readonly string[]) => match.includes(pathname);
 
   return (
-    <Modal visible transparent animationType="none" onRequestClose={onClose}>
+    <Modal visible transparent animationType="none" onRequestClose={onClose} statusBarTranslucent>
       <Animated.View style={[styles.overlay, { opacity: overlayAnim }]}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
+        <Pressable
+          style={StyleSheet.absoluteFill}
+          onPress={onClose}
+          accessibilityRole="button"
+          accessibilityLabel="Close menu"
+        />
       </Animated.View>
 
       <Animated.View
-        style={[
-          styles.drawer,
-          { paddingTop: topPad, width: DRAWER_WIDTH, transform: [{ translateX: slideAnim }] },
-        ]}
+        style={[styles.drawer, { width: DRAWER_WIDTH, transform: [{ translateX: slideAnim }] }]}
+        accessibilityViewIsModal
       >
-        {/* Header */}
-        <View style={styles.drawerHeader}>
-          <Pressable onPress={onClose} style={styles.closeBtn}>
-            <Ionicons name="close" size={22} color={C.text} />
-          </Pressable>
-          <View style={styles.userInfo}>
-            <View style={styles.avatarCircle}>
-              <Text style={styles.avatarLetter}>{displayName[0]?.toUpperCase() || "?"}</Text>
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.userName} numberOfLines={1}>{displayName}</Text>
-              <Text style={styles.userRole} numberOfLines={1}>
-                {user?.role === "provider" ? t.provider : t.customer}
-              </Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Menu */}
-        <View style={styles.menu}>
-          {MENU_ITEMS.map((item) => (
-            <React.Fragment key={item.labelKey}>
-              {"dividerBefore" in item && item.dividerBefore && <View style={styles.menuDivider} />}
-              <Pressable
-                onPress={() => navigate(item.path)}
-                style={({ pressed }) => [styles.menuItem, { backgroundColor: pressed ? C.backgroundTertiary : "transparent" }]}
-              >
-                <View style={styles.menuIconWrap}>
-                  <Ionicons name={item.icon as keyof typeof Ionicons.glyphMap} size={20} color={C.text} />
+        <ScrollView
+          bounces={false}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: bottomPad }}
+        >
+          {/* Branded farmland header containing the user card */}
+          <View style={[styles.header, { paddingTop: topPad + 12 }]}>
+            <Image source={FARM_BG} contentFit="fill" accessible={false}
+              style={{ position: "absolute", top: 30, left: 0, right: 0, height: topPad + 135 }}
+            />
+            <View style={styles.headerRow}>
+              <View style={{ flex: 1 }}>
+                <View style={styles.brandRow}>
+                  <Ionicons name="leaf" size={16} color={D.white} />
+                  <Text style={styles.brand} accessibilityRole="header">RentZilla</Text>
                 </View>
-                <Text style={styles.menuLabel}>{t[item.labelKey]}</Text>
+                <Text style={styles.tagline}>{x.tagline}</Text>
+              </View>
+              <Pressable
+                onPress={onClose}
+                style={({ pressed }) => [styles.closeBtn, pressed && { opacity: 0.7 }]}
+                accessibilityRole="button"
+                accessibilityLabel={x.close}
+                hitSlop={6}
+              >
+                <Ionicons name="close" size={22} color={D.text} />
               </Pressable>
-            </React.Fragment>
-          ))}
-        </View>
-
-        {/* Footer: language toggle + logout */}
-        <View style={[styles.drawerFooter, { paddingBottom: (isWeb ? 34 : insets.bottom) + 16 }]}>
-          <View style={styles.menuDivider} />
-
-          {/* Language toggle */}
-          <Pressable
-            onPress={() => { Haptics.selectionAsync(); toggleLanguage(); }}
-            style={({ pressed }) => [styles.menuItem, { backgroundColor: pressed ? C.backgroundTertiary : "transparent" }]}
-          >
-            <View style={[styles.menuIconWrap, { backgroundColor: `${C.tint}15` }]}>
-              <Text style={{ fontSize: 16 }}>🌐</Text>
             </View>
-            <Text style={styles.menuLabel}>{language === "en" ? "ਪੰਜਾਬੀ" : "English"}</Text>
-            <View style={styles.langBadge}>
-              <Text style={styles.langBadgeText}>{language.toUpperCase()}</Text>
-            </View>
-          </Pressable>
 
-          <View style={styles.menuDivider} />
+            <Pressable
+              onPress={() => navigate("/(tabs)/profile")}
+              style={({ pressed }) => [styles.userCard, pressed && { opacity: 0.88 }]}
+              accessibilityRole="button"
+              accessibilityLabel={`${displayName}, ${roleLabel}. ${t.myProfile}`}
+            >
+              <View style={styles.avatar}>
+                <Text style={styles.avatarLetter}>{displayName[0]?.toUpperCase() || "?"}</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.userName} numberOfLines={1}>{displayName}</Text>
+                <Text style={styles.userRole} numberOfLines={1}>{roleLabel}</Text>
+              </View>
+              <View style={styles.cardChevron}>
+                <Ionicons name="chevron-forward" size={16} color={D.primary} />
+              </View>
+            </Pressable>
+          </View>
 
-          {/* Logout */}
-          <Pressable
-            onPress={handleLogout}
-            style={({ pressed }) => [styles.menuItem, { backgroundColor: pressed ? "#FEF2F2" : "transparent" }]}
-          >
-            <View style={[styles.menuIconWrap, { backgroundColor: "#FEF2F215" }]}>
-              <Ionicons name="log-out-outline" size={20} color={C.error} />
-            </View>
-            <Text style={[styles.menuLabel, { color: C.error }]}>{t.logout}</Text>
-          </Pressable>
-        </View>
+          <View style={styles.body}>
+          {/* Menu */}
+          <View style={styles.menu}>
+            {MENU_ITEMS.map((item) => {
+              const active = isActive(item.match);
+              return (
+                <React.Fragment key={item.labelKey}>
+                  <Pressable
+                    onPress={() => navigate(item.path)}
+                    accessibilityRole="button"
+                    accessibilityLabel={t[item.labelKey]}
+                    accessibilityState={{ selected: active }}
+                    style={({ pressed }) => [
+                      styles.row,
+                      active && styles.rowActive,
+                      pressed && !active && { backgroundColor: D.tileBg },
+                    ]}
+                  >
+                    {active && <View style={styles.activeBar} />}
+                    <View style={[styles.tile, active && { backgroundColor: D.activeTile }]}>
+                      <Ionicons
+                        name={(active ? item.activeIcon : item.icon) as keyof typeof Ionicons.glyphMap}
+                        size={20}
+                        color={active ? D.primary : D.text}
+                      />
+                    </View>
+                    <Text style={[styles.label, active && styles.labelActive]}>{t[item.labelKey]}</Text>
+                    <View style={[styles.chevron, active && { backgroundColor: D.activeChevronBg }]}>
+                      <Ionicons name="chevron-forward" size={14} color={active ? D.primary : D.textSecondary} />
+                    </View>
+                  </Pressable>
+                </React.Fragment>
+              );
+            })}
+
+            <View style={styles.divider} />
+
+            {/* Gold membership */}
+            <Pressable
+              onPress={() => navigate("/gold-membership")}
+              accessibilityRole="button"
+              accessibilityLabel={`${x.gold}. ${x.goldSub}`}
+              style={({ pressed }) => [styles.gold, pressed && { opacity: 0.85 }]}
+            >
+              <View style={styles.crown}>
+                <MaterialCommunityIcons name="crown" size={22} color={D.white} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.goldTitle} numberOfLines={1}>{x.gold}</Text>
+                <Text style={styles.goldSub} numberOfLines={2}>{x.goldSub}</Text>
+              </View>
+              <View style={styles.sparkles} pointerEvents="none">
+                <Ionicons name="sparkles" size={18} color={D.goldSpark} />
+              </View>
+              <View style={styles.goldChevron}>
+                <Ionicons name="chevron-forward" size={14} color={D.goldText} />
+              </View>
+            </Pressable>
+
+            <View style={styles.divider} />
+
+            {/* Language toggle */}
+            <Pressable
+              onPress={() => { Haptics.selectionAsync(); toggleLanguage(); }}
+              accessibilityRole="button"
+              accessibilityLabel={language === "en" ? "Switch to Punjabi" : "Switch to English"}
+              style={({ pressed }) => [styles.row, pressed && { backgroundColor: D.tileBg }]}
+            >
+              <View style={[styles.tile, { backgroundColor: D.langTile }]}>
+                <Ionicons name="globe-outline" size={20} color={D.langIcon} />
+              </View>
+              <Text style={styles.label}>{language === "en" ? "ਪੰਜਾਬੀ" : "English"}</Text>
+              <View style={styles.langBadge}>
+                <Text style={styles.langBadgeText}>{language.toUpperCase()}</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={14} color={D.textSecondary} />
+            </Pressable>
+
+            <View style={styles.divider} />
+
+            {/* Logout */}
+            <Pressable
+              onPress={handleLogout}
+              accessibilityRole="button"
+              accessibilityLabel={t.logout}
+              style={({ pressed }) => [styles.logout, pressed && { backgroundColor: D.logoutPressed }]}
+            >
+              <View style={[styles.tile, { backgroundColor: "transparent" }]}>
+                <Ionicons name="log-out-outline" size={22} color={D.logoutText} />
+              </View>
+              <Text style={[styles.label, styles.logoutLabel]}>{t.logout}</Text>
+              <Ionicons name="chevron-forward" size={16} color={D.logoutText} />
+            </Pressable>
+          </View>
+          </View>
+        </ScrollView>
       </Animated.View>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(15,31,61,0.5)",
-  },
+  overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: D.backdrop },
   drawer: {
     position: "absolute",
     left: 0, top: 0, bottom: 0,
-    backgroundColor: "#fff",
-    shadowColor: "#000",
-    shadowOffset: { width: 4, height: 0 },
-    shadowOpacity: 0.15,
-    shadowRadius: 20,
+    backgroundColor: D.surface,
+    borderTopRightRadius: 24,
+    borderBottomRightRadius: 24,
+    overflow: "hidden",
+    shadowColor: "#3A1A00",
+    shadowOffset: { width: 6, height: 0 },
+    shadowOpacity: 0.18,
+    shadowRadius: 24,
     elevation: 20,
   },
-  drawerHeader: {
-    paddingHorizontal: 16,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: C.borderLight,
+  header: { paddingHorizontal: 14, paddingBottom: 40, overflow: "hidden", backgroundColor: D.primary },
+  body: {
+    backgroundColor: D.surface, marginTop: -24, borderTopLeftRadius: 26, borderTopRightRadius: 26,
+  },
+  badge: {
+    minWidth: 22, height: 22, borderRadius: 11, paddingHorizontal: 6,
+    backgroundColor: D.badge, alignItems: "center", justifyContent: "center",
+  },
+  badgeText: { color: D.white, fontSize: 11, fontFamily: "Inter_700Bold", fontWeight: "700" },
+  gold: {
+    flexDirection: "row", alignItems: "center", gap: 12, marginVertical: 4,
+    paddingHorizontal: 12, paddingVertical: 12, minHeight: 64, borderRadius: 18,
+    backgroundColor: D.goldBg, borderWidth: 1, borderColor: D.goldBorder,
+  },
+  crown: {
+    width: 44, height: 44, borderRadius: 22, backgroundColor: D.goldCrown,
+    alignItems: "center", justifyContent: "center",
+    shadowColor: "#B07800", shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 6, elevation: 3,
+  },
+  goldTitle: { fontSize: 15, fontFamily: "Inter_700Bold", fontWeight: "700", color: D.text },
+  goldSub: { fontSize: 12, fontFamily: "Inter_400Regular", color: D.textSecondary, marginTop: 2 },
+  sparkles: { alignSelf: "flex-start" },
+  goldChevron: {
+    width: 26, height: 26, borderRadius: 13, backgroundColor: D.goldChevronBg,
+    alignItems: "center", justifyContent: "center",
+  },
+  headerTint: { ...StyleSheet.absoluteFillObject, backgroundColor: D.headerTint },
+  headerRow: { flexDirection: "row", alignItems: "flex-start" },
+  brandRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  brand: {
+    fontSize: 26, fontFamily: "Inter_700Bold", fontWeight: "700", color: D.white, letterSpacing: -0.5,
+    textShadowColor: "rgba(80,30,0,0.35)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4,
+  },
+  tagline: {
+    fontSize: 12, fontFamily: "Inter_500Medium", color: D.white, marginTop: 2, opacity: 0.95,
+    textShadowColor: "rgba(80,30,0,0.35)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3,
   },
   closeBtn: {
-    alignSelf: "flex-end",
-    width: 36, height: 36, borderRadius: 18,
-    backgroundColor: C.backgroundTertiary,
-    alignItems: "center", justifyContent: "center",
-    marginBottom: 12,
-  },
-  userInfo: { flexDirection: "row", alignItems: "center", gap: 12 },
-  avatarCircle: {
-    width: 48, height: 48, borderRadius: 24,
-    backgroundColor: `${C.tint}20`,
-    borderWidth: 2, borderColor: `${C.tint}30`,
+    width: 44, height: 44, borderRadius: 22, backgroundColor: D.closeBg,
     alignItems: "center", justifyContent: "center",
   },
-  avatarLetter: { fontSize: 20, fontWeight: "700", fontFamily: "Inter_700Bold", color: C.tint },
-  userName: { fontSize: 16, fontWeight: "700", fontFamily: "Inter_700Bold", color: C.text },
-  userRole: { fontSize: 12, color: C.textSecondary, fontFamily: "Inter_400Regular", marginTop: 2 },
-  menu: { flex: 1, paddingTop: 8, paddingHorizontal: 8 },
-  menuDivider: { height: 1, backgroundColor: C.borderLight, marginVertical: 8, marginHorizontal: 8 },
-  menuItem: {
+  userCard: {
     flexDirection: "row", alignItems: "center", gap: 12,
-    paddingHorizontal: 12, paddingVertical: 12, borderRadius: 12,
+    marginTop: 22, padding: 14, minHeight: 72,
+    backgroundColor: D.cream, borderRadius: 20, borderWidth: 1, borderColor: D.creamBorder,
+    shadowColor: "#B85A10", shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.14, shadowRadius: 14, elevation: 6,
   },
-  menuIconWrap: {
-    width: 36, height: 36, borderRadius: 10,
-    backgroundColor: C.backgroundTertiary,
+  avatar: {
+    width: 48, height: 48, borderRadius: 24, backgroundColor: D.avatarBg,
+    borderWidth: 1.5, borderColor: D.creamBorder, alignItems: "center", justifyContent: "center",
+  },
+  avatarLetter: { fontSize: 20, fontFamily: "Inter_700Bold", fontWeight: "700", color: D.primary },
+  userName: { fontSize: 17, fontFamily: "Inter_700Bold", fontWeight: "700", color: D.text },
+  userRole: { fontSize: 13, fontFamily: "Inter_400Regular", color: D.textSecondary, marginTop: 2 },
+  cardChevron: {
+    width: 30, height: 30, borderRadius: 15, borderWidth: 1, borderColor: D.creamBorder,
+    backgroundColor: D.white, alignItems: "center", justifyContent: "center",
+  },
+  menu: { paddingTop: 16, paddingHorizontal: 12 },
+  divider: { height: 1, backgroundColor: D.divider, marginVertical: 8, marginHorizontal: 10 },
+  row: {
+    flexDirection: "row", alignItems: "center", gap: 14,
+    paddingHorizontal: 10, paddingVertical: 6, minHeight: 56, borderRadius: 16, marginVertical: 1,
+  },
+  rowActive: { backgroundColor: D.activeBg },
+  activeBar: {
+    position: "absolute", left: -12, top: 10, bottom: 10, width: 4,
+    borderTopRightRadius: 4, borderBottomRightRadius: 4, backgroundColor: D.primary,
+  },
+  tile: {
+    width: 44, height: 44, borderRadius: 14, backgroundColor: D.tileBg,
     alignItems: "center", justifyContent: "center",
   },
-  menuLabel: { flex: 1, fontSize: 15, fontWeight: "500", fontFamily: "Inter_500Medium", color: C.text },
-  langBadge: {
-    backgroundColor: C.tint, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 2,
+  label: { flex: 1, fontSize: 15, fontFamily: "Inter_500Medium", fontWeight: "500", color: D.text },
+  labelActive: { fontFamily: "Inter_700Bold", fontWeight: "700" },
+  chevron: {
+    width: 26, height: 26, borderRadius: 13, backgroundColor: D.chevronBg,
+    alignItems: "center", justifyContent: "center",
   },
-  langBadgeText: { color: "#fff", fontSize: 11, fontWeight: "700", fontFamily: "Inter_700Bold" },
-  drawerFooter: { paddingHorizontal: 8 },
+  langBadge: { backgroundColor: D.primary, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 3 },
+  langBadgeText: { color: D.white, fontSize: 12, fontFamily: "Inter_700Bold", fontWeight: "700" },
+  logout: {
+    flexDirection: "row", alignItems: "center", gap: 14, marginTop: 4,
+    paddingHorizontal: 10, paddingVertical: 4, minHeight: 56, borderRadius: 16, backgroundColor: D.logoutBg,
+  },
+  logoutLabel: { color: D.logoutText, fontFamily: "Inter_700Bold", fontWeight: "700" },
 });
