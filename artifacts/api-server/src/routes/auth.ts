@@ -323,19 +323,20 @@ async function upsertSocialUser(params: {
   photoUrl?: string;
 }): Promise<{ user: typeof usersTable.$inferSelect; isNewUser: boolean }> {
   const { provider, providerId, email, name, photoUrl } = params;
-  const providerIdCol = provider === "google" ? "google_id" : "apple_id";
+  const providerColumn = provider === "google" ? usersTable.googleId : usersTable.appleId;
+  const providerValues = provider === "google" ? { googleId: providerId } : { appleId: providerId };
 
   // 1. Look up by provider ID first
-  const byProviderId = await db.execute(sql.raw(
-    `SELECT * FROM users WHERE ${providerIdCol} = '${providerId.replace(/'/g, "''")}' LIMIT 1`
-  )) as any;
-  const existingBySocial = (byProviderId?.rows ?? byProviderId)?.[0];
+  // Use the mapped schema on every path: raw rows expose created_at rather
+  // than the createdAt Date required by buildUserResponse.
+  const [existingBySocial] = await db.select().from(usersTable).where(eq(providerColumn, providerId)).limit(1);
   if (existingBySocial) {
     // Update photo if changed
-    if (photoUrl && !existingBySocial.photo_url) {
-      await db.execute(sql.raw(
-        `UPDATE users SET photo_url = '${photoUrl.replace(/'/g, "''")}' WHERE id = '${existingBySocial.id}'`
-      ));
+    if (photoUrl && !existingBySocial.photoUrl) {
+      const [updated] = await db.update(usersTable).set({ photoUrl })
+        .where(eq(usersTable.id, existingBySocial.id)).returning();
+      if (!updated) throw new Error("Social account disappeared during photo update");
+      return { user: updated, isNewUser: false };
     }
     return { user: existingBySocial, isNewUser: false };
   }
@@ -346,12 +347,11 @@ async function upsertSocialUser(params: {
     if (byEmail.length > 0) {
       const linked = byEmail[0];
       // Link this social provider to the existing account
-      await db.execute(sql.raw(
-        `UPDATE users SET ${providerIdCol} = '${providerId.replace(/'/g, "''")}',
-         auth_provider = '${provider}' ${photoUrl ? `, photo_url = '${photoUrl.replace(/'/g, "''")}'` : ""}
-         WHERE id = '${linked.id}'`
-      ));
-      return { user: linked, isNewUser: false };
+      const [updated] = await db.update(usersTable).set({
+        ...providerValues, authProvider: provider, ...(photoUrl ? { photoUrl } : {}),
+      }).where(eq(usersTable.id, linked.id)).returning();
+      if (!updated) throw new Error("Social account disappeared during linking");
+      return { user: updated, isNewUser: false };
     }
   }
 
@@ -363,25 +363,13 @@ async function upsertSocialUser(params: {
   const firstName = nameParts[0] || null;
   const lastName = nameParts.slice(1).join(" ") || null;
 
-  await db.execute(sql.raw(`
-    INSERT INTO users (id, phone, email, first_name, last_name, name, role, auth_provider, ${providerIdCol}, photo_url, profile_complete)
-    VALUES (
-      '${id}',
-      '${phone.replace(/'/g, "''")}',
-      ${email ? `'${email.toLowerCase().replace(/'/g, "''")}'` : "NULL"},
-      ${firstName ? `'${firstName.replace(/'/g, "''")}'` : "NULL"},
-      ${lastName ? `'${lastName.replace(/'/g, "''")}'` : "NULL"},
-      ${name ? `'${name.replace(/'/g, "''")}'` : "NULL"},
-      'customer',
-      '${provider}',
-      '${providerId.replace(/'/g, "''")}',
-      ${photoUrl ? `'${photoUrl.replace(/'/g, "''")}'` : "NULL"},
-      FALSE
-    )
-  `));
-
-  const created = await db.select().from(usersTable).where(eq(usersTable.id, id)).limit(1);
-  return { user: created[0], isNewUser: true };
+  const [created] = await db.insert(usersTable).values({
+    id, phone, email: email?.toLowerCase() ?? null, firstName, lastName,
+    name: name || null, role: "customer", authProvider: provider,
+    ...providerValues, photoUrl: photoUrl || null, profileComplete: false,
+  }).returning();
+  if (!created) throw new Error("Social account creation returned no user");
+  return { user: created, isNewUser: true };
 }
 
 // ─── POST /api/auth/google ───────────────────────────────────────────────────
@@ -412,10 +400,10 @@ router.post("/google", async (req, res) => {
 
     res.json({
       success: true,
-      user: { ...response, photo_url: (user as any).photo_url, provider: "google" },
+      user: { ...response, photo_url: user.photoUrl, provider: "google" },
       token,
       is_new_user: isNewUser,
-      profile_complete: (user as any).profile_complete ?? true,
+      profile_complete: user.profileComplete,
     });
   } catch (err: any) {
     req.log.error({ err }, "Google auth error");
@@ -457,7 +445,7 @@ router.post("/apple", async (req, res) => {
       user: { ...response, provider: "apple" },
       token,
       is_new_user: isNewUser,
-      profile_complete: (user as any).profile_complete ?? true,
+      profile_complete: user.profileComplete,
     });
   } catch (err: any) {
     req.log.error({ err }, "Apple auth error");
