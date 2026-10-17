@@ -91,7 +91,9 @@ export default function SignInScreen() {
 
     setGoogleLoading(true);
     try {
-      await _GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+      if (Platform.OS === "android") {
+        await _GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+      }
       const response = await _GoogleSignin.signIn();
       if (response.type === "success") {
         const idToken = response.data?.idToken;
@@ -112,11 +114,23 @@ export default function SignInScreen() {
         } else if (e.code === _statusCodes.IN_PROGRESS) {
           // already in progress — silent
         } else {
-          // Never surface raw developer errors (e.g. DEVELOPER_ERROR) to users
-          const friendly =
-            language === "pa"
-              ? "Google ਸਾਈਨ-ਇਨ ਇਸ ਵੇਲੇ ਉਪਲਬਧ ਨਹੀਂ ਹੈ। ਕਿਰਪਾ ਕਰਕੇ ਈਮੇਲ ਨਾਲ ਸਾਈਨ ਇਨ ਕਰੋ।"
-              : "Google sign-in is currently unavailable. Please sign in with email instead.";
+          // Log only the SDK's status code, never tokens or account details.
+          const code = String(e.code);
+          const safeCode = /^[A-Z0-9_-]{1,64}$/i.test(code) ? code : "UNKNOWN";
+          console.warn(`[GoogleSignIn] ${Platform.OS} SDK error: ${safeCode}`);
+          const configurationError = code === "10" || code === "DEVELOPER_ERROR";
+          const servicesError = e.code === _statusCodes.PLAY_SERVICES_NOT_AVAILABLE;
+          const friendly = configurationError
+            ? (language === "pa"
+              ? "ਇਸ ਐਪ ਲਈ Google ਸਾਈਨ-ਇਨ ਦੀ ਸੈਟਿੰਗ ਠੀਕ ਨਹੀਂ ਹੈ (ਕੋਡ 10)। ਕਿਰਪਾ ਕਰਕੇ ਸਹਾਇਤਾ ਨਾਲ ਸੰਪਰਕ ਕਰੋ ਜਾਂ ਈਮੇਲ ਨਾਲ ਸਾਈਨ ਇਨ ਕਰੋ।"
+              : "Google sign-in is not configured correctly for this app (code 10). Please contact support or sign in with email.")
+            : servicesError
+              ? (language === "pa"
+                ? "ਕਿਰਪਾ ਕਰਕੇ Google Play services ਅੱਪਡੇਟ ਜਾਂ ਚਾਲੂ ਕਰਕੇ ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੋ।"
+                : "Please update or enable Google Play services, then try again.")
+              : `${language === "pa"
+                ? "Google ਸਾਈਨ-ਇਨ ਅਸਫਲ ਰਿਹਾ। ਕਿਰਪਾ ਕਰਕੇ ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੋ ਜਾਂ ਈਮੇਲ ਨਾਲ ਸਾਈਨ ਇਨ ਕਰੋ।"
+                : "Google sign-in failed. Please try again or sign in with email."} (${safeCode})`;
           setError(friendly);
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
         }
