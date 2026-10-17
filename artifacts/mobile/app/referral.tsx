@@ -318,8 +318,8 @@ const ss = StyleSheet.create({
 
   applyHint: { fontSize: 13, color: "#888", marginBottom: 10 },
   applyRow: { flexDirection: "row", gap: 10 },
-  applyInput: { flex: 1, borderWidth: 1.5, borderColor: "#E5E5E5", borderRadius: 12, paddingHorizontal: 14, paddingVertical: 11, fontSize: 16, fontWeight: "700", letterSpacing: 2, color: NAVY },
-  applyBtn: { backgroundColor: ORANGE, borderRadius: 12, paddingHorizontal: 20, alignItems: "center", justifyContent: "center" },
+  applyInput: { flex: 1, minWidth: 0, borderWidth: 1.5, borderColor: "#E5E5E5", borderRadius: 12, paddingHorizontal: 14, paddingVertical: 11, fontSize: 16, fontWeight: "700", letterSpacing: 2, color: NAVY },
+  applyBtn: { flexShrink: 0, minHeight: 44, backgroundColor: ORANGE, borderRadius: 12, paddingHorizontal: 20, alignItems: "center", justifyContent: "center" },
   applyBtnText: { color: "#fff", fontWeight: "700", fontSize: 14 },
 
   referredByBadge: { flexDirection: "row", alignItems: "center", backgroundColor: "#F0FDF4", borderRadius: 12, padding: 12, marginBottom: 14, gap: 8, borderWidth: 1, borderColor: "#BBF7D0" },
