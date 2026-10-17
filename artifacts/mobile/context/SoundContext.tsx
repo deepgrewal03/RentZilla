@@ -24,6 +24,7 @@ export interface SoundSettings {
 
 interface SoundContextValue {
   settings: SoundSettings;
+  settingsReady: boolean;
   toggle:   (key: keyof SoundSettings) => Promise<void>;
   testSound: (key: AudioService.SoundKey) => Promise<void>;
   vibrate:  () => void;
@@ -47,6 +48,7 @@ const STORAGE_KEY = "@rentzilla:sound_settings";
 
 const SoundCtx = createContext<SoundContextValue>({
   settings:  DEFAULT_SETTINGS,
+  settingsReady: false,
   toggle:    async () => {},
   testSound: async () => {},
   vibrate:   () => {},
@@ -54,12 +56,15 @@ const SoundCtx = createContext<SoundContextValue>({
 
 export function SoundProvider({ children }: { children: React.ReactNode }) {
   const [settings, setSettings] = useState<SoundSettings>(DEFAULT_SETTINGS);
+  const [settingsReady, setSettingsReady] = useState(false);
 
   // Load persisted settings on mount
   useEffect(() => {
+    let cancelled = false;
     (async () => {
       try {
         const raw = await AsyncStorage.getItem(STORAGE_KEY);
+        if (cancelled) return;
         if (raw) {
           const saved: SoundSettings = { ...DEFAULT_SETTINGS, ...JSON.parse(raw) };
           setSettings(saved);
@@ -68,11 +73,15 @@ export function SoundProvider({ children }: { children: React.ReactNode }) {
           AudioService.applySettings(DEFAULT_SETTINGS);
         }
       } catch {
+        if (cancelled) return;
         AudioService.applySettings(DEFAULT_SETTINGS);
       }
+      // Publish readiness only after the service has received saved settings.
+      setSettingsReady(true);
       // Pre-load critical sounds after settings are applied
       AudioService.preloadCriticalSounds().catch(() => {});
     })();
+    return () => { cancelled = true; };
   }, []);
 
   const toggle = useCallback(async (key: keyof SoundSettings) => {
@@ -94,7 +103,7 @@ export function SoundProvider({ children }: { children: React.ReactNode }) {
   }, [settings.vibration]);
 
   return (
-    <SoundCtx.Provider value={{ settings, toggle, testSound, vibrate }}>
+    <SoundCtx.Provider value={{ settings, settingsReady, toggle, testSound, vibrate }}>
       {children}
     </SoundCtx.Provider>
   );
@@ -102,4 +111,15 @@ export function SoundProvider({ children }: { children: React.ReactNode }) {
 
 export function useSound() {
   return useContext(SoundCtx);
+}
+
+/** Wait for both the splash and preference hydration; the service enforces once/session. */
+export function StartupSound({ splashDone }: { splashDone: boolean }) {
+  const { settingsReady } = useSound();
+  useEffect(() => {
+    if (splashDone && settingsReady) {
+      AudioService.playStartup().catch(() => {});
+    }
+  }, [splashDone, settingsReady]);
+  return null;
 }

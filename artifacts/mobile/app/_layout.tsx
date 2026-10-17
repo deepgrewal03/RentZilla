@@ -19,8 +19,7 @@ import SplashAnimation from "@/components/SplashAnimation";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { FavoritesProvider } from "@/context/FavoritesContext";
 import { LanguageProvider } from "@/context/LanguageContext";
-import { SoundProvider } from "@/context/SoundContext";
-import * as AudioService from "@/services/AudioService";
+import { SoundProvider, StartupSound } from "@/context/SoundContext";
 import { setBaseUrl } from "@workspace/api-client-react";
 import { API_BASE_URL } from "@/constants/apiUrl";
 
@@ -126,6 +125,7 @@ export default function RootLayout() {
         <QueryClientProvider client={queryClient}>
           <LanguageProvider>
             <SoundProvider>
+              <StartupSound splashDone={splashDone} />
               <AuthProvider>
                 <AuthGuard />
                 <FavoritesProvider>
@@ -141,7 +141,6 @@ export default function RootLayout() {
                           <SplashAnimation
                             onDone={() => {
                               setSplashDone(true);
-                              AudioService.playStartup().catch(() => {});
                             }}
                           />
                         )}

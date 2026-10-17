@@ -148,3 +148,116 @@ test("unload cancels pending playback and failures are contained and logged", as
   await service.playNotification();
   assert.equal(warnings.length, 1);
 });
+
+// Execute the actual provider and startup effect with controlled storage and
+// a minimal hook runner, without loading native modules or wall-clock timers.
+function startupHarness() {
+  const { service, players } = harness();
+  let resolveStorage, rejectStorage;
+  const storage = new Promise((resolve, reject) => {
+    resolveStorage = resolve;
+    rejectStorage = reject;
+  });
+  const states = [];
+  let stateIndex = 0;
+  let effects = [];
+  let context;
+  const react = {
+    createContext(value) { context = value; return { Provider: "Provider" }; },
+    useContext() { return context; },
+    useState(initial) {
+      const index = stateIndex++;
+      if (!(index in states)) states[index] = initial;
+      return [states[index], value => {
+        states[index] = typeof value === "function" ? value(states[index]) : value;
+      }];
+    },
+    useEffect(fn) { effects.push(fn); },
+    useCallback(fn) { return fn; },
+    createElement(_type, props) { context = props.value; return null; },
+  };
+  const exports = {};
+  vm.runInNewContext(ts.transpileModule(
+    fs.readFileSync("artifacts/mobile/context/SoundContext.tsx", "utf8"),
+    { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.React, esModuleInterop: true } },
+  ).outputText, {
+    exports,
+    require(name) {
+      if (name === "react") return react;
+      if (name === "@react-native-async-storage/async-storage") {
+        return { getItem: () => storage };
+      }
+      if (name === "expo-haptics") return {};
+      if (name === "@/services/AudioService") return service;
+      throw new Error(`Unexpected dependency: ${name}`);
+    },
+  });
+  function renderProvider() {
+    stateIndex = 0;
+    exports.SoundProvider({ children: null });
+  }
+  renderProvider();
+  const cleanup = effects.shift()();
+  function renderStartup(splashDone) {
+    // Refresh the context value, but don't re-run the mount-only provider effect.
+    renderProvider();
+    effects = [];
+    exports.StartupSound({ splashDone });
+    effects.shift()();
+  }
+  return {
+    players, resolveStorage, rejectStorage, renderStartup, cleanup,
+    ready: () => states[1],
+  };
+}
+
+const flush = () => new Promise(resolve => setImmediate(resolve));
+
+for (const [label, saved, expected] of [
+  ["muted", '{"master":false}', 0],
+  ["startup disabled", '{"startup":false}', 0],
+  ["enabled", '{"startup":true}', 1],
+  ["missing preferences", null, 1],
+  ["malformed preferences", "{invalid", 1],
+  ["storage failure", undefined, 1],
+]) {
+  test(`delayed cold-launch storage: ${label}`, async () => {
+    const h = startupHarness();
+    h.renderStartup(true); // splash completes before storage
+    await flush();
+    assert.equal(h.ready(), false);
+    assert.equal(h.players.length, 0, "no sound before hydration");
+    if (saved === undefined) h.rejectStorage(new Error("storage unavailable"));
+    else h.resolveStorage(saved);
+    await flush();
+    h.renderStartup(true);
+    await flush();
+    h.renderStartup(true); // repeated effects must not duplicate the cue
+    await flush();
+    assert.equal(h.ready(), true);
+    assert.equal(h.players.reduce((sum, p) => sum + p.plays, 0), expected);
+    h.cleanup();
+  });
+}
+
+test("hydration before splash still waits for splash completion", async () => {
+  const h = startupHarness();
+  h.resolveStorage(null);
+  await flush();
+  h.renderStartup(false);
+  await flush();
+  assert.ok(h.players.every(p => p.plays === 0));
+  h.renderStartup(true);
+  await flush();
+  assert.equal(h.players.reduce((sum, p) => sum + p.plays, 0), 1);
+  h.cleanup();
+});
+
+test("unmounted provider ignores late storage completion", async () => {
+  const h = startupHarness();
+  h.cleanup();
+  h.resolveStorage(null);
+  await flush();
+  assert.equal(h.ready(), false);
+  assert.equal(h.players.length, 0);
+});
