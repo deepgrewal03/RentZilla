@@ -60,9 +60,9 @@ export default function ForgotPasswordScreen() {
           <View style={styles.successIcon}>
             <Ionicons name="mail-open-outline" size={48} color="#FF7A18" />
           </View>
-          <Text style={styles.successTitle}>OTP Sent!</Text>
+          <Text style={styles.successTitle}>Check Your Email</Text>
           <Text style={styles.successMsg}>
-            We sent a 6-digit code to{"\n"}
+            If an account exists for this email, a 6-digit code has been sent to{"\n"}
             <Text style={{ fontWeight: "700" }}>{email.trim().toLowerCase()}</Text>
             {"\n\n"}Check your inbox (and spam folder).
           </Text>

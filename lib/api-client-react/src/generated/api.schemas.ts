@@ -5,6 +5,35 @@
  * RentZilla API specification
  * OpenAPI spec version: 0.1.0
  */
+export interface PushDeviceRevocation {
+  installationId: string;
+  /**
+   * @minLength 64
+   * @maxLength 64
+   */
+  secret: string;
+}
+
+export type PushDeviceInputPlatform =
+  (typeof PushDeviceInputPlatform)[keyof typeof PushDeviceInputPlatform];
+
+export const PushDeviceInputPlatform = {
+  android: "android",
+  ios: "ios",
+} as const;
+
+export interface PushDeviceInput {
+  installationId: string;
+  /**
+   * @minLength 64
+   * @maxLength 64
+   */
+  secret: string;
+  /** @maxLength 200 */
+  expoPushToken: string;
+  platform: PushDeviceInputPlatform;
+}
+
 export interface HealthStatus {
   status: string;
 }

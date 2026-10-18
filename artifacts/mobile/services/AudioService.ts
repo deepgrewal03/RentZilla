@@ -37,7 +37,6 @@ let _startupEnabled   = true;
 let _bookingEnabled   = true;
 let _walletEnabled    = true;
 let _ringtoneEnabled  = true;
-let _notifEnabled     = true;
 
 let _audioModeSet = false;
 let _ringtoneObj: AudioPlayer | null = null;
@@ -127,7 +126,6 @@ export function applySettings(settings: {
   booking:   boolean;
   wallet:    boolean;
   ringtone:  boolean;
-  notif:     boolean;
 }) {
   _masterEnabled    = settings.master;
   _vibrationEnabled = settings.vibration;
@@ -135,7 +133,6 @@ export function applySettings(settings: {
   _bookingEnabled   = settings.booking;
   _walletEnabled    = settings.wallet;
   _ringtoneEnabled  = settings.ringtone;
-  _notifEnabled     = settings.notif;
 }
 
 export function setMasterEnabled(v: boolean)    { _masterEnabled    = v; }
@@ -144,7 +141,6 @@ export function setStartupEnabled(v: boolean)   { _startupEnabled   = v; }
 export function setBookingEnabled(v: boolean)   { _bookingEnabled   = v; }
 export function setWalletEnabled(v: boolean)    { _walletEnabled    = v; }
 export function setRingtoneEnabled(v: boolean)  { _ringtoneEnabled  = v; }
-export function setNotifEnabled(v: boolean)     { _notifEnabled     = v; }
 
 /** Play startup chime — only fires once per app session. */
 export async function playStartup() {
@@ -167,7 +163,7 @@ export async function playBookingFail() {
 }
 
 export async function playProviderAlert() {
-  if (!_masterEnabled || !_notifEnabled) return;
+  if (!_masterEnabled) return;
   await _play("providerAlert");
 }
 
@@ -187,7 +183,7 @@ export async function playPaymentFail() {
 }
 
 export async function playNotification() {
-  if (!_masterEnabled || !_notifEnabled) return;
+  if (!_masterEnabled) return;
   await _play("notification");
 }
 

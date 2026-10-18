@@ -8,6 +8,38 @@
 import * as zod from "zod";
 
 /**
+ * @summary Associate this installation with the authenticated account
+ */
+export const registerPushDeviceBodySecretMin = 64;
+export const registerPushDeviceBodySecretMax = 64;
+
+export const registerPushDeviceBodyExpoPushTokenMax = 200;
+
+export const RegisterPushDeviceBody = zod.object({
+  installationId: zod.string().uuid(),
+  secret: zod
+    .string()
+    .min(registerPushDeviceBodySecretMin)
+    .max(registerPushDeviceBodySecretMax),
+  expoPushToken: zod.string().max(registerPushDeviceBodyExpoPushTokenMax),
+  platform: zod.enum(["android", "ios"]),
+});
+
+/**
+ * @summary Revoke this installation using its private revocation credential
+ */
+export const unregisterPushDeviceBodySecretMin = 64;
+export const unregisterPushDeviceBodySecretMax = 64;
+
+export const UnregisterPushDeviceBody = zod.object({
+  installationId: zod.string().uuid(),
+  secret: zod
+    .string()
+    .min(unregisterPushDeviceBodySecretMin)
+    .max(unregisterPushDeviceBodySecretMax),
+});
+
+/**
  * @summary Health check
  */
 export const HealthCheckResponse = zod.object({

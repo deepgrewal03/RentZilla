@@ -30,6 +30,8 @@ import type {
   Listing,
   LoginRequest,
   Message,
+  PushDeviceInput,
+  PushDeviceRevocation,
   Review,
   SendMessageRequest,
   StartChatRequest,
@@ -47,6 +49,178 @@ type AwaitedInput<T> = PromiseLike<T> | T;
 type Awaited<O> = O extends AwaitedInput<infer T> ? T : never;
 
 type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
+
+/**
+ * @summary Associate this installation with the authenticated account
+ */
+export const getRegisterPushDeviceUrl = () => {
+  return `/api/notifications/device`;
+};
+
+export const registerPushDevice = async (
+  pushDeviceInput: PushDeviceInput,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getRegisterPushDeviceUrl(), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(pushDeviceInput),
+  });
+};
+
+export const getRegisterPushDeviceMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof registerPushDevice>>,
+    TError,
+    { data: BodyType<PushDeviceInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof registerPushDevice>>,
+  TError,
+  { data: BodyType<PushDeviceInput> },
+  TContext
+> => {
+  const mutationKey = ["registerPushDevice"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof registerPushDevice>>,
+    { data: BodyType<PushDeviceInput> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return registerPushDevice(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RegisterPushDeviceMutationResult = NonNullable<
+  Awaited<ReturnType<typeof registerPushDevice>>
+>;
+export type RegisterPushDeviceMutationBody = BodyType<PushDeviceInput>;
+export type RegisterPushDeviceMutationError = ErrorType<void>;
+
+/**
+ * @summary Associate this installation with the authenticated account
+ */
+export const useRegisterPushDevice = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof registerPushDevice>>,
+    TError,
+    { data: BodyType<PushDeviceInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof registerPushDevice>>,
+  TError,
+  { data: BodyType<PushDeviceInput> },
+  TContext
+> => {
+  return useMutation(getRegisterPushDeviceMutationOptions(options));
+};
+
+/**
+ * @summary Revoke this installation using its private revocation credential
+ */
+export const getUnregisterPushDeviceUrl = () => {
+  return `/api/notifications/device`;
+};
+
+export const unregisterPushDevice = async (
+  pushDeviceRevocation: PushDeviceRevocation,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getUnregisterPushDeviceUrl(), {
+    ...options,
+    method: "DELETE",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(pushDeviceRevocation),
+  });
+};
+
+export const getUnregisterPushDeviceMutationOptions = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof unregisterPushDevice>>,
+    TError,
+    { data: BodyType<PushDeviceRevocation> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof unregisterPushDevice>>,
+  TError,
+  { data: BodyType<PushDeviceRevocation> },
+  TContext
+> => {
+  const mutationKey = ["unregisterPushDevice"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof unregisterPushDevice>>,
+    { data: BodyType<PushDeviceRevocation> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return unregisterPushDevice(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UnregisterPushDeviceMutationResult = NonNullable<
+  Awaited<ReturnType<typeof unregisterPushDevice>>
+>;
+export type UnregisterPushDeviceMutationBody = BodyType<PushDeviceRevocation>;
+export type UnregisterPushDeviceMutationError = ErrorType<void>;
+
+/**
+ * @summary Revoke this installation using its private revocation credential
+ */
+export const useUnregisterPushDevice = <
+  TError = ErrorType<void>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof unregisterPushDevice>>,
+    TError,
+    { data: BodyType<PushDeviceRevocation> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof unregisterPushDevice>>,
+  TError,
+  { data: BodyType<PushDeviceRevocation> },
+  TContext
+> => {
+  return useMutation(getUnregisterPushDeviceMutationOptions(options));
+};
 
 /**
  * @summary Health check

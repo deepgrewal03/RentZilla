@@ -2,7 +2,7 @@ import Button3D from "@/components/Button3D";
 import { Ionicons } from "@expo/vector-icons";
 import * as Clipboard from "expo-clipboard";
 import * as Haptics from "expo-haptics";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
   Animated,
@@ -88,12 +88,20 @@ export function NotificationBell() {
   const { t, language } = useLang();
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { showNotifications } = useLocalSearchParams<{ showNotifications?: string }>();
   const isWeb = Platform.OS === "web";
 
   const [view, setView]                     = useState<ViewState>("none");
   const [notifications, setNotifications]   = useState<Notification[]>([]);
   const [selected, setSelected]             = useState<Notification | null>(null);
   const [copied, setCopied]                 = useState<string | null>(null);
+  useEffect(() => {
+    if (showNotifications === "1" && user) {
+      setView("list");
+      void fetchNotifications();
+      router.setParams({ showNotifications: undefined });
+    }
+  }, [showNotifications, user?.id]);
 
   const bellScale    = useRef(new Animated.Value(1)).current;
   const glowOpacity  = useRef(new Animated.Value(0)).current;

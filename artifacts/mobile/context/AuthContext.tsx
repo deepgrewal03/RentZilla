@@ -1,6 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { API_BASE_URL } from "@/constants/apiUrl";
+import { revokeThisPushDevice } from "@/services/NativeNotifications";
 
 export type UserRole = "customer" | "provider" | "both";
 export type ActiveMode = "customer" | "provider";
@@ -257,6 +258,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   async function logout() {
+    // Failure is retried on reconnect/startup using an installation-only revocation
+    // credential. Never keep the previous account's auth token for cleanup.
+    await revokeThisPushDevice().catch(() => {});
     try {
       if (token) {
         await fetch(`${BASE_URL}/api/auth/logout`, {

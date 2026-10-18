@@ -6,6 +6,7 @@ import fs from "fs";
 import router from "./routes";
 import legalRouter from "./routes/legal.js";
 import { logger } from "./lib/logger";
+import { runPushDeliveryCycle } from "./lib/pushDelivery.js";
 
 const app: Express = express();
 
@@ -57,6 +58,15 @@ app.use("/uploads", express.static(uploadsDir));
 // Legal pages — served at root level so /privacy and /terms are direct URLs
 app.use(legalRouter);
 
-app.use("/api", router);
+// Wake delivery immediately after a successful write rather than waiting for
+// the interval. The durable queue also catches up after server restarts.
+app.use("/api", (req, res, next) => {
+  if (["POST", "PUT", "PATCH"].includes(req.method) && !req.path.startsWith("/notifications/device")) {
+    res.once("finish", () => {
+      if (res.statusCode < 400) void runPushDeliveryCycle();
+    });
+  }
+  next();
+}, router);
 
 export default app;

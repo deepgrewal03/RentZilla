@@ -1,2 +1,4 @@
 - [Paid booking settlement](paid-booking-settlement.md) — Razorpay capture collects once; job completion releases earnings and never re-debits the customer.
 - [Additive report migrations](report-migrations.md) — preserve legacy reports when adding target fields; verify schema after workflow reconciliation.
+- [Native notification policy](native-notification-policy.md) — OS-only permission controls; no duplicate in-app notification switches.
+- [Password-reset email provider](password-reset-email.md) — keep Gmail, using Google authorization rather than the rejected App Password route.

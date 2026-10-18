@@ -13,6 +13,7 @@ import Colors from "@/constants/colors";
 import { useAuth, type ActiveMode } from "@/context/AuthContext";
 import { useLang } from "@/context/LanguageContext";
 import { useSound } from "@/context/SoundContext";
+import NotificationSettings from "@/components/NotificationSettings";
 import type { SoundKey } from "@/services/AudioService";
 import { useApi } from "@/hooks/useApi";
 import { confirmAction } from "@/lib/confirm";
@@ -350,7 +351,6 @@ function ReportIssueModal({ visible, onClose, api }: { visible: boolean; onClose
 
 // ─── Main Settings Screen ─────────────────────────────────────────────────
 
-interface NotifPrefs { bookingRequests: boolean; bookingConfirmations: boolean; messages: boolean; paymentUpdates: boolean; promotions: boolean; }
 interface PrivacyPrefs { profileVisibility: "public" | "private"; showPhone: boolean; }
 interface Prefs { darkMode: "system" | "light" | "dark"; dataSaver: boolean; twoFaEnabled?: boolean; }
 type EmergencyContact = { id: string; name: string; phone: string; relation: string | null } | null;
@@ -383,7 +383,6 @@ export default function SettingsTab() {
   const botPad = isWeb ? 34 : insets.bottom;
 
   // Settings state
-  const [notif, setNotif] = useState<NotifPrefs>({ bookingRequests: true, bookingConfirmations: true, messages: true, paymentUpdates: true, promotions: true });
   const [privacy, setPrivacy] = useState<PrivacyPrefs>({ profileVisibility: "public", showPhone: true });
   const [prefs, setPrefs] = useState<Prefs>({ darkMode: "system", dataSaver: false, twoFaEnabled: false });
   const [loadingSettings, setLoadingSettings] = useState(true);
@@ -460,8 +459,7 @@ export default function SettingsTab() {
 
   async function fetchSettings() {
     try {
-      const data = await get<{ notifications: NotifPrefs; privacy: PrivacyPrefs; preferences: Prefs }>("/settings");
-      setNotif(data.notifications);
+      const data = await get<{ privacy: PrivacyPrefs; preferences: Prefs }>("/settings");
       setPrivacy(data.privacy);
       setPrefs(data.preferences);
     } catch { } finally { setLoadingSettings(false); }
@@ -560,10 +558,6 @@ export default function SettingsTab() {
     }
   }
 
-  async function updateNotif(key: keyof NotifPrefs, val: boolean) {
-    const next = { ...notif, [key]: val }; setNotif(next);
-    try { await patch("/settings/notifications", { [key]: val }); } catch { setNotif(notif); }
-  }
   async function updatePrivacy(key: keyof PrivacyPrefs, val: any) {
     const next = { ...privacy, [key]: val }; setPrivacy(next);
     try { await patch("/settings/privacy", { [key]: val }); } catch { setPrivacy(privacy); }
@@ -780,25 +774,11 @@ export default function SettingsTab() {
         )}
 
         {/* ── 3. Notifications ── */}
-        <SectionHeader title="Notification Preferences" icon="notifications-outline" />
-        <Card>
-          {loadingSettings ? <ActivityIndicator color={ORANGE} style={{ padding: 20 }} /> : (
-            <>
-              <ToggleRow icon="calendar-outline" label="Booking Requests" sublabel="New bookings for your listings" value={notif.bookingRequests} onChange={(v) => updateNotif("bookingRequests", v)} color="#3B82F6" />
-              <Divider />
-              <ToggleRow icon="checkmark-circle-outline" label="Booking Confirmations" sublabel="When a booking is confirmed" value={notif.bookingConfirmations} onChange={(v) => updateNotif("bookingConfirmations", v)} color="#22C55E" />
-              <Divider />
-              <ToggleRow icon="chatbubble-outline" label="Messages" sublabel="Chat messages from others" value={notif.messages} onChange={(v) => updateNotif("messages", v)} color="#8B5CF6" />
-              <Divider />
-              <ToggleRow icon="card-outline" label="Payment Updates" sublabel="Payment received or due" value={notif.paymentUpdates} onChange={(v) => updateNotif("paymentUpdates", v)} color="#F59E0B" />
-              <Divider />
-              <ToggleRow icon="pricetag-outline" label="Promotions & Offers" sublabel="Deals and special offers" value={notif.promotions} onChange={(v) => updateNotif("promotions", v)} color="#EC4899" />
-            </>
-          )}
-        </Card>
+        <SectionHeader title="Notifications" icon="notifications-outline" />
+        <NotificationSettings />
 
         {/* ── 4. Sounds & Notifications ── */}
-        <SectionHeader title="Sounds & Notifications" icon="musical-notes-outline" />
+        <SectionHeader title="In-App Sounds" icon="musical-notes-outline" />
         <Card>
           <ToggleRow icon="volume-high-outline" label="Master Sound" sublabel="Enable all in-app sounds" value={snd.master} onChange={() => toggleSnd("master")} color="#FF7A18" />
           <Divider />
@@ -812,13 +792,10 @@ export default function SettingsTab() {
           <Divider />
           <ToggleRow icon="call-outline" label="Incoming Booking Ringtone" sublabel="Louder ring for new booking requests" value={snd.ringtone} onChange={() => toggleSnd("ringtone")} color="#EF4444" />
           <Divider />
-          <ToggleRow icon="notifications-outline" label="Notification Tones" sublabel="Sounds for push notifications" value={snd.notif} onChange={() => toggleSnd("notif")} color="#EC4899" />
-          <Divider />
           <View style={ss.soundTestRow}>
             <Text style={ss.soundTestLabel}>Test Sounds</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 8 }}>
               {([
-                { key: "notification",    label: "Notif",   icon: "notifications-outline" },
                 { key: "bookingSuccess",  label: "Booking", icon: "checkmark-circle-outline" },
                 { key: "walletCredit",    label: "Credit",  icon: "wallet-outline" },
                 { key: "payoutSuccess",   label: "Payout",  icon: "cash-outline" },

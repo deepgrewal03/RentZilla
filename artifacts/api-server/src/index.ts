@@ -3,6 +3,7 @@ import { logger } from "./lib/logger";
 import { runMigrations } from "./lib/migrate";
 import { seedSuperAdmins } from "./lib/seed-admins";
 import { startPayoutScheduler } from "./lib/payout-scheduler.js";
+import { startPushDeliveryWorker } from "./lib/pushDelivery.js";
 
 const rawPort = process.env["PORT"];
 
@@ -29,6 +30,7 @@ runMigrations()
       }
       logger.info({ port }, "Server listening");
       startPayoutScheduler();
+      startPushDeliveryWorker();
     });
   })
   .catch((err) => {

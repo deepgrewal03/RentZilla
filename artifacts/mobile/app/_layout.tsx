@@ -17,6 +17,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import NetworkGate from "@/components/NetworkGate";
 import SplashAnimation from "@/components/SplashAnimation";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
+import { NotificationProvider } from "@/context/NotificationContext";
 import { FavoritesProvider } from "@/context/FavoritesContext";
 import { LanguageProvider } from "@/context/LanguageContext";
 import { SoundProvider, StartupSound } from "@/context/SoundContext";
@@ -127,6 +128,7 @@ export default function RootLayout() {
             <SoundProvider>
               <StartupSound splashDone={splashDone} />
               <AuthProvider>
+                <NotificationProvider>
                 <AuthGuard />
                 <FavoritesProvider>
                   <GestureHandlerRootView style={{ flex: 1 }}>
@@ -148,6 +150,7 @@ export default function RootLayout() {
                     </KeyboardAvoidingView>
                   </GestureHandlerRootView>
                 </FavoritesProvider>
+                </NotificationProvider>
               </AuthProvider>
             </SoundProvider>
           </LanguageProvider>

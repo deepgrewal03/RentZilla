@@ -1,0 +1,271 @@
+IMPORTANT CORRECTION — NATIVE NOTIFICATION SETTINGS ONLY
+
+Do NOT create or use individual in-app notification ON/OFF switches.
+
+Rentzilla must rely ONLY on the real iOS and Android notification permission/settings system.
+
+The phone's operating system must be the source of truth for notification permissions.
+
+1. REMOVE IN-APP NOTIFICATION TOGGLES
+
+Remove any existing Rentzilla Settings toggles that independently enable/disable notifications.
+
+Do NOT have app-level switches such as:
+
+- Booking notifications ON/OFF
+- Messages ON/OFF
+- Payment notifications ON/OFF
+- Promotions ON/OFF
+- Rental updates ON/OFF
+- Master Notifications ON/OFF
+
+Do not maintain a second notification permission system inside Rentzilla.
+
+2. USE REAL DEVICE NOTIFICATION PERMISSIONS
+
+Implement proper native notification permissions.
+
+On iOS, Rentzilla must appear under:
+
+Settings > Notifications > Rentzilla
+
+The user should manage notifications using Apple's native notification controls.
+
+On Android, Rentzilla must appear under:
+
+Settings > Apps > Rentzilla > Notifications
+
+Use Android's native notification permission and notification channel system.
+
+3. RENTZILLA SETTINGS PAGE
+
+Rentzilla can still have:
+
+Settings > Notifications
+
+However, this page must NOT contain custom notification permission switches.
+
+Instead, show the current device permission status.
+
+Example:
+
+Notifications
+
+Device Notifications
+Allowed
+
+"Rentzilla notifications are managed through your phone settings."
+
+[ Manage Notification Settings ]
+
+When the user taps "Manage Notification Settings", open the operating system's notification settings specifically for Rentzilla whenever supported.
+
+4. PERMISSION STATUS
+
+Whenever the Rentzilla Settings page becomes active, check the REAL operating-system notification authorization status.
+
+Possible states:
+
+Notifications Allowed
+
+Notifications Disabled
+
+Permission Not Requested
+
+The displayed state must reflect the actual device permission.
+
+Do not store a separate ON/OFF value and pretend it represents notification permission.
+
+5. OPEN DEVICE SETTINGS
+
+Add a button:
+
+"Manage Notification Settings"
+
+It should open the native notification settings for Rentzilla.
+
+On iOS, open the appropriate application/settings page supported by iOS.
+
+On Android, open Rentzilla's notification settings.
+
+6. iOS
+
+Use Apple's real notification permission APIs.
+
+Request notification authorization correctly.
+
+After permission is granted, register the application for remote notifications.
+
+Rentzilla must then appear in iOS notification settings.
+
+Do not build custom replacements for Apple's notification controls.
+
+7. ANDROID
+
+Use Android's real notification permission system.
+
+For Android versions requiring runtime notification permission, request POST_NOTIFICATIONS correctly.
+
+Configure appropriate Android notification channels.
+
+Suggested channels:
+
+Bookings
+Messages
+Payments
+Rental Updates
+Offers & Promotions
+Account & Security
+
+IMPORTANT:
+
+These are Android SYSTEM notification channels.
+
+They are NOT Rentzilla in-app switches.
+
+This allows Android users to go to:
+
+Settings
+> Apps
+> Rentzilla
+> Notifications
+
+and independently control supported notification categories using Android itself.
+
+8. iOS CATEGORY LIMITATION
+
+Do not create fake in-app switches just to imitate Android notification channels on iOS.
+
+Use whatever notification controls iOS natively provides.
+
+The operating system remains authoritative.
+
+9. FIRST PERMISSION REQUEST
+
+Do not automatically trigger the system permission popup immediately on every app launch.
+
+Use an appropriate first-time explanation such as:
+
+"Stay updated with Rentzilla"
+
+"Allow notifications to receive booking updates, messages, payment updates and important account information."
+
+Buttons:
+
+Enable Notifications
+Not Now
+
+Only after "Enable Notifications" is selected should the real native iOS/Android permission request be triggered.
+
+"Not Now" must not grant or simulate permission.
+
+10. IF PERMISSION IS DENIED
+
+Do not repeatedly trigger the native permission request.
+
+Instead show:
+
+"Notifications are currently disabled on this device."
+
+[ Open Notification Settings ]
+
+The user should change the permission through their phone.
+
+11. PUSH NOTIFICATION DELIVERY
+
+Use the existing Rentzilla notification backend/push system.
+
+Correctly register native push tokens after permission is available.
+
+Associate tokens with the correct authenticated Rentzilla account.
+
+Refresh tokens when required.
+
+Clean up/reassign tokens appropriately during logout/login.
+
+Do not expose tokens to users.
+
+12. NOTIFICATION DEEP LINKS
+
+Keep existing Rentzilla navigation.
+
+When appropriate:
+
+Booking notification
+→ Open relevant booking
+
+Message notification
+→ Open relevant conversation
+
+Payment notification
+→ Open relevant booking/payment
+
+Rental notification
+→ Open relevant listing
+
+Do not rebuild existing pages.
+
+13. CRITICAL ARCHITECTURE RULE
+
+There must NOT be two independent notification permission systems.
+
+DO NOT implement:
+
+Device permission = ON
++
+Rentzilla notification switch = OFF
+
+or any similar combination.
+
+Notification permission must be controlled by the REAL operating system.
+
+For Android category-level controls, use native Android notification channels.
+
+For iOS, use Apple's supported native notification settings.
+
+Rentzilla Settings should only DISPLAY the current permission state and provide a shortcut to the device notification settings.
+
+14. DO NOT CHANGE OTHER FUNCTIONALITY
+
+Do not change:
+
+- bookings
+- authentication
+- payments
+- messaging
+- rentals
+- favourites
+- search
+- navigation
+- UI outside the necessary notification settings
+- existing backend behavior unless required for native push notification support
+
+Before implementation, inspect the current project and identify the mobile technology/framework being used.
+
+Use the correct native notification APIs/libraries for that existing framework.
+
+Do not migrate the application to another framework just to implement notifications.
+
+FINAL EXPECTED RESULT:
+
+Rentzilla Settings:
+
+Notifications
+✓ Notifications Allowed
+"Managed by your device settings"
+
+[ Manage Notification Settings ]
+
+The actual notification controls must live in:
+
+iPhone:
+Settings > Notifications > Rentzilla
+
+Android:
+Settings > Apps > Rentzilla > Notifications
+
+Android should use native notification channels where appropriate so supported notification categories can be controlled separately from Android Settings.
+
+NO CUSTOM RENTZILLA NOTIFICATION ON/OFF SWITCHES.
+NO DUPLICATE NOTIFICATION PERMISSION SYSTEM.
+THE OPERATING SYSTEM IS THE SOURCE OF TRUTH.

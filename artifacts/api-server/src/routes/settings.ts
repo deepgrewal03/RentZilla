@@ -22,7 +22,7 @@ router.get("/", authMiddleware, async (req: Request, res: Response) => {
     const userId = (req as AuthRequest).userId;
     const settings = await getOrCreateSettings(userId);
     res.json({
-      notifications: settings.notifications,
+      notificationManagement: "device",
       privacy: settings.privacy,
       preferences: settings.preferences,
     });
@@ -34,18 +34,7 @@ router.get("/", authMiddleware, async (req: Request, res: Response) => {
 
 // PATCH /api/settings/notifications
 router.patch("/notifications", authMiddleware, async (req: Request, res: Response) => {
-  try {
-    const userId = (req as AuthRequest).userId;
-    const current = await getOrCreateSettings(userId);
-    const merged = { ...(current.notifications as object), ...req.body };
-    await db.update(userSettingsTable)
-      .set({ notifications: merged, updatedAt: new Date() })
-      .where(eq(userSettingsTable.userId, userId));
-    res.json({ notifications: merged });
-  } catch (err) {
-    req.log.error({ err }, "Update notifications error");
-    res.status(500).json({ error: "Internal server error" });
-  }
+  res.status(410).json({ error: "Notifications are managed through your device settings." });
 });
 
 // PATCH /api/settings/privacy

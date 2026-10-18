@@ -1,4 +1,5 @@
 import Button3D from "@/components/Button3D";
+import NotificationSettings from "@/components/NotificationSettings";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
@@ -120,13 +121,6 @@ function Divider() {
 
 /* ── Main Screen ── */
 
-interface NotifPrefs {
-  bookingRequests: boolean;
-  bookingConfirmations: boolean;
-  messages: boolean;
-  paymentUpdates: boolean;
-  promotions: boolean;
-}
 
 interface PrivacyPrefs {
   profileVisibility: "public" | "private";
@@ -148,13 +142,6 @@ export default function SettingsScreen() {
   const botPad = isWeb ? 34 : insets.bottom;
 
   // Settings state
-  const [notif, setNotif] = useState<NotifPrefs>({
-    bookingRequests: true,
-    bookingConfirmations: true,
-    messages: true,
-    paymentUpdates: true,
-    promotions: true,
-  });
   const [privacy, setPrivacy] = useState<PrivacyPrefs>({ profileVisibility: "public", showPhone: true });
   const [prefs, setPrefs] = useState<Prefs>({ darkMode: "system", dataSaver: false });
   const [loadingSettings, setLoadingSettings] = useState(true);
@@ -184,19 +171,13 @@ export default function SettingsScreen() {
 
   async function fetchSettings() {
     try {
-      const data = await get<{ notifications: NotifPrefs; privacy: PrivacyPrefs; preferences: Prefs }>("/settings");
-      setNotif(data.notifications);
+      const data = await get<{ privacy: PrivacyPrefs; preferences: Prefs }>("/settings");
       setPrivacy(data.privacy);
       setPrefs(data.preferences);
     } catch { /* use defaults */ }
     finally { setLoadingSettings(false); }
   }
 
-  async function updateNotif(key: keyof NotifPrefs, val: boolean) {
-    const next = { ...notif, [key]: val };
-    setNotif(next);
-    try { await patch("/settings/notifications", { [key]: val }); } catch { setNotif(notif); }
-  }
 
   async function updatePrivacy(key: keyof PrivacyPrefs, val: any) {
     const next = { ...privacy, [key]: val };
@@ -367,22 +348,8 @@ export default function SettingsScreen() {
         )}
 
         {/* ── 3. Notifications ── */}
-        <SectionHeader title="Notification Preferences" icon="notifications-outline" />
-        <Card>
-          {loadingSettings ? <ActivityIndicator color={C.tint} style={{ padding: 20 }} /> : (
-            <>
-              <ToggleRow icon="calendar-outline" label="Booking Requests" sublabel="New bookings for your listings" value={notif.bookingRequests} onChange={(v) => updateNotif("bookingRequests", v)} color="#3B82F6" />
-              <Divider />
-              <ToggleRow icon="checkmark-circle-outline" label="Booking Confirmations" sublabel="When a booking is confirmed" value={notif.bookingConfirmations} onChange={(v) => updateNotif("bookingConfirmations", v)} color="#22C55E" />
-              <Divider />
-              <ToggleRow icon="chatbubble-outline" label="Messages" sublabel="Chat messages from others" value={notif.messages} onChange={(v) => updateNotif("messages", v)} color="#8B5CF6" />
-              <Divider />
-              <ToggleRow icon="card-outline" label="Payment Updates" sublabel="Payment received or due" value={notif.paymentUpdates} onChange={(v) => updateNotif("paymentUpdates", v)} color="#F59E0B" />
-              <Divider />
-              <ToggleRow icon="pricetag-outline" label="Promotions & Offers" sublabel="Deals and special offers" value={notif.promotions} onChange={(v) => updateNotif("promotions", v)} color="#EC4899" />
-            </>
-          )}
-        </Card>
+        <SectionHeader title="Notifications" icon="notifications-outline" />
+        <NotificationSettings />
 
         {/* ── 4. Privacy ── */}
         <SectionHeader title="Privacy & Visibility" icon="eye-outline" />

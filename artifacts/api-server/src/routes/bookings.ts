@@ -279,10 +279,10 @@ router.post("/:id/accept", authMiddleware, async (req: Request, res: Response) =
     try {
       const notifId = generateId();
       await db.execute(sql`
-        INSERT INTO notifications (id, user_id, title, message)
+        INSERT INTO notifications (id, user_id, title, message, category, target_type, target_id)
         VALUES (${notifId}, ${b.customer_id},
           'Booking Accepted ✅',
-          ${"Your booking has been accepted by the provider. Get ready!"})
+          ${"Your booking has been accepted by the provider. Get ready!"}, 'bookings', 'booking', ${b.id})
       `);
     } catch { /* non-critical */ }
 
@@ -311,10 +311,10 @@ router.post("/:id/reject", authMiddleware, async (req: Request, res: Response) =
     try {
       const notifId = generateId();
       await db.execute(sql`
-        INSERT INTO notifications (id, user_id, title, message)
+        INSERT INTO notifications (id, user_id, title, message, category, target_type, target_id)
         VALUES (${notifId}, ${b.customer_id},
           'Booking Rejected',
-          ${reason ? `Your booking was rejected: ${reason}` : "Your booking request was not accepted. Please try another provider."})
+          ${reason ? `Your booking was rejected: ${reason}` : "Your booking request was not accepted. Please try another provider."}, 'bookings', 'booking', ${b.id})
       `);
     } catch { /* non-critical */ }
 
@@ -361,10 +361,10 @@ router.post("/:id/cancel", authMiddleware, async (req: Request, res: Response) =
       const notifId = generateId();
       const label = isCustomer ? "Customer" : "Provider";
       await db.execute(sql`
-        INSERT INTO notifications (id, user_id, title, message)
+        INSERT INTO notifications (id, user_id, title, message, category, target_type, target_id)
         VALUES (${notifId}, ${notifyUserId},
           ${"Booking Cancelled"},
-          ${reason ? `Booking cancelled by ${label}: ${reason}` : `The booking was cancelled by the ${label}.`})
+          ${reason ? `Booking cancelled by ${label}: ${reason}` : `The booking was cancelled by the ${label}.`}, 'bookings', 'booking', ${b.id})
       `);
     } catch { /* non-critical */ }
 

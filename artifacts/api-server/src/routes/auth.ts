@@ -1,10 +1,10 @@
 import { Router, type IRouter } from "express";
 import bcrypt from "bcryptjs";
-import { createHmac, createVerify, createPublicKey } from "crypto";
+import { createHmac, createVerify, createPublicKey, randomInt } from "crypto";
 import { db } from "@workspace/db";
 import { usersTable } from "@workspace/db/schema";
 import { eq, or, sql } from "drizzle-orm";
-import { sendOtpEmail } from "../lib/email";
+import { preparePasswordResetEmail, PasswordResetEmailError } from "../lib/email";
 
 const router: IRouter = Router();
 
@@ -191,9 +191,12 @@ router.post("/logout", (_req, res) => {
 router.post("/forgot-password", async (req, res) => {
   try {
     const { email } = req.body;
-    if (!email) { res.status(400).json({ error: "Email is required" }); return; }
+    if (typeof email !== "string" || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      res.status(400).json({ error: "A valid email address is required" }); return;
+    }
 
     const addr = (email as string).toLowerCase().trim();
+    const sendResetEmail = await preparePasswordResetEmail();
 
     // Check user exists (we still return 200 either way to avoid user enumeration)
     const users = await db.select().from(usersTable).where(eq(usersTable.email, addr)).limit(1);
@@ -207,7 +210,7 @@ router.post("/forgot-password", async (req, res) => {
       `UPDATE password_reset_otps SET used = TRUE WHERE email = '${addr.replace(/'/g, "''")}'`
     ));
 
-    const otp       = Math.floor(100000 + Math.random() * 900000).toString();
+    const otp       = randomInt(100000, 1000000).toString();
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
 
     await db.execute(sql.raw(
@@ -215,10 +218,14 @@ router.post("/forgot-password", async (req, res) => {
        VALUES ('${generateId()}', '${addr.replace(/'/g, "''")}', '${otp}', '${expiresAt}', FALSE)`
     ));
 
-    await sendOtpEmail(addr, otp);
+    await sendResetEmail(addr, otp);
 
     res.json({ success: true });
   } catch (err) {
+    if (err instanceof PasswordResetEmailError) {
+      res.status(503).json({ error: err.message });
+      return;
+    }
     req.log.error({ err }, "Forgot password error");
     res.status(500).json({ error: "Internal server error" });
   }

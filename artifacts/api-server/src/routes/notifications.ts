@@ -1,10 +1,13 @@
 import { Router, type IRouter, type Request as ExpressRequest, type Response } from "express";
 import { db } from "@workspace/db";
-import { notificationsTable } from "@workspace/db/schema";
-import { eq, desc } from "drizzle-orm";
+import { notificationsTable, usersTable } from "@workspace/db/schema";
+import { eq, desc, and } from "drizzle-orm";
+import { pushCategory, pushTarget } from "../lib/pushPolicy.js";
 import { authMiddleware } from "./users.js";
+import pushDevices from "./pushDevices.js";
 
 const router: IRouter = Router();
+router.use(pushDevices);
 type Request = ExpressRequest<Record<string, string>>;
 
 function generateId(): string {
@@ -26,6 +29,9 @@ router.get("/", authMiddleware, async (req: Request, res: Response) => {
         id: n.id,
         title: n.title,
         message: n.message,
+        category: n.category,
+        targetType: n.targetType,
+        targetId: n.targetId,
         isRead: n.isRead,
         createdAt: n.createdAt.toISOString(),
       }))
@@ -41,15 +47,22 @@ router.post("/", authMiddleware, async (req: Request, res: Response) => {
   try {
     const { userId, title, message } = req.body;
     const targetUserId = userId || (req as Request & { userId: string }).userId;
+    const actor = (req as Request & { userId: string }).userId;
+    if (targetUserId !== actor) {
+      const [sender] = await db.select({ isAdmin: usersTable.isAdmin }).from(usersTable).where(eq(usersTable.id, actor)).limit(1);
+      if (!sender?.isAdmin) return void res.status(403).json({ error: "Only administrators can notify another account" });
+    }
 
-    if (!title || !message) {
-      res.status(400).json({ error: "title and message are required" });
+    if (typeof title !== "string" || !title.trim() || title.length > 200 ||
+        typeof message !== "string" || !message.trim() || message.length > 4000) {
+      res.status(400).json({ error: "A title (up to 200 characters) and message (up to 4000 characters) are required" });
       return;
     }
 
     const inserted = await db
       .insert(notificationsTable)
-      .values({ id: generateId(), userId: targetUserId, title, message, isRead: false })
+      .values({ id: generateId(), userId: targetUserId, title, message, isRead: false,
+        category: pushCategory(req.body.category), ...pushTarget(req.body.targetType, req.body.targetId) })
       .returning();
 
     const n = inserted[0];
@@ -72,7 +85,8 @@ router.put("/:id/read", authMiddleware, async (req: Request, res: Response) => {
     await db
       .update(notificationsTable)
       .set({ isRead: true })
-      .where(eq(notificationsTable.id, req.params.id));
+      .where(and(eq(notificationsTable.id, req.params.id),
+        eq(notificationsTable.userId, (req as Request & { userId: string }).userId)));
 
     res.json({ success: true });
   } catch (err) {

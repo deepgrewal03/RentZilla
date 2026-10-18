@@ -1,13 +1,14 @@
 import nodemailer from "nodemailer";
 import { logger } from "./logger";
+import { prepareGmailSender, GmailDeliveryError } from "./gmailSender";
 
 function createTransport() {
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASS;
+  const user = process.env.SMTP_USER?.trim();
+  let pass = process.env.SMTP_PASS;
   if (!user || !pass) return null;
 
   // Infer host from email domain if SMTP_HOST not explicitly set
-  let host = process.env.SMTP_HOST;
+  let host = process.env.SMTP_HOST?.trim().toLowerCase();
   if (!host) {
     const domain = user.split("@")[1]?.toLowerCase() || "";
     if (domain.includes("gmail")) host = "smtp.gmail.com";
@@ -15,6 +16,10 @@ function createTransport() {
     else if (domain.includes("outlook") || domain.includes("hotmail") || domain.includes("live")) host = "smtp-mail.outlook.com";
     else host = `smtp.${domain}`;
   }
+  // Google displays App Passwords in groups. Copying those separator spaces
+  // must not change the credential; other providers may have real whitespace.
+  if (host === "smtp.gmail.com") pass = pass.replace(/\s/g, "");
+  if (!pass) return null;
   const port = parseInt(process.env.SMTP_PORT || "587", 10);
 
   return nodemailer.createTransport({
@@ -22,6 +27,9 @@ function createTransport() {
     port,
     secure: port === 465,
     auth: { user, pass },
+    connectionTimeout: 10000,
+    greetingTimeout: 10000,
+    socketTimeout: 15000,
   });
 }
 
@@ -177,29 +185,38 @@ function otpEmailHtml(otp: string, title: string, subtitle: string, expiry: stri
 </html>`;
 }
 
-export async function sendOtpEmail(to: string, otp: string): Promise<void> {
-  const from = process.env.SMTP_FROM || process.env.SMTP_USER || "noreply@rentzilla.com";
-  const html = otpEmailHtml(otp, "Password Reset OTP", "Use the code below to reset your password.", "10 minutes");
-
-  const transport = createTransport();
-
-  if (!transport) {
-    logger.warn({ to }, "No SMTP configured — OTP logged to console (set SMTP_HOST, SMTP_USER, SMTP_PASS to enable email)");
-    logger.info(`\n${"=".repeat(40)}\nPASSWORD RESET OTP\nTo:  ${to}\nOTP: ${otp}\n${"=".repeat(40)}`);
-    return;
+export class PasswordResetEmailError extends Error {
+  constructor() {
+    super("Password reset email is temporarily unavailable. Please try again later.");
+    this.name = "PasswordResetEmailError";
   }
+}
 
+// Check connector health before account lookup; never fall back to the rejected
+// SMTP credentials. Other, unrelated email flows retain their existing transport.
+export async function preparePasswordResetEmail() {
   try {
-    await transport.sendMail({
-      from: `RentZilla <${from}>`,
-      to,
-      subject: "Your RentZilla Password Reset OTP",
-      html,
-    });
-    logger.info({ to }, "OTP email sent successfully");
-  } catch (emailErr: any) {
-    logger.error({ to, err: emailErr?.message }, "SMTP send failed — OTP saved to DB, email not delivered");
+    const send = await prepareGmailSender();
+    return async (to: string, otp: string): Promise<void> => {
+      try {
+        await send(to, "Your RentZilla Password Reset OTP",
+          otpEmailHtml(otp, "Password Reset OTP", "Use the code below to reset your password.", "10 minutes"));
+        logger.info("Password reset email accepted by Gmail API");
+      } catch (error) {
+        logger.error({ status: error instanceof GmailDeliveryError ? error.status : undefined },
+          "Password reset email was not accepted by Gmail API");
+        throw new PasswordResetEmailError();
+      }
+    };
+  } catch {
+    logger.error("Password reset Gmail connection unavailable");
+    throw new PasswordResetEmailError();
   }
+}
+
+export async function sendOtpEmail(to: string, otp: string): Promise<void> {
+  const send = await preparePasswordResetEmail();
+  await send(to, otp);
 }
 
 export async function send2FAEmail(to: string, otp: string): Promise<void> {

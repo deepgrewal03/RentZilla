@@ -1,5 +1,6 @@
 /**
- * SoundContext — persists user sound/notification preferences to AsyncStorage
+ * SoundContext — persists in-app audio preferences to AsyncStorage.
+ * Native notification permissions and sounds are controlled only by the OS.
  * and keeps AudioService in sync.
  */
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -19,7 +20,6 @@ export interface SoundSettings {
   booking:   boolean;
   wallet:    boolean;
   ringtone:  boolean;
-  notif:     boolean;
 }
 
 interface SoundContextValue {
@@ -39,7 +39,6 @@ const DEFAULT_SETTINGS: SoundSettings = {
   booking:   true,
   wallet:    true,
   ringtone:  true,
-  notif:     true,
 };
 
 const STORAGE_KEY = "@rentzilla:sound_settings";
@@ -66,7 +65,12 @@ export function SoundProvider({ children }: { children: React.ReactNode }) {
         const raw = await AsyncStorage.getItem(STORAGE_KEY);
         if (cancelled) return;
         if (raw) {
-          const saved: SoundSettings = { ...DEFAULT_SETTINGS, ...JSON.parse(raw) };
+          const parsed = JSON.parse(raw);
+          const saved = { ...DEFAULT_SETTINGS };
+          // Ignore retired fields, including the old notification-tone switch.
+          for (const key of Object.keys(saved) as (keyof SoundSettings)[]) {
+            if (typeof parsed[key] === "boolean") saved[key] = parsed[key];
+          }
           setSettings(saved);
           AudioService.applySettings(saved);
         } else {

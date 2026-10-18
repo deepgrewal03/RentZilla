@@ -22,6 +22,41 @@ tags:
   - name: chat
     description: Messaging
 paths:
+  /notifications/device:
+    put:
+      operationId: registerPushDevice
+      tags: [notifications]
+      summary: Associate this installation with the authenticated account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PushDeviceInput"
+      responses:
+        "204":
+          description: Registered
+        "400":
+          description: Invalid device
+        "401":
+          description: Authentication required
+        "409":
+          description: Installation ownership conflict
+    delete:
+      operationId: unregisterPushDevice
+      tags: [notifications]
+      summary: Revoke this installation using its private revocation credential
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PushDeviceRevocation"
+      responses:
+        "204":
+          description: Revoked or already absent
+        "400":
+          description: Invalid request
   /healthz:
     get:
       operationId: healthCheck
@@ -391,6 +426,34 @@ paths:
                 $ref: "#/components/schemas/Chat"
 components:
   schemas:
+    PushDeviceRevocation:
+      type: object
+      required: [installationId, secret]
+      properties:
+        installationId:
+          type: string
+          format: uuid
+        secret:
+          type: string
+          minLength: 64
+          maxLength: 64
+    PushDeviceInput:
+      type: object
+      required: [installationId, secret, expoPushToken, platform]
+      properties:
+        installationId:
+          type: string
+          format: uuid
+        secret:
+          type: string
+          minLength: 64
+          maxLength: 64
+        expoPushToken:
+          type: string
+          maxLength: 200
+        platform:
+          type: string
+          enum: [android, ios]
     HealthStatus:
       type: object
       properties:
