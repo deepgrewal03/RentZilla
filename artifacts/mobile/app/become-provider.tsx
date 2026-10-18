@@ -31,11 +31,11 @@ type Step = "intro" | "otp" | "role" | "form" | "success";
 type ProviderType = "equipment" | "services";
 
 const EQUIP_TYPES   = [
-  "Tractor", "Harvester", "Rotavator", "Sprayer", "Plough", "Cultivator",
-  "JCB", "Excavator", "Bulldozer", "Poclain", "Rock Breaker", "Wheel Loader",
+  "Tractor", "Harvester", "Rotavator", "Plough", "Cultivator",
+  "JCB", "Excavator", "Poclain",
   "Chhota Hathi", "Loader", "Backhoe", "Roller", "Crane", "Dump Truck",
 ];
-const SERVICE_TYPES = ["Plumbing", "Electrician", "Beauty", "Carpenter", "Painter", "AC Repair"];
+const SERVICE_TYPES = ["Plumbing", "Electrician", "Beauty", "Carpenter", "AC Repair"];
 
 const ROLES: { id: ProviderType; label: string; icon: string; desc: string; color: string; bg: string }[] = [
   { id: "equipment", label: "Equipment Provider",   icon: "construct-outline",    desc: "Rent tractors, harvesters & farm machinery", color: "#2E7D32", bg: "#E8F5E9" },

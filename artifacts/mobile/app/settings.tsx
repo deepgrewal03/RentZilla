@@ -22,80 +22,68 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import Colors from "@/constants/colors";
+import { DrawerTokens as D } from "@/constants/drawerTokens";
+import { SettingsHero, SettingsPalette, accentFor } from "@/components/SettingsTheme";
 import { useAuth } from "@/context/AuthContext";
 import { useLang } from "@/context/LanguageContext";
 import { useApi } from "@/hooks/useApi";
 import { confirmAction } from "@/lib/confirm";
 
 const C = Colors.light;
+const SP = SettingsPalette;
 
 /* ── Reusable sub-components ── */
 
 function SectionHeader({ title, icon }: { title: string; icon: string }) {
+  const a = accentFor(icon);
   return (
     <View style={ss.sectionHeader}>
-      <View style={ss.sectionIconWrap}>
-        <Ionicons name={icon as any} size={16} color={C.tint} />
+      <View style={[ss.sectionIconWrap, { backgroundColor: a.fg }]}>
+        <Ionicons name={icon as any} size={15} color="#FFFFFF" />
       </View>
       <Text style={ss.sectionTitle}>{title}</Text>
+      <View style={[ss.sectionRule, { backgroundColor: a.bg }]} />
     </View>
   );
 }
 
-function SettingRow({
-  icon,
-  label,
-  sublabel,
-  value,
-  onPress,
-  chevron = true,
-  color,
-}: {
-  icon: string;
-  label: string;
-  sublabel?: string;
-  value?: string;
-  onPress?: () => void;
-  chevron?: boolean;
-  color?: string;
+function SettingRow({ icon, label, sublabel, value, onPress, chevron = true, color }: {
+  icon: string; label: string; sublabel?: string; value?: string;
+  onPress?: () => void; chevron?: boolean; color?: string;
 }) {
+  const a = accentFor(icon, color);
   return (
     <Pressable
       onPress={onPress}
-      style={({ pressed }) => [ss.row, { backgroundColor: pressed && onPress ? "#F9FAFB" : "#fff" }]}
+      disabled={!onPress}
+      accessibilityRole={onPress ? "button" : "text"}
+      accessibilityLabel={sublabel ? `${label}, ${sublabel}` : label}
+      style={({ pressed }) => [ss.row, { backgroundColor: pressed && onPress ? SP.pressed : "transparent" }]}
     >
-      <View style={[ss.rowIcon, { backgroundColor: color ? `${color}15` : C.backgroundTertiary }]}>
-        <Ionicons name={icon as any} size={19} color={color || C.text} />
+      <View style={[ss.rowIcon, { backgroundColor: a.bg }]}>
+        <Ionicons name={icon as any} size={20} color={a.fg} />
       </View>
       <View style={ss.rowContent}>
-        <Text style={[ss.rowLabel, color ? { color } : {}]}>{label}</Text>
+        <Text style={[ss.rowLabel, color ? { color, fontFamily: "Inter_700Bold" } : {}]}>{label}</Text>
         {sublabel ? <Text style={ss.rowSublabel}>{sublabel}</Text> : null}
       </View>
-      {value ? <Text style={ss.rowValue}>{value}</Text> : null}
-      {chevron && onPress ? <Ionicons name="chevron-forward" size={16} color={C.textTertiary} /> : null}
+      {value ? <View style={[ss.valuePill, { backgroundColor: a.bg }]}><Text style={[ss.rowValue, { color: a.fg }]}>{value}</Text></View> : null}
+      {chevron && onPress ? (
+        <View style={ss.chevronPill}><Ionicons name="chevron-forward" size={14} color={color || SP.textSecondary} /></View>
+      ) : null}
     </Pressable>
   );
 }
 
-function ToggleRow({
-  icon,
-  label,
-  sublabel,
-  value,
-  onChange,
-  color,
-}: {
-  icon: string;
-  label: string;
-  sublabel?: string;
-  value: boolean;
-  onChange: (v: boolean) => void;
-  color?: string;
+function ToggleRow({ icon, label, sublabel, value, onChange, color }: {
+  icon: string; label: string; sublabel?: string;
+  value: boolean; onChange: (v: boolean) => void; color?: string;
 }) {
+  const a = accentFor(icon, color);
   return (
     <View style={ss.row}>
-      <View style={[ss.rowIcon, { backgroundColor: color ? `${color}15` : C.backgroundTertiary }]}>
-        <Ionicons name={icon as any} size={19} color={color || C.text} />
+      <View style={[ss.rowIcon, { backgroundColor: a.bg }]}>
+        <Ionicons name={icon as any} size={20} color={a.fg} />
       </View>
       <View style={ss.rowContent}>
         <Text style={ss.rowLabel}>{label}</Text>
@@ -103,9 +91,10 @@ function ToggleRow({
       </View>
       <Switch
         value={value}
+        accessibilityLabel={label}
         onValueChange={(v) => { Haptics.selectionAsync(); onChange(v); }}
-        trackColor={{ false: C.border, true: `${C.tint}60` }}
-        thumbColor={value ? C.tint : "#f4f3f4"}
+        trackColor={{ false: SP.cardBorder, true: `${SP.primary}70` }}
+        thumbColor={value ? SP.primary : "#FFFDF9"}
       />
     </View>
   );
@@ -115,9 +104,7 @@ function Card({ children }: { children: React.ReactNode }) {
   return <View style={ss.card}>{children}</View>;
 }
 
-function Divider() {
-  return <View style={ss.divider} />;
-}
+function Divider() { return <View style={ss.divider} />; }
 
 /* ── Main Screen ── */
 
@@ -155,7 +142,6 @@ export default function SettingsScreen() {
   const [editingAccount, setEditingAccount] = useState(false);
   const [firstName, setFirstName] = useState(user?.firstName || "");
   const [lastName, setLastName] = useState(user?.lastName || "");
-  const [email, setEmail] = useState(user?.email || "");
   const [savingAccount, setSavingAccount] = useState(false);
 
   // Password state
@@ -196,7 +182,7 @@ export default function SettingsScreen() {
     try {
       const updated = await patch<{ firstName: string; lastName: string; email: string; name: string }>(
         "/settings/account",
-        { firstName, lastName, email }
+        { firstName, lastName }
       );
       updateUser({ firstName: updated.firstName, lastName: updated.lastName, email: updated.email, name: updated.name });
       setEditingAccount(false);
@@ -248,13 +234,7 @@ export default function SettingsScreen() {
       <StatusBar style="dark" />
 
       {/* Header */}
-      <View style={[ss.header, { paddingTop: topPad + 8 }]}>
-        <Pressable onPress={() => router.back()} style={ss.backBtn}>
-          <Ionicons name="arrow-back" size={22} color={C.text} />
-        </Pressable>
-        <Text style={ss.headerTitle}>Settings</Text>
-        <View style={{ width: 40 }} />
-      </View>
+      <SettingsHero topPad={topPad} title="Settings" subtitle="Account, safety & app preferences" onBack={() => router.back()} />
 
       <ScrollView
         style={ss.scroll}
@@ -293,7 +273,7 @@ export default function SettingsScreen() {
               </View>
               <View style={ss.editField}>
                 <Text style={ss.editLabel}>Email</Text>
-                <TextInput style={ss.editInput} value={email} onChangeText={setEmail} placeholder="Email" placeholderTextColor={C.textTertiary} keyboardType="email-address" autoCapitalize="none" />
+                <Text style={ss.editLabel} selectable>{user?.email || "Not set"}</Text>
               </View>
               <View style={ss.editActions}>
                 <Button3D onPress={() => setEditingAccount(false)} faceStyle={ss.editCancelBtn}>
@@ -306,9 +286,9 @@ export default function SettingsScreen() {
             </View>
           ) : (
             <>
-              <SettingRow icon="create-outline" label="Edit Profile" sublabel={displayName} onPress={() => { setFirstName(user?.firstName || ""); setLastName(user?.lastName || ""); setEmail(user?.email || ""); setEditingAccount(true); }} />
+              <SettingRow icon="create-outline" label="Edit Name" sublabel={displayName} onPress={() => { setFirstName(user?.firstName || ""); setLastName(user?.lastName || ""); setEditingAccount(true); }} />
               <Divider />
-              <SettingRow icon="mail-outline" label="Email" sublabel={user?.email || "Not set"} onPress={() => { setFirstName(user?.firstName || ""); setLastName(user?.lastName || ""); setEmail(user?.email || ""); setEditingAccount(true); }} />
+              <SettingRow icon="mail-outline" label="Email" sublabel={user?.email || "Not set"} chevron={false} />
             </>
           )}
         </Card>
@@ -317,8 +297,6 @@ export default function SettingsScreen() {
         <SectionHeader title="Password & Security" icon="shield-checkmark-outline" />
         <Card>
           <SettingRow icon="lock-closed-outline" label="Change Password" sublabel="Update your password" onPress={() => setShowPasswordModal(true)} />
-          <Divider />
-          <SettingRow icon="time-outline" label="Login Activity" sublabel="Currently signed in on this device" chevron={false} />
         </Card>
 
         {showPasswordModal && (
@@ -386,8 +364,6 @@ export default function SettingsScreen() {
             onPress={() => { Haptics.selectionAsync(); toggleLanguage(); }}
           />
           <Divider />
-          <SettingRow icon="cash-outline" label="Currency" value="₹ INR" chevron={false} />
-          <Divider />
           <SettingRow icon="location-outline" label="Region" value="Punjab, India" chevron={false} />
         </Card>
 
@@ -402,14 +378,6 @@ export default function SettingsScreen() {
               const next = prefs.darkMode === "system" ? "light" : prefs.darkMode === "light" ? "dark" : "system";
               updatePrefs("darkMode", next);
             }}
-          />
-          <Divider />
-          <ToggleRow
-            icon="cellular-outline"
-            label="Data Saver"
-            sublabel="Reduce image quality to save data"
-            value={prefs.dataSaver}
-            onChange={(v) => updatePrefs("dataSaver", v)}
           />
         </Card>
 
@@ -569,7 +537,7 @@ export default function SettingsScreen() {
 }
 
 const ss = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#F5F5F7" },
+  root: { flex: 1, backgroundColor: SP.page },
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -586,7 +554,7 @@ const ss = StyleSheet.create({
     alignItems: "center", justifyContent: "center",
   },
   headerTitle: { fontSize: 18, fontWeight: "700", fontFamily: "Inter_700Bold", color: C.text },
-  scroll: { flex: 1 },
+  scroll: { flex: 1, marginTop: -26, borderTopLeftRadius: 26, borderTopRightRadius: 26, backgroundColor: SP.page },
 
   // Delete account modal
   modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.55)", justifyContent: "flex-end" },
@@ -614,84 +582,31 @@ const ss = StyleSheet.create({
   modalBackBtn: { alignItems: "center", paddingVertical: 10 },
   modalBackTxt: { fontSize: 14, color: "#6B7280", fontWeight: "600" },
 
-  profileCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 16,
-    backgroundColor: C.navy,
-    marginHorizontal: 16,
-    marginTop: 16,
-    marginBottom: 4,
-    borderRadius: 18,
-    padding: 20,
-  },
-  avatar: {
-    width: 60, height: 60, borderRadius: 30,
-    backgroundColor: "rgba(232,116,42,0.2)",
-    borderWidth: 2, borderColor: `${C.tint}50`,
-    alignItems: "center", justifyContent: "center",
-  },
-  avatarLetter: { fontSize: 24, fontWeight: "700", fontFamily: "Inter_700Bold", color: C.tint },
-  profileName: { fontSize: 18, fontWeight: "700", fontFamily: "Inter_700Bold", color: "#fff" },
-  profileEmail: { fontSize: 12, color: "rgba(255,255,255,0.6)", fontFamily: "Inter_400Regular", marginTop: 2 },
-  roleBadge: {
-    alignSelf: "flex-start",
-    backgroundColor: `${C.tint}30`,
-    borderRadius: 8, paddingHorizontal: 8, paddingVertical: 2, marginTop: 6,
-  },
-  roleBadgeText: { color: C.tint, fontSize: 11, fontWeight: "600", fontFamily: "Inter_600SemiBold" },
+  profileCard: { flexDirection: "row", alignItems: "center", gap: 14, backgroundColor: D.cream, marginHorizontal: 16, marginTop: 18, marginBottom: 4, borderRadius: 22, padding: 16, borderWidth: 1, borderColor: D.creamBorder, shadowColor: "#B85A10", shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.14, shadowRadius: 14, elevation: 6 },
+  avatar: { width: 58, height: 58, borderRadius: 29, backgroundColor: D.avatarBg, borderWidth: 2, borderColor: D.creamBorder, alignItems: "center", justifyContent: "center" },
+  avatarLetter: { fontSize: 24, fontWeight: "700", fontFamily: "Inter_700Bold", color: SP.primary },
+  profileName: { fontSize: 18, fontWeight: "700", fontFamily: "Inter_700Bold", color: SP.text },
+  profileEmail: { fontSize: 13, color: SP.textSecondary, fontFamily: "Inter_400Regular", marginTop: 2 },
+  roleBadge: { alignSelf: "flex-start", backgroundColor: SP.primary, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 3, marginTop: 6 },
+  roleBadgeText: { color: "#FFFFFF", fontSize: 11, fontWeight: "700", fontFamily: "Inter_700Bold" },
 
-  sectionHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    paddingHorizontal: 20,
-    paddingTop: 22,
-    paddingBottom: 8,
-  },
-  sectionIconWrap: {
-    width: 24, height: 24, borderRadius: 6,
-    backgroundColor: `${C.tint}15`,
-    alignItems: "center", justifyContent: "center",
-  },
-  sectionTitle: {
-    fontSize: 12,
-    fontWeight: "700",
-    fontFamily: "Inter_700Bold",
-    color: C.textSecondary,
-    letterSpacing: 0.5,
-    textTransform: "uppercase",
-  },
+  sectionHeader: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 20, paddingTop: 24, paddingBottom: 10 },
+  sectionIconWrap: { width: 30, height: 30, borderRadius: 10, alignItems: "center", justifyContent: "center" },
+  sectionRule: { flex: 1, height: 3, borderRadius: 2 },
+  sectionTitle: { fontSize: 13, fontWeight: "700", fontFamily: "Inter_700Bold", color: SP.text, letterSpacing: 0.4, textTransform: "uppercase" },
 
-  card: {
-    backgroundColor: "#fff",
-    marginHorizontal: 16,
-    borderRadius: 16,
-    overflow: "hidden",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-    elevation: 1,
-  },
+  card: { backgroundColor: SP.card, marginHorizontal: 16, borderRadius: 20, overflow: "hidden", borderWidth: 1, borderColor: SP.cardBorder, paddingVertical: 4, shadowColor: "#B85A10", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 2 },
 
-  row: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 13,
-    gap: 12,
-  },
-  rowIcon: {
-    width: 36, height: 36, borderRadius: 10,
-    alignItems: "center", justifyContent: "center",
-  },
+  row: { flexDirection: "row", alignItems: "center", paddingHorizontal: 14, paddingVertical: 8, minHeight: 60, gap: 14 },
+  rowIcon: { width: 44, height: 44, borderRadius: 14, alignItems: "center", justifyContent: "center" },
+  valuePill: { borderRadius: 12, paddingHorizontal: 10, paddingVertical: 4 },
+  chevronPill: { width: 26, height: 26, borderRadius: 13, backgroundColor: SP.chevronBg, alignItems: "center", justifyContent: "center" },
   rowContent: { flex: 1, gap: 2 },
-  rowLabel: { fontSize: 15, fontWeight: "500", fontFamily: "Inter_500Medium", color: C.text },
-  rowSublabel: { fontSize: 12, color: C.textTertiary, fontFamily: "Inter_400Regular" },
-  rowValue: { fontSize: 13, color: C.textSecondary, fontFamily: "Inter_400Regular" },
+  rowLabel: { fontSize: 15, fontWeight: "600", fontFamily: "Inter_600SemiBold", color: SP.text },
+  rowSublabel: { fontSize: 12, color: SP.textSecondary, fontFamily: "Inter_400Regular" },
+  rowValue: { fontSize: 12, fontWeight: "700", fontFamily: "Inter_700Bold", color: SP.primary },
 
-  divider: { height: 1, backgroundColor: C.borderLight, marginLeft: 64 },
+  divider: { height: 1, backgroundColor: SP.divider, marginLeft: 72, marginRight: 14 },
 
   editForm: { padding: 16, gap: 12 },
   editRow: { flexDirection: "row", gap: 10 },

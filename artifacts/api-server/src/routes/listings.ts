@@ -3,6 +3,7 @@ import { db } from "@workspace/db";
 import { listingsTable, usersTable, reviewsTable } from "@workspace/db/schema";
 import { eq, ne, and, or, gte, lte, ilike, inArray, sql } from "drizzle-orm";
 import { authMiddleware } from "./users.js";
+import { activeCatalog, isRetiredCategory } from "../lib/retiredCategories";
 
 const router: IRouter = Router();
 type Request = ExpressRequest<Record<string, string>>;
@@ -55,7 +56,7 @@ router.get("/", async (req: Request, res: Response) => {
     const { category, subcategory, search, minPrice, maxPrice, providerId, excludeProviderId } = req.query;
 
     let query = db.select().from(listingsTable);
-    const conditions = [];
+    const conditions = [activeCatalog];
 
     if (category) {
       if (!VALID_CATEGORIES.includes(category as ValidCategory)) {
@@ -111,7 +112,7 @@ router.get("/", async (req: Request, res: Response) => {
 router.get("/:id", async (req: Request, res: Response) => {
   try {
     const listings = await db.select().from(listingsTable).where(eq(listingsTable.id, req.params.id)).limit(1);
-    if (listings.length === 0) {
+    if (listings.length === 0 || isRetiredCategory(listings[0].subcategory)) {
       res.status(404).json({ error: "Listing not found" });
       return;
     }
@@ -128,6 +129,9 @@ router.post("/", authMiddleware, async (req: Request, res: Response) => {
     const userId = (req as Request & { userId: string }).userId;
     const { category, subcategory, title, description, price, priceUnit, images, location, isAvailable,
             operatorIncluded, fuelIncluded, deliveryCharges, engineSize, vehicleType, latitude, longitude } = req.body;
+    if (isRetiredCategory(subcategory)) {
+      res.status(400).json({ error: "This equipment or service type is no longer offered" }); return;
+    }
 
     if (!VALID_CATEGORIES.includes(category as ValidCategory)) {
       res.status(400).json({ error: `Invalid category. Must be one of: ${VALID_CATEGORIES.join(", ")}` });
@@ -179,6 +183,10 @@ router.put("/:id", authMiddleware, async (req: Request, res: Response) => {
       engineSize, vehicleType, latitude, longitude,
     } = req.body;
 
+    const existing = await db.select().from(listingsTable).where(eq(listingsTable.id, req.params.id)).limit(1);
+    if (isRetiredCategory(subcategory) || isRetiredCategory(existing[0]?.subcategory)) {
+      res.status(400).json({ error: "This equipment or service type is no longer offered" }); return;
+    }
     if (category && !VALID_CATEGORIES.includes(category as ValidCategory)) {
       res.status(400).json({ error: `Invalid category. Must be one of: ${VALID_CATEGORIES.join(", ")}` });
       return;
@@ -260,7 +268,7 @@ function getServiceTypesForListing(
   }
 
   // ── Heavy Machinery ─────────────────────────────────────────────
-  if (/jcb|excavat|backhoe|bulldozer/.test(text)) {
+  if (/jcb|excavat|backhoe/.test(text)) {
     return ["Excavation Work", "Foundation Digging", "Land Clearing", "Trench Digging", "Loading & Transport", "Demolition Assist"];
   }
   if (/crane/.test(text)) {
@@ -385,7 +393,7 @@ function getServiceTypesForListing(
 router.get("/:id/service-types", async (req: Request, res: Response) => {
   try {
     const listings = await db.select().from(listingsTable).where(eq(listingsTable.id, req.params.id)).limit(1);
-    if (listings.length === 0) {
+    if (listings.length === 0 || isRetiredCategory(listings[0].subcategory)) {
       res.status(404).json({ error: "Listing not found" });
       return;
     }

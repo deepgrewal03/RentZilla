@@ -3,6 +3,7 @@ import { db } from "@workspace/db";
 import { usersTable, listingsTable } from "@workspace/db/schema";
 import { eq, and } from "drizzle-orm";
 import { authMiddleware } from "./users.js";
+import { isRetiredCategory } from "../lib/retiredCategories";
 
 const router: IRouter = Router();
 type AR = Request & { userId: string };
@@ -72,6 +73,9 @@ router.post("/verify-otp", authMiddleware, async (req: Request, res: Response) =
 
 // POST /api/roles/upgrade — upgrade to provider + auto-create listing
 router.post("/upgrade", authMiddleware, async (req: Request, res: Response) => {
+  if (isRetiredCategory(req.body?.subtype) || isRetiredCategory(req.body?.equipmentName)) {
+    res.status(400).json({ error: "This equipment or service type is no longer offered" }); return;
+  }
   try {
     const userId = (req as AR).userId;
     const {

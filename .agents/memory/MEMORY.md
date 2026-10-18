@@ -2,3 +2,5 @@
 - [Additive report migrations](report-migrations.md) — preserve legacy reports when adding target fields; verify schema after workflow reconciliation.
 - [Native notification policy](native-notification-policy.md) — OS-only permission controls; no duplicate in-app notification switches.
 - [Password-reset email provider](password-reset-email.md) — keep Gmail, using Google authorization rather than the rejected App Password route.
+- [Retired catalog types](retired-catalog-types.md) — Sprayer, Rock Breaker, Bulldozer, Painter and Wheel Loader must no longer be offered.
+- [Settings scope](settings-scope.md) — Account Settings permits name edits only; email stays static and selected settings rows stay removed.

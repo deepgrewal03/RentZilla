@@ -35,7 +35,6 @@ const POPULAR = [
   { q: "Plumbing",      icon: "water-outline",    lib: "ion",  cat: "services" },
   { q: "Electrician",   icon: "flash-outline",    lib: "ion",  cat: "services" },
   { q: "Beauty",        icon: "sparkles-outline", lib: "ion",  cat: "services" },
-  { q: "Painter",       icon: "brush-outline",    lib: "ion",  cat: "services" },
   { q: "Harvester",     icon: "tractor",          lib: "mci",  cat: "equipment" },
   { q: "Carpenter",     icon: "hammer-outline",   lib: "ion",  cat: "services" },
   { q: "JCB",           icon: "construct-outline",lib: "ion",  cat: "equipment" },

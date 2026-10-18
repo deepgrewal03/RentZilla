@@ -343,15 +343,11 @@ export default function HomeScreen() {
             { label: "Tractor",     labelPa: "ਟਰੈਕਟਰ",     icon: "cog-outline",        color: "#33691E", bg: "#F1F8E9" },
             { label: "Harvester",   labelPa: "ਹਾਰਵੈਸਟਰ",   icon: "settings-outline",   color: "#558B2F", bg: "#DCEDC8" },
             { label: "Rotavator",   labelPa: "ਰੋਟਾਵੇਟਰ",   icon: "sync-outline",       color: "#00695C", bg: "#E0F2F1" },
-            { label: "Sprayer",     labelPa: "ਸਪ੍ਰੇਅਰ",    icon: "leaf-outline",       color: "#1B5E20", bg: "#E8F5E9" },
             { label: "Plough",      labelPa: "ਹਲ",          icon: "git-branch-outline", color: "#4E342E", bg: "#EFEBE9" },
             { label: "Cultivator",  labelPa: "ਕਲਟੀਵੇਟਰ",   icon: "grid-outline",       color: "#37474F", bg: "#ECEFF1" },
             { label: "JCB",          labelPa: "ਜੇਸੀਬੀ",       icon: "construct-outline",  color: "#E65100", bg: "#FFF3E0" },
             { label: "Excavator",    labelPa: "ਖੁਦਾਈ ਮਸ਼ੀਨ",  icon: "build-outline",      color: "#4E342E", bg: "#EFEBE9" },
             { label: "Poclain",      labelPa: "ਪੋਕਲੇਨ",       icon: "construct-outline",  color: "#BF360C", bg: "#FBE9E7" },
-            { label: "Rock Breaker", labelPa: "ਰੌਕ ਬ੍ਰੇਕਰ",   icon: "hammer-outline",     color: "#37474F", bg: "#ECEFF1" },
-            { label: "Bulldozer",    labelPa: "ਬੁਲਡੋਜ਼ਰ",     icon: "arrow-forward-circle-outline", color: "#4E342E", bg: "#EFEBE9" },
-            { label: "Wheel Loader",  labelPa: "ਵ੍ਹੀਲ ਲੋਡਰ",    icon: "cube-outline",       color: "#1565C0", bg: "#E3F2FD" },
             { label: "Chhota Hathi", labelPa: "ਛੋਟਾ ਹਾਥੀ",    icon: "car-outline",        color: "#6D4C41", bg: "#EFEBE9" },
           ].map((item) => {
             const active = selectedCategory === "equipment" && selectedSubcat === item.label;
@@ -397,7 +393,6 @@ export default function HomeScreen() {
             { label: "Electrician", labelPa: "ਇਲੈਕਟ੍ਰੀਸ਼ੀਅਨ",  icon: "flash-outline",       color: "#F57F17", bg: "#FFFDE7" },
             { label: "Beauty",      labelPa: "ਬਿਊਟੀ",           icon: "flower-outline",      color: "#AD1457", bg: "#FCE4EC" },
             { label: "Carpenter",   labelPa: "ਤਰਖਾਣ",           icon: "hammer-outline",      color: "#4E342E", bg: "#EFEBE9" },
-            { label: "Painter",     labelPa: "ਪੇਂਟਰ",           icon: "brush-outline",       color: "#E65100", bg: "#FBE9E7" },
             { label: "AC Repair",   labelPa: "ਏਸੀ ਰਿਪੇਅਰ",     icon: "thermometer-outline", color: "#0277BD", bg: "#E1F5FE" },
           ].map((item) => {
             const active = selectedCategory === "services" && selectedSubcat === item.label;

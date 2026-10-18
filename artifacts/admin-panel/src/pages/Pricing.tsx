@@ -12,15 +12,15 @@ import {
 // ── Static subcategory lists ──────────────────────────────────────────────────
 const SUBCATEGORIES: Record<string, string[]> = {
   services: [
-    "Plumbing", "Electrician", "Beauty", "Carpenter", "Painter", "AC Repair",
+    "Plumbing", "Electrician", "Beauty", "Carpenter", "AC Repair",
   ],
   professions: [
     "Doctor (Home Visit)", "Lawyer", "Accountant", "Tutor",
     "Photographer", "Event Manager", "Nutritionist", "Yoga Trainer",
   ],
   equipment: [
-    "Tractor", "Harvester", "Rotavator", "Sprayer", "Plough", "Cultivator",
-    "JCB", "Excavator", "Bulldozer", "Poclain", "Rock Breaker", "Wheel Loader",
+    "Tractor", "Harvester", "Rotavator", "Plough", "Cultivator",
+    "JCB", "Excavator", "Poclain",
     "Chhota Hathi", "Loader", "Backhoe", "Roller", "Crane", "Dump Truck",
   ],
 };

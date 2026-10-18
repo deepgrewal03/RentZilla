@@ -2,6 +2,7 @@ import { Router, type IRouter, type Request, type Response } from "express";
 import { db } from "@workspace/db";
 import { listingsTable, usersTable, reviewsTable } from "@workspace/db/schema";
 import { eq, ilike, or, and, desc, sql } from "drizzle-orm";
+import { activeCatalog } from "../lib/retiredCategories";
 
 const router: IRouter = Router();
 
@@ -15,14 +16,14 @@ const PUNJAB_LOCATIONS = [
 ];
 
 const SERVICE_KEYWORDS = ["plumber", "electrician", "mechanic", "beauty", "parlor",
-  "carpenter", "painter", "tailor", "cleaner", "driver", "cook", "helper",
+  "carpenter", "tailor", "cleaner", "driver", "cook", "helper",
   "ac repair", "construction", "welder", "Mason", "gardener"];
 
 const VEHICLE_KEYWORDS = ["car", "swift", "honda", "toyota", "hyundai", "suzuki",
   "tata", "mahindra", "maruti", "innova", "fortuner", "ertiga", "i20", "verna",
-  "truck", "van", "tractor", "harvester", "rotavator", "sprayer", "suv", "sedan",
+  "truck", "van", "tractor", "harvester", "rotavator", "suv", "sedan",
   "bus", "tempo", "jeep", "pickup", "auto", "bike",
-  "jcb", "excavator", "bulldozer", "loader", "backhoe", "roller", "crane",
+  "jcb", "excavator", "loader", "backhoe", "roller", "crane",
   "dump truck", "earth mover", "earth movers", "digging machine", "digger",
   "construction equipment", "heavy machine", "backhoe loader"];
 
@@ -50,12 +51,12 @@ router.get("/", async (req: Request, res: Response) => {
       .select()
       .from(listingsTable)
       .where(
-        or(
+        and(activeCatalog, or(
           ilike(listingsTable.title, `%${q}%`),
           ilike(listingsTable.description, `%${q}%`),
           ilike(listingsTable.subcategory, `%${q}%`),
           ilike(listingsTable.location, `%${q}%`),
-        )
+        ))
       )
       .orderBy(desc(listingsTable.createdAt))
       .limit(limit * 4);
@@ -153,7 +154,6 @@ router.get("/popular", async (_req: Request, res: Response) => {
       { label: "Plumbing", icon: "water-outline", category: "services" },
       { label: "Electrician", icon: "flash-outline", category: "services" },
       { label: "Beauty", icon: "sparkles-outline", category: "services" },
-      { label: "Painter", icon: "brush-outline", category: "services" },
       { label: "Harvester", icon: "tractor", category: "equipment" },
       { label: "Carpenter", icon: "hammer-outline", category: "services" },
       { label: "JCB", icon: "construct-outline", category: "equipment" },

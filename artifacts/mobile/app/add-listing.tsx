@@ -38,11 +38,11 @@ const CATEGORIES: { id: Category; label: string }[] = [
 const SUBCATEGORIES: Record<Category, string[]> = {
   cars: ["Sedan", "Hatchback", "SUV"],
   equipment: [
-    "Tractor", "Harvester", "Rotavator", "Sprayer", "Plough", "Cultivator",
-    "JCB", "Excavator", "Bulldozer", "Poclain", "Rock Breaker", "Wheel Loader", "Chhota Hathi",
+    "Tractor", "Harvester", "Rotavator", "Plough", "Cultivator",
+    "JCB", "Excavator", "Poclain", "Chhota Hathi",
     "Loader", "Backhoe", "Roller", "Crane", "Dump Truck",
   ],
-  services: ["Plumbing", "Electrician", "Beauty", "Carpenter", "Painter", "AC Repair"],
+  services: ["Plumbing", "Electrician", "Beauty", "Carpenter", "AC Repair"],
 };
 
 const ENGINE_SIZES = Array.from({ length: 23 }, (_, i) =>
@@ -62,7 +62,7 @@ function engineToTier(size: number): { label: string; color: string; bg: string 
 }
 
 const EARTH_MOVER_TYPES = new Set([
-  "JCB", "Excavator", "Bulldozer", "Poclain", "Rock Breaker", "Wheel Loader", "Chhota Hathi",
+  "JCB", "Excavator", "Poclain", "Chhota Hathi",
   "Loader", "Backhoe", "Roller", "Crane", "Dump Truck",
 ]);
 

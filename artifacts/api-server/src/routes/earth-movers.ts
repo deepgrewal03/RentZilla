@@ -8,10 +8,7 @@ const router: IRouter = Router();
 const EARTH_MOVER_TYPES = [
   { id: "JCB",          label: "JCB",           icon: "construct",    description: "Backhoe loader for digging and loading" },
   { id: "Excavator",    label: "Excavator",      icon: "construct",    description: "Hydraulic excavator for heavy digging" },
-  { id: "Bulldozer",    label: "Bulldozer",      icon: "build",        description: "Track-type dozer for pushing material" },
   { id: "Poclain",      label: "Poclain",        icon: "construct",    description: "Heavy-duty crawler excavator for deep digging" },
-  { id: "Rock Breaker", label: "Rock Breaker",   icon: "hammer",       description: "Hydraulic breaker attachment for breaking rock" },
-  { id: "Wheel Loader",  label: "Wheel Loader",   icon: "cube",         description: "Wheel loader for loading and material transport" },
   { id: "Chhota Hathi", label: "Chhota Hathi",   icon: "car",          description: "Mini goods carrier for short-distance delivery and transport" },
   { id: "Loader",       label: "Loader",         icon: "cube",         description: "Loader for material handling" },
   { id: "Backhoe",      label: "Backhoe",        icon: "construct",    description: "Backhoe for trenching and digging" },

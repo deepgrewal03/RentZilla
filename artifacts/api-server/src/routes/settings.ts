@@ -100,27 +100,29 @@ router.patch("/password", authMiddleware, async (req: Request, res: Response) =>
   }
 });
 
-// PATCH /api/settings/account — update name / email
+// PATCH /api/settings/account — only names are editable; email is immutable here.
 router.patch("/account", authMiddleware, async (req: Request, res: Response) => {
   try {
     const userId = (req as AuthRequest).userId;
     const { firstName, lastName, email } = req.body;
+    const current = (await db.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1))[0];
+    if (!current) { res.status(404).json({ error: "User not found" }); return; }
+    // Accept an unchanged email from older app versions, but never write it.
+    if (email !== undefined && email !== current.email) {
+      res.status(400).json({ error: "Email cannot be changed in Account Settings" }); return;
+    }
+    if ([firstName, lastName].some(value => value !== undefined && typeof value !== "string")) {
+      res.status(400).json({ error: "Names must be text" }); return;
+    }
+    if (firstName === undefined && lastName === undefined) {
+      res.status(400).json({ error: "Provide a name to update" }); return;
+    }
     const updates: Record<string, string> = {};
     if (firstName !== undefined) updates.firstName = firstName;
     if (lastName !== undefined) updates.lastName = lastName;
-    if (email !== undefined) {
-      // Check uniqueness
-      const existing = await db.select().from(usersTable).where(eq(usersTable.email, email.toLowerCase())).limit(1);
-      if (existing.length > 0 && existing[0].id !== userId) {
-        res.status(409).json({ error: "Email already in use by another account" });
-        return;
-      }
-      updates.email = email.toLowerCase();
-    }
     if (firstName !== undefined || lastName !== undefined) {
-      const u = await db.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
-      const fn = firstName ?? u[0]?.firstName ?? "";
-      const ln = lastName ?? u[0]?.lastName ?? "";
+      const fn = firstName ?? current.firstName ?? "";
+      const ln = lastName ?? current.lastName ?? "";
       updates.name = [fn, ln].filter(Boolean).join(" ");
     }
     await db.update(usersTable).set(updates as any).where(eq(usersTable.id, userId));

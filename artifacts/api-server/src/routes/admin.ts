@@ -1,5 +1,6 @@
 import { Router, type IRouter, type Request as ExpressRequest, type Response, type NextFunction } from "express";
 import { db } from "@workspace/db";
+import { activeCatalog } from "../lib/retiredCategories";
 import {
   usersTable,
   listingsTable,
@@ -235,11 +236,12 @@ router.get("/listings", adminMiddleware, async (req: Request, res: Response) => 
   try {
     const { category, q, page = "1", limit = "20" } = req.query as Record<string, string>;
     const offset = (parseInt(page) - 1) * parseInt(limit);
-    let query = db.select().from(listingsTable).$dynamic();
-    if (category) query = query.where(eq(listingsTable.category, category as any));
-    if (q) query = query.where(sql`${listingsTable.title} ILIKE ${'%'+q+'%'}`);
+    const catalogFilter = sql`${activeCatalog}
+      AND ${category ? eq(listingsTable.category, category as any) : sql`true`}
+      AND ${q ? sql`${listingsTable.title} ILIKE ${'%'+q+'%'}` : sql`true`}`;
+    let query = db.select().from(listingsTable).where(catalogFilter).$dynamic();
     const listings = await query.orderBy(desc(listingsTable.createdAt)).limit(parseInt(limit)).offset(offset);
-    const totalR = await db.select({ c: count() }).from(listingsTable);
+    const totalR = await db.select({ c: count() }).from(listingsTable).where(catalogFilter);
     res.json({ listings: listings.map(l => ({ id: l.id, providerId: l.providerId, title: l.title, category: l.category, subcategory: l.subcategory, price: l.price, priceUnit: l.priceUnit, location: l.location, isAvailable: l.isAvailable, images: l.images, createdAt: l.createdAt.toISOString() })), total: Number(totalR[0]?.c ?? 0), page: parseInt(page), limit: parseInt(limit) });
   } catch { res.status(500).json({ error: "Internal server error" }); }
 });

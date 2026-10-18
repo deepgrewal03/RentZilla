@@ -3,6 +3,7 @@ import { db } from "@workspace/db";
 import { favoritesTable, listingsTable, usersTable, reviewsTable } from "@workspace/db/schema";
 import { eq, and } from "drizzle-orm";
 import { authMiddleware } from "./users.js";
+import { isRetiredCategory } from "../lib/retiredCategories";
 
 const router: IRouter = Router();
 type Request = ExpressRequest<Record<string, string>>;
@@ -30,6 +31,7 @@ router.get("/", authMiddleware, async (req: Request, res: Response) => {
           .limit(1);
         if (listings.length === 0) return null;
         const listing = listings[0];
+        if (isRetiredCategory(listing.subcategory)) return null;
         const provider = await db.select().from(usersTable).where(eq(usersTable.id, listing.providerId)).limit(1);
         const reviews = await db.select().from(reviewsTable).where(eq(reviewsTable.listingId, listing.id));
         const avgRating = reviews.length > 0 ? reviews.reduce((s, r) => s + r.rating, 0) / reviews.length : null;
@@ -89,6 +91,10 @@ router.post("/", authMiddleware, async (req: Request, res: Response) => {
       res.json({ action: "removed", isFavorite: false });
     } else {
       // Add favorite
+      const listing = await db.select().from(listingsTable).where(eq(listingsTable.id, listingId)).limit(1);
+      if (!listing[0] || isRetiredCategory(listing[0].subcategory)) {
+        res.status(404).json({ error: "Listing not found" }); return;
+      }
       const inserted = await db
         .insert(favoritesTable)
         .values({ id: generateId(), userId, listingId })

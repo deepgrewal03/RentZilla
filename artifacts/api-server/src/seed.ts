@@ -88,15 +88,6 @@ async function seed() {
       images: ["https://images.unsplash.com/photo-1416879595882-3373a0480b5b?w=800"],
       isAvailable: true,
     },
-    {
-      id: id(), providerId: providers[4].id,
-      category: "equipment" as const, subcategory: "Sprayer",
-      title: "Boom Sprayer – Pesticide & Fertilizer",
-      description: "12m boom sprayer for efficient crop protection. Compatible with tractors. Covers large areas quickly. Maintains quality application.",
-      price: 600, priceUnit: "per_day" as const, location: "Bathinda",
-      images: ["https://images.unsplash.com/photo-1625246333195-78d73c02f5e2?w=800"],
-      isAvailable: true,
-    },
     // Services
     {
       id: id(), providerId: providers[1].id,

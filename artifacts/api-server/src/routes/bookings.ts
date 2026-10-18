@@ -4,6 +4,7 @@ import { bookingsTable, listingsTable, usersTable } from "@workspace/db/schema";
 import { eq, or, and } from "drizzle-orm";
 import { sql } from "drizzle-orm";
 import { authMiddleware } from "./users.js";
+import { isRetiredCategory } from "../lib/retiredCategories";
 import {
   validateTransition,
   transitionBooking,
@@ -434,6 +435,9 @@ router.post("/", authMiddleware, async (req: Request, res: Response) => {
       return;
     }
     const listing = listings[0];
+    if (isRetiredCategory(listing.subcategory)) {
+      res.status(410).json({ error: "This equipment or service type is no longer offered" }); return;
+    }
 
     // Block provider from booking their own listing
     if (listing.providerId === userId) {

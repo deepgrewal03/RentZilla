@@ -2,8 +2,15 @@ import { Router, type Request, type Response, type NextFunction } from "express"
 import { db } from "@workspace/db";
 import { sql, eq } from "drizzle-orm";
 import { usersTable } from "@workspace/db/schema";
+import { isRetiredCategory } from "../lib/retiredCategories";
 
 const router = Router();
+router.use((req, res, next) => {
+  if (isRetiredCategory(req.query.subcategory) || isRetiredCategory(req.body?.subcategory)) {
+    res.status(410).json({ error: "This equipment or service type is no longer offered" }); return;
+  }
+  next();
+});
 
 function genId() { return Date.now().toString() + Math.random().toString(36).slice(2, 9); }
 
@@ -48,7 +55,7 @@ router.get("/admin/rules", adminMiddleware, async (req: Request, res: Response) 
     const rows = toRows(await db.execute(sql`
       SELECT * FROM pricing_rules ORDER BY category, subcategory
     `));
-    res.json(rows);
+    res.json(rows.filter(row => !isRetiredCategory(row.subcategory)));
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }
@@ -131,7 +138,6 @@ const SERVICE_TYPE_MAP: Record<string, string[]> = {
   "Electrician":  ["Electrical Wiring", "Panel & Board Repair", "Light & Fan Install", "AC Wiring", "Fault Diagnosis", "Safety Inspection"],
   "Beauty":       ["Professional Hair Styling", "Facial & Skin Treatment", "Waxing Services", "Nail Care & Art", "Bridal Makeup", "Beauty Consultation"],
   "Carpenter":    ["Furniture Making & Repair", "Door & Window Fitting", "Cabinet & Wardrobe Work", "Wooden Flooring", "Roof & Framework", "Custom Woodwork"],
-  "Painter":      ["Interior Painting", "Exterior Painting", "Wall Texture / Design", "Wood Polish & Paint", "Waterproofing", "Touch-Up & Repair"],
   "AC Repair":    ["AC Installation", "AC Service & Gas Fill", "Deep Cleaning", "AC Repair", "Split AC Fitting", "Central AC Maintenance"],
   // ── Professions ───────────────────────────────────────────────────────────
   "Doctor (Home Visit)": ["General Consultation", "Paediatric Visit", "Elderly Care Visit", "Post-Surgery Follow-up", "Prescription Renewal", "Emergency Home Visit"],
@@ -146,15 +152,11 @@ const SERVICE_TYPE_MAP: Record<string, string[]> = {
   "Tractor":      ["Ploughing Service", "Sowing & Seeding", "Crop Harvesting", "Land Levelling", "Rotavation", "Multi-Day Farm Work"],
   "Harvester":    ["Wheat Harvesting", "Rice Harvesting", "Crop Cutting", "Threshing & Bundling", "Field Clearance", "Multi-Crop Harvest"],
   "Rotavator":    ["Soil Preparation", "Field Rotavation", "Seedbed Preparation", "Stubble Management", "Inter-Row Cultivation", "Multi-Day Rotavation"],
-  "Sprayer":      ["Pesticide Spraying", "Fertilizer Application", "Weed Control", "Crop Protection", "Field Spraying", "Emergency Treatment"],
   "Plough":       ["Deep Ploughing", "Disc Ploughing", "Field Preparation", "Subsoil Breaking", "Irrigation Channels", "Multi-Day Ploughing"],
   "Cultivator":   ["Soil Aeration", "Weed Control", "Pre-Sowing Cultivation", "Inter-Row Cultivation", "Field Levelling", "Stubble Incorporation"],
   "JCB":          ["Excavation Work", "Foundation Digging", "Land Clearing", "Trench Digging", "Loading & Transport", "Demolition Assist"],
   "Excavator":    ["Excavation Work", "Foundation Digging", "Land Clearing", "Trench Digging", "Loading & Transport", "Demolition Assist"],
-  "Bulldozer":    ["Land Clearing", "Earthmoving", "Site Levelling", "Road Construction", "Foundation Preparation", "Demolition Work"],
   "Poclain":      ["Heavy Excavation", "Foundation Digging", "Rock Cutting", "Trench Work", "Canal Digging", "Deep Earth Moving"],
-  "Rock Breaker": ["Rock Breaking", "Concrete Demolition", "Hard Soil Penetration", "Road Breaking", "Quarry Work", "Foundation Rock Removal"],
-  "Wheel Loader": ["Material Loading", "Aggregate Transport", "Site Cleanup", "Bulk Material Handling", "Loading & Unloading", "Road Construction"],
   "Chhota Hathi": ["Local Goods Transport", "House Shifting", "Market Delivery", "Construction Material", "Agricultural Produce", "Short Distance Haul"],
   "Loader":       ["Material Loading", "Bulk Handling", "Site Cleanup", "Loading & Unloading", "Agricultural Loading", "Construction Material"],
   "Backhoe":      ["Trenching", "Foundation Digging", "Pipe Laying", "Land Clearing", "Drainage Work", "Excavation Work"],
