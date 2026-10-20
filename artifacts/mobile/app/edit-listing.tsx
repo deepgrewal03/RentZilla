@@ -34,7 +34,7 @@ const CATEGORIES: { id: Category; label: string }[] = [
 ];
 
 const SUBCATEGORIES: Record<Category, string[]> = {
-  cars: ["Sedan", "SUV", "Truck", "Van", "Tempo"],
+  cars: ["Sedan", "SUV", "Truck", "Van", "Tempo", "Bike"],
   equipment: [
     "Tractor", "Harvester", "Rotavator", "Plough", "Cultivator",
     "JCB", "Excavator", "Poclain", "Chhota Hathi",
@@ -111,7 +111,7 @@ export default function EditListingScreen() {
   }
 
   async function handleSave() {
-    if (!title.trim() || !price || !location) {
+    if (!title.trim() || (subcategory !== "Bike" && !price) || !location) {
       Alert.alert("Missing Info", "Please fill in title, price, and location.");
       return;
     }
@@ -122,7 +122,7 @@ export default function EditListingScreen() {
         subcategory: subcategory || undefined,
         title: title.trim(),
         description: description.trim() || undefined,
-        price: Number(price),
+        price: subcategory === "Bike" ? 0 : Number(price),
         priceUnit,
         location,
         images: imageUrl ? [imageUrl] : [],
@@ -258,6 +258,12 @@ export default function EditListingScreen() {
           </View>
 
           {/* Expected Rate */}
+          {subcategory === "Bike" ? (
+            <View style={styles.section}>
+              <Text style={styles.fieldLabel}>Bike ride pricing</Text>
+              <Text>Motorcycle rides include a driver. RentZilla sets the fare from the road distance; daily rental rates do not apply.</Text>
+            </View>
+          ) : (
           <View style={styles.section}>
             <Text style={styles.fieldLabel}>Your Expected Rate (₹) *</Text>
             <View style={styles.priceRow}>
@@ -285,6 +291,7 @@ export default function EditListingScreen() {
               </View>
             </View>
           </View>
+          )}
 
           {/* Location */}
           <View style={styles.section}>

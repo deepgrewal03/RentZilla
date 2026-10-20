@@ -435,6 +435,10 @@ router.post("/", authMiddleware, async (req: Request, res: Response) => {
       return;
     }
     const listing = listings[0];
+    if (listing.category === "cars" && (listing.subcategory === "Bike" || listing.vehicleType === "Bike")) {
+      res.status(400).json({ error: "Motorcycle rides must be booked through Book a Bike with a pickup and drop-off." });
+      return;
+    }
     if (isRetiredCategory(listing.subcategory)) {
       res.status(410).json({ error: "This equipment or service type is no longer offered" }); return;
     }

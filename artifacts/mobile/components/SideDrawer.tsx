@@ -1,6 +1,7 @@
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { Image } from "expo-image";
+import { LinearGradient } from "expo-linear-gradient";
 import { router, usePathname } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
@@ -16,6 +17,8 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import Button3D from "@/components/Button3D";
+import HomeVisual from "@/constants/homeVisualTokens";
 import { DrawerTokens as D } from "@/constants/drawerTokens";
 import { useAuth } from "@/context/AuthContext";
 import { useLang } from "@/context/LanguageContext";
@@ -238,6 +241,27 @@ export function SideDrawer({ visible, onClose }: Props) {
               </View>
             </Pressable>
 
+            {/* Refer a Friend (moved from home) */}
+            <Pressable onPress={() => navigate("/referral")} style={styles.referBanner} accessibilityRole="button" accessibilityLabel="Refer a Friend, Earn 10% Off">
+              <LinearGradient
+                colors={["#E93478", "#F14D62", "#FF9141"]}
+                start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                style={styles.referBannerGrad}
+              >
+                <View style={styles.referGiftIcon}>
+                  <Ionicons name="gift-outline" size={21} color="#fff" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.referBannerTitle}>Refer a Friend, Earn 10% Off</Text>
+                  <Text style={styles.referBannerSub}>Share your code · 5 friends = reward!</Text>
+                </View>
+                <View style={styles.referBannerCta}>
+                  <Text style={styles.referBannerCtaTxt}>Share</Text>
+                  <Ionicons name="chevron-forward" size={12} color={HomeVisual.orange} />
+                </View>
+              </LinearGradient>
+            </Pressable>
+
             <View style={styles.divider} />
 
             {/* Language toggle */}
@@ -321,6 +345,13 @@ const styles = StyleSheet.create({
     width: 26, height: 26, borderRadius: 13, backgroundColor: D.goldChevronBg,
     alignItems: "center", justifyContent: "center",
   },
+  referBanner: { marginTop: 8, marginBottom: 4, borderRadius: 18, overflow: "hidden", elevation: 3, shadowColor: "#CE4A58", shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.19, shadowRadius: 10 },
+  referBannerGrad: { flexDirection: "row", alignItems: "center", paddingVertical: 12, paddingHorizontal: 12, gap: 9 },
+  referGiftIcon: { width: 38, height: 38, borderRadius: 13, backgroundColor: "rgba(255,255,255,0.17)", alignItems: "center", justifyContent: "center" },
+  referBannerTitle: { fontSize: 13, fontWeight: "800", fontFamily: "Inter_700Bold", color: "#fff" },
+  referBannerSub: { fontSize: 11, color: "rgba(255,255,255,0.88)", fontFamily: "Inter_400Regular", marginTop: 1 },
+  referBannerCta: { flexDirection: "row", alignItems: "center", gap: 2, backgroundColor: "#FFF8F5", borderRadius: 20, paddingHorizontal: 10, paddingVertical: 7 },
+  referBannerCtaTxt: { fontSize: 12, fontWeight: "700", fontFamily: "Inter_700Bold", color: HomeVisual.orange },
   headerTint: { ...StyleSheet.absoluteFillObject, backgroundColor: D.headerTint },
   headerRow: { flexDirection: "row", alignItems: "flex-start" },
   brandRow: { flexDirection: "row", alignItems: "center", gap: 6 },

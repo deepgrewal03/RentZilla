@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { useFocusEffect } from "expo-router";
+import { useFocusEffect, useLocalSearchParams } from "expo-router";
 import { API_BASE_URL } from "@/constants/apiUrl";
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   ActivityIndicator, Animated, Alert, Platform, Modal,
   Dimensions, PanResponder, StatusBar, TextInput, KeyboardAvoidingView,
 } from "react-native";
-import { Feather } from "@expo/vector-icons";
+import { Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Location from "expo-location";
@@ -56,13 +56,18 @@ interface RideRequest {
   ride_for_type?: string; passenger_name?: string;
 }
 
-const VEHICLE_TYPES = [
-  { id: "Car",   icon: "🚗", label: "Economical",  tagline: "", color: ORANGE },
-  { id: "SUV",   icon: "🚙", label: "Comfortable", tagline: "", color: PURPLE },
-  { id: "Van",   icon: "🚐", label: "Luxurious",   tagline: "", color: "#EC4899" },
+type MciName = keyof typeof MaterialCommunityIcons.glyphMap;
+const TEAL = "#0F9F8F";
+const VEHICLE_TYPES: { id: string; icon: MciName; label: string; tagline: string; color: string }[] = [
+  { id: "Bike",  icon: "motorbike",       label: "Bike",        tagline: "1 rider",  color: TEAL },
+  { id: "Car",   icon: "car-side",        label: "Economical",  tagline: "",         color: ORANGE },
+  { id: "SUV",   icon: "car-estate",      label: "Comfortable", tagline: "",         color: PURPLE },
+  { id: "Van",   icon: "van-passenger",   label: "Luxurious",   tagline: "",         color: "#EC4899" },
 ];
+const VEHICLE_IDS = VEHICLE_TYPES.map(v => v.id);
+const vehicleMeta = (id?: string) => VEHICLE_TYPES.find(v => v.id === (id ?? "Car")) ?? VEHICLE_TYPES[1];
 
-const DEFAULT_PRICING: Record<string, { baseFare: number; perKm: number }> = {
+const DEFAULT_PRICING: Record<string, { baseFare: number; perKm: number; platformFee?: number }> = {
   Bike: { baseFare: 30, perKm: 6 },
   Auto: { baseFare: 40, perKm: 8 },
   Car:  { baseFare: 50, perKm: 12 },
@@ -143,13 +148,13 @@ function RideSteps({ status }: { status: string }) {
 function VehicleCard({ v, selected, estimate, onPress, distanceKm, pricing }: {
   v: typeof VEHICLE_TYPES[0]; selected: boolean;
   estimate: RideEstimate | null; onPress: () => void;
-  distanceKm?: number; pricing: { baseFare: number; perKm: number };
+  distanceKm?: number; pricing: { baseFare: number; perKm: number; platformFee?: number };
 }) {
   const fare = distanceKm != null
-    ? Math.max(pricing.baseFare, Math.round(pricing.baseFare + distanceKm * pricing.perKm))
+    ? Math.max(pricing.baseFare, Math.round(pricing.baseFare + distanceKm * pricing.perKm + (pricing.platformFee ?? 0)))
     : null;
   const eta = estimate
-    ? estimate.durationMin + (v.id === "Bike" ? -3 : v.id === "Auto" ? -1 : v.id === "SUV" ? 2 : v.id === "Van" ? 4 : 0)
+    ? estimate.durationMin
     : null;
   return (
     <TouchableOpacity
@@ -161,7 +166,7 @@ function VehicleCard({ v, selected, estimate, onPress, distanceKm, pricing }: {
           <Feather name="check" size={10} color="#fff" />
         </View>
       )}
-      <Text style={styles.vehicleEmoji}>{v.icon}</Text>
+      <MaterialCommunityIcons name={v.icon} size={28} color={selected ? v.color : C.text} style={styles.vehicleEmoji} />
       <Text style={[styles.vehicleName, selected && { color: v.color }]}>{v.label}</Text>
       {fare != null ? (
         <Text style={[styles.vehicleFare, selected && { color: v.color }]}>₹{fare}</Text>
@@ -225,7 +230,7 @@ function BottomSheet({ children, isExpanded, onToggle }: {
 function ActiveRideCard({ ride, onCancel }: { ride: ActiveRide; onCancel: (r: ActiveRide) => void }) {
   const statusColor = STATUS_COLOR[ride.status] ?? C.textSecondary;
   const statusLabel = STATUS_LABEL[ride.status] ?? ride.status;
-  const veh = VEHICLE_TYPES.find(v => v.id === (ride.vehicle_type ?? "Car")) ?? VEHICLE_TYPES[0];
+  const veh = vehicleMeta(ride.vehicle_type);
   const isForOther = ride.ride_for_type === "someone_else";
   const canCancel  = ["requested", "scheduled", "accepted"].includes(ride.status);
 
@@ -234,7 +239,7 @@ function ActiveRideCard({ ride, onCancel }: { ride: ActiveRide; onCancel: (r: Ac
       {/* Status row */}
       <View style={styles.activeRideHeader}>
         <View style={styles.activeRideVehicleRow}>
-          <Text style={styles.activeRideEmoji}>{veh.icon}</Text>
+          <MaterialCommunityIcons name={veh.icon} size={22} color={veh.color} />
           <Text style={styles.activeRideVehicle}>{veh.label}</Text>
         </View>
         <View style={[styles.statusPill, { backgroundColor: statusColor + "20" }]}>
@@ -391,13 +396,13 @@ function HistoryRideCard({ ride }: { ride: ActiveRide }) {
   const isCancelled = ride.status === "cancelled";
   const statusColor = isCancelled ? RED : GREEN;
   const statusLabel = isCancelled ? "Cancelled" : "Completed";
-  const veh = VEHICLE_TYPES.find(v => v.id === (ride.vehicle_type ?? "Car")) ?? VEHICLE_TYPES[0];
+  const veh = vehicleMeta(ride.vehicle_type);
 
   return (
     <View style={[styles.activeRideCard, { opacity: isCancelled ? 0.82 : 1, borderColor: statusColor + "30" }]}>
       <View style={styles.activeRideHeader}>
         <View style={styles.activeRideVehicleRow}>
-          <Text style={styles.activeRideEmoji}>{veh.icon}</Text>
+          <MaterialCommunityIcons name={veh.icon} size={22} color={veh.color} />
           <Text style={styles.activeRideVehicle}>{veh.label}</Text>
         </View>
         <View style={[styles.statusPill, { backgroundColor: statusColor + "18" }]}>
@@ -522,7 +527,7 @@ function ActiveRidesModal({ visible, rides, history, onClose, onCancelRide }: {
             {tab === "active" ? (
               rides.length === 0 ? (
                 <View style={styles.driverEmptyState}>
-                  <Text style={{ fontSize: 44 }}>🚗</Text>
+                  <MaterialCommunityIcons name="car-side" size={44} color={C.textTertiary} />
                   <Text style={styles.emptyTitle}>No active rides</Text>
                   <Text style={styles.emptyDesc}>Your active ride bookings will appear here</Text>
                 </View>
@@ -560,13 +565,18 @@ export default function CarsScreen() {
 
   const isProvider     = (user?.role === "provider" || user?.role === "both") && activeMode === "provider";
   const isProviderUser = user?.role === "provider" || user?.role === "both";
-  const [tab, setTab]  = useState<"rider" | "driver">(isProvider ? "driver" : "rider");
+  const { vehicle: vehicleParam } = useLocalSearchParams<{ vehicle?: string | string[] }>();
+  const initialVehicle = (() => {
+    const v = Array.isArray(vehicleParam) ? vehicleParam[0] : vehicleParam;
+    return v && VEHICLE_IDS.includes(v) ? v : null;
+  })();
+  const [tab, setTab]  = useState<"rider" | "driver">(isProvider && !initialVehicle ? "driver" : "rider");
 
   // ── Rider Booking State ──
   const DEFAULT: Coords = { lat: 30.7333, lng: 76.7794, address: "Chandigarh, Punjab" };
   const [pickup,        setPickup]       = useState<Coords>(DEFAULT);
   const [drop,          setDrop]         = useState<Coords | null>(null);
-  const [vehicleType,   setVehicleType]  = useState("Car");
+  const [vehicleType,   setVehicleType]  = useState(initialVehicle ?? "Car");
   const [estimate,      setEstimate]     = useState<RideEstimate | null>(null);
   const [locLoading,    setLocLoading]   = useState(true);
   const [rideMode,      setRideMode]     = useState<"instant" | "scheduled">("instant");
@@ -589,7 +599,7 @@ export default function CarsScreen() {
   const toastTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ── Dynamic pricing from admin ──
-  const [ridePricing, setRidePricing] = useState<Record<string, { baseFare: number; perKm: number }>>(DEFAULT_PRICING);
+  const [ridePricing, setRidePricing] = useState<Record<string, { baseFare: number; perKm: number; platformFee?: number }>>(DEFAULT_PRICING);
 
   // ── Modals ──
   const [pickupModalOpen,   setPickupModalOpen]   = useState(false);
@@ -601,8 +611,30 @@ export default function CarsScreen() {
   const [driverRequests,   setDriverRequests]   = useState<RideRequest[]>([]);
   const [driverActiveRide, setDriverActiveRide] = useState<ActiveRide | null>(null);
   const [driverLoading,    setDriverLoading]    = useState(false);
+  const [driverVehicleTypes, setDriverVehicleTypes] = useState<string[] | null>(null);
+  const [driverStatusError,  setDriverStatusError]  = useState<string | null>(null);
   const [selectedRequest,  setSelectedRequest]  = useState<RideRequest | null>(null);
   const [showTripNav,      setShowTripNav]      = useState(false);
+
+  // React to ?vehicle= changes while this tab stays mounted
+  useEffect(() => {
+    if (!initialVehicle) return;
+    setVehicleType(initialVehicle);
+    setTab("rider");
+  }, [initialVehicle]);
+
+  // Load driver status + eligible vehicle types (server-filtered requests)
+  const loadDriverStatus = useCallback(async () => {
+    try {
+      const st = await get<{ isOnline?: boolean; vehicleTypes?: string[] }>("/rides/driver/status");
+      setIsOnline(!!st?.isOnline);
+      setDriverVehicleTypes(Array.isArray(st?.vehicleTypes) ? st.vehicleTypes : []);
+    } catch (e: any) {
+      setDriverVehicleTypes([]);
+      setDriverStatusError(e?.message ?? "Could not load driver status");
+    }
+  }, []);
+  useEffect(() => { if (tab === "driver" && isProviderUser) loadDriverStatus(); }, [tab, isProviderUser]);
 
   const pollRef      = useRef<ReturnType<typeof setInterval> | null>(null);
   const mapRef       = useRef<MapRef>(null);
@@ -640,7 +672,7 @@ export default function CarsScreen() {
   // ── Fetch live pricing from admin rules — re-runs every time tab is focused ──
   const fetchPricing = useCallback(async () => {
     try {
-      const data = await get<Record<string, { baseFare: number; perKm: number }>>("/pricing/rides");
+      const data = await get<Record<string, { baseFare: number; perKm: number; platformFee?: number }>>("/pricing/rides");
       if (data && typeof data === "object") setRidePricing(prev => ({ ...prev, ...data }));
     } catch {}
   }, []);
@@ -653,14 +685,14 @@ export default function CarsScreen() {
   useEffect(() => {
     if (!estimate || !drop) return;
     const p = ridePricing[vehicleType] ?? DEFAULT_PRICING[vehicleType] ?? { baseFare: 50, perKm: 12 };
-    const fare = Math.max(p.baseFare, Math.round(p.baseFare + estimate.distanceKm * p.perKm));
+    const fare = Math.max(p.baseFare, Math.round(p.baseFare + estimate.distanceKm * p.perKm + (p.platformFee ?? 0)));
     setEstimate(prev => prev ? { ...prev, fare } : null);
   }, [vehicleType, ridePricing]);
 
   const handleRouteCalculated = useCallback((distanceKm: number, durationMin: number) => {
     if (!Number.isFinite(distanceKm) || distanceKm <= 0) { setEstimate(null); return; }
     const p = ridePricing[vehicleType] ?? DEFAULT_PRICING[vehicleType] ?? { baseFare: 50, perKm: 12 };
-    const fare = Math.max(p.baseFare, Math.round(p.baseFare + distanceKm * p.perKm));
+    const fare = Math.max(p.baseFare, Math.round(p.baseFare + distanceKm * p.perKm + (p.platformFee ?? 0)));
     setEstimate({ distanceKm, durationMin, fare });
     setSheetExpanded(true);
   }, [vehicleType, ridePricing]);
@@ -838,10 +870,16 @@ export default function CarsScreen() {
   const handleToggleOnline = async () => {
     setDriverLoading(true);
     try {
+      setDriverStatusError(null);
       await patch("/rides/driver/status", { isOnline: !isOnline });
       setIsOnline(v => !v);
       if (isOnline) { setDriverRequests([]); setDriverActiveRide(null); }
-    } catch {}
+      loadDriverStatus();
+    } catch (e: any) {
+      const msg = e?.message ?? "Could not change your online status. Please try again.";
+      setDriverStatusError(msg);
+      Alert.alert(isOnline ? "Could not go offline" : "Could not go online", msg);
+    }
     setDriverLoading(false);
   };
 
@@ -993,7 +1031,7 @@ export default function CarsScreen() {
           )}
 
           {/* Vehicle selector */}
-          {drop && (
+          {(
             <>
               <Text style={styles.sectionLabel}>Choose Vehicle</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.vehicleRow}>
@@ -1008,6 +1046,18 @@ export default function CarsScreen() {
                   />
                 ))}
               </ScrollView>
+              {vehicleType === "Bike" && (
+                <View style={styles.bikeNote}>
+                  <View style={styles.bikeNoteRow}>
+                    <Feather name="user" size={13} color={TEAL} />
+                    <Text style={styles.bikeNoteText}>Motorcycle with driver · single passenger only</Text>
+                  </View>
+                  <View style={styles.bikeNoteRow}>
+                    <MaterialCommunityIcons name="racing-helmet" size={14} color={TEAL} />
+                    <Text style={styles.bikeNoteText}>Wear a helmet for your safety — ask your rider if you need one</Text>
+                  </View>
+                </View>
+              )}
             </>
           )}
 
@@ -1117,6 +1167,36 @@ export default function CarsScreen() {
           }
         </TouchableOpacity>
       </LinearGradient>
+
+      <View style={styles.eligibleCard}>
+        <Text style={styles.eligibleTitle}>Your registered vehicles</Text>
+        {driverVehicleTypes == null ? (
+          <View style={styles.vehicleFareSkeleton} />
+        ) : driverVehicleTypes.length === 0 ? (
+          <Text style={styles.eligibleHint}>No available car or bike listed. Add one under Add Listing → Cars to go online.</Text>
+        ) : (
+          <>
+            <View style={styles.eligibleRow}>
+              {driverVehicleTypes.map(t => {
+                const m = vehicleMeta(t);
+                return (
+                  <View key={t} style={[styles.eligibleChip, { backgroundColor: m.color + "18", borderColor: m.color + "55" }]}>
+                    <MaterialCommunityIcons name={m.icon} size={15} color={m.color} />
+                    <Text style={[styles.eligibleChipText, { color: m.color }]}>{t === "Bike" ? "Bike" : `${t} · ${m.label}`}</Text>
+                  </View>
+                );
+              })}
+            </View>
+            <Text style={styles.eligibleHint}>You only receive requests matching these vehicle types.</Text>
+          </>
+        )}
+        {driverStatusError && (
+          <View style={styles.eligibleError}>
+            <Feather name="alert-circle" size={13} color={RED} />
+            <Text style={styles.eligibleErrorText}>{driverStatusError}</Text>
+          </View>
+        )}
+      </View>
 
       {driverActiveRide && (
         <View style={styles.driverActiveCard}>
@@ -1307,7 +1387,7 @@ export default function CarsScreen() {
       {/* Header */}
       <LinearGradient colors={[NAVY, "#152847"]} style={styles.header}>
         <View>
-          <Text style={styles.headerTitle}>Cars</Text>
+          <Text style={styles.headerTitle}>{tab === "rider" ? (vehicleType === "Bike" ? "Bike Ride" : "Car Ride") : "Rides"}</Text>
           <Text style={styles.headerSub}>Ride-booking · Punjab</Text>
         </View>
 
@@ -1505,6 +1585,17 @@ const styles = StyleSheet.create({
   sectionLabel: { fontSize: 12, fontWeight: "700", color: C.textSecondary, fontFamily: "Inter_700Bold", textTransform: "uppercase", letterSpacing: 0.7, marginBottom: 10 },
 
   // Vehicle row
+  bikeNote: { marginTop: 10, backgroundColor: "#E6F6F3", borderRadius: 12, borderWidth: 1, borderColor: "#BCE6DF", padding: 10, gap: 6 },
+  bikeNoteRow: { flexDirection: "row", alignItems: "center", gap: 7 },
+  bikeNoteText: { flex: 1, fontSize: 12, color: "#0B5E55", fontFamily: "Inter_500Medium" },
+  eligibleCard: { marginTop: 12, backgroundColor: "#fff", borderRadius: 16, borderWidth: 1, borderColor: C.border, padding: 14, gap: 8 },
+  eligibleTitle: { fontSize: 13, fontFamily: "Inter_700Bold", color: C.text },
+  eligibleRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  eligibleChip: { flexDirection: "row", alignItems: "center", gap: 5, borderRadius: 14, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 5 },
+  eligibleChipText: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
+  eligibleHint: { fontSize: 11.5, color: C.textSecondary, fontFamily: "Inter_400Regular" },
+  eligibleError: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "#FEF2F2", borderRadius: 10, padding: 8 },
+  eligibleErrorText: { flex: 1, fontSize: 12, color: RED, fontFamily: "Inter_500Medium" },
   vehicleRow: { gap: 10, paddingRight: 8, paddingBottom: 4 },
   vehicleCard: { alignItems: "center", padding: 12, borderRadius: 18, backgroundColor: C.backgroundSecondary, minWidth: 88, borderWidth: 1.5, borderColor: "transparent", position: "relative" },
   vehicleCheck: { position: "absolute", top: 6, right: 6, width: 18, height: 18, borderRadius: 9, alignItems: "center", justifyContent: "center" },

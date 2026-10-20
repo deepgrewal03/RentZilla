@@ -57,6 +57,10 @@ router.get("/", async (req: Request, res: Response) => {
 
     let query = db.select().from(listingsTable);
     const conditions = [activeCatalog];
+    // Bike listings register ride providers; they are not self-drive rentals.
+    // Keep them visible in the owner's listing management feed.
+    if (!providerId) conditions.push(sql`NOT (${listingsTable.category} = 'cars' AND
+      (COALESCE(${listingsTable.subcategory}, '') = 'Bike' OR COALESCE(${listingsTable.vehicleType}, '') = 'Bike'))`);
 
     if (category) {
       if (!VALID_CATEGORIES.includes(category as ValidCategory)) {
@@ -161,7 +165,7 @@ router.post("/", authMiddleware, async (req: Request, res: Response) => {
       fuelIncluded: fuelIncluded === true,
       deliveryCharges: deliveryCharges != null ? String(Number(deliveryCharges)) : null,
       engineSize: engineSize != null ? Number(engineSize) : null,
-      vehicleType: vehicleType || null,
+      vehicleType: category === "cars" && subcategory === "Bike" ? "Bike" : vehicleType || null,
       latitude: latitude != null ? String(Number(latitude)) : null,
       longitude: longitude != null ? String(Number(longitude)) : null,
     };
@@ -184,6 +188,17 @@ router.put("/:id", authMiddleware, async (req: Request, res: Response) => {
     } = req.body;
 
     const existing = await db.select().from(listingsTable).where(eq(listingsTable.id, req.params.id)).limit(1);
+    if (!existing[0]) { res.status(404).json({ error: "Listing not found" }); return; }
+    if (existing[0].providerId !== (req as any).userId) {
+      res.status(403).json({ error: "You can only edit your own listings" }); return;
+    }
+    const nextCategory = category ?? existing[0].category;
+    const nextSubcategory = subcategory ?? existing[0].subcategory;
+    // Switching Bike to a car must not leave stale Bike matching eligibility.
+    const nextVehicleType = nextCategory === "cars" && nextSubcategory === "Bike" ? "Bike"
+      : vehicleType !== undefined ? vehicleType || null
+      : subcategory !== undefined && existing[0].vehicleType === "Bike" ? null
+      : existing[0].vehicleType;
     if (isRetiredCategory(subcategory) || isRetiredCategory(existing[0]?.subcategory)) {
       res.status(400).json({ error: "This equipment or service type is no longer offered" }); return;
     }
@@ -201,7 +216,7 @@ router.put("/:id", authMiddleware, async (req: Request, res: Response) => {
         ...(fuelIncluded !== undefined && { fuelIncluded: fuelIncluded === true }),
         ...(deliveryCharges !== undefined && { deliveryCharges: deliveryCharges != null ? String(Number(deliveryCharges)) : null }),
         ...(engineSize !== undefined && { engineSize: engineSize != null ? Number(engineSize) : null }),
-        ...(vehicleType !== undefined && { vehicleType: vehicleType || null }),
+        vehicleType: nextVehicleType,
         ...(latitude !== undefined && { latitude: latitude != null ? String(Number(latitude)) : null }),
         ...(longitude !== undefined && { longitude: longitude != null ? String(Number(longitude)) : null }),
       })

@@ -450,11 +450,11 @@ export default function DashboardScreen() {
                     if (!hasCarListing) {
                       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
                       Alert.alert(
-                        "No Car Listed",
-                        "You need to add at least one car listing before you can go online and accept rides.",
+                        "No Car or Bike Listed",
+                        "Add at least one car or bike (with driver) under Cars before you can go online and accept rides.",
                         [
                           { text: "Cancel", style: "cancel" },
-                          { text: "Add Car", onPress: () => router.push("/add-listing") },
+                          { text: "Add Vehicle", onPress: () => router.push("/add-listing") },
                         ]
                       );
                       return;
@@ -468,7 +468,7 @@ export default function DashboardScreen() {
                   </View>
                   <Text style={[styles.actionLabel, !hasCarListing && { color: "#9CA3AF" }]}>Go Online</Text>
                   {!hasCarListing && !loading && (
-                    <Text style={styles.actionDisabledHint}>No car listed</Text>
+                    <Text style={styles.actionDisabledHint}>No car/bike listed</Text>
                   )}
                 </Pressable>
               );
@@ -820,7 +820,7 @@ export default function DashboardScreen() {
               <View style={styles.emptyCard}>
                 <Ionicons name="car-outline" size={40} color={C.textTertiary} />
                 <Text style={styles.emptyTitle}>No completed trips yet</Text>
-                <Text style={styles.emptyText}>Go online and accept rides to see your trip history here</Text>
+                <Text style={styles.emptyText}>Go online with your car or bike to see your trip history here</Text>
               </View>
             ) : (
               trips.slice(0, 10).map((trip: any) => (

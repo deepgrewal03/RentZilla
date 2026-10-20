@@ -4,6 +4,7 @@ import { usersTable } from "@workspace/db/schema";
 import { eq, sql } from "drizzle-orm";
 import { authMiddleware } from "./users.js";
 import { roadRoute } from "../lib/roadRoute.js";
+import { isRideVehicle, listingRideType, eligibleVehicleListings, canAcceptRide } from "../lib/rideVehicles.js";
 
 const router: IRouter = Router();
 type AR = Request & { userId: string };
@@ -42,8 +43,8 @@ async function estimateFare(distanceKm: number, vehicleType: string = "Car"): Pr
     `));
     if (rows.length > 0) {
       const r = rows[0];
-      const baseFare = Number(r.base_fee) || FALLBACK_BASE[vehicleType] || 50;
-      const perKm    = Number(r.km_rate)  || FALLBACK_PER_KM[vehicleType] || 12;
+      const baseFare = r.base_fee == null ? FALLBACK_BASE[vehicleType] ?? 50 : Number(r.base_fee);
+      const perKm    = r.km_rate == null ? FALLBACK_PER_KM[vehicleType] ?? 12 : Number(r.km_rate);
       const platform = Number(r.platform_fee) || 0;
       return Math.max(baseFare, Math.round(baseFare + distanceKm * perKm + platform));
     }
@@ -61,6 +62,15 @@ router.patch("/driver/status", authMiddleware, async (req: Request, res: Respons
   try {
     const userId = (req as AR).userId;
     const { isOnline } = req.body;
+    if (typeof isOnline !== "boolean") {
+      res.status(400).json({ error: "isOnline must be a boolean" }); return;
+    }
+    if (isOnline) {
+      const vehicles = toRows(await db.execute(sql`SELECT DISTINCT ${listingRideType} AS vehicle_type FROM listings l WHERE ${eligibleVehicleListings(userId)}`));
+      if (!vehicles.length) {
+        res.status(403).json({ error: "Add an available car or motorcycle listing to your provider account before going online." }); return;
+      }
+    }
     await db.execute(
       `INSERT INTO driver_status (driver_id, is_online, last_updated)
        VALUES ('${userId}', ${!!isOnline}, NOW())
@@ -78,7 +88,8 @@ router.get("/driver/status", authMiddleware, async (req: Request, res: Response)
     const userId = (req as AR).userId;
     const result = await db.execute(`SELECT * FROM driver_status WHERE driver_id = '${userId}' LIMIT 1`);
     const row = (result.rows as any[])[0];
-    res.json({ isOnline: row?.is_online ?? false });
+    const vehicles = toRows(await db.execute(sql`SELECT DISTINCT ${listingRideType} AS vehicle_type FROM listings l WHERE ${eligibleVehicleListings(userId)}`));
+    res.json({ isOnline: row?.is_online ?? false, vehicleTypes: vehicles.map(v => v.vehicle_type) });
   } catch (err) {
     res.status(500).json({ error: "Internal server error" });
   }
@@ -104,10 +115,12 @@ router.post("/driver/location", authMiddleware, async (req: Request, res: Respon
 // DRIVER: Get pending ride requests (includes passenger info)
 router.get("/driver/requests", authMiddleware, async (req: Request, res: Response) => {
   try {
+    const userId = (req as AR).userId;
     const result = await db.execute(
-      `SELECT r.*, u.name as rider_name, u.phone as rider_phone
+      sql`SELECT r.*, u.name as rider_name, u.phone as rider_phone
        FROM rides r JOIN users u ON u.id = r.rider_id
        WHERE r.status = 'requested' AND r.driver_id IS NULL
+       AND ${canAcceptRide(userId)}
        ORDER BY r.requested_at DESC LIMIT 10`
     );
     res.json(result.rows);
@@ -122,13 +135,14 @@ router.patch("/:id/accept", authMiddleware, async (req: Request, res: Response) 
     const userId = (req as AR).userId;
     const { id } = req.params;
     const result = await db.execute(
-      `UPDATE rides SET driver_id = '${userId}', status = 'accepted', accepted_at = NOW()
-       WHERE id = '${id}' AND status = 'requested' AND driver_id IS NULL
-       RETURNING *`
+      sql`UPDATE rides r SET driver_id = ${userId}, status = 'accepted', accepted_at = NOW()
+       WHERE r.id = ${id} AND r.status = 'requested' AND r.driver_id IS NULL
+       AND ${canAcceptRide(userId)}
+       RETURNING r.*`
     );
     const rows = result.rows as any[];
     if (!rows.length) {
-      res.status(409).json({ error: "Ride already accepted by another driver" });
+      res.status(409).json({ error: "Ride unavailable. You must be online with an available vehicle matching this ride." });
       return;
     }
     res.json(rows[0]);
@@ -255,6 +269,9 @@ router.post("/request", authMiddleware, async (req: Request, res: Response) => {
       passengerPhone,
     } = req.body;
 
+    if (!isRideVehicle(vehicleType)) {
+      res.status(400).json({ error: "Unsupported ride vehicle type" }); return;
+    }
     if (!pickupLat || !pickupLng || !dropLat || !dropLng) {
       res.status(400).json({ error: "Pickup and drop coordinates required" });
       return;
@@ -388,6 +405,9 @@ router.patch("/:id/cancel", authMiddleware, async (req: Request, res: Response) 
 router.post("/estimate", authMiddleware, async (req: Request, res: Response) => {
   try {
     const { pickupLat, pickupLng, dropLat, dropLng, vehicleType = "Car" } = req.body;
+    if (!isRideVehicle(vehicleType)) {
+      res.status(400).json({ error: "Unsupported ride vehicle type" }); return;
+    }
     if (!pickupLat || !pickupLng || !dropLat || !dropLng) {
       res.status(400).json({ error: "Coordinates required" }); return;
     }

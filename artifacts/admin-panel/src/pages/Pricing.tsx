@@ -6,7 +6,7 @@ import {
   BadgePercent, ChevronDown, Save, RefreshCw,
   IndianRupee, Truck, Wrench, Clock, Fuel, UserCog,
   Package, Zap, AlertCircle, TrendingUp, Wallet, HandCoins,
-  Tag, CheckCircle2,
+  Tag, CheckCircle2, Bike, Car,
 } from "lucide-react";
 
 // ── Static subcategory lists ──────────────────────────────────────────────────
@@ -174,6 +174,83 @@ function PreviewCard({ rule, category }: { rule: any; category: string }) {
   );
 }
 
+// ── Ride fares (cars category, keyed by vehicle type) ─────────────────────────
+const RIDE_TYPES = [
+  { id: "Bike", label: "Bike (motorcycle with driver)", base: 30, km: 6 },
+  { id: "Car",  label: "Car · Economical",  base: 50, km: 12 },
+  { id: "SUV",  label: "SUV · Comfortable", base: 70, km: 16 },
+  { id: "Van",  label: "Van · Luxurious",   base: 90, km: 20 },
+  { id: "Auto", label: "Auto",              base: 40, km: 8 },
+];
+
+function RideFares() {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const [vt, setVt] = useState("Bike");
+  const [form, setForm] = useState<any>(null);
+  const { data: rules = [], isLoading, isError, refetch } = useQuery<any[]>({
+    queryKey: ["pricing-admin-rules"],
+    queryFn: () => api.get("/pricing/admin/rules"),
+  });
+  const meta = RIDE_TYPES.find(r => r.id === vt)!;
+  const existing = rules.find((r: any) => r.category === "cars" && r.subcategory === vt);
+  useEffect(() => {
+    setForm(existing
+      ? { ...existing }
+      : { ...defaultRule("cars", vt, ""), base_fee: meta.base, km_rate: meta.km });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vt, existing?.id, isLoading]);
+  const save = useMutation({
+    mutationFn: (d: any) => api.post("/pricing/admin/rules", d),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["pricing-admin-rules"] }); toast({ title: "Saved!", description: `${vt} ride fare updated.` }); },
+    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+  });
+  if (isLoading || !form) {
+    return <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 h-40 animate-pulse" />;
+  }
+  if (isError) {
+    return (
+      <div className="bg-white rounded-2xl p-5 shadow-sm border border-red-100 flex items-center gap-3 text-sm text-red-600">
+        <AlertCircle size={16} /> Could not load ride fares — values hidden to avoid showing unsaved defaults.
+        <button onClick={() => refetch()} className="ml-auto text-xs font-bold text-orange-600">Retry</button>
+      </div>
+    );
+  }
+  const set = (k: string, v: number) => setForm((f: any) => ({ ...f, [k]: v }));
+  return (
+    <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 space-y-4">
+      <div className="flex items-center gap-2">
+        {vt === "Bike" ? <Bike size={18} className="text-orange-500" /> : <Car size={18} className="text-orange-500" />}
+        <h3 className="text-sm font-bold text-gray-900">Ride Fares — Cars &amp; Bikes</h3>
+        {isLoading && <RefreshCw size={14} className="text-orange-400 animate-spin ml-auto" />}
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {RIDE_TYPES.map(r => {
+          const set_ = rules.some((x: any) => x.category === "cars" && x.subcategory === r.id);
+          return (
+            <button key={r.id} onClick={() => setVt(r.id)}
+              className={`px-3 py-1.5 rounded-full text-xs font-semibold border-2 transition-colors ${vt === r.id ? "border-orange-400 bg-orange-50 text-orange-700" : "border-gray-200 text-gray-600 hover:border-orange-200"}`}>
+              {r.id}{set_ ? " · saved" : " · default"}
+            </button>
+          );
+        })}
+      </div>
+      <p className="text-xs text-gray-500">{meta.label}. Fare = Base Fare + Per Km × Distance (minimum = base fare).{!existing && " Not saved yet — showing default."}</p>
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Base Fare" icon={IndianRupee} value={Number(form.base_fee)} onChange={v => set("base_fee", v)} />
+        <Field label="Per Km Rate" icon={Truck} value={Number(form.km_rate)} onChange={v => set("km_rate", v)} unit="₹/km" step={0.5} />
+        <Field label="Platform Fee" icon={Wrench} value={Number(form.platform_fee)} onChange={v => set("platform_fee", v)} />
+        <Field label="Commission %" icon={BadgePercent} value={Number(form.commission_percent)} onChange={v => set("commission_percent", Math.min(100, v))} unit="%" step={0.5} />
+      </div>
+      <button onClick={() => save.mutate({ ...form, category: "cars", subcategory: vt })} disabled={save.isPending || isLoading || isError}
+        className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-sm bg-gradient-to-r from-orange-500 to-amber-400 text-white disabled:opacity-60">
+        {save.isPending ? <RefreshCw size={15} className="animate-spin" /> : <Save size={15} />}
+        Save {vt} fare
+      </button>
+    </div>
+  );
+}
+
 // ── Main page ─────────────────────────────────────────────────────────────────
 export default function Pricing() {
   const { toast } = useToast();
@@ -324,6 +401,8 @@ export default function Pricing() {
           );
         })}
       </div>
+
+      <RideFares />
 
       {/* Main content */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

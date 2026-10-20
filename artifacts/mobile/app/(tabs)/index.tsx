@@ -127,16 +127,18 @@ export default function HomeScreen() {
         end={{ x: 1, y: 1 }}
         style={[styles.header, { paddingTop: topPad + 14 }]}
       >
-        <CountrysideHeaderArt />
+        {/* Tractor anchored just above the floating search bar, clear of the top row */}
+        <CountrysideHeaderArt tractorBottomOffset={78} />
         {/* Top row */}
         <View style={styles.headerTop}>
           <Button3D
             onPress={() => setDrawerOpen(true)}
             color="rgba(255,255,255,0.2)"
             edgeColor="#C65F16"
-            radius={19}
+            radius={22}
             depth={3}
             faceStyle={styles.menuBtn}
+            style={{ top: 10 }}
             hitSlop={4}
             accessibilityLabel="Open menu"
           >
@@ -144,12 +146,12 @@ export default function HomeScreen() {
           </Button3D>
 
           <View style={styles.headerMid}>
-            <Text style={styles.greeting}>
-              {isPa ? "ਸਤਿ ਸ੍ਰੀ ਅਕਾਲ" : "Hello"}, {firstName} 👋
+            <Text style={styles.greeting} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>
+              {isPa ? "ਸਤਿ ਸ੍ਰੀ ਅਕਾਲ" : "Hello"}, {firstName}
             </Text>
             <View style={styles.locRow}>
               <Ionicons name="location-sharp" size={11} color="rgba(255,255,255,0.85)" />
-              <Text style={styles.locText}>{t.location}</Text>
+              <Text style={styles.locText} numberOfLines={1}>{t.location}</Text>
             </View>
           </View>
 
@@ -274,36 +276,35 @@ export default function HomeScreen() {
           </Pressable>
         )}
 
-        {/* ─── Refer a Friend banner ─── */}
+        {/* ─── Ride booking: Car & Bike ─── */}
         {!inProviderMode && (
-          <Pressable onPress={() => router.push("/referral" as any)} style={styles.referBanner}>
-            <LinearGradient
-              colors={["#E93478", "#F14D62", "#FF9141"]}
-              start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-              style={styles.referBannerGrad}
-            >
-              <View style={styles.referGiftIcon}>
-                <Ionicons name="gift-outline" size={23} color="#fff" />
-              </View>
-              <View style={styles.referBannerTexts}>
-                <Text style={styles.referBannerTitle}>Refer a Friend, Earn 10% Off</Text>
-                <Text style={styles.referBannerSub}>Share your code · 5 friends = reward!</Text>
-              </View>
-              <Button3D
-                onPress={() => router.push("/referral" as any)}
-                color="#FFF8F5"
-                edgeColor="#E8B9AE"
-                radius={20}
-                depth={4}
-                faceStyle={[styles.referBannerCta, { backgroundColor: "#FFF8F5" }]}
-                hitSlop={{ top: 10, bottom: 10, left: 6, right: 6 }}
-                accessibilityLabel="Share referral code"
+          <View style={styles.rideRow}>
+            {([
+              { id: "Car",  title: isPa ? "ਕਾਰ ਬੁੱਕ ਕਰੋ" : "Book a Car",  sub: isPa ? "ਡਰਾਈਵਰ ਨਾਲ" : "With driver", icon: "car-sport" as const, colors: ["#8E6FE0", "#A88BEB", "#C7B4F5"] as const, edge: "#6D50C2" },
+              { id: "Bike", title: isPa ? "ਬਾਈਕ ਬੁੱਕ ਕਰੋ" : "Book a Bike", sub: isPa ? "ਸਵਾਰ ਨਾਲ · 1 ਸਵਾਰੀ" : "With rider · 1 seat", icon: "bicycle" as const, colors: ["#B07AD8", "#C79AE6", "#E0C6F3"] as const, edge: "#8C55B8" },
+            ]).map((card) => (
+              <Pressable
+                key={card.id}
+                onPress={() => { Haptics.selectionAsync(); router.push({ pathname: "/(tabs)/cars", params: { vehicle: card.id } } as any); }}
+                style={styles.rideCard}
+                accessibilityRole="button"
+                accessibilityLabel={card.title}
               >
-                <Text style={styles.referBannerCtaTxt}>Share</Text>
-                <Ionicons name="chevron-forward" size={12} color={HomeVisual.orange} />
-              </Button3D>
-            </LinearGradient>
-          </Pressable>
+                <LinearGradient colors={card.colors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.rideCardGrad}>
+                  <View style={styles.rideIcon}>
+                    <Ionicons name={card.icon} size={22} color="#fff" />
+                  </View>
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Text style={styles.rideTitle} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{card.title}</Text>
+                    <Text style={styles.rideSub} numberOfLines={1}>{card.sub}</Text>
+                  </View>
+                  <View style={[styles.rideArrow, { borderColor: card.edge + "33" }]}>
+                    <Ionicons name="chevron-forward" size={12} color={card.edge} />
+                  </View>
+                </LinearGradient>
+              </Pressable>
+            ))}
+          </View>
         )}
 
         {/* ─── Equipment chips ─── */}
@@ -469,19 +470,19 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 26,
     borderBottomRightRadius: 26,
   },
-  headerTop: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 16 },
+  headerTop: { flexDirection: "row", alignItems: "flex-start", gap: 10, marginBottom: 16 },
   menuBtn: {
-    width: 42, height: 42, borderRadius: 21,
+    width: 44, height: 44, borderRadius: 22,
     backgroundColor: "rgba(255,255,255,0.19)",
     borderWidth: 1, borderColor: "rgba(255,255,255,0.28)",
     alignItems: "center", justifyContent: "center",
   },
-  headerMid: { flex: 1 },
-  greeting: { fontSize: 17, fontWeight: "700", fontFamily: "Inter_700Bold", color: "#fff", letterSpacing: -0.25 },
+  headerMid: { flex: 1, minWidth: 0, minHeight: 44, justifyContent: "center" },
+  greeting: { fontSize: 17, fontWeight: "700", fontFamily: "Inter_700Bold", color: "#fff", letterSpacing: -0.25, textShadowColor: "rgba(80,30,0,0.4)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4 },
   locRow: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 4 },
-  locText: { fontSize: 12, color: "rgba(255,255,255,0.92)", fontFamily: "Inter_400Regular" },
-  headerActions: { flexDirection: "row", alignItems: "center", gap: 8 },
-  bellStack: { alignItems: "center", gap: 3 },
+  locText: { flexShrink: 1, fontSize: 12, color: "rgba(255,255,255,0.95)", fontFamily: "Inter_500Medium", textShadowColor: "rgba(80,30,0,0.4)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 },
+  headerActions: { flexDirection: "row", alignItems: "flex-start", gap: 8 },
+  bellStack: { alignItems: "center", gap: 3, top: 10 },
   goldCoin: {
     alignItems: "center", justifyContent: "center",
     marginTop: 6,
@@ -500,9 +501,16 @@ const styles = StyleSheet.create({
   referBannerSub:   { fontSize: 11, color: "rgba(255,255,255,0.88)", fontFamily: "Inter_400Regular", marginTop: 1 },
   referBannerCta:   { flexDirection: "row", alignItems: "center", gap: 2, backgroundColor: "#FFF8F5", borderRadius: 20, paddingHorizontal: 11, paddingVertical: 7 },
   referBannerCtaTxt: { fontSize: 12, fontWeight: "700", fontFamily: "Inter_700Bold", color: HomeVisual.orange },
+  rideRow: { flexDirection: "row", gap: 10, marginHorizontal: 16, marginTop: 10, marginBottom: 6 },
+  rideCard: { flex: 1, borderRadius: 20, overflow: "hidden", elevation: 3, shadowColor: "#7A5AC8", shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.19, shadowRadius: 10 },
+  rideCardGrad: { flexDirection: "row", alignItems: "center", paddingVertical: 13, paddingHorizontal: 11, gap: 8, minHeight: 66 },
+  rideIcon: { width: 38, height: 38, borderRadius: 13, backgroundColor: "rgba(255,255,255,0.22)", alignItems: "center", justifyContent: "center" },
+  rideTitle: { fontSize: 13, fontWeight: "800", fontFamily: "Inter_700Bold", color: "#fff" },
+  rideSub: { fontSize: 10.5, color: "rgba(255,255,255,0.92)", fontFamily: "Inter_400Regular", marginTop: 1 },
+  rideArrow: { width: 22, height: 22, borderRadius: 11, backgroundColor: "#FFFFFF", borderWidth: 1, alignItems: "center", justifyContent: "center" },
   langPill: {
     backgroundColor: "rgba(255,255,255,0.18)", borderRadius: 16,
-    paddingHorizontal: 11, paddingVertical: 7,
+    paddingHorizontal: 11, paddingVertical: 7, marginTop: 7,
     borderWidth: 1, borderColor: "rgba(255,255,255,0.3)",
   },
   langPillText: { color: "#fff", fontSize: 11, fontWeight: "700", fontFamily: "Inter_700Bold" },
@@ -520,7 +528,7 @@ const styles = StyleSheet.create({
 
   // Search bar (inside header, floats visually)
   searchBar: {
-    marginTop: 44,
+    marginTop: 72,
     flexDirection: "row", alignItems: "center", gap: 10,
     backgroundColor: HomeVisual.surface,
     borderRadius: 28,

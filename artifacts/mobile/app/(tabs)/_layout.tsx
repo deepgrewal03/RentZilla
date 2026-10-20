@@ -135,7 +135,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="cars"
         options={{
-          title: "Cars",
+          title: "Rides",
           href: carsHref,
           tabBarIcon: ({ color, focused }) => <TabIcon name="truck" color={color} focused={focused} />,
         }}

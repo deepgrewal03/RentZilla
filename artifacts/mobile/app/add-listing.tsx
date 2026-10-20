@@ -36,7 +36,7 @@ const CATEGORIES: { id: Category; label: string }[] = [
 ];
 
 const SUBCATEGORIES: Record<Category, string[]> = {
-  cars: ["Sedan", "Hatchback", "SUV"],
+  cars: ["Sedan", "Hatchback", "SUV", "Bike"],
   equipment: [
     "Tractor", "Harvester", "Rotavator", "Plough", "Cultivator",
     "JCB", "Excavator", "Poclain", "Chhota Hathi",
@@ -109,8 +109,10 @@ export default function AddListingScreen() {
   const [compressing, setCompressing] = useState(false);
 
   const isEarthMover = category === "equipment" && EARTH_MOVER_TYPES.has(subcategory);
-  const isCar = category === "cars";
-  const maxPhotos = isCar ? 2 : 3;
+  const isBike = category === "cars" && subcategory === "Bike";
+  const isCar = category === "cars" && !isBike;
+  const isRideVehicle = category === "cars";
+  const maxPhotos = isRideVehicle ? 2 : 3;
   const topPad = isWeb ? 67 : insets.top;
 
   async function pickPhoto(slotIndex: number) {
@@ -147,7 +149,7 @@ export default function AddListingScreen() {
   }
 
   async function handleSave() {
-    if (!title.trim() || !expectedPrice || !location) {
+    if (!title.trim() || (!isBike && !expectedPrice) || !location) {
       Alert.alert("Missing Info", "Please fill in title, your expected rate, and location.");
       return;
     }
@@ -158,8 +160,8 @@ export default function AddListingScreen() {
     if (photos.length === 0) {
       Alert.alert(
         "Photo required",
-        isCar
-          ? "Please upload at least the front view photo showing the number plate."
+        isRideVehicle
+          ? `Please upload at least the front view photo of your ${isBike ? "bike" : "car"} showing the number plate.`
           : "Please upload at least one photo of your listing."
       );
       return;
@@ -171,7 +173,7 @@ export default function AddListingScreen() {
         subcategory: subcategory || undefined,
         title: title.trim(),
         description: description.trim() || undefined,
-        price: Number(expectedPrice),
+        price: isBike ? 0 : Number(expectedPrice),
         priceUnit,
         location,
         images: photos,
@@ -181,6 +183,7 @@ export default function AddListingScreen() {
           fuelIncluded,
           deliveryCharges: deliveryCharges ? Number(deliveryCharges) : null,
         }),
+        ...(isBike && { vehicleType: "Bike" }),
         ...(isCar && engineSize !== null && {
           engineSize,
           vehicleType: engineToVehicleType(engineSize),
@@ -244,7 +247,7 @@ export default function AddListingScreen() {
             <Text style={styles.photoAddHint}>Add photo {index} first</Text>
           </View>
         )}
-        {index === 0 && isCar && (
+        {index === 0 && isRideVehicle && (
           <View style={styles.mandatoryBadge}>
             <Text style={styles.mandatoryText}>Required</Text>
           </View>
@@ -297,13 +300,21 @@ export default function AddListingScreen() {
               {SUBCATEGORIES[category].map((s) => (
                 <Button3D
                   key={s}
-                  onPress={() => setSubcategory(s === subcategory ? "" : s)}
+                  onPress={() => { setSubcategory(s === subcategory ? "" : s); setEngineSize(null); setShowEnginePicker(false); }}
                   faceStyle={[styles.chipBtn, subcategory === s && styles.chipBtnActive]}
                 >
                   <Text style={[styles.chipText, subcategory === s && styles.chipTextActive]}>{s}</Text>
                 </Button3D>
               ))}
             </ScrollView>
+            {isBike && (
+              <View style={[styles.tierBadge, { backgroundColor: "#E6F6F3", alignItems: "flex-start" }]}>
+                <Ionicons name="bicycle-outline" size={15} color="#0F9F8F" />
+                <Text style={[styles.tierLabel, { color: "#0B5E55", flex: 1, fontFamily: "Inter_500Medium" }]}>
+                  Motorcycle with driver — you ride, the customer is your single pillion passenger. Not a self-drive rental. Carry a spare helmet.
+                </Text>
+              </View>
+            )}
           </View>
 
           {/* Engine Size — cars only */}
@@ -343,7 +354,7 @@ export default function AddListingScreen() {
           <View style={styles.section}>
             <Text style={styles.fieldLabel}>Title *</Text>
             <TextInput style={styles.input} value={title} onChangeText={setTitle}
-              placeholder="e.g. Mahindra 575 Tractor – Well Maintained"
+              placeholder={isBike ? "e.g. Hero Splendor – rider with helmet" : "e.g. Mahindra 575 Tractor – Well Maintained"}
               placeholderTextColor={C.textTertiary} maxLength={100} />
           </View>
 
@@ -356,6 +367,12 @@ export default function AddListingScreen() {
           </View>
 
           {/* Price */}
+          {isBike ? (
+            <View style={styles.section}>
+              <Text style={styles.fieldLabel}>Bike ride pricing</Text>
+              <Text>Fares are set by RentZilla using the pickup-to-drop road distance. This registers a motorcycle with a driver, not a self-drive rental.</Text>
+            </View>
+          ) : (
           <View style={styles.section}>
             <Text style={styles.fieldLabel}>Your Expected Rate (₹) *</Text>
             <View style={styles.priceRow}>
@@ -375,6 +392,7 @@ export default function AddListingScreen() {
               </View>
             </View>
           </View>
+          )}
 
           {/* Location */}
           <View style={styles.section}>
@@ -423,21 +441,21 @@ export default function AddListingScreen() {
           <View style={styles.section}>
             <View style={styles.photoSectionHeader}>
               <Text style={styles.fieldLabel}>
-                {isCar ? "Car Photos *" : "Photos *"}
+                {isRideVehicle ? (isBike ? "Bike Photos *" : "Car Photos *") : "Photos *"}
               </Text>
               <Text style={styles.photoCount}>
                 {photos.length}/{maxPhotos}
               </Text>
             </View>
 
-            {isCar ? (
+            {isRideVehicle ? (
               <>
-                {/* Car: info banner */}
+                {/* Car/Bike: info banner */}
                 <View style={styles.photoInfoBanner}>
                   <Ionicons name="information-circle-outline" size={16} color="#1D4ED8" />
                   <Text style={styles.photoInfoText}>
                     Front view (with number plate visible) is required and shown to riders after booking.
-                    Add a 2nd photo (side/rear view) to showcase your car better.
+                    Add a 2nd photo (side/rear view) to showcase your {isBike ? "bike" : "car"} better.
                   </Text>
                 </View>
                 <View style={styles.photoGrid}>

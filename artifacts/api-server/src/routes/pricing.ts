@@ -325,8 +325,8 @@ router.get("/rides", async (req: Request, res: Response) => {
     const pricing: Record<string, { baseFare: number; perKm: number; platformFee: number; commissionPercent: number }> = {};
     for (const r of rows) {
       pricing[r.subcategory] = {
-        baseFare: Number(r.base_fee) || RIDE_FALLBACKS[r.subcategory]?.baseFare || 50,
-        perKm: Number(r.km_rate) || RIDE_FALLBACKS[r.subcategory]?.perKm || 12,
+        baseFare: r.base_fee == null ? RIDE_FALLBACKS[r.subcategory]?.baseFare ?? 50 : Number(r.base_fee),
+        perKm: r.km_rate == null ? RIDE_FALLBACKS[r.subcategory]?.perKm ?? 12 : Number(r.km_rate),
         platformFee: Number(r.platform_fee) || 0,
         commissionPercent: Number(r.commission_percent) || 10,
       };
