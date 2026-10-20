@@ -26,14 +26,23 @@ const MAX_DRAWER_WIDTH = 320;
 
 // Drawer-only inline translations for entries not in the shared dictionary
 const EXTRA = {
-  en: { gold: "RentZilla Gold", goldSub: "Get 4% off every booking", settings: "Settings", help: "Help & Support", unread: "unread", close: "Close menu", tagline: "Farm. Rent. Grow." },
-  pa: { gold: "ਰੈਂਟਜ਼ਿਲਾ ਗੋਲਡ", goldSub: "ਹਰ ਬੁਕਿੰਗ 'ਤੇ 4% ਛੋਟ", settings: "ਸੈਟਿੰਗਾਂ", help: "ਮਦਦ ਅਤੇ ਸਹਾਇਤਾ", unread: "ਨਾ ਪੜ੍ਹੇ", close: "ਮੀਨੂ ਬੰਦ ਕਰੋ", tagline: "ਖੇਤੀ. ਕਿਰਾਇਆ. ਤਰੱਕੀ." },
+  en: { gold: "RentZilla Gold", goldSub: "Get 4% off every booking", settings: "Settings", help: "Help & Support", unread: "unread", close: "Close menu", tagline: "Farm. Rent. Grow.", dashboard: "Dashboard", addListing: "Add Listing", wallet: "Earnings & Wallet" },
+  pa: { gold: "ਰੈਂਟਜ਼ਿਲਾ ਗੋਲਡ", goldSub: "ਹਰ ਬੁਕਿੰਗ 'ਤੇ 4% ਛੋਟ", settings: "ਸੈਟਿੰਗਾਂ", help: "ਮਦਦ ਅਤੇ ਸਹਾਇਤਾ", unread: "ਨਾ ਪੜ੍ਹੇ", close: "ਮੀਨੂ ਬੰਦ ਕਰੋ", tagline: "ਖੇਤੀ. ਕਿਰਾਇਆ. ਤਰੱਕੀ.", dashboard: "ਡੈਸ਼ਬੋਰਡ", addListing: "ਲਿਸਟਿੰਗ ਜੋੜੋ", wallet: "ਕਮਾਈ ਅਤੇ ਵਾਲਿਟ" },
 } as const;
 
 interface Props {
   visible: boolean;
   onClose: () => void;
 }
+
+// Provider-mode menu: dashboard replaces customer Home/Search so provider routes stay reachable.
+const PROVIDER_MENU_ITEMS = [
+  { icon: "grid-outline", activeIcon: "grid", labelKey: "dashboard", path: "/(tabs)/dashboard", match: ["/dashboard"] },
+  { icon: "add-circle-outline", activeIcon: "add-circle", labelKey: "addListing", path: "/add-listing", match: ["/add-listing"] },
+  { icon: "calendar-outline", activeIcon: "calendar", labelKey: "myBookings", path: "/(tabs)/bookings", match: ["/bookings"] },
+  { icon: "wallet-outline", activeIcon: "wallet", labelKey: "wallet", path: "/(tabs)/wallet", match: ["/wallet"] },
+  { icon: "person-outline", activeIcon: "person", labelKey: "myProfile", path: "/(tabs)/profile", match: ["/profile"] },
+] as const;
 
 const MENU_ITEMS = [
   { icon: "home-outline", activeIcon: "home", labelKey: "home", path: "/(tabs)", match: ["/", "/index"] },
@@ -44,7 +53,7 @@ const MENU_ITEMS = [
 ] as const;
 
 export function SideDrawer({ visible, onClose }: Props) {
-  const { user, logout } = useAuth();
+  const { user, logout, activeMode } = useAuth();
   const { t, language, toggleLanguage } = useLang();
   const x = EXTRA[language === "pa" ? "pa" : "en"];
   const insets = useSafeAreaInsets();
@@ -98,7 +107,10 @@ export function SideDrawer({ visible, onClose }: Props) {
   }
 
   const displayName = user?.name || [user?.firstName, user?.lastName].filter(Boolean).join(" ") || "Guest";
-  const roleLabel = user?.role === "provider" ? t.provider : t.customer;
+  const inProviderMode = user?.role === "provider" || (user?.role === "both" && activeMode === "provider");
+  const roleLabel = inProviderMode ? t.provider : t.customer;
+  const items = inProviderMode ? PROVIDER_MENU_ITEMS : MENU_ITEMS;
+  const labelFor = (key: string): string => (t as any)[key] ?? (x as any)[key] ?? key;
   const isWeb = Platform.OS === "web";
   const topPad = isWeb ? 67 : insets.top;
   const bottomPad = (isWeb ? 34 : insets.bottom) + 16;
@@ -170,14 +182,14 @@ export function SideDrawer({ visible, onClose }: Props) {
           <View style={styles.body}>
           {/* Menu */}
           <View style={styles.menu}>
-            {MENU_ITEMS.map((item) => {
+            {items.map((item) => {
               const active = isActive(item.match);
               return (
                 <React.Fragment key={item.labelKey}>
                   <Pressable
                     onPress={() => navigate(item.path)}
                     accessibilityRole="button"
-                    accessibilityLabel={t[item.labelKey]}
+                    accessibilityLabel={labelFor(item.labelKey)}
                     accessibilityState={{ selected: active }}
                     style={({ pressed }) => [
                       styles.row,
@@ -193,7 +205,7 @@ export function SideDrawer({ visible, onClose }: Props) {
                         color={active ? D.primary : D.text}
                       />
                     </View>
-                    <Text style={[styles.label, active && styles.labelActive]}>{t[item.labelKey]}</Text>
+                    <Text style={[styles.label, active && styles.labelActive]}>{labelFor(item.labelKey)}</Text>
                     <View style={[styles.chevron, active && { backgroundColor: D.activeChevronBg }]}>
                       <Ionicons name="chevron-forward" size={14} color={active ? D.primary : D.textSecondary} />
                     </View>

@@ -22,12 +22,16 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import Colors from "@/constants/colors";
 import { StarRating } from "@/components/StarRating";
+import { SideDrawer } from "@/components/SideDrawer";
+import { CountrysideHeaderArt } from "@/components/HomeArtwork";
+import HomeVisual from "@/constants/homeVisualTokens";
 import { useAuth } from "@/context/AuthContext";
 import { useApi } from "@/hooks/useApi";
 
 const C = Colors.light;
 const ORANGE = "#E8742A";
-const NAVY = "#0F1F3D";
+const NAVY = "#7A3A12"; // warm farm-soil tone (was navy)
+const NAVY_2 = "#A9531C";
 const GOLD = "#F5C842";
 
 type Summary = {
@@ -113,6 +117,7 @@ export default function DashboardScreen() {
   const [trips, setTrips] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   const topPad = isWeb ? 67 : insets.top;
 
@@ -189,16 +194,32 @@ export default function DashboardScreen() {
   return (
     <View style={styles.root}>
       <StatusBar style="light" />
+      <SideDrawer visible={drawerOpen} onClose={() => setDrawerOpen(false)} />
 
-      {/* ──────────── HEADER ──────────── */}
+      {/* ──────────── HEADER: orange farm landscape (matches customer home) ──────────── */}
       <LinearGradient
-        colors={[NAVY, "#1A3260"]}
+        colors={["#F36D26", "#FF9638", "#FFD34D"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
         style={[styles.header, { paddingTop: topPad + 12 }]}
       >
+        <CountrysideHeaderArt />
         <View style={styles.headerRow}>
+          <Button3D
+            onPress={() => setDrawerOpen(true)}
+            color="rgba(255,255,255,0.2)"
+            edgeColor="#C65F16"
+            radius={21}
+            depth={3}
+            faceStyle={styles.menuBtn}
+            hitSlop={4}
+            accessibilityLabel="Open menu"
+          >
+            <Ionicons name="menu" size={22} color="#fff" />
+          </Button3D>
           <View style={{ flex: 1 }}>
             <Text style={styles.greetingText}>{greeting},</Text>
-            <Text style={styles.nameText}>{firstName} 👋</Text>
+            <Text style={styles.nameText}>{firstName}</Text>
           </View>
           <View style={styles.headerActions}>
             <Button3D onPress={() => router.push("/add-listing")} faceStyle={styles.addListingBtn}>
@@ -219,14 +240,14 @@ export default function DashboardScreen() {
               }}
               faceStyle={[styles.roleBtn, activeMode === "customer" && styles.roleBtnActive]}
             >
-              <Ionicons name="person-outline" size={13} color={activeMode === "customer" ? ORANGE : "rgba(255,255,255,0.55)"} />
+              <Ionicons name="person-outline" size={13} color={activeMode === "customer" ? ORANGE : "rgba(255,255,255,0.85)"} />
               <Text style={[styles.roleBtnText, activeMode === "customer" && styles.roleBtnTextActive]}>Customer</Text>
             </Button3D>
             <Button3D
               onPress={() => { setActiveMode("provider"); Haptics.selectionAsync(); }}
               faceStyle={[styles.roleBtn, activeMode === "provider" && styles.roleBtnActive]}
             >
-              <Ionicons name="briefcase-outline" size={13} color={activeMode === "provider" ? ORANGE : "rgba(255,255,255,0.55)"} />
+              <Ionicons name="briefcase-outline" size={13} color={activeMode === "provider" ? ORANGE : "rgba(255,255,255,0.85)"} />
               <Text style={[styles.roleBtnText, activeMode === "provider" && styles.roleBtnTextActive]}>Provider</Text>
             </Button3D>
           </View>
@@ -343,7 +364,7 @@ export default function DashboardScreen() {
 
         {/* ──────────── WALLET SHORTCUT ──────────── */}
         <Pressable onPress={() => router.push("/(tabs)/wallet" as any)} style={styles.walletShortcut}>
-          <LinearGradient colors={[NAVY, "#1a3a6b"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.walletShortcutGrad}>
+          <LinearGradient colors={[NAVY, NAVY_2]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.walletShortcutGrad}>
             <View style={styles.walletShortcutLeft}>
               <View style={styles.walletShortcutIconWrap}>
                 <Ionicons name="wallet-outline" size={22} color="#fff" />
@@ -366,10 +387,10 @@ export default function DashboardScreen() {
         {/* ──────────── REFER A FRIEND BANNER ──────────── */}
         <Pressable onPress={() => router.push("/referral" as any)} style={styles.referBanner}>
           <LinearGradient colors={["#FF7A18", "#FF9F43"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.referBannerGrad}>
-            <View style={styles.referBannerIcon}><Text style={{ fontSize: 24 }}>🎁</Text></View>
+            <View style={styles.referBannerIcon}><Ionicons name="gift-outline" size={23} color="#fff" /></View>
             <View style={{ flex: 1 }}>
               <Text style={styles.referBannerTitle}>Refer Providers, Earn Rewards</Text>
-              <Text style={styles.referBannerSub}>Invite 5 colleagues → unlock 10% off your next job</Text>
+              <Text style={styles.referBannerSub}>Invite 5 colleagues to unlock 10% off your next job</Text>
             </View>
             <View style={styles.referBannerCta}>
               <Text style={styles.referBannerCtaTxt}>Refer</Text>
@@ -383,7 +404,7 @@ export default function DashboardScreen() {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Driver Stats</Text>
             <View style={[styles.driverCard]}>
-              <LinearGradient colors={[NAVY, "#1A3260"]} style={styles.driverGrad}>
+              <LinearGradient colors={[NAVY, NAVY_2]} style={styles.driverGrad}>
                 <View style={styles.driverRow}>
                   <View style={styles.driverStat}>
                     <Ionicons name="car-outline" size={22} color={GOLD} />
@@ -846,30 +867,30 @@ export default function DashboardScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#F3F4F6" },
+  root: { flex: 1, backgroundColor: HomeVisual.canvas },
 
   // Header
-  header: { paddingHorizontal: 20, paddingBottom: 18 },
-  headerRow: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
-  greetingText: { fontSize: 13, color: "rgba(255,255,255,0.65)", fontFamily: "Inter_400Regular" },
-  nameText: { fontSize: 24, fontWeight: "700", fontFamily: "Inter_700Bold", color: "#fff", marginTop: 2 },
+  header: { paddingHorizontal: 18, paddingBottom: 22, borderBottomLeftRadius: 26, borderBottomRightRadius: 26, overflow: "hidden" },
+  headerRow: { flexDirection: "row", alignItems: "center", gap: 10 },
+  greetingText: { fontSize: 13, color: "rgba(255,255,255,0.92)", fontFamily: "Inter_500Medium", textShadowColor: "rgba(80,30,0,0.35)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 },
+  nameText: { fontSize: 24, fontWeight: "700", fontFamily: "Inter_700Bold", color: "#fff", marginTop: 2, letterSpacing: -0.3, textShadowColor: "rgba(80,30,0,0.35)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4 },
   headerActions: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 4 },
   addListingBtn: {
     flexDirection: "row", alignItems: "center", gap: 4,
-    backgroundColor: ORANGE, borderRadius: 20,
+    backgroundColor: "rgba(255,255,255,0.22)", borderRadius: 20, borderWidth: 1, borderColor: "rgba(255,255,255,0.4)",
     paddingHorizontal: 12, paddingVertical: 7,
   },
   addListingBtnText: { color: "#fff", fontSize: 13, fontFamily: "Inter_600SemiBold" },
   menuBtn: {
-    width: 36, height: 36, borderRadius: 18,
-    backgroundColor: "rgba(255,255,255,0.12)",
+    width: 42, height: 42, borderRadius: 21,
+    backgroundColor: "rgba(255,255,255,0.19)", borderWidth: 1, borderColor: "rgba(255,255,255,0.28)",
     alignItems: "center", justifyContent: "center",
   },
 
   // Role toggle
   roleToggle: {
     flexDirection: "row",
-    backgroundColor: "rgba(255,255,255,0.1)",
+    backgroundColor: "rgba(82,45,16,0.18)", borderWidth: 1, borderColor: "rgba(255,255,255,0.15)",
     borderRadius: 24,
     padding: 3,
     marginTop: 14,
@@ -881,7 +902,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   roleBtnActive: { backgroundColor: "#fff" },
-  roleBtnText: { fontSize: 13, fontFamily: "Inter_600SemiBold", color: "rgba(255,255,255,0.55)" },
+  roleBtnText: { fontSize: 13, fontFamily: "Inter_600SemiBold", color: "rgba(255,255,255,0.85)" },
   roleBtnTextActive: { color: ORANGE },
 
   scroll: { flex: 1 },
@@ -911,7 +932,7 @@ const styles = StyleSheet.create({
   heroDivider: { height: 1, backgroundColor: "rgba(255,255,255,0.2)", marginVertical: 14 },
   heroBottom: { flexDirection: "row", alignItems: "center" },
   heroStat: { flex: 1, alignItems: "center" },
-  heroStatLabel: { fontSize: 11, color: "rgba(255,255,255,0.65)", fontFamily: "Inter_400Regular" },
+  heroStatLabel: { fontSize: 11, color: "rgba(255,255,255,0.92)", fontFamily: "Inter_500Medium", textShadowColor: "rgba(80,30,0,0.35)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 },
   heroStatValue: { fontSize: 15, fontWeight: "700", fontFamily: "Inter_700Bold", color: "#fff", marginTop: 3 },
   heroStatDivider: { width: 1, height: 30, backgroundColor: "rgba(255,255,255,0.2)" },
   growthRow: { flexDirection: "row", alignItems: "center", gap: 3, marginTop: 3 },
@@ -956,7 +977,7 @@ const styles = StyleSheet.create({
   driverRow: { flexDirection: "row", justifyContent: "space-around", alignItems: "center" },
   driverStat: { alignItems: "center", gap: 5 },
   driverStatNum: { fontSize: 20, fontWeight: "700", fontFamily: "Inter_700Bold", color: "#fff" },
-  driverStatLabel: { fontSize: 11, color: "rgba(255,255,255,0.65)", fontFamily: "Inter_400Regular" },
+  driverStatLabel: { fontSize: 11, color: "rgba(255,255,255,0.92)", fontFamily: "Inter_500Medium", textShadowColor: "rgba(80,30,0,0.35)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 3 },
   driverDivider: { width: 1, height: 44, backgroundColor: "rgba(255,255,255,0.18)" },
 
   // Quick actions

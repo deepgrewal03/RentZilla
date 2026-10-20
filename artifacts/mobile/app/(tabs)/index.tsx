@@ -220,29 +220,6 @@ export default function HomeScreen() {
             <Ionicons name="mic" size={15} color="#FF7A18" />
           </Button3D>
         </Pressable>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.quickCategoryScroll}
-          contentContainerStyle={styles.quickCategories}
-        >
-          <Pressable onPress={() => pickSubcat("equipment", "Tractor")} style={styles.quickCategory}>
-            <Ionicons name="cog-outline" size={15} color={HomeVisual.orange} />
-            <Text style={styles.quickCategoryText}>{isPa ? "ਟਰੈਕਟਰ" : "Tractors"}</Text>
-          </Pressable>
-          <Pressable onPress={() => pickCategory("equipment")} style={styles.quickCategory}>
-            <Ionicons name="leaf-outline" size={15} color={HomeVisual.green} />
-            <Text style={styles.quickCategoryText}>{isPa ? "ਮਸ਼ੀਨਰੀ" : "Farm Equipment"}</Text>
-          </Pressable>
-          <Pressable onPress={() => pickCategory("services")} style={styles.quickCategory}>
-            <Ionicons name="construct-outline" size={15} color="#8257A6" />
-            <Text style={styles.quickCategoryText}>{isPa ? "ਸੇਵਾਵਾਂ" : "Home Services"}</Text>
-          </Pressable>
-          <Pressable onPress={() => router.push("/(tabs)/cars")} style={styles.quickCategory}>
-            <Ionicons name="car-outline" size={15} color="#C85C43" />
-            <Text style={styles.quickCategoryText}>{isPa ? "ਕਾਰਾਂ" : "Cars"}</Text>
-          </Pressable>
-        </ScrollView>
       </LinearGradient>
 
       {/* ─── SCROLLABLE CONTENT ─── */}
@@ -543,6 +520,7 @@ const styles = StyleSheet.create({
 
   // Search bar (inside header, floats visually)
   searchBar: {
+    marginTop: 44,
     flexDirection: "row", alignItems: "center", gap: 10,
     backgroundColor: HomeVisual.surface,
     borderRadius: 28,
@@ -561,16 +539,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFF0E1",
     alignItems: "center", justifyContent: "center",
   },
-  quickCategoryScroll: { backgroundColor: "transparent", borderRadius: 22, overflow: "hidden" },
-  quickCategories: { backgroundColor: "transparent", paddingTop: 11, paddingBottom: 1, gap: 8, alignItems: "center" },
-  quickCategory: {
-    flexDirection: "row", alignItems: "center", gap: 6,
-    backgroundColor: "rgba(255,255,255,0.94)", borderRadius: 18,
-    paddingHorizontal: 11, paddingVertical: 8,
-    borderWidth: 1, borderColor: "rgba(255,255,255,0.85)",
-    shadowColor: "#754A1D", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.11, shadowRadius: 4, elevation: 2,
-  },
-  quickCategoryText: { color: HomeVisual.ink, fontFamily: "Inter_600SemiBold", fontSize: 10.5 },
 
   // ── Scroll ───────────────────────────────────────────────────
   scroll: { flex: 1 },

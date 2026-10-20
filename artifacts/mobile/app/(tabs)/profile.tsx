@@ -26,6 +26,8 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { StarRating } from "@/components/StarRating";
+import { CountrysideHeaderArt } from "@/components/HomeArtwork";
+import HomeVisual from "@/constants/homeVisualTokens";
 import Colors from "@/constants/colors";
 import { useAuth } from "@/context/AuthContext";
 import { useApi } from "@/hooks/useApi";
@@ -359,13 +361,14 @@ export default function ProfileScreen() {
     <View style={styles.root}>
       <StatusBar style="light" />
       <LinearGradient
-        colors={["#FF7A18", "#FF9F43"]}
+        colors={["#F36D26", "#FF9638", "#FFD34D"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={[styles.header, { paddingTop: topPad + 14 }]}
       >
+        <CountrysideHeaderArt />
         <Text style={styles.headerTitle}>Profile</Text>
-        <Pressable onPress={() => { Haptics.selectionAsync(); setEditMode(!editMode); }}>
+        <Pressable onPress={() => { Haptics.selectionAsync(); setEditMode(!editMode); }} style={styles.editPill} hitSlop={6}>
           <Text style={styles.editText}>{editMode ? "Cancel" : "Edit"}</Text>
         </Pressable>
       </LinearGradient>
@@ -466,7 +469,7 @@ export default function ProfileScreen() {
           ) : (
             <MenuItem icon="wallet-outline" label="My Wallet" color="#FF7A18" onPress={() => router.push("/wallet" as any)} />
           )}
-          <MenuItem icon="gift-outline" label="Refer a Friend 🎁" color="#FF7A18" onPress={() => router.push("/referral" as any)} />
+          <MenuItem icon="gift-outline" label="Refer a Friend" color="#FF7A18" onPress={() => router.push("/referral" as any)} />
         </View>
 
         {/* Account */}
@@ -524,7 +527,7 @@ export default function ProfileScreen() {
                   <Ionicons name="camera-outline" size={22} color="#22C55E" />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.sheetBtnLabel}>📷  Take a Photo</Text>
+                  <Text style={styles.sheetBtnLabel}>Take a Photo</Text>
                   <Text style={styles.sheetBtnSub}>Use your device camera</Text>
                 </View>
                 <Ionicons name="chevron-forward" size={18} color={C.textTertiary} />
@@ -536,7 +539,7 @@ export default function ProfileScreen() {
                 <Ionicons name="images-outline" size={22} color="#6366F1" />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.sheetBtnLabel}>🖼  Choose from Gallery</Text>
+                <Text style={styles.sheetBtnLabel}>Choose from Gallery</Text>
                 <Text style={styles.sheetBtnSub}>Pick an existing photo</Text>
               </View>
               <Ionicons name="chevron-forward" size={18} color={C.textTertiary} />
@@ -555,7 +558,7 @@ export default function ProfileScreen() {
             )}
 
             <Button3D onPress={() => setShowPhotoMenu(false)} faceStyle={[styles.sheetBtn, styles.sheetCancelBtn]}>
-              <Text style={styles.sheetCancelText}>❌  Cancel</Text>
+              <Text style={styles.sheetCancelText}>Cancel</Text>
             </Button3D>
           </Pressable>
         </Pressable>
@@ -654,12 +657,13 @@ export default function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: C.background },
+  root: { flex: 1, backgroundColor: HomeVisual.canvas },
   header: {
     paddingHorizontal: 20,
-    paddingBottom: 20,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
+    paddingBottom: 34,
+    borderBottomLeftRadius: 26,
+    borderBottomRightRadius: 26,
+    overflow: "hidden",
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-end",
@@ -669,28 +673,34 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     fontFamily: "Inter_700Bold",
     color: "#fff",
+    letterSpacing: -0.4,
+    textShadowColor: "rgba(80,30,0,0.35)", textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4,
+  },
+  editPill: {
+    backgroundColor: "rgba(255,255,255,0.2)", borderWidth: 1, borderColor: "rgba(255,255,255,0.35)",
+    borderRadius: 18, paddingHorizontal: 14, paddingVertical: 6,
   },
   editText: {
     fontSize: 16,
     color: "rgba(255,255,255,0.9)",
-    fontFamily: "Inter_500Medium",
-    marginBottom: 4,
+    fontFamily: "Inter_600SemiBold",
   },
   scroll: { flex: 1 },
   profileCard: {
     margin: 20,
-    backgroundColor: C.card,
+    marginTop: -18,
+    backgroundColor: "#FFF8EE",
     borderRadius: 20,
     padding: 24,
     alignItems: "center",
     gap: 8,
     borderWidth: 1,
-    borderColor: C.cardBorder,
-    shadowColor: C.shadow,
+    borderColor: "#FBE3C6",
+    shadowColor: "#B85A10",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 1,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowOpacity: 0.14,
+    shadowRadius: 14,
+    elevation: 6,
   },
   avatarWrap: { position: "relative", marginBottom: 4 },
   avatarCircle: {
@@ -827,10 +837,10 @@ const styles = StyleSheet.create({
   saveBtnText: { color: "#fff", fontSize: 15, fontWeight: "600", fontFamily: "Inter_600SemiBold" },
   menuCard: {
     marginHorizontal: 20,
-    backgroundColor: C.card,
-    borderRadius: 16,
+    backgroundColor: "#FFFDF9",
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: C.cardBorder,
+    borderColor: "#EFEAE3",
     overflow: "hidden",
     marginBottom: 14,
   },
