@@ -658,6 +658,7 @@ export default function CarsScreen() {
   }, [vehicleType, ridePricing]);
 
   const handleRouteCalculated = useCallback((distanceKm: number, durationMin: number) => {
+    if (!Number.isFinite(distanceKm) || distanceKm <= 0) { setEstimate(null); return; }
     const p = ridePricing[vehicleType] ?? DEFAULT_PRICING[vehicleType] ?? { baseFare: 50, perKm: 12 };
     const fare = Math.max(p.baseFare, Math.round(p.baseFare + distanceKm * p.perKm));
     setEstimate({ distanceKm, durationMin, fare });
@@ -740,6 +741,7 @@ export default function CarsScreen() {
   // ── Book Ride ──
   const handleBookRide = async () => {
     if (!drop) { Alert.alert("Destination required", "Please select a destination first"); return; }
+    if (!estimate) { Alert.alert("Route unavailable", "Wait for a confirmed road route before booking. If Google Maps is unavailable, please try again later."); return; }
     if (rideMode === "scheduled" && !scheduledTime) { setScheduleModalOpen(true); return; }
     if (rideFor === "someone_else" && !passengerName.trim()) {
       Alert.alert("Passenger name required", "Please enter the name of the passenger"); return;
@@ -884,26 +886,26 @@ export default function CarsScreen() {
             if (drop) mapRef.current?.setDrop(drop.lat, drop.lng, drop.address);
           }}
           onRouteCalculated={handleRouteCalculated}
+          onGpsError={(message) => Alert.alert("Map unavailable", message)}
           onCenterChanged={(lat, lng, address) => {
+            setEstimate(null);
             setPickup({ lat, lng, address });
+            mapRef.current?.setPickup(lat, lng, address);
           }}
           onGpsLocation={(lat, lng, address) => {
+            setEstimate(null);
             setPickup({ lat, lng, address });
+            mapRef.current?.setPickup(lat, lng, address);
           }}
           onLocationSelected={(mode, lat, lng, address) => {
             if (mode === "pickup") {
+              setEstimate(null);
               setPickup({ lat, lng, address });
+              mapRef.current?.setPickup(lat, lng, address);
             } else {
               setDrop({ lat, lng, address });
-              // Instant Haversine estimate so prices show immediately
-              if (pickup) {
-                const km = haversineKm(pickup.lat, pickup.lng, lat, lng);
-                const durationMin = Math.round(km * 60 / 38);
-                const p = ridePricing[vehicleType] ?? DEFAULT_PRICING[vehicleType] ?? { baseFare: 50, perKm: 12 };
-                setEstimate({ distanceKm: km, durationMin, fare: Math.max(p.baseFare, Math.round(p.baseFare + km * p.perKm)) });
-              } else {
-                setEstimate(null);
-              }
+              setEstimate(null);
+              mapRef.current?.setDrop(lat, lng, address);
               setSheetExpanded(true);
             }
           }}
@@ -1375,11 +1377,7 @@ export default function CarsScreen() {
         onSelect={(loc: LocationResult) => {
           const d: Coords = { lat: loc.lat, lng: loc.lng, address: loc.address };
           setDrop(d);
-          // Instant Haversine estimate so prices show immediately
-          const km = haversineKm(pickup.lat, pickup.lng, loc.lat, loc.lng);
-          const durationMin = Math.round(km * 60 / 38);
-          const p = ridePricing[vehicleType] ?? DEFAULT_PRICING[vehicleType] ?? { baseFare: 50, perKm: 12 };
-          setEstimate({ distanceKm: km, durationMin, fare: Math.max(p.baseFare, Math.round(p.baseFare + km * p.perKm)) });
+          setEstimate(null);
           setSheetExpanded(true);
           mapRef.current?.setDrop(loc.lat, loc.lng, loc.address);
         }}

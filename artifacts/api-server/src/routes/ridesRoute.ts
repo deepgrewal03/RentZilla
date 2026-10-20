@@ -3,6 +3,7 @@ import { db } from "@workspace/db";
 import { usersTable } from "@workspace/db/schema";
 import { eq, sql } from "drizzle-orm";
 import { authMiddleware } from "./users.js";
+import { roadRoute } from "../lib/roadRoute.js";
 
 const router: IRouter = Router();
 type AR = Request & { userId: string };
@@ -268,8 +269,10 @@ router.post("/request", authMiddleware, async (req: Request, res: Response) => {
     const rideType   = scheduledAt ? "scheduled" : "instant";
     const rideStatus = scheduledAt ? "scheduled"  : "requested";
 
-    const distanceKm = haversine(pickupLat, pickupLng, dropLat, dropLng);
-    const durationMin = Math.round((distanceKm / 30) * 60);
+    let route;
+    try { route = await roadRoute(pickupLat, pickupLng, dropLat, dropLng); }
+    catch { res.status(503).json({error:"A confirmed road route is unavailable. No ride has been booked. Please try again later."}); return; }
+    const {distanceKm, durationMin} = route;
     const fare = await estimateFare(distanceKm, vehicleType);
 
     const scheduledAtSql = scheduledAt ? `'${new Date(scheduledAt).toISOString()}'` : "NULL";
@@ -388,8 +391,10 @@ router.post("/estimate", authMiddleware, async (req: Request, res: Response) => 
     if (!pickupLat || !pickupLng || !dropLat || !dropLng) {
       res.status(400).json({ error: "Coordinates required" }); return;
     }
-    const distanceKm = haversine(pickupLat, pickupLng, dropLat, dropLng);
-    const durationMin = Math.round((distanceKm / 30) * 60);
+    let route;
+    try { route = await roadRoute(pickupLat, pickupLng, dropLat, dropLng); }
+    catch { res.status(503).json({error:"A confirmed road route is unavailable. Please try again later."}); return; }
+    const {distanceKm, durationMin} = route;
     const fare = await estimateFare(distanceKm, vehicleType);
     res.json({ distanceKm: +distanceKm.toFixed(2), durationMin, fare, vehicleType });
   } catch (err) {

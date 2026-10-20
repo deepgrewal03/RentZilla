@@ -23,6 +23,17 @@ router.get("/", authMiddleware, async (req: Request, res: Response) => {
     const settings = await getOrCreateSettings(userId);
     res.json({
       notificationManagement: "device",
+      // Older installed apps dereference this object while rendering Settings.
+      // Compatibility data only: OS permissions remain authoritative and the
+      // retired PATCH endpoint must not change notification delivery.
+      notifications: {
+        bookingRequests: true,
+        bookingConfirmations: true,
+        messages: true,
+        paymentUpdates: true,
+        promotions: true,
+        ...(settings.notifications as object ?? {}),
+      },
       privacy: settings.privacy,
       preferences: settings.preferences,
     });

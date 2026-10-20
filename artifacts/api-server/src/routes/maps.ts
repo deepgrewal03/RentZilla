@@ -59,10 +59,11 @@ router.get("/places", async (req: Request, res: Response) => {
       const r = await fetch(`https://maps.googleapis.com/maps/api/place/autocomplete/json?${p}`);
       const d: any = await r.json();
       if (!["OK", "ZERO_RESULTS"].includes(d.status)) {
-        req.log?.warn({ status: d.status, input }, "Places API non-OK");
+        req.log?.warn({ status: d.status, reason: String(d.error_message || "").replaceAll(key, "[redacted]") }, "Places API non-OK");
+        throw new Error("Google address search is unavailable. Please try again later.");
       }
       return d.predictions || [];
-    } catch { return []; }
+    } catch (error) { throw error; }
   };
 
   /** Call Geocoding API */
@@ -228,7 +229,7 @@ router.get("/places", async (req: Request, res: Response) => {
     res.json({ predictions: [] });
   } catch (err) {
     req.log?.error({ err }, "Places proxy error");
-    res.status(500).json({ error: "Failed to fetch places" });
+    res.status(503).json({ error: "Google address search is currently unavailable. Please try again later." });
   }
 });
 
@@ -258,7 +259,7 @@ router.get("/place-details", async (req: Request, res: Response) => {
     const data: any = await r.json();
 
     if (data.status !== "OK" || !data.result) {
-      res.status(404).json({ error: "Place not found" });
+      res.status(data.status === "ZERO_RESULTS" ? 404 : 503).json({ error: "Unable to resolve this address. Please try again or choose another location." });
       return;
     }
 
@@ -293,9 +294,8 @@ router.get("/place-details", async (req: Request, res: Response) => {
     if (locality) parts.push(locality);
     if (state) parts.push(state);
 
-    if (parts.length >= 2) {
-      streetAddress = parts.join(", ");
-    }
+    // Keep Google's full address, including house number and postal code.
+    if (!streetAddress) streetAddress = parts.join(", ");
 
     res.json({
       lat: loc?.lat,

@@ -5,7 +5,8 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { StyleSheet, View, ActivityIndicator } from "react-native";
+import { StyleSheet, View, ActivityIndicator, Text } from "react-native";
+import { API_BASE_URL } from "@/constants/apiUrl";
 
 export interface MapRef {
   setPickup: (lat: number, lng: number, address: string) => void;
@@ -34,7 +35,7 @@ interface Props {
   style?: object;
 }
 
-function buildGoogleMapHtml(lat: number, lng: number, apiKey: string): string {
+export function buildGoogleMapHtml(lat: number, lng: number, apiKey: string): string {
   return `<!DOCTYPE html>
 <html>
 <head>
@@ -78,7 +79,9 @@ var settingMode='pickup';
 var pickupM=null,dropM=null,driverM=null,routeRenderer=null,map=null;
 var modePill=document.getElementById('mode-pill');
 var centerPin=document.getElementById('center-pin');
-var geocodeTimeout=null;
+var geocodeTimeout=null,routeVersion=0;
+window.gm_authFailure=function(){send({type:'mapError',message:'Google Maps authorization failed. Please contact support.'});};
+setTimeout(function(){if(!map)send({type:'mapError',message:'Google Maps could not load. Check your connection and try again.'});},15000);
 
 function send(data){
   var s=JSON.stringify(data);
@@ -138,10 +141,7 @@ function initMap(){
 
   updateModePill();
   setTimeout(function(){
-    // Fire initial center geocode
-    reverseGeocode(INIT_LAT,INIT_LNG).then(function(addr){
-      send({type:'centerChanged',lat:INIT_LAT,lng:INIT_LNG,address:addr});
-    });
+    // Do not overwrite a GPS/search selection with a delayed default-center lookup.
     send({type:'ready'});
   },800);
 }
@@ -177,6 +177,8 @@ function setDrop(lat,lng,addr){
   updateModePill();
 }
 function clearDrop(){
+  routeVersion++;
+  send({type:'routeCalculated',distanceKm:0,durationMin:0});
   if(dropM){dropM.setMap(null);dropM=null;}
   if(routeRenderer) routeRenderer.setDirections({routes:[]});
   updateModePill();
@@ -188,11 +190,14 @@ function setDriver(lat,lng){
 
 function drawRoute(){
   if(!pickupM||!dropM) return;
+  var version=++routeVersion;
+  send({type:'routeCalculated',distanceKm:0,durationMin:0});
   var svc=new google.maps.DirectionsService();
   svc.route({
     origin:pickupM.getPosition(),destination:dropM.getPosition(),
     travelMode:google.maps.TravelMode.DRIVING
   },function(result,status){
+    if(version!==routeVersion)return;
     if(status==='OK'&&result){
       routeRenderer.setDirections(result);
       var leg=result.routes[0].legs[0];
@@ -204,12 +209,8 @@ function drawRoute(){
       map.fitBounds(bounds,{top:80,right:60,bottom:60,left:60});
       send({type:'routeCalculated',distanceKm:distKm,durationMin:durMin});
     }else{
-      var p=pickupM.getPosition(),d=dropM.getPosition();
-      var R=6371,la1=p.lat()*Math.PI/180,la2=d.lat()*Math.PI/180;
-      var dLa=(d.lat()-p.lat())*Math.PI/180,dLo=(d.lng()-p.lng())*Math.PI/180;
-      var a=Math.sin(dLa/2)**2+Math.cos(la1)*Math.cos(la2)*Math.sin(dLo/2)**2;
-      var dist=R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
-      send({type:'routeCalculated',distanceKm:parseFloat(dist.toFixed(1)),durationMin:Math.round(dist*3)});
+      send({type:'gpsError',message:'Road directions are unavailable. Please try again before booking.'});
+      send({type:'routeCalculated',distanceKm:0,durationMin:0});
     }
   });
 }
@@ -239,7 +240,7 @@ async function reverseGeocode(lat,lng){
           if(sub) parts.push(sub);
           if(city) parts.push(city);
           if(state) parts.push(state);
-          resolve(parts.length>=2?parts.join(', '):results[0].formatted_address);
+          resolve(results[0].formatted_address || parts.join(', '));
         }else{
           resolve(lat.toFixed(4)+', '+lng.toFixed(4));
         }
@@ -383,11 +384,13 @@ const LeafletMapView = forwardRef<MapRef, Props>(
     ref
   ) => {
     const iframeRef = useRef<any>(null);
+    const initialPosition = useRef({lat:initialLat,lng:initialLng}).current;
     const [apiKey, setApiKey] = useState<string>("");
     const [keyLoaded, setKeyLoaded] = useState(false);
+    const [mapError, setMapError] = useState("");
 
     useEffect(() => {
-      const base = (window as any).__BASE_URL__ || "";
+      const base = API_BASE_URL;
       fetch(`${base}/api/maps/key`)
         .then((r) => r.json())
         .then((d) => { setApiKey(d.key || ""); setKeyLoaded(true); })
@@ -412,6 +415,7 @@ const LeafletMapView = forwardRef<MapRef, Props>(
 
     useEffect(() => {
       const handler = (e: MessageEvent) => {
+        if (e.source !== iframeRef.current?.contentWindow) return;
         if (typeof e.data !== "string") return;
         try {
           const msg = JSON.parse(e.data);
@@ -424,6 +428,7 @@ const LeafletMapView = forwardRef<MapRef, Props>(
           else if (msg.type === "gpsLocation")
             onGpsLocation?.(msg.lat, msg.lng, msg.address);
           else if (msg.type === "gpsError") onGpsError?.(msg.message);
+          else if (msg.type === "mapError") setMapError(msg.message);
           else if (msg.type === "ready") onReady?.();
         } catch {}
       };
@@ -439,9 +444,8 @@ const LeafletMapView = forwardRef<MapRef, Props>(
       );
     }
 
-    const html = apiKey
-      ? buildGoogleMapHtml(initialLat, initialLng, apiKey)
-      : buildLeafletMapHtml(initialLat, initialLng);
+    if (!apiKey || mapError) return <View style={[StyleSheet.absoluteFillObject, style, {padding:24,justifyContent:"center",backgroundColor:"#FFF6EC"}]}><Text accessibilityRole="alert">{mapError || "Google Maps is unavailable. Please check your connection and try again."}</Text></View>;
+    const html = buildGoogleMapHtml(initialPosition.lat, initialPosition.lng, apiKey);
 
     return (
       <View style={[StyleSheet.absoluteFillObject, style]}>

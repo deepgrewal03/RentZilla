@@ -4,3 +4,4 @@
 - [Password-reset email provider](password-reset-email.md) — keep Gmail, using Google authorization rather than the rejected App Password route.
 - [Retired catalog types](retired-catalog-types.md) — Sprayer, Rock Breaker, Bulldozer, Painter and Wheel Loader must no longer be offered.
 - [Settings scope](settings-scope.md) — Account Settings permits name edits only; email stays static and selected settings rows stay removed.
+- [Map accuracy](map-accuracy.md) — full addresses must preserve house details; never present straight-line estimates as confirmed driving routes.

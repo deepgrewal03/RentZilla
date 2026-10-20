@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, Platform, ActivityIndicator } from "react-nativ
 import { API_BASE_URL } from "@/constants/apiUrl";
 import * as Location from "expo-location";
 import { Feather } from "@expo/vector-icons";
+import LeafletMapView, { type MapRef } from "./LeafletMapView";
 
 const ORANGE = "#E8742A";
 const GREEN  = "#22C55E";
@@ -54,6 +55,7 @@ async function getKey(): Promise<string> {
 
 // ─────────────────────────────────────────────────────────────────────────────
 export default function DriverLiveMap({ requests = [], height = 270 }: Props) {
+  const nativeMap = useRef<MapRef>(null);
   const divRef        = useRef<any>(null);
   const mapInst       = useRef<any>(null);
   const driverMarker  = useRef<any>(null);
@@ -63,6 +65,14 @@ export default function DriverLiveMap({ requests = [], height = 270 }: Props) {
   const [mapReady, setMapReady] = useState(false);
   const [pos, setPos]           = useState<{ lat: number; lng: number } | null>(null);
   const [locErr, setLocErr]     = useState(false);
+  useEffect(() => {
+    if (Platform.OS === "web" || !mapReady || !pos) return;
+    nativeMap.current?.setDriver(pos.lat, pos.lng);
+    nativeMap.current?.setPickup(pos.lat, pos.lng, "Your location");
+    const nearest = requests[0];
+    if (nearest) nativeMap.current?.setDrop(nearest.pickup_lat, nearest.pickup_lng, nearest.pickup_address || "Pickup");
+    else nativeMap.current?.clearDrop();
+  }, [pos, requests, mapReady]);
 
   // ── Update driver marker on map ───────────────────────────────────────────
   const placeDriver = useCallback((lat: number, lng: number) => {
@@ -239,15 +249,8 @@ export default function DriverLiveMap({ requests = [], height = 270 }: Props) {
           style={{ width: "100%", height: "100%", backgroundColor: "#1a2a40" } as any}
         />
       ) : (
-        <View style={[styles.nativeFallback, { height }]}>
-          <Feather name="map-pin" size={32} color={ORANGE} />
-          <Text style={styles.nativeText}>
-            {locErr ? "Location unavailable" : pos ? `${pos.lat.toFixed(5)}, ${pos.lng.toFixed(5)}` : "Getting GPS…"}
-          </Text>
-          {requests.length > 0 && (
-            <Text style={styles.nativeReqs}>{requests.length} pickup{requests.length > 1 ? "s" : ""} nearby</Text>
-          )}
-        </View>
+        <LeafletMapView ref={nativeMap} initialLat={pos?.lat} initialLng={pos?.lng}
+          onReady={() => setMapReady(true)} onGpsError={() => setLocErr(true)} style={{height}} />
       )}
 
       {/* Loading overlay */}

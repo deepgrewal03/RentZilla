@@ -416,6 +416,13 @@ interface Props {
   userLng?: number;
 }
 
+async function mapsRequest(path: string) {
+  const response = await fetch(`${API_BASE_URL}/api/maps/${path}`, { signal: AbortSignal.timeout(12000) });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || "Address search is unavailable. Please try again.");
+  return data;
+}
+
 export function LocationSearchModal({
   visible, onClose, onSelect, title,
   color = ORANGE, showCurrentLocation, onCurrentLocation,
@@ -433,14 +440,21 @@ export function LocationSearchModal({
   const slideAnim = useRef(new Animated.Value(900)).current;
   const inputRef = useRef<TextInput>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const requestId = useRef(0);
+  const [houseDetails, setHouseDetails] = useState("");
+
+  useEffect(() => () => { requestId.current++; if (debounceRef.current) clearTimeout(debounceRef.current); }, []);
 
   useEffect(() => {
     if (visible) {
-      setQuery(""); setResults([]); setError(null); setUsingGoogle(false);
+      requestId.current++;
+      setHouseDetails(""); setQuery(""); setResults([]); setError(null); setUsingGoogle(false);
       Animated.spring(slideAnim, { toValue: 0, tension: 100, friction: 15, useNativeDriver: true }).start();
       setTimeout(() => inputRef.current?.focus(), 250);
       loadRecents();
     } else {
+      requestId.current++;
+      if (debounceRef.current) clearTimeout(debounceRef.current);
       Animated.timing(slideAnim, { toValue: 900, duration: 220, useNativeDriver: true }).start();
     }
   }, [visible]);
@@ -457,60 +471,66 @@ export function LocationSearchModal({
   };
 
   const handleSelect = async (loc: LocationResult) => {
+    const withHouse = (value: LocationResult) => ({
+      ...value,
+      address: houseDetails.trim() ? `${houseDetails.trim()}, ${value.address}` : value.address,
+    });
     if (loc.placeId && (loc.lat === 0 || loc.lng === 0)) {
       setResolving(true);
       try {
-        const details = await getPlaceDetails(loc.placeId);
-        const resolved = { ...loc, lat: details.lat, lng: details.lng, address: details.address };
+        const details = await mapsRequest(`place-details?place_id=${encodeURIComponent(loc.placeId)}`);
+        if (!Number.isFinite(details.lat) || !Number.isFinite(details.lng)) throw new Error("This address has no confirmed map position. Choose another address.");
+        const resolved = withHouse({ ...loc, lat: details.lat, lng: details.lng, address: details.formatted_address });
         saveRecent(resolved);
         Keyboard.dismiss();
         onSelect(resolved);
         onClose();
-      } catch {
-        Keyboard.dismiss();
-        onSelect(loc);
-        onClose();
+      } catch (err: any) {
+        setError(err.message || "Could not confirm this location. Please try again.");
       } finally {
         setResolving(false);
       }
       return;
     }
-    saveRecent(loc);
+    if (!Number.isFinite(loc.lat) || !Number.isFinite(loc.lng) || (loc.lat === 0 && loc.lng === 0)) {
+      setError("Choose a location with a confirmed map position."); return;
+    }
+    const selected = withHouse(loc);
+    saveRecent(selected);
     Keyboard.dismiss();
-    onSelect(loc);
+    onSelect(selected);
     onClose();
   };
 
   const onChangeText = useCallback((text: string) => {
+    const id = ++requestId.current;
     setQuery(text);
     setError(null);
     if (debounceRef.current) clearTimeout(debounceRef.current);
     if (text.trim().length < 1) { setResults([]); setLoading(false); return; }
     setLoading(true);
+    setResults([]);
     debounceRef.current = setTimeout(async () => {
       try {
-        const res = await searchGooglePlaces(text, userLat, userLng);
-        setResults(res);
+        const params = new URLSearchParams({ q: text });
+        if (userLat != null && userLng != null) { params.set("lat", String(userLat)); params.set("lng", String(userLng)); }
+        const data = await mapsRequest(`places?${params}`);
+        if (id !== requestId.current) return;
+        setResults(parsePredictions(data.predictions || []));
         setUsingGoogle(true);
         setError(null);
-      } catch {
+      } catch (err: any) {
+        if (id !== requestId.current) return;
         setUsingGoogle(false);
-        try {
-          const res = await searchNominatim(text);
-          setResults(res);
-          setError(null);
-        } catch {
-          setError(null);
-          const q = text.toLowerCase();
-          setResults(POPULAR.filter((p) => p.label.toLowerCase().includes(q) || p.address.toLowerCase().includes(q)));
-        }
+        setResults([]);
+        setError(err.message || "Address search is unavailable. Please try again.");
       } finally {
-        setLoading(false);
+        if (id === requestId.current) setLoading(false);
       }
     }, 400);
   }, [userLat, userLng]);
 
-  const clearQuery = () => { setQuery(""); setResults([]); setError(null); inputRef.current?.focus(); };
+  const clearQuery = () => { onChangeText(""); inputRef.current?.focus(); };
 
   const renderRow = (item: LocationResult, type: "recent" | "popular" | "result") => {
     const iconName = type === "recent" ? "clock" : type === "result" ? "map-pin" : "navigation";
@@ -583,6 +603,12 @@ export function LocationSearchModal({
           </View>
 
           {/* Use current location */}
+          <View style={{ paddingHorizontal: 20, paddingBottom: 10 }}>
+            <Text style={{ color: C.text, marginBottom: 6 }}>House / flat / building (optional)</Text>
+            <TextInput value={houseDetails} onChangeText={setHouseDetails} placeholder="e.g. House 1972, Flat 4B" maxLength={150}
+              style={{ borderWidth: 1, borderColor: C.border, borderRadius: 12, padding: 12, color: C.text }} />
+            <Text style={{ color: C.textTertiary, fontSize: 12, marginTop: 5 }}>Search the street and city, then confirm the exact location on the map. House details do not move the pin.</Text>
+          </View>
           {showCurrentLocation && onCurrentLocation && !showingQuery && (
             <TouchableOpacity style={styles.currentLocBtn} onPress={() => { onCurrentLocation(); onClose(); }}>
               <View style={[styles.rowIcon, { backgroundColor: `${GREEN}22` }]}>
