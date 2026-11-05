@@ -279,31 +279,27 @@ export default function HomeScreen() {
         {/* ─── Ride booking: Car & Bike ─── */}
         {!inProviderMode && (
           <View style={styles.rideRow}>
-            {([
-              { id: "Car",  title: isPa ? "ਕਾਰ ਬੁੱਕ ਕਰੋ" : "Book a Car",  sub: isPa ? "ਡਰਾਈਵਰ ਨਾਲ" : "With driver", icon: "car-sport" as const, colors: ["#8E6FE0", "#A88BEB", "#C7B4F5"] as const, edge: "#6D50C2" },
-              { id: "Bike", title: isPa ? "ਬਾਈਕ ਬੁੱਕ ਕਰੋ" : "Book a Bike", sub: isPa ? "ਸਵਾਰ ਨਾਲ · 1 ਸਵਾਰੀ" : "With rider · 1 seat", icon: "bicycle" as const, colors: ["#B07AD8", "#C79AE6", "#E0C6F3"] as const, edge: "#8C55B8" },
-            ]).map((card) => (
               <Pressable
-                key={card.id}
-                onPress={() => { Haptics.selectionAsync(); router.push({ pathname: "/(tabs)/cars", params: { vehicle: card.id } } as any); }}
+                onPress={() => { Haptics.selectionAsync(); router.push({ pathname: "/(tabs)/cars", params: { vehicle: "Car" } } as any); }}
                 style={styles.rideCard}
                 accessibilityRole="button"
-                accessibilityLabel={card.title}
+                accessibilityLabel={isPa ? "ਕਾਰ ਜਾਂ ਬਾਈਕ ਬੁੱਕ ਕਰੋ" : "Book a Car or Bike"}
               >
-                <LinearGradient colors={card.colors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.rideCardGrad}>
+                <LinearGradient colors={["#8E6FE0", "#A88BEB", "#C7B4F5"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.rideCardGrad}>
                   <View style={styles.rideIcon}>
-                    <Ionicons name={card.icon} size={22} color="#fff" />
+                    <Ionicons name="car-sport" size={22} color="#fff" />
                   </View>
                   <View style={{ flex: 1, minWidth: 0 }}>
-                    <Text style={styles.rideTitle} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{card.title}</Text>
-                    <Text style={styles.rideSub} numberOfLines={1}>{card.sub}</Text>
+                    <Text style={styles.rideTitle} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{isPa ? "ਕਾਰ ਜਾਂ ਬਾਈਕ ਬੁੱਕ ਕਰੋ" : "Book a Car or Bike"}</Text>
+                    <Text style={styles.rideSub} numberOfLines={1}>{isPa ? "ਡਰਾਈਵਰ ਨਾਲ" : "With driver"}</Text>
                   </View>
-                  <View style={[styles.rideArrow, { borderColor: card.edge + "33" }]}>
-                    <Ionicons name="chevron-forward" size={12} color={card.edge} />
+                  <View style={{ width: 38, alignItems: "flex-end" }}>
+                    <View style={[styles.rideArrow, { borderColor: "#6D50C233" }]}>
+                      <Ionicons name="chevron-forward" size={12} color="#6D50C2" />
+                    </View>
                   </View>
                 </LinearGradient>
               </Pressable>
-            ))}
           </View>
         )}
 
@@ -505,8 +501,8 @@ const styles = StyleSheet.create({
   rideCard: { flex: 1, borderRadius: 20, overflow: "hidden", elevation: 3, shadowColor: "#7A5AC8", shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.19, shadowRadius: 10 },
   rideCardGrad: { flexDirection: "row", alignItems: "center", paddingVertical: 13, paddingHorizontal: 11, gap: 8, minHeight: 66 },
   rideIcon: { width: 38, height: 38, borderRadius: 13, backgroundColor: "rgba(255,255,255,0.22)", alignItems: "center", justifyContent: "center" },
-  rideTitle: { fontSize: 13, fontWeight: "800", fontFamily: "Inter_700Bold", color: "#fff" },
-  rideSub: { fontSize: 10.5, color: "rgba(255,255,255,0.92)", fontFamily: "Inter_400Regular", marginTop: 1 },
+  rideTitle: { fontSize: 13, fontWeight: "800", fontFamily: "Inter_700Bold", color: "#fff", textAlign: "center" },
+  rideSub: { fontSize: 10.5, color: "rgba(255,255,255,0.92)", fontFamily: "Inter_400Regular", marginTop: 1, textAlign: "center" },
   rideArrow: { width: 22, height: 22, borderRadius: 11, backgroundColor: "#FFFFFF", borderWidth: 1, alignItems: "center", justifyContent: "center" },
   langPill: {
     backgroundColor: "rgba(255,255,255,0.18)", borderRadius: 16,
