@@ -18,7 +18,7 @@ import {
   PURPOSES,
   type RazorpayPurpose,
 } from "../lib/razorpay.js";
-import { decidePaymentCapture, isBookingPayable } from "../lib/paymentCaptureRules.js";
+import { decidePaymentCapture, isBookingPayable, isConfirmedProviderPayment, isReusableProviderOrder } from "../lib/paymentCaptureRules.js";
 
 const router = Router();
 type AR = Request & { userId: string };
@@ -540,6 +540,19 @@ router.post("/create-order", authMiddleware, async (req: Request, res: Response)
           LIMIT 1
         `));
         if (existing.length) {
+          // Never hand a previous merchant's order to checkout with new keys.
+          // A network failure is not evidence that an order can be discarded.
+          try {
+            const remote = await getRazorpay().orders.fetch(existing[0].razorpay_order_id);
+            if (!isReusableProviderOrder(remote, {
+              orderId: existing[0].razorpay_order_id,
+              amountPaise: Number(existing[0].amount_paise),
+            })) {
+              throw new Error("ORDER_REQUIRES_RECONCILIATION");
+            }
+          } catch {
+            throw new Error("ORDER_REQUIRES_RECONCILIATION");
+          }
           return {
             orderId: existing[0].razorpay_order_id,
             amount: Number(existing[0].amount_paise),
@@ -658,6 +671,10 @@ router.post("/create-order", authMiddleware, async (req: Request, res: Response)
       ...(booking ? { bookingId: booking.id } : {}),
     });
   } catch (err) {
+    if (err instanceof Error && err.message === "ORDER_REQUIRES_RECONCILIATION") {
+      res.status(409).json({ error: "This existing payment order could not be validated with the current payment account. Please contact support before retrying payment." });
+      return;
+    }
     if (err instanceof Error && err.message === "BOOKING_NOT_FOUND") {
       res.status(404).json({ error: "Booking not found" });
       return;
@@ -708,6 +725,20 @@ router.post("/verify", authMiddleware, async (req: Request, res: Response) => {
       WHERE razorpay_order_id = ${razorpayOrderId} AND user_id = ${userId}
       LIMIT 1
     `));
+    // A valid checkout signature can describe an authorized, uncaptured payment.
+    // Verify provider state before any local fulfillment or refund transition.
+    const providerPayment = await getRazorpay().payments.fetch(razorpayPaymentId);
+    const expectedAmount = orderRows.length
+      ? Number(orderRows[0].amount_paise)
+      : Number((await getRazorpay().orders.fetch(razorpayOrderId)).amount);
+    if (!isConfirmedProviderPayment(providerPayment, {
+      paymentId: razorpayPaymentId,
+      orderId: razorpayOrderId,
+      amountPaise: expectedAmount,
+    })) {
+      res.status(409).json({ error: "Payment is not yet confirmed as captured with the expected amount. Please check your booking again shortly; do not pay again." });
+      return;
+    }
     const captured = orderRows.length
       ? await captureOrder({
           orderId: razorpayOrderId,

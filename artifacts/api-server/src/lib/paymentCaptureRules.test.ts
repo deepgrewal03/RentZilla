@@ -2,8 +2,33 @@ import assert from "node:assert/strict";
 import crypto from "node:crypto";
 import test from "node:test";
 
-import { decidePaymentCapture, isBookingPayable } from "./paymentCaptureRules.js";
+import { decidePaymentCapture, isBookingPayable, isConfirmedProviderPayment, isReusableProviderOrder } from "./paymentCaptureRules.js";
 import { verifyPaymentSignature, verifyWebhookSignature } from "./razorpay.js";
+
+test("only reuses a matching, unpaid order fetched from the current merchant", () => {
+  const order = { id: "order_1", currency: "INR", amount: 100, status: "created" };
+  const expected = { orderId: "order_1", amountPaise: 100 };
+  assert.equal(isReusableProviderOrder(order, expected), true);
+  assert.equal(isReusableProviderOrder({ ...order, status: "attempted" }, expected), true);
+  for (const change of [
+    { status: "paid" }, { status: "unknown" }, { id: "order_other" },
+    { amount: 101 }, { currency: "USD" },
+  ]) {
+    assert.equal(isReusableProviderOrder({ ...order, ...change }, expected), false);
+  }
+});
+
+test("requires provider capture and exact payment, order, amount and currency", () => {
+  const payment = { id: "pay_1", order_id: "order_1", status: "captured", amount: 100, currency: "INR" };
+  const expected = { paymentId: "pay_1", orderId: "order_1", amountPaise: 100 };
+  assert.equal(isConfirmedProviderPayment(payment, expected), true);
+  for (const change of [
+    { status: "authorized" }, { status: "failed" }, { status: "refunded" },
+    { id: "pay_other" }, { order_id: "order_other" }, { amount: 99 }, { currency: "USD" },
+  ]) {
+    assert.equal(isConfirmedProviderPayment({ ...payment, ...change }, expected), false);
+  }
+});
 
 test("accepts a correctly signed Razorpay client payment", () => {
   process.env.RAZORPAY_KEY_SECRET = "test-secret";

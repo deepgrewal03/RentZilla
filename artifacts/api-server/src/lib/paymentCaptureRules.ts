@@ -30,3 +30,26 @@ export function decidePaymentCapture(input: {
 export function isBookingPayable(status: string, paymentStatus: string): boolean {
   return status === "pending" && paymentStatus === "pending";
 }
+
+export function isConfirmedProviderPayment(
+  payment: { id: string; order_id?: string | null; status: string; amount: number | string; currency: string },
+  expected: { paymentId: string; orderId: string; amountPaise: number },
+): boolean {
+  return payment.id === expected.paymentId
+    && payment.order_id === expected.orderId
+    && payment.status === "captured"
+    && payment.currency === "INR"
+    && Number.isSafeInteger(expected.amountPaise)
+    && expected.amountPaise > 0
+    && Number(payment.amount) === expected.amountPaise;
+}
+
+export function isReusableProviderOrder(
+  order: { id: string; currency: string; amount: number | string; status: string },
+  expected: { orderId: string; amountPaise: number },
+): boolean {
+  return order.id === expected.orderId
+    && order.currency === "INR"
+    && Number(order.amount) === expected.amountPaise
+    && (order.status === "created" || order.status === "attempted");
+}
