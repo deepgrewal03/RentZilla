@@ -1,11 +1,11 @@
 import Button3D from "@/components/Button3D";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useRef, useState } from "react";
 import {
-  ActivityIndicator, Alert, FlatList, KeyboardAvoidingView,
+  ActivityIndicator, Alert, AppState, FlatList, KeyboardAvoidingView,
   Platform, Pressable, RefreshControl, ScrollView,
   StyleSheet, Text, TextInput, View,
 } from "react-native";
@@ -16,6 +16,7 @@ import { useApi } from "@/hooks/useApi";
 import { useRazorpay } from "@/hooks/useRazorpay";
 import GlowButton from "@/components/GlowButton";
 import RazorpayCheckout from "@/components/RazorpayCheckout";
+import { useAuth } from "@/context/AuthContext";
 
 const C = Colors.light;
 const ORANGE = "#FF7A18";
@@ -44,6 +45,7 @@ const TYPE_ICON: Record<string, string> = {
 };
 
 export default function WalletScreen() {
+  const { user, token, isLoading: authLoading } = useAuth();
   const { get, post, put, del } = useApi();
   const { initiatePayment, checkout, loading: rzpLoading } = useRazorpay();
   const insets = useSafeAreaInsets();
@@ -62,7 +64,9 @@ export default function WalletScreen() {
   const [showTopup, setShowTopup] = useState(false);
   const [topupAmount, setTopupAmount] = useState("");
   const [selectedMethodId, setSelectedMethodId] = useState<string | null>(null);
-  const [topping, setTopping] = useState(false);
+  const listRef = useRef<FlatList<WalletTx>>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<string | null>(null);
 
   // Add payment method form
   const [showAddMethod, setShowAddMethod] = useState(false);
@@ -79,9 +83,10 @@ export default function WalletScreen() {
 
   async function fetchWallet() {
     try {
+      setLoadError(null);
       const [walletData, methodData, goldData] = await Promise.all([
         get<{ balance: number; transactions: WalletTx[] }>("/wallet"),
-        get<{ methods: PayMethod[] }>("/wallet/payment-methods").catch(() => ({ methods: [] })),
+        get<{ methods: PayMethod[] }>("/wallet/payment-methods"),
         get<{ isGoldMember: boolean; totalSaved: number }>("/membership/status").catch(() => ({ isGoldMember: false, totalSaved: 0 })),
       ]);
       setBalance(walletData.balance || 0);
@@ -90,15 +95,23 @@ export default function WalletScreen() {
       setIsGoldMember(Boolean(goldData.isGoldMember));
       setGoldSaved(Number(goldData.totalSaved || 0));
       const def = methodData.methods?.find(m => m.isDefault);
-      if (def && !selectedMethodId) setSelectedMethodId(def.id);
-    } catch { /* ignore */ }
+      setSelectedMethodId(current => methodData.methods.some(m => m.id === current) ? current : def?.id ?? null);
+    } catch (error: any) { setLoadError(error?.message || "Could not load your wallet. Please retry."); }
     finally { setLoading(false); setRefreshing(false); }
   }
 
-  useEffect(() => { fetchWallet(); }, []);
-  const onRefresh = useCallback(() => { setRefreshing(true); fetchWallet(); }, []);
+  useFocusEffect(useCallback(() => {
+    if (!token || authLoading) return;
+    void fetchWallet();
+    const subscription = AppState.addEventListener("change", state => {
+      if (state === "active") void fetchWallet();
+    });
+    return () => subscription.remove();
+  }, [user?.id, token, authLoading]));
+  const onRefresh = () => { setRefreshing(true); void fetchWallet(); };
 
   async function handleTopup() {
+    if (rzpLoading) return;
     const amt = parseFloat(topupAmount);
     if (!amt || amt < 1) { Alert.alert("Invalid amount", "Minimum top-up is ₹1"); return; }
     if (amt > 100000) { Alert.alert("Invalid amount", "Maximum top-up is ₹1,00,000"); return; }
@@ -106,13 +119,16 @@ export default function WalletScreen() {
     await initiatePayment({
       purpose: "wallet_topup",
       amount: amt,
+      paymentMethod: methods.find(m => m.id === selectedMethodId)?.type === "bank"
+        ? "netbanking"
+        : methods.find(m => m.id === selectedMethodId)?.type as "upi" | "card" | undefined,
       description: `Wallet Top-up ₹${amt.toLocaleString("en-IN")}`,
       onSuccess: (result) => {
         setTopupAmount("");
         fetchWallet();
-        Alert.alert("Money Added! 🎉", `₹${amt.toLocaleString("en-IN")} has been added to your wallet.`);
+        Alert.alert("Money Added", `₹${amt.toLocaleString("en-IN")} has been added to your wallet.`);
       },
-      onError: (msg) => Alert.alert("Payment Failed", msg),
+      onError: (msg) => { void fetchWallet(); Alert.alert("Payment not confirmed", `${msg}\nIf money was deducted, do not pay again. Refresh your wallet shortly.`); },
       onDismiss: () => setShowTopup(true),
     });
   }
@@ -146,20 +162,11 @@ export default function WalletScreen() {
   }
 
   async function handleDeleteMethod(id: string) {
-    Alert.alert("Remove method?", "This payment method will be removed.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Remove", style: "destructive",
-          onPress: async () => {
-            try {
-              await del(`/wallet/payment-methods/${id}`);
-              fetchWallet();
-            } catch { Alert.alert("Error", "Could not remove method."); }
-          },
-        },
-      ]
-    );
+    try {
+      await del(`/wallet/payment-methods/${id}`);
+      setPendingDelete(null);
+      await fetchWallet();
+    } catch { setLoadError("Could not remove payment method. Please retry."); }
   }
 
   async function handleSetDefault(id: string) {
@@ -222,7 +229,7 @@ export default function WalletScreen() {
 
       {/* Header */}
       <View style={s.header}>
-        <Pressable onPress={() => router.back()} style={s.backBtn} hitSlop={12}>
+        <Pressable onPress={() => router.canGoBack() ? router.back() : router.replace("/(tabs)")} style={s.backBtn} hitSlop={12}>
           <Ionicons name="arrow-back" size={22} color="#fff" />
         </Pressable>
         <Text style={s.headerTitle}>My Wallet</Text>
@@ -234,12 +241,19 @@ export default function WalletScreen() {
         behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
       <FlatList
+        ref={listRef}
         data={transactions}
         keyExtractor={t => t.id}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={ORANGE} />}
         keyboardShouldPersistTaps="handled"
         ListHeaderComponent={
           <>
+            {loadError && (
+              <Pressable accessibilityRole="button" onPress={onRefresh} style={s.sheet}>
+                <Text style={{ color: C.error }}>{loadError}</Text>
+                <Text style={s.setDefaultText}>Tap to retry</Text>
+              </Pressable>
+            )}
             {/* Balance Card */}
             <LinearGradient colors={[ORANGE, ORANGE2]} style={s.balanceCard} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
               <View style={s.balanceCardInner}>
@@ -277,6 +291,7 @@ export default function WalletScreen() {
               title="Add Money"
               color={ORANGE}
               onPress={() => setShowTopup(v => !v)}
+              disabled={rzpLoading || !!loadError}
               iconLeft={<Ionicons name="add-circle-outline" size={20} color="#fff" />}
               fullWidth
               height={48}
@@ -290,6 +305,13 @@ export default function WalletScreen() {
             {showTopup && (
                 <View style={s.sheet}>
                   <Text style={s.sheetTitle}>Add Money to Wallet</Text>
+                  <Text style={s.fieldLabel}>
+                    {selectedMethodId ? `Selected: ${methods.find(m => m.id === selectedMethodId)?.label ?? "Payment method"}` : "Choose your payment method in Razorpay"}
+                  </Text>
+                  <Text style={s.methodMasked}>Your selection opens that payment type in Razorpay when available. Confirm the actual account or card securely there; saved details are not an automatic debit authorization.</Text>
+                  {selectedMethodId && <Pressable onPress={() => setSelectedMethodId(null)}>
+                    <Text style={s.setDefaultText}>Choose another method at checkout</Text>
+                  </Pressable>}
 
                   <View style={s.quickRow}>
                     {QUICK_AMOUNTS.map(a => (
@@ -324,8 +346,8 @@ export default function WalletScreen() {
                       title={`Add ₹${parseFloat(topupAmount || "0").toLocaleString("en-IN") || "0"}`}
                       color={ORANGE}
                       onPress={handleTopup}
-                      loading={topping}
-                      disabled={topping}
+                      loading={rzpLoading}
+                      disabled={rzpLoading || !!loadError}
                       iconLeft={<Ionicons name="lock-closed" size={15} color="#fff" />}
                       height={44}
                       fontSize={14}
@@ -362,6 +384,24 @@ export default function WalletScreen() {
                 <View style={{ flex: 1 }}>
                   <Text style={s.methodLabel}>{m.label}</Text>
                   <Text style={s.methodMasked}>{m.maskedDisplay}</Text>
+                  {pendingDelete === m.id && (
+                    <View>
+                      <Text style={s.methodMasked}>Remove this saved method?</Text>
+                      <Pressable accessibilityRole="button" onPress={() => handleDeleteMethod(m.id)}>
+                        <Text style={[s.setDefaultText, { color: C.error, paddingVertical: 8 }]}>Confirm removal</Text>
+                      </Pressable>
+                      <Pressable accessibilityRole="button" onPress={() => setPendingDelete(null)}>
+                        <Text style={s.setDefaultText}>Keep method</Text>
+                      </Pressable>
+                    </View>
+                  )}
+                  <Pressable accessibilityRole="button" accessibilityLabel={`Use ${m.label}`}
+                    disabled={rzpLoading}
+                    onPress={() => { setSelectedMethodId(m.id); setShowTopup(true); listRef.current?.scrollToOffset({ offset: 0, animated: true }); }}>
+                    <Text style={[s.setDefaultText, { paddingVertical: 8 }]}>
+                      {selectedMethodId === m.id ? "Selected · Use at checkout" : "Use at checkout"}
+                    </Text>
+                  </Pressable>
                 </View>
                 {m.isDefault
                   ? <View style={s.defaultBadge}><Text style={s.defaultBadgeText}>Default</Text></View>
@@ -371,7 +411,7 @@ export default function WalletScreen() {
                     </Pressable>
                   )
                 }
-                <Pressable onPress={() => handleDeleteMethod(m.id)} hitSlop={8} style={{ marginLeft: 8 }}>
+                <Pressable accessibilityRole="button" accessibilityLabel={`Remove ${m.label}`} onPress={() => setPendingDelete(m.id)} hitSlop={8} style={{ marginLeft: 8 }}>
                   <Ionicons name="trash-outline" size={16} color="#EF4444" />
                 </Pressable>
               </View>

@@ -23,6 +23,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import Colors from "@/constants/colors";
 import { useApi } from "@/hooks/useApi";
+import { useAuth } from "@/context/AuthContext";
+import CustomerWallet from "../wallet";
 import * as AudioService from "@/services/AudioService";
 
 const C      = Colors.light;
@@ -121,11 +123,18 @@ function PayoutRow({ item }: { item: Payout }) {
   );
 }
 
-export default function ProviderWalletTab() {
+export default function WalletTab() {
+  const { user } = useAuth();
+  return user?.role === "provider" || user?.role === "both"
+    ? <ProviderWalletTab />
+    : <CustomerWallet />;
+}
+
+function ProviderWalletTab() {
   const { get, post, put, del } = useApi();
   const insets = useSafeAreaInsets();
   const isWeb  = Platform.OS === "web";
-  const topPad = isWeb ? 0 : insets.top;
+  const topPad = isWeb ? 67 : insets.top;
 
   const [wallet,     setWallet]     = useState<ProviderWallet | null>(null);
   const [methods,    setMethods]    = useState<PayMethod[]>([]);
@@ -188,7 +197,7 @@ export default function ProviderWalletTab() {
       return;
     }
     const net = balance - INSTANT_FEE;
-    const defaultM = payoutInfo?.defaultMethod;
+    const defaultM = selectedMethod ?? payoutInfo?.defaultMethod;
     if (!defaultM && !adHocUpi.trim()) {
       Alert.alert("No Payout Method", "Please add a payment method first, or enter a UPI ID below.");
       return;
@@ -203,6 +212,7 @@ export default function ProviderWalletTab() {
             setPayingOut(true);
             try {
               await post("/wallet/provider/payout/instant", {
+                amount: net,
                 paymentMethodId: selectedMethod?.id || defaultM?.id,
                 upiId: !selectedMethod && !defaultM ? adHocUpi.trim() : undefined,
               });
@@ -391,6 +401,10 @@ export default function ProviderWalletTab() {
         )}
 
         {/* Payout action buttons */}
+        <Button3D faceStyle={s.actionBtn} onPress={() => router.push("/customer-wallet")}>
+          <Ionicons name="add-circle-outline" size={18} color="#fff" />
+          <Text style={s.actionBtnText}>Add Money</Text>
+        </Button3D>
         <View style={s.actionRow}>
           <Button3D faceStyle={s.actionBtn}
             onPress={() => { setSelectedMethod(defaultMethod); setShowPayoutModal(true); }}>

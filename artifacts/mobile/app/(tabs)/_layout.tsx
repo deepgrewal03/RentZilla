@@ -141,12 +141,12 @@ export default function TabLayout() {
         }}
       />
 
-      {/* ── Wallet: providers only ── */}
+      {/* Wallet renders the correct customer/provider experience. */}
       <Tabs.Screen
         name="wallet"
         options={{
           title: "Wallet",
-          href: inProviderMode ? undefined : null,
+          href: undefined,
           tabBarIcon: ({ color, focused }) => <TabIcon name="credit-card" color={color} focused={focused} />,
         }}
       />

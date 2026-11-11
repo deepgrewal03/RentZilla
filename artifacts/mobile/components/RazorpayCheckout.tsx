@@ -17,7 +17,7 @@
 import React, { useRef } from "react";
 import {
   Modal, View, StyleSheet, Platform, ActivityIndicator,
-  Pressable, Text,
+  Pressable, Text, Linking, Alert,
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { WebView, type WebViewMessageEvent } from "react-native-webview";
@@ -34,7 +34,7 @@ type Props = {
   orderId: string;
   amount: number;
   keyId: string;
-  prefill: { name?: string; email?: string; contact?: string };
+  prefill: { name?: string; email?: string; contact?: string; method?: "upi" | "card" | "netbanking" };
   description?: string;
   onSuccess: (payload: RazorpaySuccessPayload) => void;
   onDismiss: () => void;
@@ -42,6 +42,8 @@ type Props = {
 
 function buildCheckoutHtml(props: Omit<Props, "visible" | "onSuccess" | "onDismiss">) {
   const { orderId, amount, keyId, prefill, description } = props;
+  const json = (value: unknown) => JSON.stringify(value).replace(/</g, "\\u003c");
+  const safeDescription = (description || "Payment").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   return `
 <!DOCTYPE html>
 <html>
@@ -75,7 +77,7 @@ function buildCheckoutHtml(props: Omit<Props, "visible" | "onSuccess" | "onDismi
     <div class="logo">🧡</div>
     <h2>RentZilla Secure Pay</h2>
     <div class="amount">₹${(amount / 100).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</div>
-    <div class="desc">${description || "Payment"}</div>
+    <div class="desc">${safeDescription}</div>
     <button id="payBtn" onclick="openCheckout()">Pay Now</button>
     <p class="spinner" id="spinner">Opening secure checkout…</p>
     <p class="error" id="errMsg"></p>
@@ -84,26 +86,35 @@ function buildCheckoutHtml(props: Omit<Props, "visible" | "onSuccess" | "onDismi
 
   <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
   <script>
+    // Browser preview uses an isolated iframe; native uses the WebView bridge.
+    if (!window.ReactNativeWebView) {
+      window.ReactNativeWebView = { postMessage: function(data) {
+        window.parent.postMessage({ channel: "rentzilla-checkout", data: data }, "*");
+      }};
+    }
     function openCheckout() {
+      if (typeof Razorpay === "undefined") {
+        document.getElementById('errMsg').textContent = "Checkout could not load. Check your connection and try again.";
+        document.getElementById('errMsg').classList.add('active');
+        return;
+      }
       document.getElementById('payBtn').disabled = true;
       document.getElementById('spinner').classList.add('active');
       document.getElementById('errMsg').classList.remove('active');
 
       var options = {
-        key: "${keyId}",
+        key: ${json(keyId)},
         amount: ${amount},
         currency: "INR",
         name: "RentZilla",
-        description: "${(description || "Payment").replace(/"/g, '\\"')}",
+        description: ${json(description || "Payment")},
         image: "",
-        order_id: "${orderId}",
-        prefill: {
-          name: "${(prefill.name || "").replace(/"/g, '\\"')}",
-          email: "${(prefill.email || "").replace(/"/g, '\\"')}",
-          contact: "${(prefill.contact || "").replace(/"/g, '\\"')}"
-        },
+        order_id: ${json(orderId)},
+        prefill: ${json(prefill)},
         theme: { color: "#FF7A18" },
-        modal: { escape: false, backdropclose: false },
+        modal: { escape: false, backdropclose: false, ondismiss: function() {
+          window.ReactNativeWebView.postMessage(JSON.stringify({ type: "PAYMENT_DISMISSED" }));
+        }},
         handler: function(response) {
           window.ReactNativeWebView && window.ReactNativeWebView.postMessage(JSON.stringify({
             type: "PAYMENT_SUCCESS",
@@ -127,12 +138,6 @@ function buildCheckoutHtml(props: Omit<Props, "visible" | "onSuccess" | "onDismi
         }));
       });
 
-      rzp.on('modal.closed', function() {
-        window.ReactNativeWebView && window.ReactNativeWebView.postMessage(JSON.stringify({
-          type: "PAYMENT_DISMISSED"
-        }));
-      });
-
       rzp.open();
     }
   </script>
@@ -145,6 +150,8 @@ export default function RazorpayCheckout({
   visible, orderId, amount, keyId, prefill, description, onSuccess, onDismiss,
 }: Props) {
   const [loading, setLoading] = React.useState(true);
+  const iframeRef = useRef<HTMLIFrameElement | null>(null);
+  const completed = useRef(false);
   const insets = useSafeAreaInsets();
   const html = buildCheckoutHtml({ orderId, amount, keyId, prefill, description });
 
@@ -152,16 +159,30 @@ export default function RazorpayCheckout({
     try {
       const msg = JSON.parse(event.nativeEvent.data);
       if (msg.type === "PAYMENT_SUCCESS") {
+        if (completed.current || msg.razorpayOrderId !== orderId
+          || typeof msg.razorpayPaymentId !== "string" || typeof msg.razorpaySignature !== "string") return;
+        completed.current = true;
         onSuccess({
           razorpayPaymentId: msg.razorpayPaymentId,
           razorpayOrderId: msg.razorpayOrderId,
           razorpaySignature: msg.razorpaySignature,
         });
       } else if (msg.type === "PAYMENT_DISMISSED") {
-        onDismiss();
+        if (!completed.current) onDismiss();
       }
     } catch {}
   }
+
+  React.useEffect(() => {
+    if (Platform.OS !== "web") return;
+    const receive = (event: MessageEvent) => {
+      if (event.source !== iframeRef.current?.contentWindow
+        || event.data?.channel !== "rentzilla-checkout") return;
+      handleMessage({ nativeEvent: { data: event.data.data } } as WebViewMessageEvent);
+    };
+    window.addEventListener("message", receive);
+    return () => window.removeEventListener("message", receive);
+  }, [orderId, onSuccess, onDismiss]);
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onDismiss}>
@@ -183,16 +204,33 @@ export default function RazorpayCheckout({
         {/* paddingBottom pushes WebView viewport above the Android system nav bar
             so Razorpay's "Continue" button is never hidden behind it */}
         <View style={[s.webviewContainer, { paddingBottom: insets.bottom }]}>
-          <WebView
+          {Platform.OS === "web" ? React.createElement("iframe", {
+            ref: iframeRef,
+            title: "Razorpay secure checkout",
+            srcDoc: html,
+            sandbox: "allow-scripts allow-forms allow-popups allow-same-origin",
+            allow: "payment",
+            onLoad: () => setLoading(false),
+            style: { width: "100%", height: "100%", border: 0, flex: 1 },
+          }) : <WebView
             source={{ html, baseUrl: "https://checkout.razorpay.com" }}
             onMessage={handleMessage}
             onLoadEnd={() => setLoading(false)}
+            onError={() => setLoading(false)}
             javaScriptEnabled
             domStorageEnabled
             originWhitelist={["*"]}
             style={[s.webview, loading && { opacity: 0 }]}
-            onShouldStartLoadWithRequest={() => true}
-          />
+            onShouldStartLoadWithRequest={({ url }) => {
+              if (/^(https?:|about:|data:)/i.test(url)) return true;
+              if (/^(upi:|tez:|phonepe:|paytmmp:|bhim:|gpay:|intent:)/i.test(url)) {
+                void Linking.openURL(url).catch(() => {
+                  Alert.alert("Payment app unavailable", "Choose another payment app or method in Razorpay. Do not retry if money has already been deducted.");
+                });
+              }
+              return false;
+            }}
+          />}
         </View>
       </SafeAreaView>
     </Modal>

@@ -9,7 +9,7 @@
  * 4. Call clearCheckout() to reset
  */
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { useApi } from "./useApi";
 import type { RazorpaySuccessPayload } from "@/components/RazorpayCheckout";
 
@@ -45,7 +45,7 @@ type CheckoutState = {
   orderId: string;
   amount: number;
   keyId: string;
-  prefill: { name?: string; email?: string; contact?: string };
+  prefill: { name?: string; email?: string; contact?: string; method?: "upi" | "card" | "netbanking" };
   description: string;
   onSuccess: (payload: RazorpaySuccessPayload) => void;
   onDismiss: () => void;
@@ -56,6 +56,7 @@ export function useRazorpay() {
   const [checkout, setCheckout] = useState<CheckoutState | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const busy = useRef(false);
 
   const initiatePayment = useCallback(
     async ({
@@ -63,6 +64,7 @@ export function useRazorpay() {
       amount,
       bookingId,
       description,
+      paymentMethod,
       onSuccess,
       onError,
       onDismiss,
@@ -71,10 +73,13 @@ export function useRazorpay() {
       amount?: number;
       bookingId?: string;
       description?: string;
+      paymentMethod?: "upi" | "card" | "netbanking";
       onSuccess: (result: RazorpayVerifyResult) => void;
       onError?: (msg: string) => void;
       onDismiss?: () => void;
     }) => {
+      if (busy.current) return;
+      busy.current = true;
       setLoading(true);
       setError(null);
       try {
@@ -102,9 +107,11 @@ export function useRazorpay() {
           orderId: order.orderId,
           amount: order.amount,
           keyId: order.keyId,
-          prefill: order.prefill,
+          prefill: { ...order.prefill, ...(paymentMethod ? { method: paymentMethod } : {}) },
           description: desc,
           onSuccess: async (payload: RazorpaySuccessPayload) => {
+            if (busy.current) return;
+            busy.current = true;
             setCheckout(null);
             setLoading(true);
             try {
@@ -113,12 +120,14 @@ export function useRazorpay() {
                 razorpayPaymentId: payload.razorpayPaymentId,
                 razorpaySignature: payload.razorpaySignature,
               });
+              if (!verified.success) throw new Error("Payment is still being confirmed. Check your wallet or booking before paying again.");
               onSuccess(verified);
             } catch (e: any) {
               const msg = e?.message || "Payment verification failed";
               setError(msg);
               onError?.(msg);
             } finally {
+              busy.current = false;
               setLoading(false);
             }
           },
@@ -132,6 +141,7 @@ export function useRazorpay() {
         setError(msg);
         onError?.(msg);
       } finally {
+        busy.current = false;
         setLoading(false);
       }
     },

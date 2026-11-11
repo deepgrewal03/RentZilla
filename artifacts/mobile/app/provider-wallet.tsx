@@ -23,6 +23,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import Colors from "@/constants/colors";
 import { useApi } from "@/hooks/useApi";
+import { useAuth } from "@/context/AuthContext";
+import CustomerWallet from "./wallet";
 
 const C     = Colors.light;
 const NAVY  = "#0F1F3D";
@@ -87,6 +89,13 @@ function nextMondayFromNow(): string {
 }
 
 export default function ProviderWalletScreen() {
+  const { user } = useAuth();
+  return user?.role === "provider" || user?.role === "both"
+    ? <ProviderWalletContent />
+    : <CustomerWallet />;
+}
+
+function ProviderWalletContent() {
   const { get, post, put, del } = useApi();
   const insets = useSafeAreaInsets();
   const isWeb  = Platform.OS === "web";
@@ -386,6 +395,12 @@ export default function ProviderWalletScreen() {
             </LinearGradient>
 
             {/* ── Quick Actions ── */}
+            <Button3D faceStyle={s.quickBtn} onPress={() => router.push("/customer-wallet")}>
+              <LinearGradient colors={[ORANGE, ORANGE2]} style={s.quickGrad}>
+                <Ionicons name="add-circle-outline" size={20} color="#fff" />
+                <Text style={s.quickBtnText}>Add Money to Wallet</Text>
+              </LinearGradient>
+            </Button3D>
             <View style={s.quickRow}>
               <Button3D
                 faceStyle={[s.quickBtn, { borderColor: ORANGE }]}

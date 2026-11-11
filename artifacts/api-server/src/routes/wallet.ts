@@ -1,4 +1,4 @@
-import { Router, type IRouter, type Request, type Response } from "express";
+import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import { authMiddleware } from "./users.js";
@@ -6,12 +6,56 @@ import { authMiddleware } from "./users.js";
 const router: IRouter = Router();
 type AR = Request & { userId: string };
 
+// Enforce provider eligibility on every provider wallet route, not just in UI.
+router.use("/provider", authMiddleware, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const rows = toRows(await db.execute(sql`SELECT role FROM users WHERE id = ${(req as AR).userId} LIMIT 1`));
+    if (!["provider", "both"].includes(rows[0]?.role)) {
+      res.status(403).json({ error: "Provider wallet and payouts require a provider account" });
+      return;
+    }
+    next();
+  } catch (err) {
+    req.log?.error({ err }, "Provider wallet authorization failed");
+    res.status(500).json({ error: "Unable to verify provider access" });
+  }
+});
+
+// Gateway checkout credentials do not authorize bank disbursements.
+// The legacy handlers below only recorded deductions, never external transfers.
+router.post("/provider/payout/instant", (_req: Request, res: Response) => {
+  res.status(503).json({ error: "Bank payouts are not connected yet. No money has been deducted from your wallet." });
+});
+router.use(["/provider/payout/schedule", "/provider/payout-preference"], (req: Request, res: Response, next: NextFunction) => {
+  if (req.body?.preference === "weekly" || req.body?.preference === "instant") {
+    res.status(503).json({ error: "Automatic bank payouts are not connected yet. Your money will remain in your wallet." });
+    return;
+  }
+  next();
+});
+
+// Legacy direct credits are not payments. Never allow callers to mint funds.
+router.post("/topup", authMiddleware, (_req: Request, res: Response) => {
+  res.status(410).json({ error: "Use Razorpay checkout to add money. Wallet credit requires a verified captured payment." });
+});
+
 function toRows(res: any): any[] {
   return Array.isArray(res) ? res : (res?.rows ?? []);
 }
 
 function newId(): string {
   return `${Date.now()}${Math.random().toString(36).slice(2, 8)}`;
+}
+
+async function setOwnedDefault(userId: string, methodId: string): Promise<boolean> {
+  return db.transaction(async tx => {
+    // Serialize changes for this user, and validate ownership before clearing defaults.
+    await tx.execute(sql`SELECT id FROM users WHERE id = ${userId} FOR UPDATE`);
+    const rows = toRows(await tx.execute(sql`SELECT id FROM user_payment_methods WHERE id = ${methodId} AND user_id = ${userId}`));
+    if (!rows.length) return false;
+    await tx.execute(sql`UPDATE user_payment_methods SET is_default = (id = ${methodId}) WHERE user_id = ${userId}`);
+    return true;
+  });
 }
 
 // ── GET /wallet — customer wallet balance + transactions ───────────────────
@@ -56,41 +100,6 @@ router.get("/balance", authMiddleware, async (req: Request, res: Response) => {
     res.json({ balance: Number(users[0].wallet_balance || 0), currency: "INR" });
   } catch (err) {
     req.log?.error({ err }, "Wallet balance error");
-    res.status(500).json({ error: "Internal server error" });
-  }
-});
-
-// ── POST /wallet/topup — add funds to customer wallet (mock UPI/card) ─────
-router.post("/topup", authMiddleware, async (req: Request, res: Response) => {
-  try {
-    const userId = (req as AR).userId;
-    const { amount, method = "upi", upiRef } = req.body;
-    const amt = parseFloat(amount);
-    if (!amt || amt <= 0 || amt > 100000) {
-      res.status(400).json({ error: "Invalid amount (₹1 – ₹1,00,000)" });
-      return;
-    }
-
-    // Credit wallet + get new balance atomically
-    const updated = toRows(await db.execute(sql.raw(`
-      UPDATE users SET wallet_balance = wallet_balance + ${amt} WHERE id = '${userId}'
-      RETURNING wallet_balance
-    `)));
-    const newBalance = Number(updated[0]?.wallet_balance || 0);
-
-    // Record transaction
-    const txId = newId();
-    await db.execute(sql.raw(`
-      INSERT INTO wallet_transactions (id, user_id, type, amount, balance_after, reference_id, description, status)
-      VALUES ('${txId}', '${userId}', 'topup', ${amt}, ${newBalance},
-        '${upiRef || txId}',
-        'Wallet top-up via ${method.toUpperCase()}',
-        'completed')
-    `));
-
-    res.json({ balance: newBalance, transactionId: txId, message: "Wallet topped up successfully" });
-  } catch (err) {
-    req.log.error({ err }, "Wallet topup error");
     res.status(500).json({ error: "Internal server error" });
   }
 });
@@ -455,8 +464,9 @@ router.post("/provider/methods", authMiddleware, async (req: Request, res: Respo
 router.put("/provider/methods/:id/default", authMiddleware, async (req: Request, res: Response) => {
   try {
     const userId = (req as AR).userId;
-    await db.execute(sql.raw(`UPDATE user_payment_methods SET is_default = FALSE WHERE user_id = '${userId}'`));
-    await db.execute(sql.raw(`UPDATE user_payment_methods SET is_default = TRUE WHERE id = '${req.params.id}' AND user_id = '${userId}'`));
+    if (!await setOwnedDefault(userId, String(req.params.id))) {
+      res.status(404).json({ error: "Payment method not found" }); return;
+    }
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: "Internal server error" });
@@ -467,7 +477,8 @@ router.put("/provider/methods/:id/default", authMiddleware, async (req: Request,
 router.delete("/provider/methods/:id", authMiddleware, async (req: Request, res: Response) => {
   try {
     const userId = (req as AR).userId;
-    await db.execute(sql.raw(`DELETE FROM user_payment_methods WHERE id = '${req.params.id}' AND user_id = '${userId}'`));
+    const removed = toRows(await db.execute(sql`DELETE FROM user_payment_methods WHERE id = ${String(req.params.id)} AND user_id = ${userId} RETURNING id`));
+    if (!removed.length) { res.status(404).json({ error: "Payment method not found" }); return; }
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: "Internal server error" });
@@ -561,8 +572,9 @@ router.post("/payment-methods", authMiddleware, async (req: Request, res: Respon
 router.put("/payment-methods/:id/default", authMiddleware, async (req: Request, res: Response) => {
   try {
     const userId = (req as AR).userId;
-    await db.execute(sql.raw(`UPDATE user_payment_methods SET is_default = FALSE WHERE user_id = '${userId}'`));
-    await db.execute(sql.raw(`UPDATE user_payment_methods SET is_default = TRUE WHERE id = '${req.params.id}' AND user_id = '${userId}'`));
+    if (!await setOwnedDefault(userId, String(req.params.id))) {
+      res.status(404).json({ error: "Payment method not found" }); return;
+    }
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: "Internal server error" });
@@ -573,7 +585,8 @@ router.put("/payment-methods/:id/default", authMiddleware, async (req: Request, 
 router.delete("/payment-methods/:id", authMiddleware, async (req: Request, res: Response) => {
   try {
     const userId = (req as AR).userId;
-    await db.execute(sql.raw(`DELETE FROM user_payment_methods WHERE id = '${req.params.id}' AND user_id = '${userId}'`));
+    const removed = toRows(await db.execute(sql`DELETE FROM user_payment_methods WHERE id = ${String(req.params.id)} AND user_id = ${userId} RETURNING id`));
+    if (!removed.length) { res.status(404).json({ error: "Payment method not found" }); return; }
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: "Internal server error" });
@@ -822,9 +835,7 @@ router.post("/admin/trigger-weekly-payouts", authMiddleware, async (req: Request
     const adminCheck = toRows(await db.execute(sql.raw(`SELECT is_admin FROM users WHERE id = '${userId}' LIMIT 1`)));
     if (!adminCheck[0]?.is_admin) { res.status(403).json({ error: "Admin only" }); return; }
 
-    const { runWeeklyPayouts } = await import("../lib/payout-scheduler.js");
-    await runWeeklyPayouts();
-    res.json({ success: true, message: "Weekly payouts triggered" });
+    res.status(503).json({ error: "Bank payouts are not connected yet. No wallet balances were changed." });
   } catch (err) {
     req.log.error({ err }, "Admin trigger weekly payouts error");
     res.status(500).json({ error: "Internal server error" });

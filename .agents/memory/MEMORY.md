@@ -7,3 +7,4 @@
 - [Map accuracy](map-accuracy.md) — full addresses must preserve house details; never present straight-line estimates as confirmed driving routes.
 - [Bike ride scope](bike-rides.md) — Bike means a motorcycle ride with a driver, not a bicycle or self-drive rental.
 - [Secret refresh verification](secret-refresh.md) — stale compute environments can outlive workflow restarts; refresh compute before requesting credentials repeatedly.
+- [Wallet access policy](wallet-access.md) — customer-only accounts get Add Money, not payouts; gateway collections and provider disbursements are separate.
