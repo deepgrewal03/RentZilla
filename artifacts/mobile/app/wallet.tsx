@@ -551,10 +551,10 @@ const s = StyleSheet.create({
   sheetTitle: { fontSize: 16, fontFamily: "Inter_700Bold", color: "#2C2C2C", marginBottom: 16 },
 
   quickRow: { flexDirection: "row", gap: 8, marginBottom: 14 },
-  quickBtn: { flex: 1, paddingVertical: 10, borderRadius: 10, borderWidth: 1.5, borderColor: "#E5E7EB", alignItems: "center" },
-  quickBtnActive: { borderColor: ORANGE, backgroundColor: ORANGE + "12" },
-  quickBtnText: { fontSize: 13, fontFamily: "Inter_600SemiBold", color: C.textSecondary },
-  quickBtnTextActive: { color: ORANGE },
+  quickBtn: { flex: 1, paddingVertical: 10, borderRadius: 10, borderWidth: 1.5, borderColor: ORANGE, backgroundColor: ORANGE, alignItems: "center" },
+  quickBtnActive: { borderColor: C.tintDark, backgroundColor: C.tintDark },
+  quickBtnText: { fontSize: 13, fontFamily: "Inter_600SemiBold", color: C.badgeText },
+  quickBtnTextActive: { color: C.badgeText },
 
   fieldLabel: { fontSize: 12, fontFamily: "Inter_600SemiBold", color: "#374151", marginBottom: 6 },
   amtRow: { flexDirection: "row", alignItems: "center", borderWidth: 1.5, borderColor: "#E5E7EB", borderRadius: 12, paddingHorizontal: 12, paddingVertical: 4, backgroundColor: "#F9FAFB" },
@@ -571,8 +571,8 @@ const s = StyleSheet.create({
   defaultDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: ORANGE, marginLeft: 4 },
 
   sheetActions: { flexDirection: "row", gap: 10, marginTop: 18 },
-  cancelBtn: { flex: 1, paddingVertical: 12, borderRadius: 12, borderWidth: 1.5, borderColor: "#E5E7EB", alignItems: "center" },
-  cancelText: { fontSize: 14, fontFamily: "Inter_600SemiBold", color: C.textSecondary },
+  cancelBtn: { flex: 1, paddingVertical: 12, borderRadius: 12, borderWidth: 1.5, borderColor: ORANGE, backgroundColor: ORANGE, alignItems: "center" },
+  cancelText: { fontSize: 14, fontFamily: "Inter_600SemiBold", color: C.badgeText },
   confirmBtn: { flex: 2, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 12, borderRadius: 12, backgroundColor: ORANGE },
   confirmText: { fontSize: 14, fontFamily: "Inter_700Bold", color: "#fff" },
 
