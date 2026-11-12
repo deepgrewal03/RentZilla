@@ -2,7 +2,7 @@
   "expo": {
     "name": "RentZilla",
     "slug": "rentzilla",
-    "version": "27",
+    "version": "28",
     "sdkVersion": "54.0.0",
     "platforms": [
       "ios",
@@ -30,7 +30,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.rentzilla.app",
-      "buildNumber": "31",
+      "buildNumber": "32",
       "usesAppleSignIn": true,
       "infoPlist": {
         "NSCameraUsageDescription": "RentZilla needs camera access to take your profile photo.",
@@ -43,7 +43,7 @@
     },
     "android": {
       "package": "com.rentzillaapp.app",
-      "versionCode": 31,
+      "versionCode": 32,
       "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/icon.png",
