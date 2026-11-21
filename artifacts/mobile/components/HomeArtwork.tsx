@@ -50,6 +50,7 @@ const CATEGORY_IMAGES: Record<string, number> = {
   excavator: require("../assets/images/categories/excavator.jpg"),
   poclain: require("../assets/images/categories/poclain.jpg"),
   "chhota hathi": require("../assets/images/categories/chhota-hathi.jpg"),
+  "mobile crane": require("../assets/images/categories/mobile-crane.jpg"),
   plumbing: require("../assets/images/categories/plumbing.jpg"),
   electrician: require("../assets/images/categories/electrician.jpg"),
   beauty: require("../assets/images/categories/beauty.jpg"),

@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
+import { Image } from "expo-image";
 import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useEffect, useRef, useState } from "react";
@@ -97,12 +98,7 @@ export default function HomeScreen() {
 
   function pickSubcat(cat: Category, sub: string) {
     Haptics.selectionAsync();
-    if (selectedCategory === cat && selectedSubcat === sub) {
-      setSelectedSubcat("");
-    } else {
-      setSelectedCategory(cat);
-      setSelectedSubcat(sub);
-    }
+    router.push({ pathname: "/catalog/[category]/[type]", params: { category: cat, type: sub } });
   }
 
   function pickCategory(cat: Category | "all") {
@@ -286,18 +282,12 @@ export default function HomeScreen() {
                 accessibilityLabel={isPa ? "ਕਾਰ ਜਾਂ ਬਾਈਕ ਬੁੱਕ ਕਰੋ" : "Book a Car or Bike"}
               >
                 <LinearGradient colors={["#8E6FE0", "#A88BEB", "#C7B4F5"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.rideCardGrad}>
-                  <View style={styles.rideIcon}>
-                    <Ionicons name="car-sport" size={22} color="#fff" />
-                  </View>
+                  <Image source={require("../../assets/images/booking-car.png")} style={styles.rideVehicle} contentFit="contain" accessible={false} />
                   <View style={{ flex: 1, minWidth: 0 }}>
                     <Text style={styles.rideTitle} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{isPa ? "ਕਾਰ ਜਾਂ ਬਾਈਕ ਬੁੱਕ ਕਰੋ" : "Book a Car or Bike"}</Text>
                     <Text style={styles.rideSub} numberOfLines={1}>{isPa ? "ਡਰਾਈਵਰ ਨਾਲ" : "With driver"}</Text>
                   </View>
-                  <View style={{ width: 38, alignItems: "flex-end" }}>
-                    <View style={[styles.rideArrow, { borderColor: "#6D50C233" }]}>
-                      <Ionicons name="chevron-forward" size={12} color="#6D50C2" />
-                    </View>
-                  </View>
+                  <Image source={require("../../assets/images/booking-bike.png")} style={styles.rideVehicle} contentFit="contain" accessible={false} />
                 </LinearGradient>
               </Pressable>
           </View>
@@ -316,13 +306,14 @@ export default function HomeScreen() {
           {[
             { label: "Tractor",     labelPa: "ਟਰੈਕਟਰ",     icon: "cog-outline",        color: "#33691E", bg: "#F1F8E9" },
             { label: "Harvester",   labelPa: "ਹਾਰਵੈਸਟਰ",   icon: "settings-outline",   color: "#558B2F", bg: "#DCEDC8" },
+            { label: "Chhota Hathi", labelPa: "ਛੋਟਾ ਹਾਥੀ",    icon: "car-outline",        color: "#6D4C41", bg: "#EFEBE9" },
             { label: "Rotavator",   labelPa: "ਰੋਟਾਵੇਟਰ",   icon: "sync-outline",       color: "#00695C", bg: "#E0F2F1" },
             { label: "Plough",      labelPa: "ਹਲ",          icon: "git-branch-outline", color: "#4E342E", bg: "#EFEBE9" },
             { label: "Cultivator",  labelPa: "ਕਲਟੀਵੇਟਰ",   icon: "grid-outline",       color: "#37474F", bg: "#ECEFF1" },
             { label: "JCB",          labelPa: "ਜੇਸੀਬੀ",       icon: "construct-outline",  color: "#E65100", bg: "#FFF3E0" },
             { label: "Excavator",    labelPa: "ਖੁਦਾਈ ਮਸ਼ੀਨ",  icon: "build-outline",      color: "#4E342E", bg: "#EFEBE9" },
             { label: "Poclain",      labelPa: "ਪੋਕਲੇਨ",       icon: "construct-outline",  color: "#BF360C", bg: "#FBE9E7" },
-            { label: "Chhota Hathi", labelPa: "ਛੋਟਾ ਹਾਥੀ",    icon: "car-outline",        color: "#6D4C41", bg: "#EFEBE9" },
+            { label: "Mobile Crane", labelPa: "ਮੋਬਾਈਲ ਕਰੇਨ", icon: "construct-outline", color: "#E65100", bg: "#FFF3E0" },
           ].map((item) => {
             const active = selectedCategory === "equipment" && selectedSubcat === item.label;
             return (
@@ -366,7 +357,6 @@ export default function HomeScreen() {
             { label: "Plumbing",    labelPa: "ਪਲੰਬਿੰਗ",         icon: "water-outline",       color: "#1565C0", bg: "#E3F2FD" },
             { label: "Electrician", labelPa: "ਇਲੈਕਟ੍ਰੀਸ਼ੀਅਨ",  icon: "flash-outline",       color: "#F57F17", bg: "#FFFDE7" },
             { label: "Beauty",      labelPa: "ਬਿਊਟੀ",           icon: "flower-outline",      color: "#AD1457", bg: "#FCE4EC" },
-            { label: "Carpenter",   labelPa: "ਤਰਖਾਣ",           icon: "hammer-outline",      color: "#4E342E", bg: "#EFEBE9" },
             { label: "AC Repair",   labelPa: "ਏਸੀ ਰਿਪੇਅਰ",     icon: "thermometer-outline", color: "#0277BD", bg: "#E1F5FE" },
           ].map((item) => {
             const active = selectedCategory === "services" && selectedSubcat === item.label;
@@ -499,11 +489,10 @@ const styles = StyleSheet.create({
   referBannerCtaTxt: { fontSize: 12, fontWeight: "700", fontFamily: "Inter_700Bold", color: HomeVisual.orange },
   rideRow: { flexDirection: "row", gap: 10, marginHorizontal: 16, marginTop: 10, marginBottom: 6 },
   rideCard: { flex: 1, borderRadius: 20, overflow: "hidden", elevation: 3, shadowColor: "#7A5AC8", shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.19, shadowRadius: 10 },
-  rideCardGrad: { flexDirection: "row", alignItems: "center", paddingVertical: 13, paddingHorizontal: 11, gap: 8, minHeight: 66 },
-  rideIcon: { width: 38, height: 38, borderRadius: 13, backgroundColor: "rgba(255,255,255,0.22)", alignItems: "center", justifyContent: "center" },
+  rideCardGrad: { flexDirection: "row", alignItems: "center", paddingVertical: 13, paddingHorizontal: 10, gap: 6, minHeight: 88 },
+  rideVehicle: { width: "26%", height: 62, flexShrink: 0 },
   rideTitle: { fontSize: 13, fontWeight: "800", fontFamily: "Inter_700Bold", color: "#fff", textAlign: "center" },
   rideSub: { fontSize: 10.5, color: "rgba(255,255,255,0.92)", fontFamily: "Inter_400Regular", marginTop: 1, textAlign: "center" },
-  rideArrow: { width: 22, height: 22, borderRadius: 11, backgroundColor: "#FFFFFF", borderWidth: 1, alignItems: "center", justifyContent: "center" },
   langPill: {
     backgroundColor: "rgba(255,255,255,0.18)", borderRadius: 16,
     paddingHorizontal: 11, paddingVertical: 7, marginTop: 7,

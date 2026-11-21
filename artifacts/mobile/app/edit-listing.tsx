@@ -38,14 +38,14 @@ const SUBCATEGORIES: Record<Category, string[]> = {
   equipment: [
     "Tractor", "Harvester", "Rotavator", "Plough", "Cultivator",
     "JCB", "Excavator", "Poclain", "Chhota Hathi",
-    "Loader", "Backhoe", "Roller", "Crane", "Dump Truck",
+    "Loader", "Backhoe", "Roller", "Crane", "Mobile Crane", "Dump Truck",
   ],
   services: ["Plumbing", "Electrician", "Beauty", "Carpenter", "AC Repair"],
 };
 
 const EARTH_MOVER_TYPES = new Set([
   "JCB", "Excavator", "Poclain", "Chhota Hathi",
-  "Loader", "Backhoe", "Roller", "Crane", "Dump Truck",
+  "Loader", "Backhoe", "Roller", "Crane", "Mobile Crane", "Dump Truck",
 ]);
 
 const PRICE_UNITS: { id: PriceUnit; label: string }[] = [

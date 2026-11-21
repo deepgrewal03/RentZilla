@@ -5,7 +5,7 @@ import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -28,6 +28,9 @@ import { useApi } from "@/hooks/useApi";
 import { useRazorpay } from "@/hooks/useRazorpay";
 import { Booking } from "@/types";
 import RazorpayCheckout from "@/components/RazorpayCheckout";
+import BookingPriceComparison from "@/components/BookingPriceComparison";
+import BookingReferralPrompt from "@/components/BookingReferralPrompt";
+import { bookingPrices } from "@/lib/bookingPrices";
 
 const C = Colors.light;
 
@@ -41,6 +44,8 @@ export default function BookingDetailScreen() {
 
   const [booking, setBooking] = useState<Booking | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showReferral, setShowReferral] = useState(false);
+  const promptedBookings = useRef(new Set<string>());
   const [showReview, setShowReview] = useState(false);
   const [hasReview, setHasReview] = useState(false);
   const [rating, setRating] = useState(5);
@@ -162,7 +167,10 @@ export default function BookingDetailScreen() {
       description: `Payment for ${booking.listingTitle || "booking"}`,
       onSuccess: () => {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        Alert.alert("Payment Complete", "Payment was verified and your invoice is ready.");
+        if (!promptedBookings.current.has(booking.id)) {
+          promptedBookings.current.add(booking.id);
+          setShowReferral(true);
+        }
         loadBooking();
       },
       onError: (message) => {
@@ -295,10 +303,16 @@ export default function BookingDetailScreen() {
   const isCustomer = user?.id === booking.customerId;
   const isProvider = user?.id === booking.providerId;
   const bAny = booking as any;
+  const savedTotal = Number(bAny.finalAmount ?? booking.totalAmount);
+  const savedGold = Number(bAny.goldDiscountAmount ?? 0);
+  const hypotheticalSaving = bookingPrices(Number(booking.totalAmount), Number(bAny.promoDiscountAmount ?? bAny.discountAmount ?? 0)).saving;
 
   return (
     <View style={styles.root}>
       <StatusBar style="light" />
+      <BookingReferralPrompt visible={showReferral}
+        onClose={() => setShowReferral(false)}
+        onRefer={() => { setShowReferral(false); router.push("/referral"); }} />
       <LinearGradient
         colors={["#FF7A18", "#FF9F43"]}
         start={{ x: 0, y: 0 }}
@@ -449,10 +463,14 @@ export default function BookingDetailScreen() {
               value={`-₹${Number(bAny.discountAmount).toLocaleString("en-IN")}`}
             />
           )}
+          {isCustomer && <BookingPriceComparison
+            normal={savedTotal + savedGold}
+            gold={bAny.goldDiscountApplied ? savedTotal : Math.max(0, savedTotal - hypotheticalSaving)}
+            active={!!bAny.goldDiscountApplied} historical />}
           <InfoRow
             icon="wallet-outline"
             label="Total Payable"
-            value={`₹${Number(bAny.finalAmount || booking.totalAmount).toLocaleString("en-IN")}`}
+            value={`₹${savedTotal.toLocaleString("en-IN")}`}
             highlight
           />
           <InfoRow

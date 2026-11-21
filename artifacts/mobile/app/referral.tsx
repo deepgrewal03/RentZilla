@@ -1,7 +1,7 @@
 import Button3D from "@/components/Button3D";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useEffect, useRef, useState } from "react";
 import * as Clipboard from "expo-clipboard";
@@ -37,6 +37,12 @@ type ReferralStatus = {
 };
 
 export default function ReferralScreen() {
+  const { returnBookingId } = useLocalSearchParams<{ returnBookingId?: string }>();
+  function returnFromReferral() {
+    if (returnBookingId) router.replace({ pathname: "/booking/[id]", params: { id: returnBookingId } });
+    else if (router.canGoBack()) router.back();
+    else router.replace("/(tabs)");
+  }
   const { get, post } = useApi();
   const insets = useSafeAreaInsets();
   const [status, setStatus] = useState<ReferralStatus | null>(null);
@@ -120,7 +126,7 @@ export default function ReferralScreen() {
 
       {/* Header */}
       <View style={ss.header}>
-        <Pressable onPress={() => router.back()} style={ss.backBtn}>
+        <Pressable onPress={returnFromReferral} style={ss.backBtn} accessibilityRole="button" accessibilityLabel={returnBookingId ? "Return to booking" : "Go back"}>
           <Ionicons name="arrow-back" size={22} color={NAVY} />
         </Pressable>
         <Text style={ss.headerTitle}>Refer a Friend 🎁</Text>

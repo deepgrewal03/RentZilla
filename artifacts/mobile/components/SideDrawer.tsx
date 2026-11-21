@@ -44,7 +44,6 @@ const PROVIDER_MENU_ITEMS = [
   { icon: "add-circle-outline", activeIcon: "add-circle", labelKey: "addListing", path: "/add-listing", match: ["/add-listing"] },
   { icon: "calendar-outline", activeIcon: "calendar", labelKey: "myBookings", path: "/(tabs)/bookings", match: ["/bookings"] },
   { icon: "wallet-outline", activeIcon: "wallet", labelKey: "wallet", path: "/(tabs)/wallet", match: ["/wallet"] },
-  { icon: "person-outline", activeIcon: "person", labelKey: "myProfile", path: "/(tabs)/profile", match: ["/profile"] },
 ] as const;
 
 const MENU_ITEMS = [
@@ -52,7 +51,6 @@ const MENU_ITEMS = [
   { icon: "search-outline", activeIcon: "search", labelKey: "searchEquipment", path: "/(tabs)/search", match: ["/search"] },
   { icon: "calendar-outline", activeIcon: "calendar", labelKey: "myBookings", path: "/(tabs)/bookings", match: ["/bookings"] },
   { icon: "heart-outline", activeIcon: "heart", labelKey: "favourites", path: "/(tabs)/favorites", match: ["/favorites"] },
-  { icon: "person-outline", activeIcon: "person", labelKey: "myProfile", path: "/(tabs)/profile", match: ["/profile"] },
 ] as const;
 
 export function SideDrawer({ visible, onClose }: Props) {

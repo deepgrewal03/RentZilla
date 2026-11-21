@@ -31,7 +31,6 @@ import HomeVisual from "@/constants/homeVisualTokens";
 import Colors from "@/constants/colors";
 import { useAuth } from "@/context/AuthContext";
 import { useApi } from "@/hooks/useApi";
-import { confirmAction } from "@/lib/confirm";
 
 const C = Colors.light;
 const ORANGE = "#FF7A18";
@@ -59,7 +58,7 @@ function MenuItem({ icon, label, value, onPress, color = C.text, rightIcon = "ch
 }
 
 export default function ProfileScreen() {
-  const { user, logout, updateUser } = useAuth();
+  const { user, updateUser } = useAuth();
   const { put } = useApi();
   const insets = useSafeAreaInsets();
   const isWeb = Platform.OS === "web";
@@ -340,19 +339,6 @@ export default function ProfileScreen() {
     }
   }
 
-  async function handleLogout() {
-    confirmAction({
-      title: "Logout",
-      message: "Are you sure you want to logout?",
-      confirmText: "Logout",
-      destructive: true,
-      onConfirm: async () => {
-        await logout();
-        router.replace("/sign-in");
-      },
-    });
-  }
-
   if (!user) return null;
 
   const displayName = user.name || user.email || user.phone || "?";
@@ -460,7 +446,6 @@ export default function ProfileScreen() {
         {/* Activity */}
         <View style={styles.menuCard}>
           <Text style={styles.menuSection}>Activity</Text>
-          <MenuItem icon="heart-outline" label="Favourites" color="#FF3B5C" onPress={() => router.push("/(tabs)/favorites")} />
           {(user.role === "provider" || user.role === "both") ? (
             <>
               <MenuItem icon="list-outline" label="My Listings" color="#22C55E" onPress={() => router.push("/(tabs)/dashboard")} />
@@ -483,23 +468,10 @@ export default function ProfileScreen() {
             onPress={() => setShowPhotoMenu(true)}
           />
           <MenuItem
-            icon="location-outline"
-            label="Location"
-            value={user.location || "Not set"}
-            color="#0EA5E9"
-            onPress={() => { setManualLocation(user.location || ""); setShowLocationModal(true); }}
-          />
-          <MenuItem
             icon="phone-portrait-outline"
             label="Phone Number"
             value={user.phone}
             color={C.textSecondary}
-          />
-          <MenuItem
-            icon="log-out-outline"
-            label="Logout"
-            color={C.error}
-            onPress={handleLogout}
           />
         </View>
 

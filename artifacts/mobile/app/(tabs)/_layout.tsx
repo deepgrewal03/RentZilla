@@ -57,10 +57,10 @@ export default function TabLayout() {
   }, [inProviderMode, user?.id, pathname]);
 
   // For providers: show Cars tab only when confirmed true (null = loading = hide to prevent flicker for those without cars)
-  // For customers: always show
+  // Customers enter ride booking through the purple home button, not a tab.
   const carsHref = inProviderMode
     ? (hasCars === true ? undefined : null)
-    : undefined;
+    : null;
 
   return (
     <Tabs
@@ -112,12 +112,12 @@ export default function TabLayout() {
         }}
       />
 
-      {/* ── Search: customers only ── */}
+      {/* Search remains reachable from home and the drawer, not the bottom bar. */}
       <Tabs.Screen
         name="search"
         options={{
           title: t.search,
-          href: inCustomerMode ? undefined : null,
+          href: null,
           tabBarIcon: ({ color, focused }) => <TabIcon name="search" color={color} focused={focused} />,
         }}
       />
@@ -131,7 +131,7 @@ export default function TabLayout() {
         }}
       />
 
-      {/* ── Cars: always for customers; providers only if they have car listings ── */}
+      {/* Ride route stays available; only eligible providers have a bottom tab. */}
       <Tabs.Screen
         name="cars"
         options={{

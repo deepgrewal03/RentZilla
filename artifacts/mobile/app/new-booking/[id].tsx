@@ -28,6 +28,10 @@ import { Listing } from "@/types";
 import GlowButton from "@/components/GlowButton";
 import RazorpayCheckout from "@/components/RazorpayCheckout";
 import * as AudioService from "@/services/AudioService";
+import BookingPriceComparison from "@/components/BookingPriceComparison";
+import BookingReferralPrompt from "@/components/BookingReferralPrompt";
+import { useBookingGold } from "@/hooks/useBookingGold";
+import { bookingPrices, listingBookingBase } from "@/lib/bookingPrices";
 
 const C = Colors.light;
 const ORANGE = "#FF7A18";
@@ -232,6 +236,9 @@ export default function NewBookingScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { get, post } = useApi();
   const { initiatePayment, checkout, loading: paymentLoading } = useRazorpay();
+  const gold = useBookingGold();
+  const [confirmedBookingId, setConfirmedBookingId] = useState<string | null>(null);
+  const promptedBookings = useRef(new Set<string>());
   const insets = useSafeAreaInsets();
   const isWeb = Platform.OS === "web";
   const topPad = isWeb ? 67 : insets.top;
@@ -291,7 +298,7 @@ export default function NewBookingScreen() {
   useEffect(() => {
     if (promoApplied) { setPromoResult(null); setPromoApplied(false); }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [numDays, selectedSlots.length]);
+  }, [numDays, selectedSlots.length, bookingUnit, JSON.stringify(selectedServices)]);
 
   async function loadListing() {
     try {
@@ -504,6 +511,7 @@ export default function NewBookingScreen() {
   }
 
   async function handleConfirm() {
+    if (!gold.status || gold.error || submitting || paymentLoading || confirmedBookingId) return;
     if (serviceTypes.length > 0 && selectedServices.length === 0) {
       Alert.alert("Select Service Type", "Please select at least one service type.");
       return;
@@ -569,13 +577,11 @@ export default function NewBookingScreen() {
         bookingId: result.id,
         description: `Payment for ${listing?.title || "booking"}`,
         onSuccess: () => {
+          if (promptedBookings.current.has(result.id)) return;
+          promptedBookings.current.add(result.id);
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
           AudioService.playBookingSuccess().catch(() => {});
-          Alert.alert(
-            "Payment Complete",
-            `${successMsg}\n\nYour payment is verified and the provider can now accept the booking.`,
-            [{ text: "View Booking", onPress: () => router.replace(`/booking/${result.id}` as any) }]
-          );
+          setConfirmedBookingId(result.id);
         },
         onError: () => {
           Alert.alert(
@@ -637,13 +643,12 @@ export default function NewBookingScreen() {
       }, 0)
     : 0;
 
-  const baseTotal = hasServicePricing
-    ? svcPricingTotal
-    : pricingResult?.found
-      ? pricingResult.customer_price
-      : listing.price * unitCount;
+  // POST /bookings charges the listing rate × days/slots, not a sum of
+  // independent pricing-rule estimates for each selected service.
+  const baseTotal = listingBookingBase(listing.price, unitCount);
   const discount   = promoApplied && promoResult?.valid ? (promoResult.discount ?? 0) : 0;
-  const finalTotal = Math.max(0, baseTotal - discount);
+  const prices = bookingPrices(baseTotal, discount, 0, gold.status?.discountPercent ?? 4);
+  const finalTotal = gold.active ? prices.gold : prices.normal;
 
   return (
     <View style={styles.root}>
@@ -1087,46 +1092,7 @@ export default function NewBookingScreen() {
           </View>
 
           {/* ── Per-service line items (when service types selected) ── */}
-          {hasServicePricing ? (
-            <>
-              {selectedServices.map((svc) => {
-                const r = serviceTypePricingMap[svc];
-                const svcPrice = r?.found
-                  ? r.customer_price
-                  : listing.price * unitCount;
-                return (
-                  <View key={svc} style={styles.summaryRow}>
-                    <Text style={styles.summaryLabel} numberOfLines={2}>
-                      {svc}
-                      {isDayMode ? ` × ${numDays} day${numDays > 1 ? "s" : ""}` : selectedSlots.length > 1 ? ` × ${selectedSlots.length} hrs` : ""}
-                    </Text>
-                    <Text style={styles.summaryValue}>
-                      {pricingLoading ? "..." : `₹${svcPrice.toLocaleString("en-IN")}`}
-                    </Text>
-                  </View>
-                );
-              })}
-              {selectedServices.length > 1 && (
-                <View style={[styles.summaryRow, { borderTopWidth: 1, borderTopColor: "#F0F0F0", paddingTop: 8, marginTop: 2 }]}>
-                  <Text style={[styles.summaryLabel, { fontFamily: "Inter_600SemiBold", color: "#2C2C2C" }]}>Subtotal</Text>
-                  <Text style={[styles.summaryValue, { fontFamily: "Inter_700Bold" }]}>
-                    {pricingLoading ? "..." : `₹${svcPricingTotal.toLocaleString("en-IN")}`}
-                  </Text>
-                </View>
-              )}
-              {/* Max security deposit across all selected services */}
-              {selectedServices.some(svc => (serviceTypePricingMap[svc]?.security_deposit ?? 0) > 0) && (
-                <View style={styles.summaryRow}>
-                  <Text style={styles.summaryLabel}>Security deposit (refundable)</Text>
-                  <Text style={styles.summaryValue}>
-                    ₹{Math.max(...selectedServices.map(svc => serviceTypePricingMap[svc]?.security_deposit ?? 0)).toLocaleString("en-IN")}
-                  </Text>
-                </View>
-              )}
-            </>
-          ) : (
-            <>
-              {/* Single base price row */}
+          <>
               <View style={styles.summaryRow}>
                 <Text style={styles.summaryLabel}>
                   {listing.subcategory || listing.title}
@@ -1138,16 +1104,8 @@ export default function NewBookingScreen() {
                   ₹{baseTotal.toLocaleString("en-IN")}
                 </Text>
               </View>
-              {pricingResult?.found && pricingResult.security_deposit > 0 && (
-                <View style={styles.summaryRow}>
-                  <Text style={styles.summaryLabel}>Security deposit (refundable)</Text>
-                  <Text style={styles.summaryValue}>
-                    ₹{pricingResult.security_deposit.toLocaleString("en-IN")}
-                  </Text>
-                </View>
-              )}
-            </>
-          )}
+              {selectedServices.length > 0 && <Text style={styles.summaryNote}>Selected services: {selectedServices.join(", ")}</Text>}
+          </>
 
           {/* Date / time slot info rows */}
           {selectedDate && (
@@ -1185,9 +1143,16 @@ export default function NewBookingScreen() {
           )}
 
           <View style={styles.summaryDivider} />
+          {gold.status ? (
+            <BookingPriceComparison normal={prices.normal} gold={prices.gold} active={gold.active} />
+          ) : gold.error ? (
+            <Pressable onPress={gold.retry} accessibilityRole="button">
+              <Text style={styles.summaryNote}>Could not check Gold pricing. Tap to retry.</Text>
+            </Pressable>
+          ) : <Text style={styles.summaryNote}>Checking Gold membership…</Text>}
           <View style={styles.summaryTotal}>
-            <Text style={styles.summaryTotalLabel}>Total Amount</Text>
-            {pricingLoading ? (
+            <Text style={styles.summaryTotalLabel}>Total Payable</Text>
+            {!gold.status ? (
               <ActivityIndicator size="small" color={ORANGE} />
             ) : (
               <View style={styles.totalAmountCol}>
@@ -1218,7 +1183,7 @@ export default function NewBookingScreen() {
           color={ORANGE}
           onPress={handleConfirm}
           loading={submitting || paymentLoading}
-          disabled={submitting || paymentLoading}
+          disabled={submitting || paymentLoading || !gold.status || gold.error || !!confirmedBookingId}
           iconLeft={<Ionicons name="checkmark-circle-outline" size={22} color="#fff" />}
           iconRight={
             (isDayMode || selectedSlots.length > 0) ? (
@@ -1243,6 +1208,20 @@ export default function NewBookingScreen() {
       </ScrollView>
       </KeyboardAvoidingView>
       {checkout && <RazorpayCheckout {...checkout} />}
+      <BookingReferralPrompt visible={!!confirmedBookingId}
+        onClose={() => {
+          if (!confirmedBookingId) return;
+          const bookingId = confirmedBookingId;
+          setConfirmedBookingId(null);
+          router.replace(`/booking/${bookingId}` as any);
+        }}
+        onRefer={() => {
+          if (!confirmedBookingId) return;
+          const bookingId = confirmedBookingId;
+          setConfirmedBookingId(null);
+          router.replace({ pathname: "/referral", params: { returnBookingId: bookingId } });
+        }}
+      />
     </View>
   );
 }

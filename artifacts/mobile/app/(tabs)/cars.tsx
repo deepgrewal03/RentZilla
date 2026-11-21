@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { useFocusEffect, useLocalSearchParams } from "expo-router";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
+import BookingReferralPrompt from "@/components/BookingReferralPrompt";
 import { API_BASE_URL } from "@/constants/apiUrl";
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
@@ -591,6 +592,8 @@ export default function CarsScreen() {
 
   // ── Multiple active rides state ──
   const [activeRides,     setActiveRides]  = useState<ActiveRide[]>([]);
+  const [showReferral, setShowReferral] = useState(false);
+  const bookingInFlight = useRef(false);
   const [rideHistory,     setRideHistory]  = useState<ActiveRide[]>([]);
   const [showActiveRides, setShowActiveRides] = useState(false);
   const [cancellingRide,  setCancellingRide] = useState<ActiveRide | null>(null);
@@ -772,12 +775,14 @@ export default function CarsScreen() {
 
   // ── Book Ride ──
   const handleBookRide = async () => {
+    if (bookingInFlight.current) return;
     if (!drop) { Alert.alert("Destination required", "Please select a destination first"); return; }
     if (!estimate) { Alert.alert("Route unavailable", "Wait for a confirmed road route before booking. If Google Maps is unavailable, please try again later."); return; }
     if (rideMode === "scheduled" && !scheduledTime) { setScheduleModalOpen(true); return; }
     if (rideFor === "someone_else" && !passengerName.trim()) {
       Alert.alert("Passenger name required", "Please enter the name of the passenger"); return;
     }
+    bookingInFlight.current = true;
     setBooking(true);
     try {
       const newRide = await post<ActiveRide>("/rides/request", {
@@ -791,17 +796,12 @@ export default function CarsScreen() {
       });
       setActiveRides(prev => [newRide, ...prev]);
       resetBookingForm();
-      Alert.alert(
-        "Ride Booked!",
-        rideFor === "someone_else"
-          ? `Ride booked for ${passengerName.trim()}. Tap "Active Rides" to track.`
-          : "Looking for a driver nearby. Tap \"Active Rides\" to track.",
-        [{ text: "View Active Rides", onPress: () => setShowActiveRides(true) }, { text: "Book Another" }]
-      );
+      setShowReferral(true);
     } catch (e: any) {
       Alert.alert("Error", e?.message ?? "Could not book ride");
     }
-    setBooking(false);
+      bookingInFlight.current = false;
+      setBooking(false);
   };
 
   // ── Toast helper ──
@@ -1494,6 +1494,9 @@ export default function CarsScreen() {
           }
         }}
       />
+      <BookingReferralPrompt visible={showReferral}
+        onClose={() => { setShowReferral(false); setShowActiveRides(true); }}
+        onRefer={() => { setShowReferral(false); router.push("/referral"); }} />
 
       {/* Success Toast */}
       {toastMsg !== null && (

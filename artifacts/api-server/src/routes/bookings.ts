@@ -60,7 +60,7 @@ async function enrichBooking(booking: typeof bookingsTable.$inferSelect) {
   const totalHours = parsedTimeSlots.length > 0 ? parsedTimeSlots.length : null;
   const rawDiscountAmount = b.discountAmount ?? b.discount_amount ?? 0;
   const rawGoldDiscountAmount = b.goldDiscountAmount ?? b.gold_discount_amount ?? 0;
-  const rawFinalAmount = b.finalAmount ?? b.final_amount ?? 0;
+  const rawFinalAmount = b.finalAmount ?? b.final_amount;
   const rawPromoCode = b.promoCode ?? b.promo_code ?? null;
   const rawLocation = b.location ?? null;
   const rawLocationLat = b.locationLat ?? b.location_lat ?? null;
@@ -68,7 +68,7 @@ async function enrichBooking(booking: typeof bookingsTable.$inferSelect) {
   const goldDiscountAmount = Number(rawGoldDiscountAmount);
   const totalDiscount = Number(rawDiscountAmount);
   const promoDiscountAmount = Math.max(0, totalDiscount - goldDiscountAmount);
-  const finalAmt = Number(rawFinalAmount) || Number(booking.totalAmount);
+  const finalAmt = rawFinalAmount == null ? Number(booking.totalAmount) : Number(rawFinalAmount);
   return {
     id: booking.id,
     customerId: booking.customerId,
