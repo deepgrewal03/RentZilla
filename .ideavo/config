@@ -43,12 +43,7 @@
       "port": "4000"
     }
   ],
-  "deploySteps": [
-    {
-      "name": "Build Production Artifacts",
-      "command": "pnpm run typecheck:libs && pnpm --filter @workspace/api-server run build && PORT=4173 BASE_PATH=/admin/ pnpm --filter @workspace/admin-panel run build && pnpm --filter @workspace/mobile run build:web"
-    }
-  ],
+  "deploySteps": [],
   "cleanupFiles": [
     "node_modules",
     "artifacts/mobile/node_modules",
