@@ -67,6 +67,17 @@ def _not_found_payload() -> bytes:
     return json.dumps({"ok": False, "error": "Not found"}).encode()
 
 
+def _missing_build_page() -> bytes:
+    """Shown if the web export has not been produced yet."""
+    return (
+        b"<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"utf-8\">"
+        b"<title>RentZilla</title></head><body style=\"font-family:system-ui;"
+        b"padding:2rem\"><h1>RentZilla</h1><p>The web build is not available yet. "
+        b"Run <code>pnpm --filter @workspace/mobile run build:web</code> to "
+        b"generate <code>artifacts/mobile/dist</code>.</p></body></html>"
+    )
+
+
 class _App:
     """Callable that adapts to either the WSGI or the ASGI calling convention."""
 
@@ -91,6 +102,16 @@ class _App:
 
         target = _safe_path(raw_path)
         if target is None:
+            if raw_path == "/" and not INDEX.is_file():
+                body = _missing_build_page()
+                start_response(
+                    "200 OK",
+                    [
+                        ("Content-Type", "text/html; charset=utf-8"),
+                        ("Content-Length", str(len(body))),
+                    ],
+                )
+                return [body]
             body = _not_found_payload()
             start_response(
                 "404 Not Found",
@@ -143,6 +164,11 @@ class _App:
 
         target = _safe_path(raw_path)
         if target is None:
+            if raw_path == "/" and not INDEX.is_file():
+                await self._asgi_respond(
+                    send, 200, "text/html; charset=utf-8", _missing_build_page()
+                )
+                return
             await self._asgi_respond(
                 send, 404, "application/json", _not_found_payload()
             )
