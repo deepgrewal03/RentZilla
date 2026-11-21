@@ -431,6 +431,10 @@ async function reconcilePendingBookingRefunds() {
         console.error("Pending booking refund reconciliation failed", order.razorpay_order_id, err);
       }
     }
+  } catch (err) {
+    // A transient database problem must not become an unhandled rejection that
+    // kills the process; the next interval tick will retry.
+    console.error("Refund reconciliation query failed; will retry", err);
   } finally {
     refundReconcileRunning = false;
   }

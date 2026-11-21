@@ -5,13 +5,7 @@ import { seedSuperAdmins } from "./lib/seed-admins";
 import { startPayoutScheduler } from "./lib/payout-scheduler.js";
 import { startPushDeliveryWorker } from "./lib/pushDelivery.js";
 
-const rawPort = process.env["PORT"];
-
-if (!rawPort) {
-  throw new Error(
-    "PORT environment variable is required but was not provided.",
-  );
-}
+const rawPort = process.env["PORT"] ?? "8080";
 
 const port = Number(rawPort);
 
@@ -19,11 +13,16 @@ if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
-// Run migrations and seed admin accounts before accepting requests
+// Migrations are best-effort: a transient database problem must not stop the
+// server from binding its port, otherwise the deployment health check fails and
+// the whole publish is rejected with no useful error.
 runMigrations()
   .then(() => seedSuperAdmins())
+  .catch((err) => {
+    logger.error({ err }, "Startup migration failed; serving anyway");
+  })
   .then(() => {
-    app.listen(port, (err) => {
+    app.listen(port, "0.0.0.0", (err?: Error) => {
       if (err) {
         logger.error({ err }, "Error listening on port");
         process.exit(1);
@@ -32,8 +31,4 @@ runMigrations()
       startPayoutScheduler();
       startPushDeliveryWorker();
     });
-  })
-  .catch((err) => {
-    logger.error({ err }, "Startup failed during migrations");
-    process.exit(1);
   });

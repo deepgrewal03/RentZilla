@@ -5,3 +5,15 @@
 .local
 /generated-artifacts/
 artifacts/mobile/.expo-export-*/
+
+# Large media, screenshot bundles, and stray archives are not needed to build or
+# run the app; shipping them only slows the deployment upload and bloats the image.
+zij2oNYX
+screenshots/
+*.zip
+feature-graphic.jpeg
+artifacts/mobile/static-build/
+node_modules/
+artifacts/*/dist/
+artifacts/mockup-sandbox/dist/
+lib/*/dist/
