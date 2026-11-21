@@ -1,0 +1,105 @@
+{
+  "systemSetup": [
+    {
+      "name": "Install pnpm",
+      "command": "npm i -g pnpm@9.15.0"
+    }
+  ],
+  "templateName": "custom",
+  "projectDependencies": [
+    {
+      "name": "Install Dependencies",
+      "command": "pnpm install --frozen-lockfile"
+    }
+  ],
+  "codeChecks": [
+    {
+      "name": "Typecheck Libraries",
+      "command": "pnpm run typecheck:libs"
+    },
+    {
+      "name": "Typecheck Mobile",
+      "command": "pnpm --filter @workspace/mobile run typecheck"
+    }
+  ],
+  "buildSteps": [
+    {
+      "name": "Build API Server",
+      "command": "pnpm --filter @workspace/api-server run build"
+    },
+    {
+      "name": "Build Admin Panel",
+      "command": "PORT=4173 BASE_PATH=/admin/ pnpm --filter @workspace/admin-panel run build"
+    },
+    {
+      "name": "Build Mobile Web",
+      "command": "pnpm --filter @workspace/mobile run build:web"
+    }
+  ],
+  "runStep": [
+    {
+      "name": "Run Mobile Web",
+      "command": "pnpm --filter @workspace/mobile exec expo start --web --port 4000 --host lan",
+      "port": "4000"
+    }
+  ],
+  "deploySteps": [
+    {
+      "name": "Build Production Artifacts",
+      "command": "pnpm run typecheck:libs && pnpm --filter @workspace/api-server run build && PORT=4173 BASE_PATH=/admin/ pnpm --filter @workspace/admin-panel run build && pnpm --filter @workspace/mobile run build:web"
+    }
+  ],
+  "cleanupFiles": [
+    "node_modules",
+    "artifacts/mobile/node_modules",
+    "artifacts/api-server/node_modules",
+    "artifacts/admin-panel/node_modules",
+    "artifacts/mockup-sandbox/node_modules",
+    "lib/db/node_modules",
+    "lib/api-zod/node_modules",
+    "lib/api-client-react/node_modules",
+    "lib/api-spec/node_modules",
+    "scripts/node_modules",
+    "artifacts/api-server/dist",
+    "artifacts/admin-panel/dist",
+    "artifacts/mobile/dist",
+    "artifacts/mobile/static-build",
+    "artifacts/mobile/.expo",
+    "artifacts/mobile/.expo-shared",
+    "lib/db/dist",
+    "lib/api-zod/dist",
+    "lib/api-client-react/dist",
+    "lib/api-spec/dist",
+    "lib/db/tsconfig.tsbuildinfo",
+    "lib/api-zod/tsconfig.tsbuildinfo",
+    "lib/api-client-react/tsconfig.tsbuildinfo",
+    "lib/api-spec/tsconfig.tsbuildinfo",
+    "generated-artifacts",
+    "out-tsc",
+    "tmp",
+    ".local"
+  ],
+  "packageManager": "pnpm",
+  "envPaths": [
+    {
+      "name": "default",
+      "path": ".env"
+    },
+    {
+      "name": "api-server",
+      "path": "artifacts/api-server/.env"
+    },
+    {
+      "name": "mobile",
+      "path": "artifacts/mobile/.env"
+    },
+    {
+      "name": "admin-panel",
+      "path": "artifacts/admin-panel/.env"
+    },
+    {
+      "name": "db",
+      "path": "lib/db/.env"
+    }
+  ]
+}
