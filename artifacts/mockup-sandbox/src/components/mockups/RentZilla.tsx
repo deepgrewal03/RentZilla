@@ -2,6 +2,8 @@
 // Access via /preview/RentZilla?screen=1 through ?screen=10
 // Designed at 1242×2688px (iPhone 6.5" 3x retina) — all values are 3× real UI values.
 
+import type { ReactElement } from "react";
+
 const W = 1242;
 const H = 2688;
 
@@ -662,7 +664,7 @@ function Screen10() {
   );
 }
 
-const SCREENS: Record<number, () => JSX.Element> = {
+const SCREENS: Record<number, () => ReactElement> = {
   1: Screen1, 2: Screen2, 3: Screen3, 4: Screen4, 5: Screen5,
   6: Screen6, 7: Screen7, 8: Screen8, 9: Screen9, 10: Screen10,
 };

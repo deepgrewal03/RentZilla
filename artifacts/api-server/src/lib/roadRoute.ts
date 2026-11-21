@@ -12,9 +12,14 @@ export async function roadRoute(
   const params = new URLSearchParams({origin:`${fromLat},${fromLng}`,destination:`${toLat},${toLng}`,mode:"driving",key});
   const response = await fetcher(`https://maps.googleapis.com/maps/api/directions/json?${params}`, {signal:AbortSignal.timeout(12000)});
   if (!response.ok) throw new Error("Google road directions are unavailable");
-  const data = await response.json();
+  const data = (await response.json()) as {
+    status?: string;
+    routes?: { legs?: { distance?: { value?: number }; duration?: { value?: number } }[] }[];
+  };
   const leg = data.routes?.[0]?.legs?.[0];
-  if (data.status !== "OK" || !Number.isFinite(leg?.distance?.value) || leg.distance.value <= 0 ||
-    !Number.isFinite(leg?.duration?.value)) throw new Error("Google road directions are unavailable");
-  return {distanceKm: Number((leg.distance.value/1000).toFixed(1)),durationMin:Math.round(leg.duration.value/60)};
+  const distance = leg?.distance?.value;
+  const duration = leg?.duration?.value;
+  if (data.status !== "OK" || typeof distance !== "number" || !Number.isFinite(distance) || distance <= 0 ||
+    typeof duration !== "number" || !Number.isFinite(duration)) throw new Error("Google road directions are unavailable");
+  return {distanceKm: Number((distance/1000).toFixed(1)),durationMin:Math.round(duration/60)};
 }

@@ -65,7 +65,7 @@ async function expoRequest(path: string, body: unknown) {
     body: JSON.stringify(body), signal: AbortSignal.timeout(10000),
   });
   if (!response.ok) throw new Error(`Push service HTTP ${response.status}`);
-  const result = await response.json();
+  const result = (await response.json()) as { data?: any; errors?: any[] };
   if (!result.data || result.errors?.length) throw new Error("Push service rejected request");
   return result.data;
 }
